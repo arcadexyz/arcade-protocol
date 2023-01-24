@@ -1604,6 +1604,135 @@ describe("Installments", () => {
                     repaymentController.connect(borrower).repayPart(loanId, ethers.utils.parseEther(".1")),
                 ).to.be.revertedWith("RC_RepayPartLTMin");
             });
+
+            it("borrower tries to close loan after paying back only 1/10 of total interest", async () => {
+                const context = await loadFixture(fixture);
+                const { repaymentController, mockERC20, borrower, loanCore, blockchainTime } = context;
+                const { loanId } = await initializeInstallmentLoan(
+                    context,
+                    mockERC20.address,
+                    BigNumber.from(31536000), // durationSecs = 1 year
+                    hre.ethers.utils.parseEther("100"), // principal
+                    hre.ethers.utils.parseEther("1000"), // interest rate = 10% -> 10 Ether
+                    10, // numInstallments
+                    1754884800, // deadline
+                );
+                await blockchainTime.increaseTime(10);
+
+                const res = await repaymentController.connect(borrower).callStatic.getInstallmentMinPayment(loanId);
+                const minInterestDue = res[0];
+
+                // borrower pays back 1 ether in interest
+                await mockERC20.connect(borrower).approve(repaymentController.address, minInterestDue);
+                await repaymentController.connect(borrower).repayPart(loanId, minInterestDue);
+
+                // try incrementing numInstallmentPaid by sending 1 wei
+                for (let i = 0; i < 10; i++) {
+                    await mockERC20.connect(borrower).approve(repaymentController.address, 1);
+                    await repaymentController.connect(borrower).repayPart(loanId, 1);
+                }
+
+                await blockchainTime.increaseTime(31536000);
+
+                // after loan ends, borrower tries to pay back only principal
+                await mockERC20.connect(borrower).approve(repaymentController.address, ethers.utils.parseEther("100"));
+                await expect(
+                    repaymentController.connect(borrower).closeLoan(loanId)
+                ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
+
+                // state checks
+                const loanData = await loanCore.getLoan(loanId);
+                const balancePaid = loanData[5];
+                const numInstallmentsPaid = loanData[1];
+                const loanState = loanData[0];
+                expect(loanState).to.equal(1);
+                expect(numInstallmentsPaid).to.equal(1);
+                expect(balancePaid).to.equal(ethers.utils.parseEther("1").add(10));
+            });
+
+            it("borrower tries to close loan after paying back only interest", async () => {
+                const context = await loadFixture(fixture);
+                const { repaymentController, mockERC20, loanCore, borrower, blockchainTime } = context;
+                const { loanId } = await initializeInstallmentLoan(
+                    context,
+                    mockERC20.address,
+                    BigNumber.from(31536000), // durationSecs = 1 year
+                    hre.ethers.utils.parseEther("100"), // principal
+                    hre.ethers.utils.parseEther("1000"), // interest rate = 10% -> 10 Ether
+                    10, // numInstallments
+                    1754884800, // deadline
+                );
+                await blockchainTime.increaseTime(10);
+
+                // repay only interest with repayPart
+                for (let i = 0; i < 10; i++) {
+                    const res = await repaymentController.connect(borrower).callStatic.getInstallmentMinPayment(loanId);
+                    const minInterestDue = res[0];
+                    const lateFees = res[1];
+
+                    await mockERC20.connect(borrower).approve(repaymentController.address, minInterestDue.add(lateFees));
+                    await repaymentController.connect(borrower).repayPart(loanId, minInterestDue.add(lateFees));
+
+                    await blockchainTime.increaseTime(31536000/10);
+                }
+
+                // after loan ends, borrower tries to pay with less then total principal
+                await mockERC20.connect(borrower).approve(repaymentController.address, ethers.utils.parseEther("99.99"));
+                await expect(
+                    repaymentController.connect(borrower).closeLoan(loanId)
+                ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
+
+                // state checks
+                const loanData = await loanCore.getLoan(loanId);
+                const balancePaid = loanData[5];
+                const numInstallmentsPaid = loanData[1];
+                const loanState = loanData[0];
+                expect(loanState).to.equal(1);
+                expect(numInstallmentsPaid).to.equal(10);
+                expect(balancePaid).to.equal(ethers.utils.parseEther("10"));
+            });
+
+            it("borrower tries to close loan after paying back only interest", async () => {
+                const context = await loadFixture(fixture);
+                const { repaymentController, mockERC20, loanCore, borrower, blockchainTime } = context;
+                const { loanId } = await initializeInstallmentLoan(
+                    context,
+                    mockERC20.address,
+                    BigNumber.from(31536000), // durationSecs = 1 year
+                    hre.ethers.utils.parseEther("100"), // principal
+                    hre.ethers.utils.parseEther("1000"), // interest rate = 10% -> 10 Ether
+                    10, // numInstallments
+                    1754884800, // deadline
+                );
+                await blockchainTime.increaseTime(10);
+
+                // repay only interest
+                for (let i = 0; i < 10; i++) {
+                    const res = await repaymentController.connect(borrower).callStatic.getInstallmentMinPayment(loanId);
+                    const minInterestDue = res[0];
+                    const lateFees = res[1];
+
+                    await mockERC20.connect(borrower).approve(repaymentController.address, minInterestDue.add(lateFees));
+                    await repaymentController.connect(borrower).repayPartMinimum(loanId);
+
+                    await blockchainTime.increaseTime(31536000/10);
+                }
+
+                // after loan ends, borrower tries to pay with less then total principal
+                await mockERC20.connect(borrower).approve(repaymentController.address, ethers.utils.parseEther("99.99"));
+                await expect(
+                    repaymentController.connect(borrower).closeLoan(loanId)
+                ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
+
+                // state checks
+                const loanData = await loanCore.getLoan(loanId);
+                const balancePaid = loanData[5];
+                const numInstallmentsPaid = loanData[1];
+                const loanState = loanData[0];
+                expect(loanState).to.equal(1);
+                expect(numInstallmentsPaid).to.equal(10);
+                expect(balancePaid).to.equal(ethers.utils.parseEther("10"));
+            });
         });
 
         describe("Close Loan", () => {

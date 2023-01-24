@@ -327,7 +327,9 @@ contract LoanCore is
             );
 
             data.lateFeesAccrued += lateFees;
-            data.numInstallmentsPaid += uint24(numMissedPayments) + 1;
+            if (interestDue + lateFees > 0) {
+                data.numInstallmentsPaid += uint24(numMissedPayments) + 1;
+            }
             data.balancePaid += data.balance + interestDue + lateFees;
             data.balance = 0;
         }
@@ -407,7 +409,9 @@ contract LoanCore is
 
         // update loan state
         data.lateFeesAccrued += _paymentToLateFees;
-        data.numInstallmentsPaid += uint24(_currentMissedPayments) + 1;
+        if (_paymentToInterest + _paymentToLateFees > 0) {
+            data.numInstallmentsPaid += uint24(_currentMissedPayments) + 1;
+        }
         data.balance -= _balanceToPay;
         data.balancePaid += boundedPaymentTotal;
 
