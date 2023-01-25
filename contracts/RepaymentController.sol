@@ -30,8 +30,8 @@ contract RepaymentController is IRepaymentController, InstallmentsCalc {
 
     // ============================================ STATE ===============================================
 
-    ILoanCore private loanCore;
-    IPromissoryNote private lenderNote;
+    ILoanCore private immutable loanCore;
+    IPromissoryNote private immutable lenderNote;
 
     constructor(
         ILoanCore _loanCore
