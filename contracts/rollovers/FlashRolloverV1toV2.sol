@@ -283,13 +283,13 @@ contract FlashRolloverV1toV2 is IFlashRollover, ReentrancyGuard, ERC721Holder, E
         ERC721Holding[] memory bundleERC721Holdings = new ERC721Holding[](20);
         ERC1155Holding[] memory bundleERC1155Holdings = new ERC1155Holding[](20);
 
-        for (uint256 i = 0; i < bundleERC721Holdings.length; i++) {
+        for (uint256 i = 0; i < bundleERC721Holdings.length; ++i) {
             try sourceAssetWrapper.bundleERC721Holdings(oldBundleId, i) returns (address tokenAddr, uint256 tokenId) {
                 bundleERC721Holdings[i] = ERC721Holding(tokenAddr, tokenId);
             } catch { break; }
         }
 
-        for (uint256 i = 0; i < bundleERC1155Holdings.length; i++) {
+        for (uint256 i = 0; i < bundleERC1155Holdings.length; ++i) {
             try sourceAssetWrapper.bundleERC1155Holdings(oldBundleId, i) returns (address tokenAddr, uint256 tokenId, uint256 amount) {
                 bundleERC1155Holdings[i] = ERC1155Holding(tokenAddr, tokenId, amount);
             } catch { break; }
@@ -300,7 +300,7 @@ contract FlashRolloverV1toV2 is IFlashRollover, ReentrancyGuard, ERC721Holder, E
         // Create new asset vault
         address vault = address(uint160(vaultId));
 
-        for (uint256 i = 0; i < bundleERC721Holdings.length; i++) {
+        for (uint256 i = 0; i < bundleERC721Holdings.length; ++i) {
             ERC721Holding memory h = bundleERC721Holdings[i];
 
             if (h.tokenAddress == address(0)) {
@@ -310,7 +310,7 @@ contract FlashRolloverV1toV2 is IFlashRollover, ReentrancyGuard, ERC721Holder, E
             IERC721(h.tokenAddress).safeTransferFrom(address(this), vault, h.tokenId);
         }
 
-        for (uint256 i = 0; i < bundleERC1155Holdings.length; i++) {
+        for (uint256 i = 0; i < bundleERC1155Holdings.length; ++i) {
             ERC1155Holding memory h = bundleERC1155Holdings[i];
 
             if (h.tokenAddress == address(0)) {

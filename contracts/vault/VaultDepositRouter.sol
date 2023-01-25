@@ -91,7 +91,7 @@ contract VaultDepositRouter is IVaultDepositRouter, VaultOwnershipChecker {
 
         IVaultInventoryReporter.Item[] memory items = new IVaultInventoryReporter.Item[](numItems);
 
-        for (uint256 i = 0; i < numItems; i++) {
+        for (uint256 i = 0; i < numItems; ++i) {
             address token = tokens[i];
             uint256 amount = amounts[i];
 
@@ -150,7 +150,7 @@ contract VaultDepositRouter is IVaultDepositRouter, VaultOwnershipChecker {
 
         IVaultInventoryReporter.Item[] memory items = new IVaultInventoryReporter.Item[](numItems);
 
-        for (uint256 i = 0; i < numItems; i++) {
+        for (uint256 i = 0; i < numItems; ++i) {
             items[i] = _depositERC721(vault, tokens[i], ids[i]);
         }
 
@@ -204,7 +204,7 @@ contract VaultDepositRouter is IVaultDepositRouter, VaultOwnershipChecker {
 
         IVaultInventoryReporter.Item[] memory items = new IVaultInventoryReporter.Item[](numItems);
 
-        for (uint256 i = 0; i < numItems; i++) {
+        for (uint256 i = 0; i < numItems; ++i) {
             items[i] = _depositERC1155(vault, tokens[i], ids[i], amounts[i]);
         }
 
@@ -261,7 +261,7 @@ contract VaultDepositRouter is IVaultDepositRouter, VaultOwnershipChecker {
 
         IVaultInventoryReporter.Item[] memory items = new IVaultInventoryReporter.Item[](numItems);
 
-        for (uint256 i = 0; i < numItems; i++) {
+        for (uint256 i = 0; i < numItems; ++i) {
             address token = tokens[i];
             uint256 id = ids[i];
 

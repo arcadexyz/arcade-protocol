@@ -85,7 +85,8 @@ contract ArcadeItemsVerifier is ISignatureVerifier {
         // Unpack items
         SignatureItem[] memory items = abi.decode(predicates, (SignatureItem[]));
 
-        for (uint256 i = 0; i < items.length; i++) {
+        uint256 numItems = items.length;
+        for (uint256 i = 0; i < numItems; ++i) {
             SignatureItem memory item = items[i];
 
             // No asset provided

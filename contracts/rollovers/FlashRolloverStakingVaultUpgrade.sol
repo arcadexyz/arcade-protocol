@@ -328,7 +328,7 @@ contract FlashRolloverStakingVaultUpgrade is ReentrancyGuard, ERC721Holder, ERC1
 
         // Move each vault item from old vault to new vault
         uint256 numVaultItems = vaultItems.length;
-        for (uint256 i = 0; i < numVaultItems; i++) {
+        for (uint256 i = 0; i < numVaultItems; ++i) {
             VaultItem memory item = vaultItems[i];
 
             if (item.cType == CollateralType.ERC_721) {

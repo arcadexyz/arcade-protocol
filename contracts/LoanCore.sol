@@ -500,7 +500,9 @@ contract LoanCore is
         if (!collateralInUse[keccak256(abi.encode(OwnableERC721(vault).ownershipToken(), uint256(uint160(vault))))]) {
             return false;
         }
-        for (uint256 i = 0; i < borrowerNote.balanceOf(caller); i++) {
+
+        uint256 numBorrowerNotes = borrowerNote.balanceOf(caller);
+        for (uint256 i = 0; i < numBorrowerNotes; ++i) {
             uint256 loanId = borrowerNote.tokenOfOwnerByIndex(caller, i);
 
             // if the borrower is currently borrowing against this vault,

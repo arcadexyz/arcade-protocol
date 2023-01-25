@@ -59,7 +59,7 @@ contract MockERC1155Metadata is MockERC1155 {
     ) public virtual {
         super._mintBatch(to, ids, amounts, data);
 
-        for (uint256 i = 0; i < ids.length; i++) {
+        for (uint256 i = 0; i < ids.length; ++i) {
             _setTokenURI(ids[i], tokenUris[i]);
         }
     }
