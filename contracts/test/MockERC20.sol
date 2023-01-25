@@ -2,10 +2,9 @@
 
 pragma solidity ^0.8.11;
 
-import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 
-contract MockERC20 is Context, ERC20Burnable {
+contract MockERC20 is ERC20Burnable {
     /**
      * @dev Initializes ERC20 token
      */

@@ -64,7 +64,7 @@ abstract contract ERC721PermitUpgradeable is
         __AccessControlEnumerable_init();
         __UUPSUpgradeable_init();
 
-        _setupRole(ADMIN_ROLE, _msgSender());
+        _setupRole(ADMIN_ROLE, msg.sender);
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
     }
 

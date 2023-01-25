@@ -5,7 +5,6 @@ pragma solidity ^0.8.11;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/draft-EIP712Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
@@ -55,7 +54,6 @@ import {
 contract OriginationController is
     Initializable,
     InstallmentsCalc,
-    ContextUpgradeable,
     IOriginationController,
     EIP712Upgradeable,
     ReentrancyGuardUpgradeable,
@@ -123,7 +121,7 @@ contract OriginationController is
         __UUPSUpgradeable_init_unchained();
         __ReentrancyGuard_init_unchained();
 
-        _setupRole(ADMIN_ROLE, _msgSender());
+        _setupRole(ADMIN_ROLE, msg.sender);
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
 
         if (_loanCore == address(0)) revert OC_ZeroAddress();
@@ -170,7 +168,7 @@ contract OriginationController is
         _validateLoanTerms(loanTerms);
 
         // Determine if signature needs to be on the borrow or lend side
-        Side neededSide = isSelfOrApproved(borrower, _msgSender()) ? Side.LEND : Side.BORROW;
+        Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
         (bytes32 sighash, address externalSigner) = recoverTokenSignature(loanTerms, sig, nonce, neededSide);
 
@@ -209,7 +207,7 @@ contract OriginationController is
         _validateLoanTerms(loanTerms);
 
         // Determine if signature needs to be on the borrow or lend side
-        Side neededSide = isSelfOrApproved(borrower, _msgSender()) ? Side.LEND : Side.BORROW;
+        Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
         address vault = IVaultFactory(loanTerms.collateralAddress).instanceAt(loanTerms.collateralId);
         (bytes32 sighash, address externalSigner) = recoverItemsSignature(
@@ -350,7 +348,7 @@ contract OriginationController is
 
         address borrower = IERC721(ILoanCore(loanCore).borrowerNote()).ownerOf(oldLoanId);
         // Determine if signature needs to be on the borrow or lend side
-        Side neededSide = isSelfOrApproved(borrower, _msgSender()) ? Side.LEND : Side.BORROW;
+        Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
         _validateRollover(data.terms, loanTerms);
 
@@ -394,7 +392,7 @@ contract OriginationController is
 
         address borrower = IERC721(ILoanCore(loanCore).borrowerNote()).ownerOf(oldLoanId);
         // Determine if signature needs to be on the borrow or lend side
-        Side neededSide = isSelfOrApproved(borrower, _msgSender()) ? Side.LEND : Side.BORROW;
+        Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
         address vault = IVaultFactory(loanTerms.collateralAddress).instanceAt(loanTerms.collateralId);
         (bytes32 sighash, address externalSigner) = recoverItemsSignature(

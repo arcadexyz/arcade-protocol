@@ -111,12 +111,12 @@ contract LoanCore is
         __UUPSUpgradeable_init_unchained();
         __Pausable_init_unchained();
 
-        _setupRole(ADMIN_ROLE, _msgSender());
+        _setupRole(ADMIN_ROLE, msg.sender);
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
         _setRoleAdmin(ORIGINATOR_ROLE, ADMIN_ROLE);
         _setRoleAdmin(REPAYER_ROLE, ADMIN_ROLE);
 
-        _setupRole(FEE_CLAIMER_ROLE, _msgSender());
+        _setupRole(FEE_CLAIMER_ROLE, msg.sender);
         _setRoleAdmin(FEE_CLAIMER_ROLE, FEE_CLAIMER_ROLE);
 
         feeController = _feeController;
@@ -183,9 +183,9 @@ contract LoanCore is
         // Distribute notes and principal
         _mintLoanNotes(loanId, borrower, lender);
 
-        IERC721Upgradeable(terms.collateralAddress).transferFrom(_msgSender(), address(this), terms.collateralId);
+        IERC721Upgradeable(terms.collateralAddress).transferFrom(msg.sender, address(this), terms.collateralId);
 
-        IERC20Upgradeable(terms.payableCurrency).safeTransferFrom(_msgSender(), address(this), terms.principal);
+        IERC20Upgradeable(terms.payableCurrency).safeTransferFrom(msg.sender, address(this), terms.principal);
 
         IERC20Upgradeable(terms.payableCurrency).safeTransfer(borrower, _getPrincipalLessFees(terms.principal));
 
@@ -220,7 +220,7 @@ contract LoanCore is
         _burnLoanNotes(loanId);
 
         // transfer from msg.sender to this contract
-        IERC20Upgradeable(data.terms.payableCurrency).safeTransferFrom(_msgSender(), address(this), returnAmount);
+        IERC20Upgradeable(data.terms.payableCurrency).safeTransferFrom(msg.sender, address(this), returnAmount);
         // asset and collateral redistribution
         // Not using safeTransfer to prevent lenders from blocking
         // loan receipt and forcing a default
@@ -353,7 +353,7 @@ contract LoanCore is
         // Distribute notes and principal
         _mintLoanNotes(newLoanId, borrower, lender);
 
-        IERC20Upgradeable(payableCurrency).safeTransferFrom(_msgSender(), address(this), _settledAmount);
+        IERC20Upgradeable(payableCurrency).safeTransferFrom(msg.sender, address(this), _settledAmount);
         _transferIfNonzero(payableCurrency, oldLender, _amountToOldLender);
         _transferIfNonzero(payableCurrency, lender, _amountToLender);
         _transferIfNonzero(payableCurrency, borrower, _amountToBorrower);
@@ -417,7 +417,7 @@ contract LoanCore is
 
         // calculate total sent by borrower and transferFrom repayment controller to this address
         uint256 paymentTotal = _paymentToPrincipal + _paymentToLateFees + _paymentToInterest;
-        IERC20Upgradeable(data.terms.payableCurrency).safeTransferFrom(_msgSender(), address(this), paymentTotal);
+        IERC20Upgradeable(data.terms.payableCurrency).safeTransferFrom(msg.sender, address(this), paymentTotal);
         // Send payment to lender.
         // Not using safeTransfer to prevent lenders from blocking
         // loan receipt and forcing a default
@@ -467,7 +467,7 @@ contract LoanCore is
      * @param nonce                 The nonce to consume.
      */
     function cancelNonce(uint160 nonce) external override {
-        _useNonce(_msgSender(), nonce);
+        _useNonce(msg.sender, nonce);
     }
 
     // ========================================= VIEW FUNCTIONS =========================================
@@ -554,8 +554,8 @@ contract LoanCore is
     function claimFees(IERC20Upgradeable token) external onlyRole(FEE_CLAIMER_ROLE) {
         // any token balances remaining on this contract are fees owned by the protocol
         uint256 amount = token.balanceOf(address(this));
-        token.safeTransfer(_msgSender(), amount);
-        emit FeesClaimed(address(token), _msgSender(), amount);
+        token.safeTransfer(msg.sender, amount);
+        emit FeesClaimed(address(token), msg.sender, amount);
     }
 
     /**

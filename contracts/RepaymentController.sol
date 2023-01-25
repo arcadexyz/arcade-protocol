@@ -2,7 +2,6 @@
 
 pragma solidity ^0.8.11;
 
-import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -26,7 +25,7 @@ import { RC_CannotDereference, RC_InvalidState, RC_NoPaymentDue, RC_OnlyLender, 
  * claim collateral on a defaulted loan. It is this contract's responsibility
  * to verify loan conditions before calling LoanCore.
  */
-contract RepaymentController is IRepaymentController, InstallmentsCalc, Context {
+contract RepaymentController is IRepaymentController, InstallmentsCalc {
     using SafeERC20 for IERC20;
 
     // ============================================ STATE ===============================================
@@ -64,7 +63,7 @@ contract RepaymentController is IRepaymentController, InstallmentsCalc, Context 
         uint256 total = getFullInterestAmount(terms.principal, terms.interestRate);
         if (total == 0) revert RC_NoPaymentDue();
 
-        IERC20(terms.payableCurrency).safeTransferFrom(_msgSender(), address(this), total);
+        IERC20(terms.payableCurrency).safeTransferFrom(msg.sender, address(this), total);
         IERC20(terms.payableCurrency).approve(address(loanCore), total);
 
         // call repay function in loan core
@@ -168,8 +167,8 @@ contract RepaymentController is IRepaymentController, InstallmentsCalc, Context 
 
         // load terms from loanId
         LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
-        // gather minimum payment from _msgSender()
-        IERC20(data.terms.payableCurrency).safeTransferFrom(_msgSender(), address(this), _minAmount);
+        // gather minimum payment from msg.sender
+        IERC20(data.terms.payableCurrency).safeTransferFrom(msg.sender, address(this), _minAmount);
         // approve loanCore to take minBalanceDue
         IERC20(data.terms.payableCurrency).approve(address(loanCore), _minAmount);
         // call repayPart function in loanCore
@@ -196,14 +195,14 @@ contract RepaymentController is IRepaymentController, InstallmentsCalc, Context 
         (uint256 minBalanceDue, uint256 lateFees, uint256 numMissedPayments) = getInstallmentMinPayment(loanId);
         // total minimum amount due, interest amount plus any late fees
         uint256 _minAmount = minBalanceDue + lateFees;
-        // require amount taken from the _msgSender() to be larger than or equal to minBalanceDue
+        // require amount taken from the msg.sender to be larger than or equal to minBalanceDue
         if (amount < _minAmount) revert RC_RepayPartLTMin(amount, _minAmount);
         // loan data from loanId
         LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
         // calculate the payment toward principal after subtracting (minBalanceDue + lateFees)
         uint256 _totalPaymentToPrincipal = amount - (_minAmount);
-        // collect amount specified in function call params from _msgSender()
-        IERC20(data.terms.payableCurrency).safeTransferFrom(_msgSender(), address(this), amount);
+        // collect amount specified in function call params from msg.sender
+        IERC20(data.terms.payableCurrency).safeTransferFrom(msg.sender, address(this), amount);
         // approve loanCore to take amount
         IERC20(data.terms.payableCurrency).approve(address(loanCore), amount);
         // call repayPart function in loanCore
@@ -227,8 +226,8 @@ contract RepaymentController is IRepaymentController, InstallmentsCalc, Context 
         LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
         // total amount to close loan (remaining balance + current interest + late fees)
         uint256 _totalAmount = data.balance + minBalanceDue + lateFees;
-        // collect amount specified in function call params from _msgSender()
-        IERC20(data.terms.payableCurrency).safeTransferFrom(_msgSender(), address(this), _totalAmount);
+        // collect amount specified in function call params from msg.sender
+        IERC20(data.terms.payableCurrency).safeTransferFrom(msg.sender, address(this), _totalAmount);
         // approve loanCore to take minBalanceDue
         IERC20(data.terms.payableCurrency).approve(address(loanCore), _totalAmount);
         // Call repayPart function in loanCore.

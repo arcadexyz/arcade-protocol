@@ -5,7 +5,6 @@ pragma solidity ^0.8.11;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
-import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
@@ -94,7 +93,7 @@ contract PromissoryNote is
      */
     function initialize(address loanCore) external {
         if (initialized) revert PN_AlreadyInitialized();
-        if (_msgSender() != owner) revert PN_CannotInitialize();
+        if (msg.sender != owner) revert PN_CannotInitialize();
 
         _setupRole(ADMIN_ROLE, loanCore);
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
@@ -118,7 +117,7 @@ contract PromissoryNote is
      * @return tokenId              The newly minted token ID.
      */
     function mint(address to, uint256 loanId) external override returns (uint256) {
-        if (!hasRole(ADMIN_ROLE, _msgSender())) revert PN_MintingRole(_msgSender());
+        if (!hasRole(ADMIN_ROLE, msg.sender)) revert PN_MintingRole(msg.sender);
         _mint(to, loanId);
 
         return loanId;
@@ -134,7 +133,7 @@ contract PromissoryNote is
      * @param tokenId               The ID of the token to burn, should match a loan.
      */
     function burn(uint256 tokenId) external override {
-        if (!hasRole(ADMIN_ROLE, _msgSender())) revert PN_BurningRole(_msgSender());
+        if (!hasRole(ADMIN_ROLE, msg.sender)) revert PN_BurningRole(msg.sender);
         _burn(tokenId);
     }
 
