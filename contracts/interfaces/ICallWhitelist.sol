@@ -12,8 +12,6 @@ interface ICallWhitelist {
 
     function isWhitelisted(address callee, bytes4 selector) external view returns (bool);
 
-    function isBlacklisted(bytes4 selector) external view returns (bool);
-
     // ================ Update Operations ================
 
     function add(address callee, bytes4 selector) external;

@@ -3,7 +3,7 @@ import hre, { waffle } from "hardhat";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 
-import { CallWhitelist, MockERC20, MockERC721, MockERC1155 } from "../typechain";
+import { CallWhitelist, MockERC20, MockERC721, MockERC1155, CryptoPunksMarket } from "../typechain";
 import { deploy } from "./utils/contracts";
 
 type Signer = SignerWithAddress;
@@ -13,6 +13,7 @@ interface TestContext {
     mockERC20: MockERC20;
     mockERC721: MockERC721;
     mockERC1155: MockERC1155;
+    mockPunks: CryptoPunksMarket;
     user: Signer;
     other: Signer;
     signers: Signer[];
@@ -28,12 +29,14 @@ describe("CallWhitelist", () => {
         const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
         const mockERC721 = <MockERC721>await deploy("MockERC721", signers[0], ["Mock ERC721", "MOCK"]);
         const mockERC1155 = <MockERC1155>await deploy("MockERC1155", signers[0], []);
+        const mockPunks = <CryptoPunksMarket>await deploy("CryptoPunksMarket", signers[0], []);
 
         return {
             whitelist,
             mockERC20,
             mockERC721,
             mockERC1155,
+            mockPunks,
             user: signers[0],
             other: signers[1],
             signers: signers.slice(2),
@@ -161,6 +164,12 @@ describe("CallWhitelist", () => {
             expect(await whitelist.isBlacklisted(selector)).to.be.true;
         });
 
+        it("erc20 increaseAllowance", async () => {
+            const { whitelist, mockERC20 } = await loadFixture(fixture);
+            const selector = mockERC20.interface.getSighash("increaseAllowance");
+            expect(await whitelist.isBlacklisted(selector)).to.be.true;
+        });
+
         it("erc721 transferFrom", async () => {
             const { whitelist, mockERC721 } = await loadFixture(fixture);
             const selector = mockERC721.interface.getSighash("transferFrom");
@@ -200,6 +209,30 @@ describe("CallWhitelist", () => {
         it("erc1155 safeBatchTransferFrom", async () => {
             const { whitelist, mockERC1155 } = await loadFixture(fixture);
             const selector = mockERC1155.interface.getSighash("safeBatchTransferFrom");
+            expect(await whitelist.isBlacklisted(selector)).to.be.true;
+        });
+
+        it("punks transferPunk", async () => {
+            const { whitelist, mockPunks } = await loadFixture(fixture);
+            const selector = mockPunks.interface.getSighash("transferPunk");
+            expect(await whitelist.isBlacklisted(selector)).to.be.true;
+        });
+
+        it("punks offerPunkForSale", async () => {
+            const { whitelist, mockPunks } = await loadFixture(fixture);
+            const selector = mockPunks.interface.getSighash("offerPunkForSale");
+            expect(await whitelist.isBlacklisted(selector)).to.be.true;
+        });
+
+        it("punks offerPunkForSaleToAddress", async () => {
+            const { whitelist, mockPunks } = await loadFixture(fixture);
+            const selector = mockPunks.interface.getSighash("offerPunkForSaleToAddress");
+            expect(await whitelist.isBlacklisted(selector)).to.be.true;
+        });
+
+        it("punks buyPunk", async () => {
+            const { whitelist, mockPunks } = await loadFixture(fixture);
+            const selector = mockPunks.interface.getSighash("buyPunk");
             expect(await whitelist.isBlacklisted(selector)).to.be.true;
         });
     });

@@ -3,12 +3,11 @@
 pragma solidity ^0.8.11;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../interfaces/ICallWhitelist.sol";
-import "../interfaces/IERC721Permit.sol";
+
+import "./CallBlacklist.sol";
 
 /**
  * @title CallWhitelist
@@ -24,25 +23,10 @@ import "../interfaces/IERC721Permit.sol";
  *
  * The contract owner can add or remove items from the whitelist.
  */
-contract CallWhitelist is Ownable, ICallWhitelist {
+contract CallWhitelist is Ownable, CallBlacklist, ICallWhitelist {
     using SafeERC20 for IERC20;
+
     // ============================================ STATE ==============================================
-
-    // ============= Global Immutable State ==============
-
-    /**
-     * @dev Global blacklist for transfer functions.
-     */
-    bytes4 private constant ERC20_TRANSFER = IERC20.transfer.selector;
-    bytes4 private constant ERC20_ERC721_APPROVE = IERC20.approve.selector;
-    bytes4 private constant ERC20_ERC721_TRANSFER_FROM = IERC20.transferFrom.selector;
-
-    bytes4 private constant ERC721_SAFE_TRANSFER_FROM = bytes4(keccak256("safeTransferFrom(address,address,uint256)"));
-    bytes4 private constant ERC721_SAFE_TRANSFER_FROM_DATA = bytes4(keccak256("safeTransferFrom(address,address,uint256,bytes)"));
-    bytes4 private constant ERC721_ERC1155_SET_APPROVAL = IERC721.setApprovalForAll.selector;
-
-    bytes4 private constant ERC1155_SAFE_TRANSFER_FROM = IERC1155.safeTransferFrom.selector;
-    bytes4 private constant ERC1155_SAFE_BATCH_TRANSFER_FROM = IERC1155.safeBatchTransferFrom.selector;
 
     // ================= Whitelist State ==================
 
@@ -66,26 +50,6 @@ contract CallWhitelist is Ownable, ICallWhitelist {
      */
     function isWhitelisted(address callee, bytes4 selector) external view override returns (bool) {
         return !isBlacklisted(selector) && whitelist[callee][selector];
-    }
-
-    /**
-     * @notice Returns true if the given function selector is on the global blacklist.
-     *         Blacklisted function selectors cannot be called on any contract.
-     *
-     * @param selector              The function selector to check.
-     *
-     * @return isBlacklisted        True if blacklisted, else false.
-     */
-    function isBlacklisted(bytes4 selector) public pure override returns (bool) {
-        return
-            selector == ERC20_TRANSFER ||
-            selector == ERC20_ERC721_APPROVE ||
-            selector == ERC20_ERC721_TRANSFER_FROM ||
-            selector == ERC721_SAFE_TRANSFER_FROM ||
-            selector == ERC721_SAFE_TRANSFER_FROM_DATA ||
-            selector == ERC721_ERC1155_SET_APPROVAL ||
-            selector == ERC1155_SAFE_TRANSFER_FROM ||
-            selector == ERC1155_SAFE_BATCH_TRANSFER_FROM;
     }
 
     // ======================================== UPDATE OPERATIONS =======================================
