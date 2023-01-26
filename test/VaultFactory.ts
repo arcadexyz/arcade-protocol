@@ -547,5 +547,14 @@ describe("VaultFactory", () => {
 
             expect(await vaultFactoryV2.version()).to.equal("This is VaultFactory V2!");
         });
+
+        it("storage variables are successfully added to VaultFactory which inherits from ERC721PermitUpgradeable", async () => {
+            const { factory } = await loadFixture(fixture);
+            const VaultFactoryV2 = await hre.ethers.getContractFactory("VaultFactoryV2");
+            const vaultFactoryV2 = <VaultFactoryV2>await hre.upgrades.upgradeProxy(factory.address, VaultFactoryV2);
+
+            await vaultFactoryV2.setNewStorageValue(12);
+            expect(await vaultFactoryV2.getNewStorageValue()).to.equal(12);
+        });
     });
 });
