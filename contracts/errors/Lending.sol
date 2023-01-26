@@ -159,28 +159,19 @@ error IV_ItemMissingAddress();
 error IV_InvalidCollateralType(address asset, uint256 cType);
 
 /**
- * @notice Provided ERC1155 signature item is requiring a non-positive amount.
+ * @notice Provided signature item with no required amount. For single ERC721s, specify 1.
  *
  * @param asset                         The NFT contract being checked.
  * @param amount                        The amount provided (should be 0).
  */
-error IV_NonPositiveAmount1155(address asset, uint256 amount);
+error IV_NoAmount(address asset, uint256 amount);
 
 /**
- * @notice Provided ERC1155 signature item is requiring an invalid token ID.
+ * @notice Provided a wildcard for a non-ERC721.
  *
  * @param asset                         The NFT contract being checked.
- * @param tokenId                       The token ID provided.
  */
-error IV_InvalidTokenId1155(address asset, int256 tokenId);
-
-/**
- * @notice Provided ERC20 signature item is requiring a non-positive amount.
- *
- * @param asset                         The NFT contract being checked.
- * @param amount                        The amount provided (should be 0).
- */
-error IV_NonPositiveAmount20(address asset, uint256 amount);
+error IV_InvalidWildcard(address asset);
 
 /**
  * @notice The provided token ID is out of bounds for the given collection.

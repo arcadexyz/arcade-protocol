@@ -12,6 +12,7 @@ export interface SignatureItem {
     asset: string;
     tokenId: BigNumberish;
     amount: BigNumberish;
+    anyIdAllowed: boolean;
 }
 
 export interface ItemsPredicate {

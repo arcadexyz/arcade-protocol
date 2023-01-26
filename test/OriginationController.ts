@@ -799,7 +799,8 @@ describe("OriginationController", () => {
                     cType: 0,
                     asset: mockERC721.address,
                     tokenId,
-                    amount: 0, // not used for 721
+                    amount: 1,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -848,7 +849,8 @@ describe("OriginationController", () => {
                     cType: 0,
                     asset: mockERC721.address,
                     tokenId,
-                    amount: 0, // not used for 721
+                    amount: 1,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -937,7 +939,8 @@ describe("OriginationController", () => {
                     cType: 0,
                     asset: mockERC721.address,
                     tokenId,
-                    amount: 0, // not used for 721
+                    amount: 1,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -991,7 +994,8 @@ describe("OriginationController", () => {
                     cType: 0,
                     asset: mockERC721.address,
                     tokenId,
-                    amount: 0, // not used for 721
+                    amount: 1,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -1048,7 +1052,8 @@ describe("OriginationController", () => {
                     cType: 0,
                     asset: mockERC721.address,
                     tokenId,
-                    amount: 0, // not used for 721
+                    amount: 1,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -1102,7 +1107,8 @@ describe("OriginationController", () => {
                     cType: 0,
                     asset: mockERC721.address,
                     tokenId,
-                    amount: 0, // not used for 721
+                    amount: 1,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -1158,7 +1164,8 @@ describe("OriginationController", () => {
                     cType: 0,
                     asset: mockERC721.address,
                     tokenId,
-                    amount: 0, // not used for 721
+                    amount: 1,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -1222,8 +1229,9 @@ describe("OriginationController", () => {
                 {
                     cType: 0,
                     asset: mockERC721.address,
-                    tokenId: -1,
-                    amount: 0, // not used for 721
+                    tokenId: 0,
+                    amount: 1,
+                    anyIdAllowed: true
                 },
             ];
 
@@ -1302,7 +1310,8 @@ describe("OriginationController", () => {
                     cType: 0,
                     asset: mockERC721.address,
                     tokenId,
-                    amount: 0, // not used for 721
+                    amount: 1,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -1385,7 +1394,8 @@ describe("OriginationController", () => {
                         cType: 0,
                         asset: mockERC721.address,
                         tokenId,
-                        amount: 0, // not used for 721
+                        amount: 1,
+                        anyIdAllowed: false
                     },
                 ];
 
@@ -1464,7 +1474,8 @@ describe("OriginationController", () => {
                         cType: 0,
                         asset: mockERC721.address,
                         tokenId,
-                        amount: 0, // not used for 721
+                        amount: 1,
+                        anyIdAllowed: false
                     },
                 ];
 

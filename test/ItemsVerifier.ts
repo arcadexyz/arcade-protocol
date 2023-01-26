@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import hre, { waffle, upgrades } from "hardhat";
+import hre, { waffle, upgrades, ethers } from "hardhat";
 import { BigNumber } from "ethers";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
@@ -17,7 +17,7 @@ import { deploy } from "./utils/contracts";
 
 import { SignatureItem } from "./utils/types";
 import { mint as mint20 } from "./utils/erc20";
-import { mint as mint721 } from "./utils/erc721";
+import { mint as mint721, mintToAddress as mint721ToAddress } from "./utils/erc721";
 import { mint as mint1155 } from "./utils/erc1155";
 import { encodeSignatureItems, initializeBundle } from "./utils/loans";
 
@@ -91,7 +91,8 @@ describe("ItemsVerifier", () => {
                     cType: 4 as 0, // 4 is an invalid collateral type
                     asset: mockERC721.address,
                     tokenId,
-                    amount: 0, // not used for 721
+                    amount: 1,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -113,7 +114,8 @@ describe("ItemsVerifier", () => {
                     cType: 0,
                     asset: "0x0000000000000000000000000000000000000000",
                     tokenId,
-                    amount: 0, // not used for 721
+                    amount: 1,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -123,7 +125,7 @@ describe("ItemsVerifier", () => {
             ).to.be.revertedWith("IV_ItemMissingAddress");
         });
 
-        it("fails if an ERC1155 item has a non-positive required amount", async () => {
+        it("fails if an ERC1155 item has a zero amount", async () => {
             const { vaultFactory, user, mockERC1155, verifier } = ctx;
 
             const bundleId = await initializeBundle(vaultFactory, user);
@@ -139,16 +141,16 @@ describe("ItemsVerifier", () => {
                     asset: mockERC1155.address,
                     tokenId,
                     amount: 0, // invalid for 1155
+                    anyIdAllowed: false
                 },
             ];
 
-            // Will revert because 4 can't be parsed as an enum
             await expect(
                 verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress),
-            ).to.be.revertedWith("IV_NonPositiveAmount1155");
+            ).to.be.revertedWith("IV_NoAmount");
         });
 
-        it("fails if an ERC1155 item has a an invalid token ID", async () => {
+        it("fails if a wildcard is attempted for an ERC1155", async () => {
             const { vaultFactory, user, mockERC1155, verifier } = ctx;
 
             const bundleId = await initializeBundle(vaultFactory, user);
@@ -162,15 +164,16 @@ describe("ItemsVerifier", () => {
                 {
                     cType: 1,
                     asset: mockERC1155.address,
-                    tokenId: -1, // invalid for 1155
+                    tokenId,
                     amount: 5,
+                    anyIdAllowed: true // invalid for 1155
                 },
             ];
 
             // Will revert because 4 can't be parsed as an enum
             await expect(
                 verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress),
-            ).to.be.revertedWith("IV_InvalidTokenId1155");
+            ).to.be.revertedWith("IV_InvalidWildcard");
         });
 
         it("fails if an ERC20 item has a non-positive required amount", async () => {
@@ -189,13 +192,38 @@ describe("ItemsVerifier", () => {
                     asset: mockERC20.address,
                     tokenId: 0,
                     amount: 0, // invalid for 20
+                    anyIdAllowed: false
                 },
             ];
 
-            // Will revert because 4 can't be parsed as an enum
             await expect(
                 verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress),
-            ).to.be.revertedWith("IV_NonPositiveAmount20");
+            ).to.be.revertedWith("IV_NoAmount");
+        });
+
+        it("fails if a wildcard is attempted for an ERC20", async () => {
+            const { vaultFactory, user, mockERC20, verifier } = ctx;
+
+            const bundleId = await initializeBundle(vaultFactory, user);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+
+            await mint20(mockERC20, user, 1000);
+            await mockERC20.connect(user).transfer(bundleAddress, 1000);
+
+            // Create predicate for a single ID
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 2,
+                    asset: mockERC20.address,
+                    tokenId: 0,
+                    amount: 1000,
+                    anyIdAllowed: true // invalid for 20
+                },
+            ];
+
+            await expect(
+                verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress),
+            ).to.be.revertedWith("IV_InvalidWildcard");
         });
 
         it("verifies a specific ERC721 and token id", async () => {
@@ -220,7 +248,43 @@ describe("ItemsVerifier", () => {
                     cType: 0,
                     asset: mockERC721.address,
                     tokenId,
-                    amount: 0, // not used for 721
+                    amount: 1,
+                    anyIdAllowed: false
+                },
+            ];
+
+            // First bundle should have item
+            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress)).to.be.true;
+            // Second bundle should not
+            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress2)).to.be.false;
+        });
+
+        it("verifies a specific ERC721 with a large token ID (oob for int256)", async () => {
+            const { vaultFactory, user, mockERC721, verifier } = ctx;
+
+            // Start 2 bundles
+            const bundleId = await initializeBundle(vaultFactory, user);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            const bundleId2 = await initializeBundle(vaultFactory, user);
+            const bundleAddress2 = await vaultFactory.instanceAt(bundleId2);
+
+            // Fund both bundles with different token IDs
+            // Make one token ID very large
+            const tokenId = ethers.constants.MaxUint256.sub(10);
+            await mockERC721.mintId(tokenId, user.address)
+            await mockERC721.connect(user).transferFrom(user.address, bundleAddress, tokenId);
+
+            const tokenId2 = await mint721(mockERC721, user);
+            await mockERC721.connect(user).transferFrom(user.address, bundleAddress2, tokenId2);
+
+            // Create predicate for a single ID
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 0,
+                    asset: mockERC721.address,
+                    tokenId,
+                    amount: 1,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -253,16 +317,98 @@ describe("ItemsVerifier", () => {
                 {
                     cType: 0,
                     asset: mockERC721.address,
-                    tokenId: -1,
-                    amount: 0, // not used for 721
+                    tokenId: 0,
+                    amount: 1,
+                    anyIdAllowed: true
                 },
             ];
 
-            // First and bundle should have item
+            // First and second bundle should have item
             expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress)).to.be.true;
             expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress2)).to.be.true;
 
             // Third should not
+            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress3)).to.be.false;
+        });
+
+        it("fails to verify if a minimum amount for an ERC721 wildcard is not met", async () => {
+            const { vaultFactory, user, mockERC721, verifier } = ctx;
+
+            // Start 3 bundles
+            const bundleId = await initializeBundle(vaultFactory, user);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            const bundleId2 = await initializeBundle(vaultFactory, user);
+            const bundleAddress2 = await vaultFactory.instanceAt(bundleId2);
+            const bundleId3 = await initializeBundle(vaultFactory, user);
+            const bundleAddress3 = await vaultFactory.instanceAt(bundleId3);
+
+            // Fund 2 bundles with different token IDs
+            const tokenId = await mint721(mockERC721, user);
+            await mockERC721.connect(user).transferFrom(user.address, bundleAddress, tokenId);
+
+            const tokenId2 = await mint721(mockERC721, user);
+            await mockERC721.connect(user).transferFrom(user.address, bundleAddress2, tokenId2);
+
+            // Create predicate for a wildcard ID
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 0,
+                    asset: mockERC721.address,
+                    tokenId: 1,
+                    amount: 4,
+                    anyIdAllowed: true
+                },
+            ];
+
+            // No bundles should have enough items - specified 4
+            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress)).to.be.false;
+            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress2)).to.be.false;
+            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress3)).to.be.false;
+        });
+
+        it("verifies a specific ERC721 for any token id with a minimum amount", async () => {
+            const { vaultFactory, user, mockERC721, verifier } = ctx;
+
+            // Start 3 bundles
+            const bundleId = await initializeBundle(vaultFactory, user);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            const bundleId2 = await initializeBundle(vaultFactory, user);
+            const bundleAddress2 = await vaultFactory.instanceAt(bundleId2);
+            const bundleId3 = await initializeBundle(vaultFactory, user);
+            const bundleAddress3 = await vaultFactory.instanceAt(bundleId3);
+
+            // Fund 2 bundles with different token IDs
+            const tokenId = await mint721(mockERC721, user);
+            await mockERC721.connect(user).transferFrom(user.address, bundleAddress, tokenId);
+
+            // Fund 3 more to bundle 1
+            await Promise.all([
+                mint721ToAddress(mockERC721, bundleAddress),
+                mint721ToAddress(mockERC721, bundleAddress),
+                mint721ToAddress(mockERC721, bundleAddress)
+            ]);
+
+            const tokenId2 = await mint721(mockERC721, user);
+            await mockERC721.connect(user).transferFrom(user.address, bundleAddress2, tokenId2);
+
+            // Create predicate for a wildcard ID
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 0,
+                    asset: mockERC721.address,
+                    tokenId: 1,
+                    amount: 4,
+                    anyIdAllowed: true
+                },
+            ];
+
+            // First bundle should have enough items (4)
+            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress)).to.be.true;
+
+            // Second bundle should only have 1 item - not enough
+            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress2)).to.be.false;
+
+            // Third should not - has 0 items
             expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress3)).to.be.false;
         });
 
@@ -296,6 +442,7 @@ describe("ItemsVerifier", () => {
                     asset: mockERC1155.address,
                     tokenId,
                     amount: 5,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -329,6 +476,7 @@ describe("ItemsVerifier", () => {
                     asset: mockERC20.address,
                     tokenId: 0, // Ignored for 20
                     amount: 500,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -385,7 +533,7 @@ describe("ItemsVerifier", () => {
             // 500 of ERC20 token 2
             // First token of ERC721 1
             // Second token of ERC721 1
-            // Any token of ERC721 2
+            // Any 1 token of ERC721 2
             // 10 of first token of ERC1155 1
             // 15 of second token of ERC1155 1
             // 50 of second token of ERC1155 2
@@ -395,48 +543,56 @@ describe("ItemsVerifier", () => {
                     asset: mockERC20.address,
                     tokenId: 0,
                     amount: 1000,
+                    anyIdAllowed: false
                 },
                 {
                     cType: 2,
                     asset: mockERC20_2.address,
                     tokenId: 0,
                     amount: 500,
+                    anyIdAllowed: false
                 },
                 {
                     cType: 0,
                     asset: mockERC721.address,
                     tokenId: token721Id,
-                    amount: 0,
+                    amount: 1,
+                    anyIdAllowed: false
                 },
                 {
                     cType: 0,
                     asset: mockERC721.address,
                     tokenId: token721Id2,
-                    amount: 0,
+                    amount: 1,
+                    anyIdAllowed: false
                 },
                 {
                     cType: 0,
                     asset: mockERC721_2.address,
-                    tokenId: -1,
-                    amount: 0,
+                    tokenId: 0,
+                    amount: 1,
+                    anyIdAllowed: true
                 },
                 {
                     cType: 1,
                     asset: mockERC1155.address,
                     tokenId: token1155Id,
                     amount: 10,
+                    anyIdAllowed: false
                 },
                 {
                     cType: 1,
                     asset: mockERC1155.address,
                     tokenId: token1155Id2,
                     amount: 15,
+                    anyIdAllowed: false
                 },
                 {
                     cType: 1,
                     asset: mockERC1155_2.address,
                     tokenId: token1155_2Id,
                     amount: 50,
+                    anyIdAllowed: false
                 },
             ];
 

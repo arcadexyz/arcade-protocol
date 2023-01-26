@@ -23,8 +23,8 @@ export const initializeBundle = async (vaultFactory: VaultFactory, user: SignerW
 };
 
 export const encodeSignatureItems = (items: SignatureItem[]): string => {
-    const types = ["(uint256,address,int256,uint256)[]"];
-    const values = items.map(item => [item.cType, item.asset, item.tokenId, item.amount]);
+    const types = ["(uint256,address,uint256,uint256,bool)[]"];
+    const values = items.map(item => [item.cType, item.asset, item.tokenId, item.amount, item.anyIdAllowed]);
 
     return ethers.utils.defaultAbiCoder.encode(types, [values]);
 };

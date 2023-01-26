@@ -714,7 +714,8 @@ describe("Rollovers", () => {
                     cType: 0,
                     asset: mockERC721.address,
                     tokenId: collateralId,
-                    amount: 0, // not used for 721
+                    amount: 1,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -814,7 +815,8 @@ describe("Rollovers", () => {
                     cType: 0,
                     asset: mockERC721.address,
                     tokenId: collateralId,
-                    amount: 0, // not used for 721
+                    amount: 1,
+                    anyIdAllowed: false
                 },
             ];
 
