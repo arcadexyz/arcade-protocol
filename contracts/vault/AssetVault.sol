@@ -122,15 +122,14 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
     }
 
     /**
-     * @notice Withdraw entire balance of a given ERC20 token from the vault.
-     *         The vault must be in a "withdrawEnabled" state (non-transferrable),
-     *         and the caller must be the owner. The specified token must
-     *         exist and be owned by this contract.
+     * @notice Withdraw a specific ERC721 token from the vault. The vault must
+     *         be in a "withdrawEnabled" state (non-transferrable), and the caller
+     *         must be the owner. The specified token must exist and be owned by
+     *         this contract.
      *
      * @param token                 The token to withdraw.
      * @param tokenId               The ID of the NFT to withdraw.
      * @param to                    The recipient of the withdrawn token.
-     *
      */
     function withdrawERC721(
         address token,

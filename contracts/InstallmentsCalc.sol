@@ -188,7 +188,7 @@ abstract contract InstallmentsCalc is IInstallmentsCalc {
         uint256 _installmentsMissed = _installmentPeriod - (numInstallmentsPaid + 1);
 
         // ** Installment Interest - using mulitpier of 1 million.
-        // There should not be loan with more than 1 million installment periods. Checked in LoanCore.
+        // There should not be loan with more than 1000 installment periods. Checked in LoanCore.
         uint256 _interestRatePerInstallment = ((interestRate / INTEREST_RATE_DENOMINATOR) *
             INSTALLMENT_PERIOD_MULTIPLIER) / numInstallments;
 
