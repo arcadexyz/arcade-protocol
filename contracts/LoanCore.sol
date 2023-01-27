@@ -372,18 +372,20 @@ contract LoanCore is
      *         the loan state is updated. (0 = minimum payment sent, > 0 pay down principal).
      *         The paymentTotal (_paymentToPrincipal + _paymentToLateFees) is always transferred to the lender.
      *
-     * @param _loanId                       The ID of the loan..
+     * @param _loanId                       The ID of the loan.
      * @param _currentMissedPayments        Number of payments missed since the last installment payment.
      * @param _paymentToPrincipal           Amount sent in addition to minimum amount due, used to pay down principal.
      * @param _paymentToInterest            Amount due in interest.
      * @param _paymentToLateFees            Amount due in only late fees.
+     * @param _refundRecipient              The address of the account to recieve funds if an additional amount is sent.
      */
     function repayPart(
         uint256 _loanId,
         uint256 _currentMissedPayments,
         uint256 _paymentToPrincipal,
         uint256 _paymentToInterest,
-        uint256 _paymentToLateFees
+        uint256 _paymentToLateFees,
+        address _refundRecipient
     ) external override onlyRole(REPAYER_ROLE) {
         LoanLibrary.LoanData storage data = loans[_loanId];
         // ensure valid initial loan state when repaying loan
@@ -432,9 +434,9 @@ contract LoanCore is
             );
 
             if (_paymentToPrincipal > _balanceToPay) {
-                // Borrower overpaid, so send refund
+                // overpaid, send refund to _refundRecipient
                 IERC20Upgradeable(data.terms.payableCurrency).safeTransfer(
-                    borrower,
+                    _refundRecipient,
                     _paymentToPrincipal - _balanceToPay
                 );
             }

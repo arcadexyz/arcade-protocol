@@ -39,6 +39,7 @@ interface TestContext {
     borrower: SignerWithAddress;
     lender: SignerWithAddress;
     admin: SignerWithAddress;
+    other: SignerWithAddress;
     currentTimestamp: number;
     blockchainTime: BlockchainTime;
 }
@@ -77,7 +78,7 @@ const fixture = async (): Promise<TestContext> => {
     const currentTimestamp = await blockchainTime.secondsFromNow(0);
 
     const signers: SignerWithAddress[] = await hre.ethers.getSigners();
-    const [borrower, lender, admin] = signers;
+    const [borrower, lender, admin, other] = signers;
 
     const whitelist = <CallWhitelist>await deploy("CallWhitelist", admin, []);
     const vaultTemplate = <AssetVault>await deploy("AssetVault", admin, []);
@@ -137,6 +138,7 @@ const fixture = async (): Promise<TestContext> => {
         borrower,
         lender,
         admin,
+        other,
         currentTimestamp,
         blockchainTime,
     };
@@ -1426,6 +1428,62 @@ describe("Installments", () => {
                 await expect(borrowerBalanceAfter).to.equal(
                     borrowerBalanceBefore.sub(ethers.utils.parseEther("106.187109375")),
                 );
+                await expect(lenderBalanceAfter).to.equal(
+                    lenderBalanceBefore.add(ethers.utils.parseEther("106.187109375")),
+                );
+            });
+
+            it("Scenario: numInstallments: 4, durationSecs: 1y, principal: 100, interest: 10.00%. 3rd Party repays min interest and monthly principal x 4.", async () => {
+                const context = await loadFixture(fixture);
+                const { repaymentController, mockERC20, loanCore, other, lender, blockchainTime } = context;
+                const { loanId } = await initializeInstallmentLoan(
+                    context,
+                    mockERC20.address,
+                    BigNumber.from(31536000), // durationSecs
+                    hre.ethers.utils.parseEther("100"), // principal
+                    hre.ethers.utils.parseEther("1000"), // interest
+                    4, // numInstallments
+                    1754884800, // deadline
+                );
+
+                // mint 110 tokens to 3rd party account to repay loan
+                const mintAmount = ethers.utils.parseEther("110");
+                await mint(mockERC20, other, mintAmount);
+
+                const otherBalanceBefore = await mockERC20.balanceOf(await other.getAddress());
+                const lenderBalanceBefore = await mockERC20.balanceOf(await lender.getAddress());
+
+                // increase time barely, so getInstallmentMinPayment fn call does not occur in the same block
+                await blockchainTime.increaseTime(1);
+
+                for (let i = 0; i < 4; i++) {
+                    await mockERC20
+                        .connect(other)
+                        .approve(repaymentController.address, ethers.utils.parseEther("27.5")); // first and maximum repayment
+                    await expect(
+                        repaymentController.connect(other).repayPart(loanId, ethers.utils.parseEther("27.5")),
+                    )
+                        .to.emit(mockERC20, "Transfer")
+                        .withArgs(
+                            await other.getAddress(),
+                            repaymentController.address,
+                            ethers.utils.parseEther("27.5"),
+                        );
+                    // increase one installment period
+                    await blockchainTime.increaseTime(31536000 / 4);
+                }
+
+                // verify loanData after 4 txs on time
+                const loanDATA = await loanCore.connect(other).getLoan(loanId);
+                expect(loanDATA.balance).to.equal(ethers.utils.parseEther("0"));
+                expect(loanDATA.state).to.equal(LoanState.Repaid);
+                expect(loanDATA.balancePaid).to.equal(ethers.utils.parseEther("106.187109375"));
+
+                const otherBalanceAfter = await mockERC20.balanceOf(await other.getAddress());
+                const lenderBalanceAfter = await mockERC20.balanceOf(await lender.getAddress());
+                const additionalAmountPaid = mintAmount.sub(ethers.utils.parseEther("106.187109375"));
+
+                await expect(otherBalanceAfter).to.equal(additionalAmountPaid);
                 await expect(lenderBalanceAfter).to.equal(
                     lenderBalanceBefore.add(ethers.utils.parseEther("106.187109375")),
                 );

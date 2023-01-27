@@ -171,7 +171,7 @@ contract RepaymentController is IRepaymentController, InstallmentsCalc {
         // approve loanCore to take minBalanceDue
         IERC20(data.terms.payableCurrency).approve(address(loanCore), _minAmount);
         // call repayPart function in loanCore
-        loanCore.repayPart(loanId, numMissedPayments, 0, minBalanceDue, lateFees);
+        loanCore.repayPart(loanId, numMissedPayments, 0, minBalanceDue, lateFees, msg.sender);
     }
 
     /**
@@ -205,7 +205,7 @@ contract RepaymentController is IRepaymentController, InstallmentsCalc {
         // approve loanCore to take amount
         IERC20(data.terms.payableCurrency).approve(address(loanCore), amount);
         // call repayPart function in loanCore
-        loanCore.repayPart(loanId, numMissedPayments, _totalPaymentToPrincipal, minBalanceDue, lateFees);
+        loanCore.repayPart(loanId, numMissedPayments, _totalPaymentToPrincipal, minBalanceDue, lateFees, msg.sender);
     }
 
     /**
@@ -230,7 +230,7 @@ contract RepaymentController is IRepaymentController, InstallmentsCalc {
         // approve loanCore to take minBalanceDue
         IERC20(data.terms.payableCurrency).approve(address(loanCore), _totalAmount);
         // Call repayPart function in loanCore.
-        loanCore.repayPart(loanId, numMissedPayments, data.balance, minBalanceDue, lateFees);
+        loanCore.repayPart(loanId, numMissedPayments, data.balance, minBalanceDue, lateFees, msg.sender);
     }
 
     // ========================================= VIEW FUNCTIONS =========================================

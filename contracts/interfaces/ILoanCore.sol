@@ -38,7 +38,8 @@ interface ILoanCore {
         uint256 _currentMissedPayments,
         uint256 _paymentToPrincipal,
         uint256 _paymentToInterest,
-        uint256 _paymentToLateFees
+        uint256 _paymentToLateFees,
+        address _caller
     ) external;
 
     function claim(uint256 loanId, uint256 currentInstallmentPeriod) external;

@@ -36,6 +36,7 @@ interface TestContext {
     borrower: SignerWithAddress;
     lender: SignerWithAddress;
     admin: SignerWithAddress;
+    other: SignerWithAddress;
     currentTimestamp: number;
     blockchainTime: BlockchainTime;
 }
@@ -67,7 +68,7 @@ const fixture = async (): Promise<TestContext> => {
     const currentTimestamp = await blockchainTime.secondsFromNow(0);
 
     const signers: SignerWithAddress[] = await hre.ethers.getSigners();
-    const [borrower, lender, admin] = signers;
+    const [borrower, lender, admin, other] = signers;
 
     const whitelist = <CallWhitelist>await deploy("CallWhitelist", admin, []);
     const vaultTemplate = <AssetVault>await deploy("AssetVault", admin, []);
@@ -127,6 +128,7 @@ const fixture = async (): Promise<TestContext> => {
         borrower,
         lender,
         admin,
+        other,
         currentTimestamp,
         blockchainTime,
     };
@@ -306,6 +308,32 @@ describe("RepaymentController", () => {
         await repaymentController.connect(borrower).repay(loanId);
 
         expect(await mockERC20.balanceOf(borrower.address)).to.equal(0);
+    });
+
+    it("Legacy loan type (no installments), 3rd party repayment, interest and principal. 100 ETH principal, 10% interest rate.", async () => {
+        const context = await loadFixture(fixture);
+        const { repaymentController, vaultFactory, mockERC20, loanCore, other } = context;
+        const { loanId, bundleId } = await initializeLoan(
+            context,
+            mockERC20.address,
+            BigNumber.from(86400), // durationSecs
+            hre.ethers.utils.parseEther("100"), // principal
+            hre.ethers.utils.parseEther("1000"), // interest
+            0, // numInstallments
+            1754884800, // deadline
+        );
+        // total repayment amount
+        const total = ethers.utils.parseEther("110");
+
+        // mint 3rd party account exactly enough to repay loan
+        await mint(mockERC20, other, total);
+        await mockERC20.connect(other).approve(repaymentController.address, total);
+
+        expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
+
+        await repaymentController.connect(other).repay(loanId);
+
+        expect(await mockERC20.balanceOf(other.address)).to.equal(0);
     });
 
     it("Legacy loan type (no installments), repay interest and principal. 25 ETH principal, 2.5% interest rate. Borrower tries to repay with insufficient balance. Should revert.", async () => {
