@@ -118,7 +118,7 @@ abstract contract InstallmentsCalc is IInstallmentsCalc {
         // calculate the late fees based on number of installments missed
         // late fees compound on any installment periods missed. For consecutive missed payments
         // late fees of first installment missed are added to the principal of the next late fees calculation
-        for (uint256 i = 0; i < _installmentsMissed; ++i) {
+        for (uint256 i = 0; i < _installmentsMissed; i++) {
             // interest due per period based on currentBal value
             uint256 intDuePerPeriod = (((currentBal * _interestRatePerInstallment) / INSTALLMENT_PERIOD_MULTIPLIER) /
                 BASIS_POINTS_DENOMINATOR);

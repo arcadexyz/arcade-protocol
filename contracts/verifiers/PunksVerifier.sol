@@ -57,8 +57,7 @@ contract PunksVerifier is ISignatureVerifier {
         // Unpack items
         int256[] memory tokenIds = abi.decode(predicates, (int256[]));
 
-        uint256 numIds = tokenIds.length;
-        for (uint256 i = 0; i < numIds; ++i) {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
             int256 tokenId = tokenIds[i];
 
             if (tokenId > 9999) revert IV_InvalidTokenId(tokenId);

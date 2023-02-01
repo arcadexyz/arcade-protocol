@@ -94,7 +94,7 @@ contract VaultInventoryReporter is IVaultInventoryReporter, VaultOwnershipChecke
         if (numItems == 0) revert VIR_NoItems();
         if (numItems > MAX_ITEMS_PER_REGISTRATION) revert VIR_TooManyItems(MAX_ITEMS_PER_REGISTRATION);
 
-        for (uint256 i = 0; i < numItems; ++i) {
+        for (uint256 i = 0; i < numItems; i++) {
             Item calldata item = items[i];
 
             if (item.tokenAddress == address(0)) revert VIR_InvalidRegistration(vault, i);
@@ -141,7 +141,7 @@ contract VaultInventoryReporter is IVaultInventoryReporter, VaultOwnershipChecke
         if (numItems == 0) revert VIR_NoItems();
         if (numItems > MAX_ITEMS_PER_REGISTRATION) revert VIR_TooManyItems(MAX_ITEMS_PER_REGISTRATION);
 
-        for (uint256 i = 0; i < numItems; ++i) {
+        for (uint256 i = 0; i < numItems; i++) {
             bytes32 itemHash = _hash(items[i]);
 
             if (inventoryKeysForVault[vault].contains(itemHash)) {
@@ -167,7 +167,7 @@ contract VaultInventoryReporter is IVaultInventoryReporter, VaultOwnershipChecke
         if (numItems > MAX_ITEMS_PER_REGISTRATION) revert VIR_TooManyItems(MAX_ITEMS_PER_REGISTRATION);
 
         // Clear vault lookup
-        for (uint256 i = 0; i < numItems; ++i) {
+        for (uint256 i = 0; i < numItems; i++) {
             bytes32 itemHash = inventoryKeysForVault[vault].at(i);
 
             delete inventoryForVault[vault][itemHash];
@@ -175,7 +175,7 @@ contract VaultInventoryReporter is IVaultInventoryReporter, VaultOwnershipChecke
         }
 
         // Remove keys
-        for (uint256 i = 0; i < numItems; ++i) {
+        for (uint256 i = 0; i < numItems; i++) {
             inventoryKeysForVault[vault].remove(itemHashSet[i]);
         }
 
@@ -301,7 +301,7 @@ contract VaultInventoryReporter is IVaultInventoryReporter, VaultOwnershipChecke
     function verify(address vault) external view override returns (bool) {
         uint256 numItems = inventoryKeysForVault[vault].length();
 
-        for (uint256 i = 0; i < numItems; ++i) {
+        for (uint256 i = 0; i < numItems; i++) {
             bytes32 itemHash = inventoryKeysForVault[vault].at(i);
 
             if (!_verifyItem(vault, inventoryForVault[vault][itemHash])) return false;
@@ -343,7 +343,7 @@ contract VaultInventoryReporter is IVaultInventoryReporter, VaultOwnershipChecke
         uint256 numItems = inventoryKeysForVault[vault].length();
         items = new Item[](numItems);
 
-        for (uint256 i = 0; i < numItems; ++i) {
+        for (uint256 i = 0; i < numItems; i++) {
             bytes32 itemHash = inventoryKeysForVault[vault].at(i);
 
             items[i] = inventoryForVault[vault][itemHash];
@@ -362,7 +362,7 @@ contract VaultInventoryReporter is IVaultInventoryReporter, VaultOwnershipChecke
         uint256 numItems = inventoryKeysForVault[vault].length();
         items = new Item[](numItems);
 
-        for (uint256 i = 0; i < numItems; ++i) {
+        for (uint256 i = 0; i < numItems; i++) {
             bytes32 itemHash = inventoryKeysForVault[vault].at(i);
 
             if (!_verifyItem(vault, inventoryForVault[vault][itemHash])) {

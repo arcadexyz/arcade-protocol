@@ -224,8 +224,7 @@ contract OriginationController is
             revert OC_PredicatesArrayEmpty();
         }
 
-        uint256 numPredicates = itemPredicates.length;
-        for (uint256 i = 0; i < numPredicates; ++i) {
+        for (uint256 i = 0; i < itemPredicates.length; i++) {
             // Verify items are held in the wrapper
             address verifier = itemPredicates[i].verifier;
             if (!isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
@@ -410,7 +409,7 @@ contract OriginationController is
             revert OC_PredicatesArrayEmpty();
         }
 
-        for (uint256 i = 0; i < itemPredicates.length; ++i) {
+        for (uint256 i = 0; i < itemPredicates.length; i++) {
             // Verify items are held in the wrapper
             address verifier = itemPredicates[i].verifier;
             if (!isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
@@ -610,8 +609,7 @@ contract OriginationController is
     function setAllowedVerifierBatch(address[] calldata verifiers, bool[] calldata isAllowed) external override {
         if (verifiers.length != isAllowed.length) revert OC_BatchLengthMismatch();
 
-        uint256 numVerifiers = verifiers.length;
-        for (uint256 i = 0; i < numVerifiers; ++i) {
+        for (uint256 i = 0; i < verifiers.length; i++) {
             setAllowedVerifier(verifiers[i], isAllowed[i]);
         }
     }
