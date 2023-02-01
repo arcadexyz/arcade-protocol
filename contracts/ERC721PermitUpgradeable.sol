@@ -50,10 +50,6 @@ abstract contract ERC721PermitUpgradeable is
     /// @dev Nonce for permit signatures.
     mapping(address => CountersUpgradeable.Counter) private _nonces;
 
-    // Reserved storage space to allow for layout changes in the future. Max storage 1600 bytes (50 x 32 bytes). If
-    // more state variables are added in future versions of this contract, the gap size should be reduced accordingly.
-    uint256[47] __gap;
-
     // ========================================== INITIALIZER ===========================================
 
     /**
