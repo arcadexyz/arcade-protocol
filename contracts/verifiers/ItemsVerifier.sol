@@ -36,6 +36,7 @@ import { IV_NoAmount, IV_InvalidWildcard, IV_ItemMissingAddress, IV_InvalidColla
  * - All amounts are taken as minimums. For instance, if the "amount" field of an ERC1155 is 5,
  *      then a bundle with 8 of those ERC1155s are accepted.
  * - For an ERC20 cType, tokenId is ignored. For an ERC721 cType, amount is ignored unless wildcard (see above).
+        If a wildcard is used, 0 amount is invalid, and all nonzero amounts are ignored.
  *
  * - Any deviation from the above rules represents an unparseable signature and will always
  *      return invalid.
