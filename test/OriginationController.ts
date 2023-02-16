@@ -3,7 +3,7 @@ import hre, { waffle, upgrades } from "hardhat";
 import { solidity } from "ethereum-waffle";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { BigNumber } from "ethers";
+import { BigNumber, constants } from "ethers";
 import { deploy } from "./utils/contracts";
 
 chai.use(solidity);
@@ -111,6 +111,25 @@ const fixture = async (): Promise<TestContext> => {
     const originationController = <OriginationController>(
         await upgrades.deployProxy(OriginationController, [loanCore.address], { kind: "uups" })
     );
+    await originationController.deployed();
+
+    // admin whitelists MockERC20 on OriginationController
+    const whitelistCurrency = await originationController.allowPayableCurrency([mockERC20.address]);
+    await whitelistCurrency.wait();
+    // verify the currency is whitelisted
+    const isWhitelisted = await originationController.allowedCurrencies(mockERC20.address);
+    expect(isWhitelisted).to.be.true;
+    // admin whitelists MockERC721 and vaultFactory on OriginationController
+    const whitelistCollateral = await originationController.allowCollateralAddress([mockERC721.address]);
+    await whitelistCollateral.wait();
+    const whitelistVaultFactory = await originationController.allowCollateralAddress([vaultFactory.address]);
+    await whitelistVaultFactory.wait();
+    // verify the collateral is whitelisted
+    const isCollateralWhitelisted = await originationController.allowedCollateral(mockERC721.address);
+    expect(isCollateralWhitelisted).to.be.true;
+    const isVaultFactoryWhitelisted = await originationController.allowedCollateral(vaultFactory.address);
+    expect(isVaultFactoryWhitelisted).to.be.true;
+
     const updateOriginationControllerPermissions = await loanCore.grantRole(
         ORIGINATOR_ROLE,
         originationController.address,
@@ -1093,6 +1112,91 @@ describe("OriginationController", () => {
             ).to.be.revertedWith("OC_InvalidVerifier");
         });
 
+        it("Reverts when using unapproved ERC20 for payable currency", async () => {
+            const {
+                originationController,
+                mockERC20,
+                mockERC721,
+                vaultFactory,
+                user: lender,
+                other: borrower,
+                lenderPromissoryNote,
+                borrowerPromissoryNote,
+            } = ctx;
+
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            const tokenId = await mint721(mockERC721, borrower);
+            await mockERC721.connect(borrower).transferFrom(borrower.address, bundleAddress, tokenId);
+
+            // another ERC20 token that is not approved for use
+            const unapprovedERC20 = <MockERC20>await deploy("MockERC20", lender, ["Mock ERC20", "MOCK"]);
+
+            const loanTerms = createLoanTerms(unapprovedERC20.address, vaultFactory.address, { collateralId: bundleId });
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 0,
+                    asset: mockERC721.address,
+                    tokenId,
+                    amount: 1,
+                    anyIdAllowed: false
+                },
+            ];
+
+            const predicates: ItemsPredicate[] = [
+                {
+                    verifier: verifier.address,
+                    data: encodeSignatureItems(signatureItems),
+                },
+            ];
+
+            await mint(unapprovedERC20, lender, loanTerms.principal);
+
+            const permitData = {
+                owner: await borrower.getAddress(),
+                spender: originationController.address,
+                tokenId: bundleAddress,
+                nonce: 0,
+                deadline: maxDeadline,
+            };
+
+            const collateralSig = await createPermitSignature(
+                vaultFactory.address,
+                await vaultFactory.name(),
+                permitData,
+                borrower,
+            );
+
+            const sig = await createLoanItemsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                encodePredicates(predicates),
+                borrower,
+                "2",
+                "1",
+                "b",
+            );
+
+            await approve(unapprovedERC20, lender, originationController.address, loanTerms.principal);
+            await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
+            await expect(
+                originationController
+                    .connect(lender)
+                    .initializeLoanWithCollateralPermitAndItems(
+                        loanTerms,
+                        await borrower.getAddress(),
+                        await lender.getAddress(),
+                        sig,
+                        1,
+                        collateralSig,
+                        maxDeadline,
+                        predicates,
+                    ),
+            )
+                .to.be.revertedWith(`OC_InvalidCurrency("${unapprovedERC20.address}")`);
+        });
+
         it("Initalizes a loan signed by the borrower", async () => {
             const { originationController, mockERC20, mockERC721, vaultFactory, user: lender, other: borrower } = ctx;
 
@@ -1287,6 +1391,7 @@ describe("OriginationController", () => {
                     ),
             ).to.be.revertedWith("LC_NonceUsed");
         });
+        
         it("Initializes a loan with permit and items", async () => {
             const {
                 originationController,
@@ -1856,6 +1961,206 @@ describe("OriginationController", () => {
                     .connect(lender)
                     .initializeLoan(loanTerms, await borrower.getAddress(), await lender.getAddress(), sig, 1),
             ).to.be.revertedWith("OC_ApprovedOwnLoan");
+        });
+    });
+
+    describe("collateral and currency whitelisting", () => {
+        let ctx: TestContext;
+
+        beforeEach(async () => {
+            ctx = await loadFixture(fixture);
+        });
+
+        it("Reverts when using unapproved ERC721 for collateral", async () => {
+            const { originationController, mockERC20, user: lender, other: borrower} = ctx;
+            // another ERC721 token that is not approved for use
+            const unapprovedERC721 = <MockERC721>await deploy("MockERC721", lender, ["Mock ERC721", "MOCK"]);
+
+            const tokenId = await mint721(unapprovedERC721, borrower);
+            const loanTerms = createLoanTerms(mockERC20.address, unapprovedERC721.address, { collateralId: tokenId });
+
+            await mint(mockERC20, lender, loanTerms.principal);
+
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                borrower,
+                "2",
+                1,
+                "b",
+            );
+
+            await approve(mockERC20, lender, originationController.address, loanTerms.principal);
+            await unapprovedERC721.connect(borrower).approve(originationController.address, tokenId);
+            await expect(
+                originationController
+                    .connect(lender)
+                    .initializeLoan(loanTerms, await borrower.getAddress(), await lender.getAddress(), sig, 1),
+            )
+                .to.be.revertedWith(`OC_InvalidCollateral("${unapprovedERC721.address}")`);
+        });
+
+        it("Reverts when whitelist manager role tries to whitelist a currency with no address provided", async () => {
+            const { originationController, user: admin} = ctx;
+            await expect(originationController.connect(admin).allowPayableCurrency([]))
+            .to.be.revertedWith("OC_ZeroArrayElements()");
+        });
+
+        it("Reverts when whitelist manager role tries to whitelist more than 50 currencies", async () => {
+            const { originationController, user: admin, mockERC20} = ctx;
+            const addresses = [];
+            for (let i = 0; i < 51; i++) {
+                addresses.push(mockERC20.address); 
+            }
+            await expect(originationController.connect(admin).allowPayableCurrency(addresses))
+            .to.be.revertedWith("OC_ArrayTooManyElements()");
+        });
+
+        it("Reverts when user without whitelist manager role tries to whitelist a currency", async () => {
+            const { originationController, user: admin, other, mockERC20} = ctx;
+            const userAddress = await other.getAddress()
+            await expect(originationController.connect(other).allowPayableCurrency([mockERC20.address]))
+            .to.be.revertedWith(
+                `AccessControl: account ${userAddress.toLowerCase()} is missing role 0x2a3dab589bcc9747970dd85ac3f222668741ae51f2a1bbb8f8355be28dd8a868`
+            );
+        });
+
+        it("Reverts when whitelist manager role tries to whitelist more than 50 collateral addresses", async () => {
+            const { originationController, user: admin, mockERC721} = ctx;
+            const addresses = [];
+            for (let i = 0; i < 51; i++) {
+                addresses.push(mockERC721.address); 
+            }
+            await expect(originationController.connect(admin).allowCollateralAddress(addresses))
+            .to.be.revertedWith("OC_ArrayTooManyElements()");
+        });
+
+        it("Reverts when whitelist manager role tries to whitelist payable currency zero address", async () => {
+            const { originationController, user: admin} = ctx;
+            await expect(originationController.connect(admin).allowPayableCurrency([constants.AddressZero]))
+            .to.be.revertedWith("OC_ZeroAddress()");
+        });
+
+        it("Reverts when whitelist manager role tries to whitelist already whitelisted currency", async () => {
+            const { originationController, user: admin, mockERC20} = ctx;
+            await expect(originationController.connect(admin).allowPayableCurrency([mockERC20.address]))
+            .to.be.revertedWith(`OC_AlreadyAllowed("${mockERC20.address}")`);
+        });
+
+        it("Reverts when whitelist manager role tries to remove a currency with no address provided", async () => {
+            const { originationController, user: admin} = ctx;
+            await expect(originationController.connect(admin).removePayableCurrency([]))
+            .to.be.revertedWith("OC_ZeroArrayElements()");
+        });
+
+        it("Reverts when whitelist manager role tries to remove more than 50 currencies", async () => {
+            const { originationController, user: admin, mockERC20} = ctx;
+            const addresses = [];
+            for (let i = 0; i < 51; i++) {
+                addresses.push(mockERC20.address); 
+            }
+            await expect(originationController.connect(admin).removePayableCurrency(addresses))
+            .to.be.revertedWith("OC_ArrayTooManyElements()");
+        });
+
+        it("Reverts when user without whitelist manager role tries to remove a whitelisted currency", async () => {
+            const { originationController, user: admin, other, mockERC20} = ctx;
+            const userAddress = await other.getAddress()
+            await expect(originationController.connect(other).removePayableCurrency([mockERC20.address]))
+            .to.be.revertedWith(
+                `AccessControl: account ${userAddress.toLowerCase()} is missing role 0x2a3dab589bcc9747970dd85ac3f222668741ae51f2a1bbb8f8355be28dd8a868`
+            );
+        });
+
+        it("Reverts when whitelist manager role tries to whitelist collateral with no address provided", async () => {
+            const { originationController, user: admin} = ctx;
+            await expect(originationController.connect(admin).allowCollateralAddress([]))
+            .to.be.revertedWith("OC_ZeroArrayElements()");
+        });
+
+        it("Reverts when user without whitelist manager role tries to whitelist collateral", async () => {
+            const { originationController, user: admin, other, mockERC721} = ctx;
+            const userAddress = await other.getAddress()
+            await expect(originationController.connect(other).allowPayableCurrency([mockERC721.address]))
+            .to.be.revertedWith(
+                `AccessControl: account ${userAddress.toLowerCase()} is missing role 0x2a3dab589bcc9747970dd85ac3f222668741ae51f2a1bbb8f8355be28dd8a868`
+            );
+        });
+
+        it("Reverts when whitelist manager role tries to remove collateral with no address provided", async () => {
+            const { originationController, user: admin} = ctx;
+            await expect(originationController.connect(admin).removeCollateralAddress([]))
+            .to.be.revertedWith("OC_ZeroArrayElements()");
+        });
+
+        it("Reverts when whitelist manager role tries to remove more than 50 collateral addresses", async () => {
+            const { originationController, user: admin, mockERC721} = ctx;
+            const addresses = [];
+            for (let i = 0; i < 51; i++) {
+                addresses.push(mockERC721.address); 
+            }
+            await expect(originationController.connect(admin).removeCollateralAddress(addresses))
+            .to.be.revertedWith("OC_ArrayTooManyElements()");
+        });
+
+        it("Reverts when user without whitelist manager role tries to remove a whitelisted currency", async () => {
+            const { originationController, user: admin, other, mockERC721} = ctx;
+            const userAddress = await other.getAddress()
+            await expect(originationController.connect(other).removePayableCurrency([mockERC721.address]))
+            .to.be.revertedWith(
+                `AccessControl: account ${userAddress.toLowerCase()} is missing role 0x2a3dab589bcc9747970dd85ac3f222668741ae51f2a1bbb8f8355be28dd8a868`
+            );
+        });
+
+        it("Whitelist manager role removes whitelisted payable currency", async () => {
+            const { originationController, user: admin, mockERC20} = ctx;
+            await originationController.connect(admin).removePayableCurrency([mockERC20.address]);
+            expect(await originationController.allowedCurrencies(mockERC20.address)).to.be.false;
+        });
+
+        it("Reverts when whitelist manager role tries to remove zero address for payable currency", async () => {
+            const { originationController, user: admin} = ctx;
+            await expect(originationController.connect(admin).removePayableCurrency([constants.AddressZero]))
+            .to.be.revertedWith(`OC_ZeroAddress()`);
+        });
+
+        it("Reverts when whitelist manager role tries to remove whitelisted currency which not does not exist", async () => {
+            const { originationController, user: admin, mockERC20} = ctx;
+            await originationController.connect(admin).removePayableCurrency([mockERC20.address]);
+            await expect(originationController.connect(admin).removePayableCurrency([mockERC20.address]))
+            .to.be.revertedWith(`OC_DoesNotExist("${mockERC20.address}")`);
+        });
+
+        it("Reverts when whitelist manager role tries to whitelist collateral at zero address", async () => {
+            const { originationController, user: admin} = ctx;
+            await expect(originationController.connect(admin).allowCollateralAddress([constants.AddressZero]))
+            .to.be.revertedWith("OC_ZeroAddress()");
+        });
+
+        it("Reverts when whitelist manager role tries to whitelist already whitelisted collateral", async () => {
+            const { originationController, user: admin, mockERC721} = ctx;
+            await expect(originationController.connect(admin).allowCollateralAddress([mockERC721.address]))
+            .to.be.revertedWith(`OC_AlreadyAllowed("${mockERC721.address}")`);
+        });
+
+        it("Whitelist manager role removes whitelisted collateral", async () => {
+            const { originationController, user: admin, mockERC721} = ctx;
+            await originationController.connect(admin).removeCollateralAddress([mockERC721.address]);
+            expect(await originationController.allowedCollateral(mockERC721.address)).to.be.false;
+        });
+
+        it("Reverts when whitelist manager role tries to remove zero address from allowed collateral", async () => {
+            const { originationController, user: admin} = ctx;
+            await expect(originationController.connect(admin).removeCollateralAddress([constants.AddressZero]))
+            .to.be.revertedWith(`OC_ZeroAddress()`);
+        });
+
+        it("Reverts when whitelist manager role tries to remove whitelisted collateral which is already removed", async () => {
+            const { originationController, user: admin, mockERC721} = ctx;
+            await originationController.connect(admin).removeCollateralAddress([mockERC721.address]);
+            await expect(originationController.connect(admin).removeCollateralAddress([mockERC721.address]))
+            .to.be.revertedWith(`OC_DoesNotExist("${mockERC721.address}")`);
         });
     });
 });

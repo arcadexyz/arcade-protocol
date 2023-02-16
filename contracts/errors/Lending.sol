@@ -141,6 +141,44 @@ error OC_RolloverCollateralMismatch(
     uint256 newCollateralId
 );
 
+/**
+ * @notice Provided token has already been approved for trading.
+ *
+ * @param token       Token address to add to approvals mapping.
+ */
+error OC_AlreadyAllowed(address token);
+
+/**
+ * @notice Provided token not in approvals.
+ *
+ * @param token       Token address to remove from approvals mapping.
+ */
+error OC_DoesNotExist(address token);
+
+/**
+ * @notice Provided payable currency address is not approved for lending.
+ *
+ * @param payableCurrency       ERC20 token address supplied in loan terms.
+ */
+error OC_InvalidCurrency(address payableCurrency);
+
+/**
+ * @notice Provided collateral address is not approved for lending.
+ *
+ * @param collateralAddress       ERC721 or ERC1155 token address supplied in loan terms.
+ */
+error OC_InvalidCollateral(address collateralAddress);
+
+/**
+ * @notice Provided token array does not hold any token addresses.
+ */
+error OC_ZeroArrayElements();
+
+/**
+ * @notice Provided token array holds more than 50 token addresses.
+ */
+error OC_ArrayTooManyElements();
+
 // ==================================== ITEMS VERIFIER ======================================
 /// @notice All errors prefixed with IV_, to separate from other contracts in the protocol.
 

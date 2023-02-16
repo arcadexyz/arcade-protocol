@@ -114,6 +114,24 @@ describe("Rollovers", () => {
             await upgrades.deployProxy(OriginationController, [loanCore.address], { kind: "uups" })
         );
         await originationController.deployed();
+
+        // admin whitelists MockERC20 on OriginationController
+        const whitelistCurrency = await originationController.allowPayableCurrency([mockERC20.address]);
+        await whitelistCurrency.wait();
+        // verify the currency is whitelisted
+        const isWhitelisted = await originationController.allowedCurrencies(mockERC20.address);
+        expect(isWhitelisted).to.be.true;
+        // admin whitelists MockERC721 and vaultFactory on OriginationController
+        const whitelistCollateral = await originationController.allowCollateralAddress([mockERC721.address]);
+        await whitelistCollateral.wait();
+        const whitelistVaultFactory = await originationController.allowCollateralAddress([vaultFactory.address]);
+        await whitelistVaultFactory.wait();
+        // verify the collateral is whitelisted
+        const isCollateralWhitelisted = await originationController.allowedCollateral(mockERC721.address);
+        expect(isCollateralWhitelisted).to.be.true;
+        const isVaultFactoryWhitelisted = await originationController.allowedCollateral(vaultFactory.address);
+        expect(isVaultFactoryWhitelisted).to.be.true;
+
         const updateOriginationControllerPermissions = await loanCore.grantRole(
             ORIGINATOR_ROLE,
             originationController.address,
@@ -296,6 +314,9 @@ describe("Rollovers", () => {
             const { loanId, loanTerms } = loan;
 
             const otherERC20 = <MockERC20>await deploy("MockERC20", admin, ["Mock ERC20", "MOCK"]);
+
+            const whitelistCurrency = await originationController.allowPayableCurrency([otherERC20.address]);
+            await whitelistCurrency.wait();
 
             // create new terms for rollover and sign them
             const newTerms = createLoanTerms(

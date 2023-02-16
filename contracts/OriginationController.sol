@@ -37,7 +37,13 @@ import {
     OC_NumberInstallments,
     OC_SignatureIsExpired,
     OC_RolloverCurrencyMismatch,
-    OC_RolloverCollateralMismatch
+    OC_RolloverCollateralMismatch,
+    OC_InvalidCurrency,
+    OC_InvalidCollateral,
+    OC_DoesNotExist,
+    OC_AlreadyAllowed,
+    OC_ZeroArrayElements,
+    OC_ArrayTooManyElements
 } from "./errors/Lending.sol";
 
 /**
@@ -67,6 +73,7 @@ contract OriginationController is
     // =================== Constants =====================
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant WHITELIST_MANAGER_ROLE = keccak256("WHITELIST_MANAGER_ROLE");
 
     /// @notice EIP712 type hash for bundle-based signatures.
     bytes32 private constant _TOKEN_ID_TYPEHASH =
@@ -92,6 +99,10 @@ contract OriginationController is
     mapping(address => mapping(address => bool)) private _signerApprovals;
     /// @notice Mapping from address to whether that verifier contract has been whitelisted
     mapping(address => bool) public allowedVerifiers;
+    /// @notice Mapping from ERC20 token address to boolean indicating allowed payable currencies
+    mapping(address => bool) public allowedCurrencies;
+    /// @notice Mapping from ERC721 or ERC1155 token address to boolean indicating allowed collateral types
+    mapping(address => bool) public allowedCollateral;
 
     // ========================================== CONSTRUCTOR ===========================================
 
@@ -124,12 +135,15 @@ contract OriginationController is
         _setupRole(ADMIN_ROLE, msg.sender);
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
 
+        _setupRole(WHITELIST_MANAGER_ROLE, msg.sender);
+        _setRoleAdmin(WHITELIST_MANAGER_ROLE, ADMIN_ROLE);
+
         if (_loanCore == address(0)) revert OC_ZeroAddress();
 
         loanCore = _loanCore;
     }
 
-    // ======================================= UPGRADE AUTHORIZATION ========================================
+    // ========================================== ADMIN UTILS ===========================================
 
     /**
      * @notice Authorization function to define who should be allowed to upgrade the contract
@@ -138,6 +152,92 @@ contract OriginationController is
      */
 
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(ADMIN_ROLE) {}
+
+    // ===================================== WHITELIST MANAGER UTILS =====================================
+
+    /**
+     * @notice Adds an array of payable currencies to the allowed currencies mapping.
+     *
+     * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
+     *      addresses is the zero address or already allowed. The array of addresses passed to this
+     *      function is limited to 50 elements.
+     *
+     * @param _tokenAddress               Array of token addresses to add.
+     */
+    function allowPayableCurrency(address[] memory _tokenAddress) external onlyRole(WHITELIST_MANAGER_ROLE) {
+        if (_tokenAddress.length == 0) revert OC_ZeroArrayElements();
+        if (_tokenAddress.length > 50) revert OC_ArrayTooManyElements();
+
+        for (uint256 i = 0; i < _tokenAddress.length; i++) {
+            if (_tokenAddress[i] == address(0)) revert OC_ZeroAddress();
+            if (allowedCurrencies[_tokenAddress[i]]) revert OC_AlreadyAllowed(_tokenAddress[i]);
+
+            allowedCurrencies[_tokenAddress[i]] = true;
+        }
+    }
+
+    /**
+     * @notice Removes an array of payable currencies from the allowed currencies mapping.
+     *
+     * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
+     *      addresses is the zero address or is not already approved. The array of addresses passed to this
+     *      function is limited to 50 elements.
+     *
+     * @param _tokenAddress               Array of token addresses to remove.
+     */
+    function removePayableCurrency(address[] memory _tokenAddress) external onlyRole(WHITELIST_MANAGER_ROLE) {
+        if (_tokenAddress.length == 0) revert OC_ZeroArrayElements();
+        if (_tokenAddress.length > 50) revert OC_ArrayTooManyElements();
+
+        for (uint256 i = 0; i < _tokenAddress.length; i++) {
+            if (_tokenAddress[i] == address(0)) revert OC_ZeroAddress();
+            if (!allowedCurrencies[_tokenAddress[i]]) revert OC_DoesNotExist(_tokenAddress[i]);
+
+            allowedCurrencies[_tokenAddress[i]] = false;
+        }
+    }
+
+    /**
+     * @notice Adds an array collateral tokens to the allowed collateral mapping.
+     *
+     * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
+     *      addresses is the zero address or is not already approved. The array of addresses passed to this
+     *      function is limited to 50 elements.
+     *
+     * @param _tokenAddress                Array of token addresses to add.
+     */
+    function allowCollateralAddress(address[] memory _tokenAddress) external onlyRole(WHITELIST_MANAGER_ROLE) {
+        if (_tokenAddress.length == 0) revert OC_ZeroArrayElements();
+        if (_tokenAddress.length > 50) revert OC_ArrayTooManyElements();
+
+        for (uint256 i = 0; i < _tokenAddress.length; i++) {
+            if (_tokenAddress[i] == address(0)) revert OC_ZeroAddress();
+            if (allowedCollateral[_tokenAddress[i]]) revert OC_AlreadyAllowed(_tokenAddress[i]);
+
+            allowedCollateral[_tokenAddress[i]] = true;
+        }
+    }
+
+    /**
+     * @notice Removes an array of collateral tokens from the allowed collateral mapping.
+     *
+     * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
+     *      addresses is the zero address or is not already approved. The array of addresses passed to this
+     *      function is limited to 50 elements.
+     *
+     * @param _tokenAddress                Array of token addresses to remove.
+     */
+    function removeCollateralAddress(address[] memory _tokenAddress) external onlyRole(WHITELIST_MANAGER_ROLE) {
+        if (_tokenAddress.length == 0) revert OC_ZeroArrayElements();
+        if (_tokenAddress.length > 50) revert OC_ArrayTooManyElements();
+
+        for (uint256 i = 0; i < _tokenAddress.length; i++) {
+            if (_tokenAddress[i] == address(0)) revert OC_ZeroAddress();
+            if (!allowedCollateral[_tokenAddress[i]]) revert OC_DoesNotExist(_tokenAddress[i]);
+
+            allowedCollateral[_tokenAddress[i]] = false;
+        }
+    }
 
     // ==================================== ORIGINATION OPERATIONS ======================================
 
@@ -632,6 +732,7 @@ contract OriginationController is
      *
      * @param terms                  The terms of the loan.
      */
+    // solhint-disable-next-line code-complexity
     function _validateLoanTerms(LoanLibrary.LoanTerms memory terms) internal view {
         // principal must be greater than or equal to 10000 wei
         if (terms.principal < 10_000) revert OC_PrincipalTooLow(terms.principal);
@@ -649,6 +750,12 @@ contract OriginationController is
 
         // signature must not have already expired
         if (terms.deadline < block.timestamp) revert OC_SignatureIsExpired(terms.deadline);
+
+        // validate payable currency
+        if (!allowedCurrencies[terms.payableCurrency]) revert OC_InvalidCurrency(terms.payableCurrency);
+
+        // validate collateral
+        if (!allowedCollateral[terms.collateralAddress]) revert OC_InvalidCollateral(terms.collateralAddress);
     }
 
     /**
