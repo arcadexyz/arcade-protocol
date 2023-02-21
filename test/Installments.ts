@@ -401,7 +401,7 @@ describe("Installments", () => {
             ).to.be.revertedWith("OC_NumberInstallments");
         });
 
-        it("Create a loan with 1001 installment periods, should revert.", async () => {
+        it("Create a loan with 37 installment periods, should revert.", async () => {
             const context = await loadFixture(fixture);
             const { mockERC20 } = context;
             await expect(
@@ -411,10 +411,26 @@ describe("Installments", () => {
                     BigNumber.from(86400), // durationSecs
                     hre.ethers.utils.parseEther("100"), // principal
                     hre.ethers.utils.parseEther("1000"), // interest
-                    1001, // numInstallments
+                    37, // numInstallments
                     BigNumber.from(259200),
                 ),
             ).to.be.revertedWith("OC_NumberInstallments");
+        });
+
+        it("Create a 1 hr loan with 35 installment periods, should revert.", async () => {
+            const context = await loadFixture(fixture);
+            const { mockERC20 } = context;
+            await expect(
+                initializeInstallmentLoan(
+                    context,
+                    mockERC20.address,
+                    BigNumber.from(3600), // durationSecs
+                    hre.ethers.utils.parseEther("100"), // principal
+                    hre.ethers.utils.parseEther("1000"), // interest
+                    35, // numInstallments
+                    BigNumber.from(259200),
+                ),
+            ).to.be.revertedWith(`OC_InvalidInstallments(3600, 35)`);
         });
 
         it("Create a loan with interest rate greater than 1e18 and less than 1e26.", async () => {
@@ -443,7 +459,7 @@ describe("Installments", () => {
                     BigNumber.from(86400), // durationSecs
                     hre.ethers.utils.parseEther("100"), // principal
                     hre.ethers.utils.parseEther("1000"), // interest
-                    11, // numInstallments
+                    10, // numInstallments
                     BigNumber.from(259200), //deadline
                 ),
             ).to.be.revertedWith("OC_SignatureIsExpired");
@@ -1447,6 +1463,76 @@ describe("Installments", () => {
                 );
                 await expect(lenderBalanceAfter).to.equal(
                     lenderBalanceBefore.add(ethers.utils.parseEther("106.187109375")),
+                );
+            });
+
+            it("Scenario: numInstallments: 36, durationSecs: 3600, principal: 100, interest: 3.60%. Repay min interest x 35 and in final period close loan.", async () => {
+                const context = await loadFixture(fixture);
+                const { repaymentController, mockERC20, loanCore, borrower, lender, blockchainTime } = context;
+                const { loanId } = await initializeInstallmentLoan(
+                    context,
+                    mockERC20.address,
+                    BigNumber.from(3600), // durationSecs
+                    hre.ethers.utils.parseEther("100"), // principal
+                    hre.ethers.utils.parseEther("360"), // interest
+                    36, // numInstallments
+                    1754884800, // deadline
+                );
+                const borrowerBalanceBefore = await mockERC20.balanceOf(await borrower.getAddress());
+                const lenderBalanceBefore = await mockERC20.balanceOf(await lender.getAddress());
+                
+                // repay minimum payment x 35
+                for (let i = 0; i < 35; i++) {
+                    const res = await repaymentController.connect(borrower).callStatic.getInstallmentMinPayment(loanId);
+                    const minInterestDue = res[0];
+                    const lateFees = res[1];
+
+                    await mockERC20
+                        .connect(borrower)
+                        .approve(repaymentController.address, minInterestDue);
+                    await expect(
+                        repaymentController.connect(borrower).repayPartMinimum(loanId),
+                    )
+                        .to.emit(mockERC20, "Transfer")
+                        .withArgs(
+                            await borrower.getAddress(),
+                            repaymentController.address,
+                            minInterestDue
+                        );
+                    // increase one installment period
+                    await blockchainTime.increaseTime(3600/36);
+                }
+
+                // repay final installment and entire principal
+                const res = await repaymentController.connect(borrower).callStatic.getInstallmentMinPayment(loanId);
+                    const minInterestDue = res[0];
+                    const lateFees = res[1];
+
+                await mockERC20
+                        .connect(borrower)
+                        .approve(repaymentController.address, minInterestDue.add(ethers.utils.parseEther("100"))); // first and maximum repayment
+                await expect(
+                    repaymentController.connect(borrower).repayPart(loanId, minInterestDue.add(ethers.utils.parseEther("100"))),
+                ).to.emit(mockERC20, "Transfer")
+                .withArgs(
+                    await borrower.getAddress(),
+                    repaymentController.address,
+                    minInterestDue.add(ethers.utils.parseEther("100"))
+                );
+
+                // verify loanData
+                const loanDATA = await loanCore.connect(borrower).getLoan(loanId);
+                expect(loanDATA.balance).to.equal(ethers.utils.parseEther("0"));
+                expect(loanDATA.state).to.equal(LoanState.Repaid);
+                expect(loanDATA.balancePaid).to.equal(ethers.utils.parseEther("103.6"));
+
+                const borrowerBalanceAfter = await mockERC20.balanceOf(await borrower.getAddress());
+                const lenderBalanceAfter = await mockERC20.balanceOf(await lender.getAddress());
+                await expect(borrowerBalanceAfter).to.equal(
+                    borrowerBalanceBefore.sub(ethers.utils.parseEther("103.6")),
+                );
+                await expect(lenderBalanceAfter).to.equal(
+                    lenderBalanceBefore.add(ethers.utils.parseEther("103.6")),
                 );
             });
 

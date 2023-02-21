@@ -42,7 +42,7 @@ error OC_LoanDuration(uint256 durationSecs);
 error OC_InterestRate(uint256 interestRate);
 
 /**
- * @notice Number of installment periods must be greater than 1 and less than or equal to 1000.
+ * @notice Number of installment periods must be greater than 1 and less than or equal to 36.
  *
  * @param numInstallments               Number of installment periods in loan.
  */
@@ -178,6 +178,20 @@ error OC_ZeroArrayElements();
  * @notice Provided token array holds more than 50 token addresses.
  */
 error OC_ArrayTooManyElements();
+
+/**
+ * @notice Provided duration and number of installments are not valid.
+ *
+ * @dev Ensure durationSecs % numInstallments == 0. This is necessary because the
+ *      installments calculator cannot handle installment periods which are not whole numbers
+ *      and will result in an invalid minimum payment due. For example, if the loan is 3600
+ *      seconds long, with 35 installments, the _timePerInstallment value will be ~102.85
+ *      seconds, which cannot be handled by the installments calculator.
+ *
+ * @param durationSecs         Total loan duration in seconds.
+ * @param numInstallments      Total number of installment periods.
+ */
+error OC_InvalidInstallments(uint256 durationSecs, uint256 numInstallments);
 
 // ==================================== ITEMS VERIFIER ======================================
 /// @notice All errors prefixed with IV_, to separate from other contracts in the protocol.

@@ -43,7 +43,8 @@ import {
     OC_DoesNotExist,
     OC_AlreadyAllowed,
     OC_ZeroArrayElements,
-    OC_ArrayTooManyElements
+    OC_ArrayTooManyElements,
+    OC_InvalidInstallments
 } from "./errors/Lending.sol";
 
 /**
@@ -71,6 +72,9 @@ contract OriginationController is
     // ============================================ STATE ==============================================
 
     // =================== Constants =====================
+
+    /// @notice The maximum number of installments allowed for an installment type loan.
+    uint256 public constant MAX_NUM_INSTALLMENTS = 36;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant WHITELIST_MANAGER_ROLE = keccak256("WHITELIST_MANAGER_ROLE");
@@ -744,9 +748,14 @@ contract OriginationController is
         // and less than 10,000% (1e6 basis points)
         if (terms.interestRate < 1e18 || terms.interestRate > 1e24) revert OC_InterestRate(terms.interestRate);
 
-        // number of installments must be either 0, or between 2 and 1000.
-        if (terms.numInstallments == 1 || terms.numInstallments > 1_000)
+        // number of installments must be either 0, or between 2 and the MAX_NUM_INSTALLMENTS constant
+        if (terms.numInstallments == 1 || terms.numInstallments > MAX_NUM_INSTALLMENTS)
             revert OC_NumberInstallments(terms.numInstallments);
+
+        // if durationSecs mod numInstallments != 0, then the _timePerInstallment will result
+        // in a decimal value which cannot be used in the minimum payment per installment calculation.
+        if (terms.numInstallments > 1 && terms.durationSecs % terms.numInstallments != 0)
+            revert OC_InvalidInstallments(terms.durationSecs, terms.numInstallments);
 
         // signature must not have already expired
         if (terms.deadline < block.timestamp) revert OC_SignatureIsExpired(terms.deadline);
