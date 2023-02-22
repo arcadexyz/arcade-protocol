@@ -30,6 +30,7 @@ const PAUSER_ROLE = "65d7a28e3265b37a6474929f336521b332c1681b933f6cb9f3376673440
 interface TestContext {
     loanCore: LoanCore;
     mockERC20: MockERC20;
+    mockERC20Decimals: MockERC20;
     mockERC721: MockERC721;
     borrowerNote: PromissoryNote;
     lenderNote: PromissoryNote;
@@ -109,6 +110,8 @@ const fixture = async (): Promise<TestContext> => {
     const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
     const mockERC721 = <MockERC721>await deploy("MockERC721", signers[0], ["Mock ERC721", "MOCK"]);
 
+    const mockERC20Decimals = <MockERC20>await deploy("MockERC20WithDecimals", signers[0], ["Mock USD", "MUSD", 6]);
+
     const OriginationController = await hre.ethers.getContractFactory("OriginationController");
     const originationController = <OriginationController>(
         await upgrades.deployProxy(OriginationController, [loanCore.address], { kind: "uups" })
@@ -118,9 +121,13 @@ const fixture = async (): Promise<TestContext> => {
     // admin whitelists MockERC20 on OriginationController
     const whitelistCurrency = await originationController.allowPayableCurrency([mockERC20.address]);
     await whitelistCurrency.wait();
+    const whitelistCurrencyDec = await originationController.allowPayableCurrency([mockERC20Decimals.address]);
+    await whitelistCurrencyDec.wait();
     // verify the currency is whitelisted
     const isWhitelisted = await originationController.allowedCurrencies(mockERC20.address);
     expect(isWhitelisted).to.be.true;
+    const isWhitelistedDec = await originationController.allowedCurrencies(mockERC20Decimals.address);
+    expect(isWhitelistedDec).to.be.true;
     // admin whitelists MockERC721 and vaultFactory on OriginationController
     const whitelistCollateral = await originationController.allowCollateralAddress([mockERC721.address]);
     await whitelistCollateral.wait();
@@ -150,6 +157,7 @@ const fixture = async (): Promise<TestContext> => {
         repaymentController,
         originationController,
         mockERC20,
+        mockERC20Decimals,
         mockERC721,
         vaultFactory,
         borrower,
@@ -272,7 +280,7 @@ const initializeInstallmentLoan = async (
     deadline: BigNumberish,
     terms?: Partial<LoanTerms>,
 ): Promise<LoanDef> => {
-    const { originationController, mockERC20, vaultFactory, loanCore, lender, borrower } = context;
+    const { originationController, mockERC20, mockERC20Decimals, vaultFactory, loanCore, lender, borrower } = context;
     const bundleId = await initializeBundle(vaultFactory, borrower);
     const loanTerms = createInstallmentLoanTerms(
         payableCurrency,
@@ -285,9 +293,21 @@ const initializeInstallmentLoan = async (
         { collateralId: bundleId },
     );
     if (terms) Object.assign(loanTerms, terms);
-    await mint(mockERC20, lender, loanTerms.principal);
-    // for when borrower needs additional liquidity (lot of payments missed)
-    await mint(mockERC20, borrower, ethers.utils.parseEther("10000"));
+
+    // if payable currency is ERC with 18 decimals 
+    if (payableCurrency === mockERC20.address) {
+        await mint(mockERC20, lender, loanTerms.principal);
+        // for when borrower needs additional liquidity (lot of payments missed)
+        await mint(mockERC20, borrower, ethers.utils.parseEther("10000"));
+
+        await approve(mockERC20, lender, originationController.address, loanTerms.principal);
+    } else if (payableCurrency === mockERC20Decimals.address) {
+        await mint(mockERC20Decimals, lender, loanTerms.principal);
+        // for when borrower needs additional liquidity (lot of payments missed)
+        await mint(mockERC20Decimals, borrower, ethers.utils.parseEther("10000"));
+
+        await approve(mockERC20Decimals, lender, originationController.address, loanTerms.principal);
+    }
 
     const sig = await createLoanTermsSignature(
         originationController.address,
@@ -299,7 +319,6 @@ const initializeInstallmentLoan = async (
         "b",
     );
 
-    await approve(mockERC20, lender, originationController.address, loanTerms.principal);
     await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
     const tx = await originationController
         .connect(lender)
@@ -1505,8 +1524,8 @@ describe("Installments", () => {
 
                 // repay final installment and entire principal
                 const res = await repaymentController.connect(borrower).callStatic.getInstallmentMinPayment(loanId);
-                    const minInterestDue = res[0];
-                    const lateFees = res[1];
+                const minInterestDue = res[0];
+                const lateFees = res[1];
 
                 await mockERC20
                         .connect(borrower)
@@ -2163,6 +2182,273 @@ describe("Installments", () => {
                 const lenderBalanceAfter = await mockERC20.balanceOf(await lender.getAddress());
                 await expect(borrowerBalanceAfter).to.equal(borrowerBalanceBefore.sub(ethers.utils.parseEther("105")));
                 await expect(lenderBalanceAfter).to.equal(lenderBalanceBefore.add(ethers.utils.parseEther("105")));
+            });
+        });
+
+        describe("Using payable currency with 6 decimals", () => {
+            it("Scenario: numInstallments: 36, durationSecs: 1 hour, principal: 1.00, interest: 0.01%. Borrower repays each installment period.", async () => {
+                const context = await loadFixture(fixture);
+                const { repaymentController, mockERC20, mockERC20Decimals, loanCore, borrower, lender, blockchainTime } = context;
+                const { loanId } = await initializeInstallmentLoan(
+                    context,
+                    mockERC20Decimals.address,
+                    BigNumber.from(3600), // durationSecs
+                    hre.ethers.utils.parseUnits("1", 6), // principal
+                    hre.ethers.utils.parseEther("1"), // interest
+                    36, // numInstallments
+                    1754884800, // deadline
+                );
+                const borrowerBalanceBefore = await mockERC20Decimals.balanceOf(await borrower.getAddress());
+                const lenderBalanceBefore = await mockERC20Decimals.balanceOf(await lender.getAddress());
+                
+                for (let i = 0; i < 35; i++) {
+                    // get minimum amount to repay
+                    const res = await repaymentController.connect(borrower).callStatic.getInstallmentMinPayment(loanId);
+                    const minInterestDue = res[0];
+                    // get loan balance
+                    const loanDATA = await loanCore.connect(borrower).getLoan(loanId);
+                    const loanBalance = loanDATA.balance;
+
+                    await mockERC20Decimals
+                        .connect(borrower)
+                        .approve(
+                            repaymentController.address,
+                            minInterestDue.add(loanBalance.div(BigNumber.from(36).sub(BigNumber.from(i))))
+                        );
+                    await expect(repaymentController.connect(borrower).repayPart(
+                        loanId,
+                        minInterestDue.add(loanBalance.div(BigNumber.from(36).sub(BigNumber.from(i)))))
+                    )
+                        .to.emit(mockERC20Decimals, "Transfer")
+                        .withArgs(
+                            await borrower.getAddress(),
+                            repaymentController.address,
+                            minInterestDue.add(loanBalance.div(BigNumber.from(36).sub(BigNumber.from(i))))
+                        );
+
+                    await blockchainTime.increaseTime(3600/36);
+                }
+
+                const loanDATA = await loanCore.connect(borrower).getLoan(loanId);
+                expect(loanDATA.balance).to.equal(ethers.utils.parseUnits(".028642", 6));
+                expect(loanDATA.state).to.equal(LoanState.Active);
+                expect(loanDATA.balancePaid).to.equal(ethers.utils.parseUnits(".976291", 6));
+
+                const res = await repaymentController.connect(borrower).callStatic.amountToCloseLoan(loanId);
+                const amountDue = res[0];
+                expect(amountDue).to.equal(ethers.utils.parseUnits("0.028785", 6));
+                
+                await mockERC20Decimals
+                        .connect(borrower)
+                        .approve(repaymentController.address, amountDue);
+                    await expect(repaymentController.connect(borrower).repayPart(loanId, amountDue))
+                        .to.emit(mockERC20Decimals, "Transfer")
+                        .withArgs(
+                            await borrower.getAddress(),
+                            repaymentController.address,
+                            amountDue
+                        );
+                
+                const loanDATA2 = await loanCore.connect(borrower).getLoan(loanId);
+                expect(loanDATA2.balance).to.equal(ethers.utils.parseEther("0"));
+                expect(loanDATA2.balancePaid).to.equal(ethers.utils.parseUnits("1.005076", 6));
+                expect(loanDATA2.state).to.equal(LoanState.Repaid);
+
+                const borrowerBalanceAfter = await mockERC20Decimals.balanceOf(await borrower.getAddress());
+                const lenderBalanceAfter = await mockERC20Decimals.balanceOf(await lender.getAddress());
+                await expect(borrowerBalanceAfter).to.equal(borrowerBalanceBefore.sub(ethers.utils.parseUnits("1.005076", 6)));
+                await expect(lenderBalanceAfter).to.equal(lenderBalanceBefore.add(ethers.utils.parseUnits("1.005076", 6)));
+            });
+
+            it("Scenario: numInstallments: 36, durationSecs: 1 hour, principal: 1.00, interest: 0.01%. Borrower repays 0.999999 upfront.", async () => {
+                const context = await loadFixture(fixture);
+                const { repaymentController, mockERC20, mockERC20Decimals, loanCore, borrower, lender, blockchainTime } = context;
+                const { loanId } = await initializeInstallmentLoan(
+                    context,
+                    mockERC20Decimals.address,
+                    BigNumber.from(3600), // durationSecs
+                    hre.ethers.utils.parseUnits("1", 6), // principal
+                    hre.ethers.utils.parseEther("1"), // interest
+                    36, // numInstallments
+                    1754884800, // deadline
+                );
+
+                const borrowerBalanceBefore = await mockERC20Decimals.balanceOf(await borrower.getAddress());
+                const lenderBalanceBefore = await mockERC20Decimals.balanceOf(await lender.getAddress());
+
+                await mockERC20Decimals
+                    .connect(borrower)
+                    .approve(repaymentController.address, ethers.utils.parseUnits("0.999999", 6));
+                await expect(repaymentController.connect(borrower).repayPart(loanId ,ethers.utils.parseUnits("0.999999", 6)))
+                    .to.emit(mockERC20Decimals, "Transfer")
+                    .withArgs(
+                        await borrower.getAddress(),
+                        repaymentController.address,
+                        ethers.utils.parseUnits("0.999999", 6)
+                    );
+
+                const loanDATA = await loanCore.connect(borrower).getLoan(loanId);
+                expect(loanDATA.balance).to.equal(ethers.utils.parseUnits(".000003", 6));
+                expect(loanDATA.state).to.equal(LoanState.Active);
+                expect(loanDATA.balancePaid).to.equal(ethers.utils.parseUnits(".999999", 6));
+
+                const res = await repaymentController.connect(borrower).callStatic.amountToCloseLoan(loanId);
+                const amountDue = res[0];
+                expect(amountDue).to.equal(ethers.utils.parseUnits("0.000003", 6));
+                
+                await mockERC20Decimals
+                        .connect(borrower)
+                        .approve(repaymentController.address, amountDue);
+                    await expect(repaymentController.connect(borrower).repayPart(loanId, amountDue))
+                        .to.emit(mockERC20Decimals, "Transfer")
+                        .withArgs(
+                            await borrower.getAddress(),
+                            repaymentController.address,
+                            amountDue
+                        );
+                
+                const loanDATA2 = await loanCore.connect(borrower).getLoan(loanId);
+                expect(loanDATA2.balance).to.equal(ethers.utils.parseEther("0"));
+                expect(loanDATA2.balancePaid).to.equal(ethers.utils.parseUnits("1.000002", 6));
+                expect(loanDATA2.state).to.equal(LoanState.Repaid);
+
+                const borrowerBalanceAfter = await mockERC20Decimals.balanceOf(await borrower.getAddress());
+                const lenderBalanceAfter = await mockERC20Decimals.balanceOf(await lender.getAddress());
+                await expect(borrowerBalanceAfter).to.equal(borrowerBalanceBefore.sub(ethers.utils.parseUnits("1.000002", 6)));
+                await expect(lenderBalanceAfter).to.equal(lenderBalanceBefore.add(ethers.utils.parseUnits("1.000002", 6)));
+            });
+
+            it("Scenario: numInstallments: 36, durationSecs: 1 hour, principal: 10.00, interest: 0.01%. Borrower repays each installment period.", async () => {
+                const context = await loadFixture(fixture);
+                const { repaymentController, mockERC20, mockERC20Decimals, loanCore, borrower, lender, blockchainTime } = context;
+                const { loanId } = await initializeInstallmentLoan(
+                    context,
+                    mockERC20Decimals.address,
+                    BigNumber.from(3600), // durationSecs
+                    hre.ethers.utils.parseUnits("10", 6), // principal
+                    hre.ethers.utils.parseEther("1"), // interest
+                    36, // numInstallments
+                    1754884800, // deadline
+                );
+                const borrowerBalanceBefore = await mockERC20Decimals.balanceOf(await borrower.getAddress());
+                const lenderBalanceBefore = await mockERC20Decimals.balanceOf(await lender.getAddress());
+                
+                for (let i = 0; i < 36; i++) {
+                    // get minimum amount to repay
+                    const res = await repaymentController.connect(borrower).callStatic.getInstallmentMinPayment(loanId);
+                    const minInterestDue = res[0];
+
+                    await mockERC20Decimals
+                        .connect(borrower)
+                        .approve(repaymentController.address, minInterestDue);
+                    await expect(repaymentController.connect(borrower).repayPart(loanId, minInterestDue))
+                        .to.emit(mockERC20Decimals, "Transfer")
+                        .withArgs(
+                            await borrower.getAddress(),
+                            repaymentController.address,
+                            minInterestDue
+                        );
+
+                    await blockchainTime.increaseTime(3600/36);
+                }
+
+                const loanDATA = await loanCore.connect(borrower).getLoan(loanId);
+                expect(loanDATA.balance).to.equal(ethers.utils.parseUnits("10", 6));
+                expect(loanDATA.state).to.equal(LoanState.Active);
+                expect(loanDATA.balancePaid).to.equal(ethers.utils.parseUnits(".000972", 6));
+
+                const res = await repaymentController.connect(borrower).callStatic.amountToCloseLoan(loanId);
+                const amountDue = res[0];
+                expect(amountDue).to.equal(ethers.utils.parseUnits("10.000027", 6));
+                
+                await mockERC20Decimals
+                        .connect(borrower)
+                        .approve(repaymentController.address, amountDue);
+                    await expect(repaymentController.connect(borrower).repayPart(loanId, amountDue))
+                        .to.emit(mockERC20Decimals, "Transfer")
+                        .withArgs(
+                            await borrower.getAddress(),
+                            repaymentController.address,
+                            amountDue
+                        );
+                
+                const loanDATA2 = await loanCore.connect(borrower).getLoan(loanId);
+                expect(loanDATA2.balance).to.equal(ethers.utils.parseEther("0"));
+                expect(loanDATA2.balancePaid).to.equal(ethers.utils.parseUnits("10.000999", 6));
+                expect(loanDATA2.state).to.equal(LoanState.Repaid);
+
+                const borrowerBalanceAfter = await mockERC20Decimals.balanceOf(await borrower.getAddress());
+                const lenderBalanceAfter = await mockERC20Decimals.balanceOf(await lender.getAddress());
+                await expect(borrowerBalanceAfter).to.equal(borrowerBalanceBefore.sub(ethers.utils.parseUnits("10.000999", 6)));
+                await expect(lenderBalanceAfter).to.equal(lenderBalanceBefore.add(ethers.utils.parseUnits("10.000999", 6)));
+            });
+
+            it("Scenario: numInstallments: 36, durationSecs: 1 hour, principal: 10.00, interest: 0.01%. Borrower repays each installment period.", async () => {
+                const context = await loadFixture(fixture);
+                const { repaymentController, mockERC20, mockERC20Decimals, loanCore, borrower, lender, blockchainTime } = context;
+                const { loanId } = await initializeInstallmentLoan(
+                    context,
+                    mockERC20Decimals.address,
+                    BigNumber.from(3600), // durationSecs
+                    hre.ethers.utils.parseUnits("10", 6), // principal
+                    hre.ethers.utils.parseEther("1"), // interest
+                    36, // numInstallments
+                    1754884800, // deadline
+                );
+                const borrowerBalanceBefore = await mockERC20Decimals.balanceOf(await borrower.getAddress());
+                const lenderBalanceBefore = await mockERC20Decimals.balanceOf(await lender.getAddress());
+                
+                for (let i = 0; i < 35; i++) {
+                    // get minimum amount to repay
+                    const res = await repaymentController.connect(borrower).callStatic.getInstallmentMinPayment(loanId);
+                    const minInterestDue = res[0];
+                    // get loan balance
+                    const loanDATA = await loanCore.connect(borrower).getLoan(loanId);
+                    const loanBalance = loanDATA.balance;
+
+                    await mockERC20Decimals
+                        .connect(borrower)
+                        .approve(repaymentController.address, minInterestDue);
+                    await expect(repaymentController.connect(borrower).repayPart(loanId, minInterestDue))
+                        .to.emit(mockERC20Decimals, "Transfer")
+                        .withArgs(
+                            await borrower.getAddress(),
+                            repaymentController.address,
+                            minInterestDue
+                        );
+
+                    await blockchainTime.increaseTime(3600/36);
+                }
+
+                const loanDATA = await loanCore.connect(borrower).getLoan(loanId);
+                expect(loanDATA.balance).to.equal(ethers.utils.parseUnits("10", 6));
+                expect(loanDATA.state).to.equal(LoanState.Active);
+                expect(loanDATA.balancePaid).to.equal(ethers.utils.parseUnits(".000945", 6));
+
+                const res = await repaymentController.connect(borrower).callStatic.amountToCloseLoan(loanId);
+                const amountDue = res[0];
+                expect(amountDue).to.equal(ethers.utils.parseUnits("10.000027", 6));
+                
+                await mockERC20Decimals
+                        .connect(borrower)
+                        .approve(repaymentController.address, amountDue);
+                    await expect(repaymentController.connect(borrower).repayPart(loanId, amountDue))
+                        .to.emit(mockERC20Decimals, "Transfer")
+                        .withArgs(
+                            await borrower.getAddress(),
+                            repaymentController.address,
+                            amountDue
+                        );
+                
+                const loanDATA2 = await loanCore.connect(borrower).getLoan(loanId);
+                expect(loanDATA2.balance).to.equal(ethers.utils.parseEther("0"));
+                expect(loanDATA2.balancePaid).to.equal(ethers.utils.parseUnits("10.000972", 6));
+                expect(loanDATA2.state).to.equal(LoanState.Repaid);
+
+                const borrowerBalanceAfter = await mockERC20Decimals.balanceOf(await borrower.getAddress());
+                const lenderBalanceAfter = await mockERC20Decimals.balanceOf(await lender.getAddress());
+                await expect(borrowerBalanceAfter).to.equal(borrowerBalanceBefore.sub(ethers.utils.parseUnits("10.000972", 6)));
+                await expect(lenderBalanceAfter).to.equal(lenderBalanceBefore.add(ethers.utils.parseUnits("10.000972", 6)));
             });
         });
     });

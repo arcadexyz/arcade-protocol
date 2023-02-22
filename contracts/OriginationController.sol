@@ -75,6 +75,8 @@ contract OriginationController is
 
     /// @notice The maximum number of installments allowed for an installment type loan.
     uint256 public constant MAX_NUM_INSTALLMENTS = 36;
+    /// @notice The minimum principal amount allowed to start a loan.
+    uint256 public constant MIN_LOAN_PRINCIPAL = 1_000_000;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant WHITELIST_MANAGER_ROLE = keccak256("WHITELIST_MANAGER_ROLE");
@@ -165,6 +167,9 @@ contract OriginationController is
      * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
      *      addresses is the zero address or already allowed. The array of addresses passed to this
      *      function is limited to 50 elements.
+     * @dev The only token types that will work with the interest rate calculations are those with
+     *      between 6 and 18 decimals. tokens with more or less than this range will not work and can 
+     *      result in unnecessary borrower default.
      *
      * @param _tokenAddress               Array of token addresses to add.
      */
@@ -738,8 +743,8 @@ contract OriginationController is
      */
     // solhint-disable-next-line code-complexity
     function _validateLoanTerms(LoanLibrary.LoanTerms memory terms) internal view {
-        // principal must be greater than or equal to 10000 wei
-        if (terms.principal < 10_000) revert OC_PrincipalTooLow(terms.principal);
+        // principal must be greater than or equal to the MIN_LOAN_PRINCIPAL constant
+        if (terms.principal < MIN_LOAN_PRINCIPAL) revert OC_PrincipalTooLow(terms.principal);
 
         // loan duration must be greater than 1 hr and less than 3 years
         if (terms.durationSecs < 3600 || terms.durationSecs > 94_608_000) revert OC_LoanDuration(terms.durationSecs);

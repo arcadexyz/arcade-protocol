@@ -348,7 +348,7 @@ describe("OriginationController", () => {
             const bundleId = await initializeBundle(vaultFactory, borrower);
             const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, {
                 collateralId: bundleId,
-                principal: BigNumber.from("9999"),
+                principal: BigNumber.from("999999"),
             });
             await mint(mockERC20, lender, loanTerms.principal);
 

@@ -416,20 +416,20 @@ describe("RepaymentController", () => {
         ).to.be.revertedWith("OC_PrincipalTooLow");
     });
 
-    it("Legacy loan type (no installments), repay interest and principal. 1000 Wei principal, 2.5% interest rate.", async () => {
+    it("Legacy loan type (no installments), repay interest and principal. 1000000 Wei principal, 2.5% interest rate.", async () => {
         const context = await loadFixture(fixture);
         const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = context;
         const { loanId, bundleId } = await initializeLoan(
             context,
             mockERC20.address,
             BigNumber.from(86400), // durationSecs
-            hre.ethers.utils.parseEther(".00000000000001"), // principal
+            hre.ethers.utils.parseEther(".00000000001"), // principal
             hre.ethers.utils.parseEther("250"), // interest
             0, // numInstallments
             1754884800, // deadline
         );
         // total repayment amount less than 25.625ETH
-        const total = ethers.utils.parseEther(".000000000000010250");
+        const total = ethers.utils.parseEther(".000000000010250");
         const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
         // mint borrower exactly enough to repay loan
         await mint(mockERC20, borrower, repayAdditionalAmount);

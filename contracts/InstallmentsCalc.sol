@@ -188,9 +188,9 @@ abstract contract InstallmentsCalc is IInstallmentsCalc {
         uint256 _installmentsMissed = _installmentPeriod - (numInstallmentsPaid + 1);
 
         // ** Installment Interest - using mulitpier of 1 million.
-        // There should not be loan with more than 36 installment periods. Checked in LoanCore.
-        uint256 _interestRatePerInstallment = ((interestRate / INTEREST_RATE_DENOMINATOR) *
-            INSTALLMENT_PERIOD_MULTIPLIER) / numInstallments;
+        // There should not be loan with more than 36 installment periods. Checked in Origination Controller.
+        uint256 _interestRatePerInstallment = (interestRate * INSTALLMENT_PERIOD_MULTIPLIER)
+            / INTEREST_RATE_DENOMINATOR / numInstallments;
 
         // ** Determine if late fees are added and if so, how much?
         // Calulate number of payments missed based on _latePayment, _pastDueDate
