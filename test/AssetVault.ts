@@ -938,6 +938,219 @@ describe("AssetVault", () => {
             });
         });
 
+        describe("Withdraw batch", () => {
+            const depositERC1155 = async (token: MockERC1155, vault: AssetVault, user: Signer, amount: BigNumber) => {
+                const tokenId = await mintERC1155(token, user, amount);
+                await token.safeTransferFrom(await user.getAddress(), vault.address, tokenId, amount, "0x");
+                return tokenId;
+            };
+
+            const depositERC721 = async (token: MockERC721, vault: AssetVault, user: Signer) => {
+                const tokenId = await mintERC721(token, user);
+                await token["safeTransferFrom(address,address,uint256)"](
+                    await user.getAddress(),
+                    vault.address,
+                    tokenId,
+                );
+                return tokenId;
+            };
+
+            it("should withdraw 24 ERC721s and 100 ERC1155s from a bundle", async () => {
+                const { vault, mockERC1155, mockERC721, user } = await loadFixture(fixture);
+
+                const amount = BigNumber.from("100");
+                const tokenId1155 = await depositERC1155(mockERC1155, vault, user, amount);
+
+                let tokenIds = [];
+                for (let i = 0; i < 24; i++) {
+                    const tokenId = await depositERC721(mockERC721, vault, user);
+                    tokenIds.push(tokenId);
+                }
+
+                let tokenTypes = [];
+                let tokenAddresses = [];
+                for (let i = 0; i < 24; i++) {
+                    tokenTypes.push(0);
+                    tokenAddresses.push(mockERC721.address);
+                }
+
+                tokenTypes.push(1);
+                tokenAddresses.push(mockERC1155.address);
+                tokenIds.push(tokenId1155);
+
+                const userERC721BalanceBefore = await mockERC721.balanceOf(await user.getAddress());
+                const userERC1155BalanceBefore = await mockERC1155.balanceOf(await user.getAddress(), tokenId1155);
+
+                await vault.enableWithdraw();
+                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, await user.getAddress()))
+
+                const userERC721BalanceAfter = await mockERC721.balanceOf(await user.getAddress());
+                const userERC1155BalanceAfter = await mockERC1155.balanceOf(await user.getAddress(), tokenId1155);
+
+                expect(userERC721BalanceAfter).to.equal(userERC721BalanceBefore.add(24));
+                expect(userERC1155BalanceAfter).to.equal(userERC1155BalanceBefore.add(100));
+            });
+
+            it("withdraw 1 ERC721", async () => {
+                const { vault, mockERC721, user } = await loadFixture(fixture);
+                const tokenId = await depositERC721(mockERC721, vault, user);
+
+                let tokenAddresses = [];
+                let tokenTypes = [];
+                let tokenIds = [];
+                tokenAddresses.push(mockERC721.address);
+                tokenTypes.push(0);
+                tokenIds.push(tokenId);
+
+                const userERC721BalanceBefore = await mockERC721.balanceOf(await user.getAddress());
+
+                await vault.enableWithdraw();
+                await vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, await user.getAddress())
+
+                const userERC721BalanceAfter = await mockERC721.balanceOf(await user.getAddress());
+
+                expect(userERC721BalanceAfter).to.equal(userERC721BalanceBefore.add(1));
+            });
+
+            it("withdraw ERC1155 with an amount of 100", async () => {
+                const { vault, mockERC1155, user } = await loadFixture(fixture);
+                const amount = BigNumber.from("100");
+                const tokenId = await depositERC1155(mockERC1155, vault, user, amount);
+
+                let tokenAddresses = [];
+                let tokenTypes = [];
+                let tokenIds = [];
+                tokenAddresses.push(mockERC1155.address);
+                tokenTypes.push(1);
+                tokenIds.push(tokenId);
+
+                const userERC1155BalanceBefore = await mockERC1155.balanceOf(await user.getAddress(), tokenId);
+
+                await vault.enableWithdraw();
+                await vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, await user.getAddress())
+
+                const userERC1155BalanceAfter = await mockERC1155.balanceOf(await user.getAddress(), tokenId);
+
+                expect(userERC1155BalanceAfter).to.equal(userERC1155BalanceBefore.add(100));
+            });
+
+            it("should revert when user specifies over 25 items to withdraw", async () => {
+                const { vault, mockERC721, user } = await loadFixture(fixture);
+
+                let tokenIds = [];
+                for (let i = 0; i < 26; i++) {
+                    const tokenId = await depositERC721(mockERC721, vault, user);
+                    tokenIds.push(tokenId);
+                }
+
+                let tokenTypes = [];
+                let tokenAddresses = [];
+                for (let i = 0; i < 26; i++) {
+                    tokenTypes.push(0);
+                    tokenAddresses.push(mockERC721.address);
+                }
+
+                await vault.enableWithdraw();
+                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, await user.getAddress()))
+                    .to.be.revertedWith("AV_TooManyItems(26)");
+            });
+
+            it("should revert when user specifies tokenId array length that does not match", async () => {
+                const { vault, mockERC721, user } = await loadFixture(fixture);
+
+                let tokenIds = [];
+                for (let i = 0; i < 10; i++) {
+                    const tokenId = await depositERC721(mockERC721, vault, user);
+                    tokenIds.push(tokenId);
+                }
+
+                let tokenTypes = [];
+                let tokenAddresses = [];
+                for (let i = 0; i < 10; i++) {
+                    tokenTypes.push(0);
+                    tokenAddresses.push(mockERC721.address);
+                }
+
+                tokenIds.pop();
+
+                await vault.enableWithdraw();
+                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, await user.getAddress()))
+                    .to.be.revertedWith(`AV_LengthMismatch("tokenId")`);
+            });
+
+            it("should revert when user specifies tokenType array length that does not match", async () => {
+                const { vault, mockERC721, user } = await loadFixture(fixture);
+
+                let tokenIds = [];
+                for (let i = 0; i < 10; i++) {
+                    const tokenId = await depositERC721(mockERC721, vault, user);
+                    tokenIds.push(tokenId);
+                }
+
+                let tokenTypes = [];
+                let tokenAddresses = [];
+                for (let i = 0; i < 10; i++) {
+                    tokenTypes.push(0);
+                    tokenAddresses.push(mockERC721.address);
+                }
+
+                tokenTypes.pop();
+
+                await vault.enableWithdraw();
+                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, await user.getAddress()))
+                    .to.be.revertedWith(`AV_LengthMismatch("tokenType")`);
+            });
+
+            it("should revert when user specifies zero address as receiver", async () => {
+                const { vault, mockERC721, user } = await loadFixture(fixture);
+                const tokenId = await depositERC721(mockERC721, vault, user);
+
+                await vault.enableWithdraw();
+                await expect(
+                    vault.connect(user).withdrawBatch([mockERC721.address], [tokenId], [0], ethers.constants.AddressZero)
+                ).to.be.revertedWith("AV_ZeroAddress");
+            });
+
+            it("should revert when user specifies zero address as the token address to withdraw", async () => {
+                const { vault, mockERC721, user } = await loadFixture(fixture);
+                const tokenId = await depositERC721(mockERC721, vault, user);
+
+                await vault.enableWithdraw();
+                await expect(
+                    vault.connect(user).withdrawBatch([ethers.constants.AddressZero], [tokenId], [0], await user.getAddress())
+                ).to.be.revertedWith("AV_ZeroAddress");
+            });
+
+            it("should revert when user specifies invalid tokenType", async () => {
+                const { vault, mockERC721, user } = await loadFixture(fixture);
+                const tokenId = await depositERC721(mockERC721, vault, user);
+
+                await vault.enableWithdraw();
+                await expect(
+                    vault.connect(user).withdrawBatch([mockERC721.address], [tokenId], [2], await user.getAddress())
+                ).to.be.reverted;
+            });
+
+            it("should fail to withdrawBatch when withdraws disabled", async () => {
+                const { vault, mockERC721, user } = await loadFixture(fixture);
+                const tokenId = await depositERC721(mockERC721, vault, user);
+
+                await expect(
+                    vault.connect(user).withdrawBatch([mockERC721.address], [tokenId], [0], await user.getAddress()),
+                ).to.be.revertedWith("AV_WithdrawsDisabled");
+            });
+
+            it("should throw when withdrawBatch called by non-owner", async () => {
+                const { vault, mockERC721, user, other } = await loadFixture(fixture);
+                const tokenId = await depositERC721(mockERC721, vault, user);
+
+                await vault.enableWithdraw();
+                await expect(
+                    vault.connect(other).withdrawBatch([mockERC721.address], [tokenId], [0], await other.getAddress()),
+                ).to.be.revertedWith("OERC721_CallerNotOwner");
+            });
+        });
+
         describe("ETH", () => {
             const deposit = async (vault: AssetVault, user: Signer, amount: BigNumber) => {
                 await user.sendTransaction({

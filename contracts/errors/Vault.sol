@@ -55,6 +55,26 @@ error AV_NonWhitelistedCall(address to, bytes4 data);
  */
 error AV_NonWhitelistedApproval(address token, address spender);
 
+/**
+ * @notice Cannot withdraw more than 25 items from a vault at a time.
+ *
+ * @param arrayLength                  Total elements provided.
+ */
+error AV_TooManyItems(uint256 arrayLength);
+
+/**
+ * @notice The length of either the tokenIds or tokenTypes array does not match
+ *         the length of the tokenAddress array.
+ *
+ * @param arrayType                    Array type that does not match tokenAddress array length.
+ */
+error AV_LengthMismatch(string arrayType);
+
+/**
+ * @notice Zero address passed in where not allowed.
+ */
+error AV_ZeroAddress();
+
 // ==================================== Ownable ERC721 ======================================
 /// @notice All errors prefixed with OERC721_, to separate from other contracts in the protocol.
 

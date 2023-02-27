@@ -5,6 +5,10 @@ pragma solidity ^0.8.11;
 import "./ICallWhitelist.sol";
 
 interface IAssetVault {
+    // ============= Enums ==============
+
+    enum TokenType { ERC721, ERC1155 }
+
     // ============= Events ==============
 
     event WithdrawEnabled(address operator);
@@ -49,6 +53,13 @@ interface IAssetVault {
     function withdrawERC1155(
         address token,
         uint256 tokenId,
+        address to
+    ) external;
+
+    function withdrawBatch(
+        address[] calldata tokens,
+        uint256[] calldata tokenIds,
+        TokenType[] calldata tokenTypes,
         address to
     ) external;
 

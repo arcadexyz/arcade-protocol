@@ -16,7 +16,17 @@ import "../interfaces/IAssetVault.sol";
 import "../external/interfaces/IPunks.sol";
 import "./OwnableERC721.sol";
 
-import { AV_WithdrawsDisabled, AV_WithdrawsEnabled, AV_AlreadyInitialized, AV_CallDisallowed, AV_NonWhitelistedCall, AV_NonWhitelistedApproval } from "../errors/Vault.sol";
+import {
+    AV_WithdrawsDisabled,
+    AV_WithdrawsEnabled,
+    AV_AlreadyInitialized,
+    AV_CallDisallowed,
+    AV_NonWhitelistedCall,
+    AV_NonWhitelistedApproval,
+    AV_TooManyItems,
+    AV_LengthMismatch,
+    AV_ZeroAddress
+} from "../errors/Vault.sol";
 
 /**
  * @title AssetVault
@@ -54,6 +64,9 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
 
     /// @notice Whitelist contract to determine if a given external call is allowed.
     ICallWhitelist public override whitelist;
+
+    /// @notice The maximum number of items that can be withdrawn from a vault at once.
+    uint256 public constant MAX_WITHDRAW_ITEMS = 25;
 
     // ========================================== CONSTRUCTOR ===========================================
 
@@ -136,8 +149,7 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         uint256 tokenId,
         address to
     ) external override onlyOwner onlyWithdrawEnabled {
-        IERC721(token).safeTransferFrom(address(this), to, tokenId);
-        emit WithdrawERC721(msg.sender, token, to, tokenId);
+        _withdrawERC721(token, tokenId, to);
     }
 
     /**
@@ -154,9 +166,48 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         uint256 tokenId,
         address to
     ) external override onlyOwner onlyWithdrawEnabled {
-        uint256 balance = IERC1155(token).balanceOf(address(this), tokenId);
-        IERC1155(token).safeTransferFrom(address(this), to, tokenId, balance, "");
-        emit WithdrawERC1155(msg.sender, token, to, tokenId, balance);
+        _withdrawERC1155(token, tokenId, to);
+    }
+
+    /**
+     * @notice Batch withdraw assets from the vault. The vault must be in a
+     *         "withdrawEnabled" state (non-transferrable), and the caller must
+     *         be the owner.
+     *
+     * @dev This function is used to withdraw multiple ERC721 and ERC1155 tokens
+     *      from the vault. The caller must specify the token type (ERC721 or
+     *      ERC1155) and the token ID for each token to withdraw. The caller
+     *      must also specify the recipient of the withdrawal. Refer to the
+     *      MAX_WITHDRAW_ITEMS state constant for the maximum number of vault
+     *      items that can be withdrawn per function call.
+     *
+     * @param tokens                An array of tokens address to withdraw.
+     * @param tokenIds              An array of tokenIds to withdraw.
+     * @param tokenTypes            An arrary of token types to withdraw.
+     * @param to                    The recipient of the withdrawn tokens.
+     */
+    // solhint-disable-next-line code-complexity
+    function withdrawBatch(
+        address[] calldata tokens,
+        uint256[] calldata tokenIds,
+        TokenType[] calldata tokenTypes,
+        address to
+    ) external override onlyOwner onlyWithdrawEnabled {
+        uint256 tokensLength = tokens.length;
+        if (tokensLength > MAX_WITHDRAW_ITEMS) revert AV_TooManyItems(tokensLength);
+        if (tokensLength != tokenIds.length) revert AV_LengthMismatch("tokenId");
+        if (tokensLength != tokenTypes.length) revert AV_LengthMismatch("tokenType");
+        if (to == address(0)) revert AV_ZeroAddress();
+
+        for (uint256 i = 0; i < tokensLength; i++) {
+            if (tokens[i] == address(0)) revert AV_ZeroAddress();
+
+            if (tokenTypes[i] == TokenType.ERC721) {
+                _withdrawERC721(tokens[i], tokenIds[i], to);
+            } else if (tokenTypes[i] == TokenType.ERC1155) {
+                _withdrawERC1155(tokens[i], tokenIds[i], to);
+            }
+        }
     }
 
     /**
@@ -236,6 +287,39 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
     }
 
     // ============================================ HELPERS =============================================
+
+    /**
+     * @notice Private function to withdraw a ERC721 token from the vault.
+     *
+     * @param token                 The token to withdraw.
+     * @param tokenId               The ID of the NFT to withdraw.
+     * @param to                    The recipient of the withdrawn token.
+     */
+    function _withdrawERC721(
+        address token,
+        uint256 tokenId,
+        address to
+    ) private {
+        IERC721(token).safeTransferFrom(address(this), to, tokenId);
+        emit WithdrawERC721(msg.sender, token, to, tokenId);
+    }
+
+    /**
+     * @notice Private function to withdraw ERC1155 tokens from the vault.
+     *
+     * @param token                 The token to withdraw.
+     * @param tokenId               The ID of the token to withdraw.
+     * @param to                    The recipient of the withdrawn funds.
+     */
+    function _withdrawERC1155(
+        address token,
+        uint256 tokenId,
+        address to
+    ) private {
+        uint256 balance = IERC1155(token).balanceOf(address(this), tokenId);
+        IERC1155(token).safeTransferFrom(address(this), to, tokenId, balance, "");
+        emit WithdrawERC1155(msg.sender, token, to, tokenId, balance);
+    }
 
     /**
      * @dev For methods only callable with withdraws enabled (all withdrawal operations).
