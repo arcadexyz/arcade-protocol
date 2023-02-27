@@ -78,6 +78,9 @@ contract LoanCore is
     mapping(bytes32 => bool) private collateralInUse;
     mapping(address => mapping(uint160 => bool)) public usedNonces;
 
+    /// @dev Reentrancy guard
+    uint256 private _locked;
+
     // ========================================== CONSTRUCTOR ===========================================
 
     /**
@@ -129,6 +132,9 @@ contract LoanCore is
 
         // Avoid having loanId = 0
         loanIdTracker.increment();
+
+        // Set the reentrancy lock
+        _locked = 1;
     }
 
     // ===================================== UPGRADE AUTHORIZATION ======================================
@@ -158,7 +164,7 @@ contract LoanCore is
         address lender,
         address borrower,
         LoanLibrary.LoanTerms calldata terms
-    ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) returns (uint256 loanId) {
+    ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 loanId) {
         // check collateral is not already used in a loan.
         bytes32 collateralKey = keccak256(abi.encode(terms.collateralAddress, terms.collateralId));
         if (collateralInUse[collateralKey]) revert LC_CollateralInUse(terms.collateralAddress, terms.collateralId);
@@ -201,7 +207,7 @@ contract LoanCore is
      *
      * @param loanId                The ID of the loan to repay.
      */
-    function repay(uint256 loanId) external override onlyRole(REPAYER_ROLE) {
+    function repay(uint256 loanId) external override onlyRole(REPAYER_ROLE) nonReentrant {
         LoanLibrary.LoanData memory data = loans[loanId];
         // ensure valid initial loan state when starting loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
@@ -245,6 +251,7 @@ contract LoanCore is
         override
         whenNotPaused
         onlyRole(REPAYER_ROLE)
+        nonReentrant
     {
         LoanLibrary.LoanData memory data = loans[loanId];
         // ensure valid initial loan state when starting loan
@@ -308,7 +315,7 @@ contract LoanCore is
         uint256 _amountToOldLender,
         uint256 _amountToLender,
         uint256 _amountToBorrower
-    ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) returns (uint256 newLoanId) {
+    ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 newLoanId) {
         // Repay loan
         LoanLibrary.LoanData storage data = loans[oldLoanId];
         data.state = LoanLibrary.LoanState.Repaid;
@@ -386,7 +393,7 @@ contract LoanCore is
         uint256 _paymentToInterest,
         uint256 _paymentToLateFees,
         address _refundRecipient
-    ) external override onlyRole(REPAYER_ROLE) {
+    ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         LoanLibrary.LoanData storage data = loans[_loanId];
         // ensure valid initial loan state when repaying loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
@@ -417,6 +424,8 @@ contract LoanCore is
         data.balance -= _balanceToPay;
         data.balancePaid += boundedPaymentTotal;
 
+        LoanLibrary.LoanState currentState = data.state;
+
         // calculate total sent by borrower and transferFrom repayment controller to this address
         uint256 paymentTotal = _paymentToPrincipal + _paymentToLateFees + _paymentToInterest;
         IERC20Upgradeable(data.terms.payableCurrency).safeTransferFrom(msg.sender, address(this), paymentTotal);
@@ -426,7 +435,7 @@ contract LoanCore is
         IERC20Upgradeable(data.terms.payableCurrency).transfer(lender, boundedPaymentTotal);
 
         // If repaid, send collateral to borrower
-        if (data.state == LoanLibrary.LoanState.Repaid) {
+        if (currentState == LoanLibrary.LoanState.Repaid) {
             IERC721Upgradeable(data.terms.collateralAddress).transferFrom(
                 address(this),
                 borrower,
@@ -686,5 +695,18 @@ contract LoanCore is
         uint256 amount
     ) internal {
         if (amount > 0) token.safeTransfer(to, amount);
+    }
+
+    /**
+     * @dev Reentrancy guard, checking locked state.
+     */
+    modifier nonReentrant() {
+        require(_locked == 1, "REENTRANCY");
+
+        _locked = 2;
+
+        _;
+
+        _locked = 1;
     }
 }
