@@ -19,33 +19,12 @@ export interface PermitData {
     deadline: BigNumberish;
 }
 
-export interface InventoryPermitData {
-    owner: string;
-    target: string;
-    vault: string;
-    nonce: BigNumberish;
-    deadline: BigNumberish;
-}
-
 const typedPermitData: TypeData = {
     types: {
         Permit: [
             { name: "owner", type: "address" },
             { name: "spender", type: "address" },
             { name: "tokenId", type: "uint256" },
-            { name: "nonce", type: "uint256" },
-            { name: "deadline", type: "uint256" },
-        ],
-    },
-    primaryType: "Permit" as const,
-};
-
-const typedInventoryPermitData: TypeData = {
-    types: {
-        Permit: [
-            { name: "owner", type: "address" },
-            { name: "target", type: "address" },
-            { name: "vault", type: "address" },
             { name: "nonce", type: "uint256" },
             { name: "deadline", type: "uint256" },
         ],
@@ -187,25 +166,6 @@ export async function createPermitSignature(
     signer: SignerWithAddress,
 ): Promise<ECDSASignature> {
     const data = buildData(verifyingContract, name, "1", permitData, typedPermitData);
-    const signature = await signer._signTypedData(data.domain, data.types, data.message);
-
-    return fromRpcSig(signature);
-}
-
-/**
- * Create an EIP712 signature for an inventory permit
- * @param verifyingContract The address of the contract that will be verifying this signature
- * @param name The name of the contract that will be verifying this signature
- * @param permitData the data of the permit to sign
- * @param signer The EOA to create the signature
- */
-export async function createInventoryPermitSignature(
-    verifyingContract: string,
-    name: string,
-    permitData: InventoryPermitData,
-    signer: SignerWithAddress,
-): Promise<ECDSASignature> {
-    const data = buildData(verifyingContract, name, "1", permitData, typedInventoryPermitData);
     const signature = await signer._signTypedData(data.domain, data.types, data.message);
 
     return fromRpcSig(signature);
