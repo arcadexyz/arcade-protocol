@@ -15,6 +15,14 @@ export interface SignatureItem {
     anyIdAllowed: boolean;
 }
 
+export interface ArtBlocksItem {
+    asset: string;
+    projectId: BigNumberish;
+    tokenId: BigNumberish;
+    amount: BigNumberish;
+    anyIdAllowed: boolean;
+}
+
 export interface ItemsPredicate {
     data: string;
     verifier: string;

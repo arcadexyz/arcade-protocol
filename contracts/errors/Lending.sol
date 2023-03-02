@@ -232,6 +232,15 @@ error IV_InvalidWildcard(address asset);
  */
 error IV_InvalidTokenId(int256 tokenId);
 
+/**
+ * @notice The provided project ID does not exist on the target contract. Only
+ *         used for ArtBlocks.
+ *
+ * @param projectId                     The project ID provided.
+ * @param nextProjectId                 The contract's reported nextProjectId.
+ */
+error IV_InvalidProjectId(uint256 projectId, uint256 nextProjectId);
+
 // ==================================== REPAYMENT CONTROLLER ======================================
 /// @notice All errors prefixed with RC_, to separate from other contracts in the protocol.
 
