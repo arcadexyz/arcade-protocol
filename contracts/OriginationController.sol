@@ -44,7 +44,8 @@ import {
     OC_AlreadyAllowed,
     OC_ZeroArrayElements,
     OC_ArrayTooManyElements,
-    OC_InvalidInstallments
+    OC_InvalidInstallments,
+    OC_SideMismatch
 } from "./errors/Lending.sol";
 
 /**
@@ -168,7 +169,7 @@ contract OriginationController is
      *      addresses is the zero address or already allowed. The array of addresses passed to this
      *      function is limited to 50 elements.
      * @dev The only token types that will work with the interest rate calculations are those with
-     *      between 6 and 18 decimals. tokens with more or less than this range will not work and can 
+     *      between 6 and 18 decimals. tokens with more or less than this range will not work and can
      *      result in unnecessary borrower default.
      *
      * @param _tokenAddress               Array of token addresses to add.
@@ -576,18 +577,7 @@ contract OriginationController is
         Signature calldata sig,
         bytes32 sighash
     ) public view override returns (bool) {
-        bytes memory signature = new bytes(65);
-
-        // Construct byte array directly in assembly for efficiency
-        uint8 v = sig.v;
-        bytes32 r = sig.r;
-        bytes32 s = sig.s;
-
-        assembly {
-            mstore(add(signature, 32), r)
-            mstore(add(signature, 64), s)
-            mstore(add(signature, 96), v)
-        }
+        bytes memory signature = abi.encodePacked(sig.r, sig.s, sig.v);
 
         // Convert sig struct to bytes
         (bool success, bytes memory result) = target.staticcall(
@@ -807,6 +797,7 @@ contract OriginationController is
      * @param sighash                   The hash of the signature payload (used for EIP-1271 check).
      * @param neededSide                The side of the loan the signature will take (lend or borrow).
      */
+    // solhint-disable-next-line code-complexity
     function _validateCounterparties(
         address borrower,
         address lender,
@@ -816,18 +807,27 @@ contract OriginationController is
         bytes32 sighash,
         Side neededSide
     ) internal view {
-        if (caller == signer) revert OC_ApprovedOwnLoan(caller);
+        address signingCounterparty = neededSide == Side.LEND ? lender : borrower;
+        address callingCounterparty = neededSide == Side.LEND ? borrower : lender;
 
-        address shouldBeSigner = neededSide == Side.LEND ? lender : borrower;
-        address shouldBeCaller = shouldBeSigner == lender ? borrower : lender;
+        // Make sure the signer recovered from the loan terms is not the caller,
+        // and even if the caller is approved, the caller is not the signing counterparty
+        if (caller == signer || caller == signingCounterparty) revert OC_ApprovedOwnLoan(caller);
 
-        if (!isSelfOrApproved(shouldBeCaller, caller) && !isApprovedForContract(shouldBeCaller, sig, sighash)) {
+        // Check that caller can actually call this function - neededSide assignment
+        // defaults to BORROW if the signature is not approved by the borrower, but it could
+        // also not be a participant
+        if (!isSelfOrApproved(callingCounterparty, caller) && !isApprovedForContract(callingCounterparty, sig, sighash)) {
             revert OC_CallerNotParticipant(msg.sender);
         }
 
-        if (!isSelfOrApproved(shouldBeSigner, signer) && !isApprovedForContract(shouldBeSigner, sig, sighash)) {
-            revert OC_InvalidSignature(shouldBeSigner, signer);
+        // Check signature validity
+        if (!isSelfOrApproved(signingCounterparty, signer) && !isApprovedForContract(signingCounterparty, sig, sighash)) {
+            revert OC_InvalidSignature(signingCounterparty, signer);
         }
+
+        // Revert if the signer is the calling counterparty
+        if (signer == callingCounterparty) revert OC_SideMismatch(signer);
     }
 
     /**

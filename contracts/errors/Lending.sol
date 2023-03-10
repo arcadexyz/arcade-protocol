@@ -193,6 +193,13 @@ error OC_ArrayTooManyElements();
  */
 error OC_InvalidInstallments(uint256 durationSecs, uint256 numInstallments);
 
+/**
+ * @notice Signer is attempting to take the wrong side of the loan.
+ *
+ * @param signer                       The address of the external signer.
+ */
+error OC_SideMismatch(address signer);
+
 // ==================================== ITEMS VERIFIER ======================================
 /// @notice All errors prefixed with IV_, to separate from other contracts in the protocol.
 
