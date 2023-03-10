@@ -10,10 +10,13 @@ import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "./CallWhitelistApprovals.sol";
+
 import "../interfaces/ICallDelegator.sol";
 import "../interfaces/IAssetVault.sol";
 import "../external/interfaces/IPunks.sol";
+
+import "./CallWhitelistDelegation.sol";
+import "./CallWhitelistApprovals.sol";
 import "./OwnableERC721.sol";
 
 import {
@@ -25,7 +28,8 @@ import {
     AV_NonWhitelistedApproval,
     AV_TooManyItems,
     AV_LengthMismatch,
-    AV_ZeroAddress
+    AV_ZeroAddress,
+    AV_NonWhitelistedDelegation
 } from "../errors/Vault.sol";
 
 /**
@@ -63,7 +67,7 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
     bool public override withdrawEnabled;
 
     /// @notice Whitelist contract to determine if a given external call is allowed.
-    ICallWhitelist public override whitelist;
+    address public override whitelist;
 
     /// @notice The maximum number of items that can be withdrawn from a vault at once.
     uint256 public constant MAX_WITHDRAW_ITEMS = 25;
@@ -93,7 +97,7 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         // The factory should have a tokenId == uint256(address(this))
         // whose owner has ownership control over this contract
         OwnableERC721._setNFT(msg.sender);
-        whitelist = ICallWhitelist(_whitelist);
+        whitelist = _whitelist;
     }
 
     // ========================================= VIEW FUNCTIONS =========================================
@@ -254,11 +258,13 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
      * @param to                    The contract address to call.
      * @param data                  The data to call the contract with.
      */
-    function call(address to, bytes calldata data) external override onlyWithdrawDisabled nonReentrant {
-        if (msg.sender != owner() && !ICallDelegator(owner()).canCallOn(msg.sender, address(this)))
-            revert AV_CallDisallowed(msg.sender);
-
-        if (!whitelist.isWhitelisted(to, bytes4(data[:4]))) revert AV_NonWhitelistedCall(to, bytes4(data[:4]));
+    function call(
+        address to,
+        bytes calldata data
+    ) external override onlyAllowedCallers onlyWithdrawDisabled nonReentrant {
+        if (!ICallWhitelist(whitelist).isWhitelisted(to, bytes4(data[:4]))) {
+            revert AV_NonWhitelistedCall(to, bytes4(data[:4]));
+        }
 
         to.functionCall(data);
 
@@ -274,17 +280,81 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
      * @param spender               The approved spender.
      * @param amount                The amount to approve.
      */
-    function callApprove(address token, address spender, uint256 amount) external override onlyWithdrawDisabled nonReentrant {
-        if (msg.sender != owner() && !ICallDelegator(owner()).canCallOn(msg.sender, address(this)))
-            revert AV_CallDisallowed(msg.sender);
-
-        if (!CallWhitelistApprovals(address(whitelist)).isApproved(token, spender)) revert AV_NonWhitelistedApproval(token, spender);
+    function callApprove(
+        address token,
+        address spender,
+        uint256 amount
+    ) external override onlyAllowedCallers onlyWithdrawDisabled nonReentrant {
+        if (!CallWhitelistApprovals(whitelist).isApproved(token, spender)) {
+            revert AV_NonWhitelistedApproval(token, spender);
+        }
 
         // Do approval
         IERC20(token).approve(spender, amount);
 
         emit Approve(msg.sender, token, spender, amount);
     }
+
+    /**
+     * @notice Delegate a token held by the vault to an external contract. This token must
+     *         be whitelisted for delegation by the CallWhitelistDelegation contract. This
+     *         will grant delegation powers for all tokens within this contract held by the vault.
+     *
+     * @param token                 The token to delegate.
+     * @param target                The address to delegate to (the hot wallet).
+     * @param enable                Whether to enable or disable delegation.
+     */
+    function callDelegateForContract(
+        address token,
+        address target,
+        bool enable
+    ) external override onlyAllowedCallers onlyWithdrawDisabled nonReentrant {
+        if (!CallWhitelistDelegation(whitelist).isDelegationApproved(token)) {
+            revert AV_NonWhitelistedDelegation(token);
+        }
+
+        // Do delegation
+        CallWhitelistDelegation(whitelist).registry().delegateForContract(target, token, enable);
+
+        emit DelegateContract(msg.sender, token, target, enable);
+    }
+
+    /**
+     * @notice Delegate a specific tokenId held by the vault to an external contract. This token must
+     *         be whitelisted for delegation by the CallWhitelistDelegation contract. This
+     *         will grant delegation powers for only the specified tokenId within the token.
+     *
+     * @param token                 The token to delegate.
+     * @param target                The address to delegate to (the hot wallet).
+     * @param tokenId               The token ID to delegate.
+     * @param enable                Whether to enable or disable delegation.
+     */
+    function callDelegateForToken(
+        address token,
+        address target,
+        uint256 tokenId,
+        bool enable
+    ) external override onlyAllowedCallers onlyWithdrawDisabled nonReentrant {
+        if (!CallWhitelistDelegation(whitelist).isDelegationApproved(token)) {
+            revert AV_NonWhitelistedDelegation(token);
+        }
+
+        // Do delegation
+        CallWhitelistDelegation(whitelist).registry().delegateForToken(target, token, tokenId, enable);
+
+        emit DelegateToken(msg.sender, token, target, tokenId, enable);
+    }
+
+    /**
+     * @notice Revoke all delegations the vault has granted to an external contract. For individual
+     *         revocations per-contract and perToken, use callDelegateForContract and callDelegateForToken
+     *         with enabled set to false.
+     */
+     function callRevokeAllDelegates() external override onlyAllowedCallers onlyWithdrawDisabled nonReentrant {
+        CallWhitelistDelegation(whitelist).registry().revokeAllDelegates();
+
+        emit DelegateRevoke(msg.sender);
+     }
 
     // ============================================ HELPERS =============================================
 
@@ -319,6 +389,18 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         uint256 balance = IERC1155(token).balanceOf(address(this), tokenId);
         IERC1155(token).safeTransferFrom(address(this), to, tokenId, balance, "");
         emit WithdrawERC1155(msg.sender, token, to, tokenId, balance);
+    }
+
+    /**
+     * @dev For any utility function, check whether the caller is the owner or has been
+     *      approved via the ICallDelegator interface by the owner.
+     */
+    modifier onlyAllowedCallers() {
+        if (msg.sender != owner() && !ICallDelegator(owner()).canCallOn(msg.sender, address(this))) {
+            revert AV_CallDisallowed(msg.sender);
+        }
+
+        _;
     }
 
     /**

@@ -27,6 +27,9 @@ interface IAssetVault {
     event WithdrawETH(address indexed operator, address indexed recipient, uint256 amount);
     event Call(address indexed operator, address indexed to, bytes data);
     event Approve(address indexed operator, address indexed token, address indexed spender, uint256 amount);
+    event DelegateContract(address indexed operator, address indexed token, address indexed target, bool enabled);
+    event DelegateToken(address indexed operator, address indexed token, address indexed target, uint256 tokenId, bool enabled);
+    event DelegateRevoke(address indexed operator);
 
     // ================= Initializer ==================
 
@@ -36,7 +39,7 @@ interface IAssetVault {
 
     function withdrawEnabled() external view returns (bool);
 
-    function whitelist() external view returns (ICallWhitelist);
+    function whitelist() external view returns (address);
 
     // ================ Withdrawal Operations ================
 
@@ -76,4 +79,10 @@ interface IAssetVault {
     function call(address to, bytes memory data) external;
 
     function callApprove(address token, address spender, uint256 amount) external;
+
+    function callDelegateForContract(address token, address target, bool enable) external;
+
+    function callDelegateForToken(address token, address target, uint256 tokenId, bool enable) external;
+
+    function callRevokeAllDelegates() external;
 }

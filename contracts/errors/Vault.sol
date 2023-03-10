@@ -75,6 +75,13 @@ error AV_LengthMismatch(string arrayType);
  */
 error AV_ZeroAddress();
 
+/**
+ * @notice Delegation disallowed.
+ *
+ * @param token                             The token to delegate.
+ */
+error AV_NonWhitelistedDelegation(address token);
+
 // ==================================== Ownable ERC721 ======================================
 /// @notice All errors prefixed with OERC721_, to separate from other contracts in the protocol.
 

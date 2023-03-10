@@ -13,15 +13,18 @@ import {
     MockERC721,
     MockERC1155,
     CryptoPunksMarket,
+    DelegationRegistry
 } from "../typechain";
 import { mint } from "./utils/erc20";
-import { mint as mintERC721 } from "./utils/erc721";
+import { mintToAddress as mintERC721 } from "./utils/erc721";
 import { mint as mintERC1155 } from "./utils/erc1155";
 import { deploy } from "./utils/contracts";
+import { Test } from "mocha";
 
 type Signer = SignerWithAddress;
 
 interface TestContext {
+    registry: DelegationRegistry
     vault: AssetVault;
     vaultTemplate: AssetVault;
     nft: VaultFactory;
@@ -65,7 +68,8 @@ describe("AssetVault", () => {
      */
     const fixture = async (): Promise<TestContext> => {
         const signers: Signer[] = await hre.ethers.getSigners();
-        const whitelist = <CallWhitelist>await deploy("CallWhitelistApprovals", signers[0], []);
+        const registry = <DelegationRegistry>await deploy("DelegationRegistry", signers[0], []);
+        const whitelist = <CallWhitelist>await deploy("CallWhitelistAllExtensions", signers[0], [registry.address]);
         const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
         const mockERC721 = <MockERC721>await deploy("MockERC721", signers[0], ["Mock ERC721", "MOCK"]);
         const mockERC1155 = <MockERC1155>await deploy("MockERC1155", signers[0], []);
@@ -84,6 +88,7 @@ describe("AssetVault", () => {
         const punks = <CryptoPunksMarket>await deploy("CryptoPunksMarket", signers[0], []);
 
         return {
+            registry,
             nft: factory,
             vault,
             vaultTemplate,
@@ -181,7 +186,7 @@ describe("AssetVault", () => {
             it("should accept deposit from an ERC721 token", async () => {
                 const { vault, mockERC721, user } = await loadFixture(fixture);
 
-                const tokenId = await mintERC721(mockERC721, user);
+                const tokenId = await mintERC721(mockERC721, user.address);
                 await mockERC721.transferFrom(await user.getAddress(), vault.address, tokenId);
 
                 expect(await mockERC721.ownerOf(tokenId)).to.equal(vault.address);
@@ -191,7 +196,7 @@ describe("AssetVault", () => {
                 const { vault, mockERC721, user } = await loadFixture(fixture);
 
                 for (let i = 0; i < 10; i++) {
-                    const tokenId = await mintERC721(mockERC721, user);
+                    const tokenId = await mintERC721(mockERC721, user.address);
                     await mockERC721.transferFrom(await user.getAddress(), vault.address, tokenId);
 
                     expect(await mockERC721.ownerOf(tokenId)).to.equal(vault.address);
@@ -203,7 +208,7 @@ describe("AssetVault", () => {
 
                 for (let i = 0; i < 10; i++) {
                     const mockERC721 = <MockERC721>await deploy("MockERC721", user, ["Mock ERC721", "MOCK" + i]);
-                    const tokenId = await mintERC721(mockERC721, user);
+                    const tokenId = await mintERC721(mockERC721, user.address);
                     await mockERC721.transferFrom(await user.getAddress(), vault.address, tokenId);
 
                     expect(await mockERC721.ownerOf(tokenId)).to.equal(vault.address);
@@ -678,6 +683,371 @@ describe("AssetVault", () => {
         });
     });
 
+    describe("callDelegateForContract", () => {
+        it("enables delegation if current owner and on whitelist", async () => {
+            const { registry, whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+
+            await whitelist.setDelegationApproval(mockERC20.address, true);
+
+            await expect(vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true))
+                .to.emit(vault, "DelegateContract")
+                .withArgs(user.address, mockERC20.address, other.address, true);
+
+            const delegates = await registry.getDelegatesForContract(vault.address, mockERC20.address);
+            expect(delegates.length).to.eq(1);
+            expect(delegates[0]).to.eq(other.address);
+        });
+
+        it("disables delegation if current owner and on whitelist", async () => {
+            const { registry, whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+
+            await whitelist.setDelegationApproval(mockERC20.address, true);
+
+            await expect(vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true))
+                .to.emit(vault, "DelegateContract")
+                .withArgs(user.address, mockERC20.address, other.address, true);
+
+            let delegates = await registry.getDelegatesForContract(vault.address, mockERC20.address);
+            expect(delegates.length).to.eq(1);
+            expect(delegates[0]).to.eq(other.address);
+
+            await expect(vault.connect(user).callDelegateForContract(mockERC20.address, other.address, false))
+                .to.emit(vault, "DelegateContract")
+                .withArgs(user.address, mockERC20.address, other.address, false);
+
+            delegates = await registry.getDelegatesForContract(vault.address, mockERC20.address);
+            expect(delegates.length).to.eq(0);
+        });
+
+        it("succeeds if delegated and on whitelist", async () => {
+            const { registry, nft, whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+
+            const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+            await mockCallDelegator.connect(other).setCanCall(true);
+
+            await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
+
+            await whitelist.setDelegationApproval(mockERC20.address, true);
+
+            await expect(vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true))
+                .to.emit(vault, "DelegateContract")
+                .withArgs(user.address, mockERC20.address, other.address, true);
+
+            const delegates = await registry.getDelegatesForContract(vault.address, mockERC20.address);
+            expect(delegates.length).to.eq(1);
+            expect(delegates[0]).to.eq(other.address);
+        });
+
+        it("fails if withdraw enabled on vault", async () => {
+            const { whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+
+            await whitelist.setDelegationApproval(mockERC20.address, true);
+
+            // enable withdraw on the vault
+            await vault.connect(user).enableWithdraw();
+
+            await expect(vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true))
+                .to.be.revertedWith("AV_WithdrawsEnabled");
+        });
+
+        it("fails if delegator disallows", async () => {
+            const { nft, whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+
+            const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+            await mockCallDelegator.connect(other).setCanCall(false);
+
+            await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
+
+            await whitelist.setDelegationApproval(mockERC20.address, true);
+
+            await expect(vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true))
+                .to.be.revertedWith("AV_CallDisallowed");
+        });
+
+        it("fails if delegator is contract which doesn't support interface", async () => {
+            const { nft, whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+
+            const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+            await mockCallDelegator.connect(other).setCanCall(false);
+
+            await nft.transferFrom(await user.getAddress(), mockERC20.address, vault.address);
+
+            await whitelist.setDelegationApproval(mockERC20.address, true);
+
+            await expect(vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true))
+                .to.be.revertedWith(
+                    "Transaction reverted: function selector was not recognized and there's no fallback function",
+                );
+        });
+
+        it("fails from current owner if not whitelisted", async () => {
+            const { vault, mockERC20, user, other } = await loadFixture(fixture);
+
+            await expect(vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true))
+                .to.be.revertedWith("AV_NonWhitelistedDelegation");
+        });
+
+        it("fails if delegated and not whitelisted", async () => {
+            const { nft, vault, mockERC20, user, other } = await loadFixture(fixture);
+
+            const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+            await mockCallDelegator.connect(other).setCanCall(true);
+
+            await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
+
+            await expect(vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true))
+                .to.be.revertedWith("AV_NonWhitelistedDelegation");
+        });
+    });
+
+    describe("callDelegateForToken", () => {
+        it("enables delegation if current owner and on whitelist", async () => {
+            const { registry, whitelist, vault, mockERC721, user, other } = await loadFixture(fixture);
+
+            await whitelist.setDelegationApproval(mockERC721.address, true);
+            const tokenId = await mintERC721(mockERC721, vault.address);
+
+            // Mint a second one, should have no delegates
+            const tokenId2 = await mintERC721(mockERC721, vault.address);
+
+            await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true))
+                .to.emit(vault, "DelegateToken")
+                .withArgs(user.address, mockERC721.address, other.address, tokenId, true);
+
+            let delegates = await registry.getDelegatesForToken(vault.address, mockERC721.address, tokenId);
+            expect(delegates.length).to.eq(1);
+            expect(delegates[0]).to.eq(other.address);
+
+            delegates = await registry.getDelegatesForToken(vault.address, mockERC721.address, tokenId2);
+            expect(delegates.length).to.eq(0);
+        });
+
+        it("disables delegation if current owner and on whitelist", async () => {
+            const { registry, whitelist, vault, mockERC721, user, other } = await loadFixture(fixture);
+
+            await whitelist.setDelegationApproval(mockERC721.address, true);
+            const tokenId = await mintERC721(mockERC721, vault.address);
+
+            await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true))
+                .to.emit(vault, "DelegateToken")
+                .withArgs(user.address, mockERC721.address, other.address, tokenId, true);
+
+            let delegates = await registry.getDelegatesForToken(vault.address, mockERC721.address, tokenId);
+            expect(delegates.length).to.eq(1);
+            expect(delegates[0]).to.eq(other.address);
+
+            await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, false))
+                .to.emit(vault, "DelegateToken")
+                .withArgs(user.address, mockERC721.address, other.address, tokenId, false);
+
+            delegates = await registry.getDelegatesForToken(vault.address, mockERC721.address, tokenId);
+            expect(delegates.length).to.eq(0);
+        });
+
+        it("succeeds if delegated and on whitelist", async () => {
+            const { registry, nft, whitelist, vault, mockERC721, user, other } = await loadFixture(fixture);
+
+            const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+            await mockCallDelegator.connect(other).setCanCall(true);
+
+            await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
+
+            await whitelist.setDelegationApproval(mockERC721.address, true);
+            const tokenId = await mintERC721(mockERC721, vault.address);
+
+            await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true))
+                .to.emit(vault, "DelegateToken")
+                .withArgs(user.address, mockERC721.address, other.address, tokenId, true);
+
+            const delegates = await registry.getDelegatesForToken(vault.address, mockERC721.address, tokenId);
+            expect(delegates.length).to.eq(1);
+            expect(delegates[0]).to.eq(other.address);
+        });
+
+        it("fails if withdraw enabled on vault", async () => {
+            const { whitelist, vault, mockERC721, user, other } = await loadFixture(fixture);
+
+            await whitelist.setDelegationApproval(mockERC721.address, true);
+            const tokenId = await mintERC721(mockERC721, vault.address);
+
+            // enable withdraw on the vault
+            await vault.connect(user).enableWithdraw();
+
+            await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true))
+                .to.be.revertedWith("AV_WithdrawsEnabled");
+        });
+
+        it("fails if delegator disallows", async () => {
+            const { nft, whitelist, vault, mockERC721, user, other } = await loadFixture(fixture);
+
+            const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+            await mockCallDelegator.connect(other).setCanCall(false);
+
+            await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
+
+            await whitelist.setDelegationApproval(mockERC721.address, true);
+            const tokenId = await mintERC721(mockERC721, vault.address);
+
+            await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true))
+                .to.be.revertedWith("AV_CallDisallowed");
+        });
+
+        it("fails if delegator is contract which doesn't support interface", async () => {
+            const { nft, whitelist, vault, mockERC721, user, other } = await loadFixture(fixture);
+
+            const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+            await mockCallDelegator.connect(other).setCanCall(false);
+
+            // transfer the NFT to the call delegator (like using it as loan collateral)
+            await nft.transferFrom(await user.getAddress(), mockERC721.address, vault.address);
+
+            await whitelist.setDelegationApproval(mockERC721.address, true);
+            const tokenId = await mintERC721(mockERC721, vault.address);
+
+            await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true))
+                .to.be.revertedWith(
+                    "Transaction reverted: function selector was not recognized and there's no fallback function",
+                );
+        });
+
+        it("fails from current owner if not whitelisted", async () => {
+            const { vault, mockERC721, user, other } = await loadFixture(fixture);
+            const tokenId = await mintERC721(mockERC721, vault.address);
+
+            await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true))
+                .to.be.revertedWith("AV_NonWhitelistedDelegation");
+        });
+
+        it("fails if delegated and not whitelisted", async () => {
+            const { nft, vault, mockERC721, user, other } = await loadFixture(fixture);
+            const tokenId = await mintERC721(mockERC721, vault.address);
+
+            const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+            await mockCallDelegator.connect(other).setCanCall(true);
+
+            await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
+
+            await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true))
+                .to.be.revertedWith("AV_NonWhitelistedDelegation");
+        });
+    });
+
+    describe("revokeAllDelegates", () => {
+        let ctx: TestContext;
+        let other2: SignerWithAddress;
+        let tokenId: BigNumberish;
+        let tokenId2: BigNumberish;
+
+        beforeEach(async () => {
+            // Make some delegations
+            // Delegate all ERC20 to other
+            // Delegate one ERC721 to other, another to other2
+
+            ctx = await loadFixture(fixture);
+            const { registry, whitelist, vault, mockERC20, mockERC721, user, other, signers } = ctx;
+            other2 = signers[0];
+
+            await whitelist.setDelegationApproval(mockERC20.address, true);
+            await whitelist.setDelegationApproval(mockERC721.address, true);
+
+            tokenId = await mintERC721(mockERC721, vault.address);
+            tokenId2 = await mintERC721(mockERC721, vault.address);
+
+            await expect(vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true))
+                .to.emit(vault, "DelegateContract")
+                .withArgs(user.address, mockERC20.address, other.address, true);
+
+            await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true))
+                .to.emit(vault, "DelegateToken")
+                .withArgs(user.address, mockERC721.address, other.address, tokenId, true);
+
+            await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other2.address, tokenId2, true))
+                .to.emit(vault, "DelegateToken")
+                .withArgs(user.address, mockERC721.address, other2.address, tokenId2, true);
+
+            let delegates = await registry.getDelegatesForContract(vault.address, mockERC20.address);
+            expect(delegates.length).to.eq(1);
+
+            delegates = await registry.getDelegatesForToken(vault.address, mockERC721.address, tokenId);
+            expect(delegates.length).to.eq(1);
+
+            delegates = await registry.getDelegatesForToken(vault.address, mockERC721.address, tokenId2);
+            expect(delegates.length).to.eq(1);
+        });
+
+        it("revokes all delegates if current owner", async () => {
+            const { vault, registry, user, mockERC20, mockERC721 } = ctx;
+
+            await expect(vault.connect(user).callRevokeAllDelegates())
+                .to.emit(vault, "DelegateRevoke")
+                .withArgs(user.address);
+
+            let delegates = await registry.getDelegatesForContract(vault.address, mockERC20.address);
+            expect(delegates.length).to.eq(0);
+
+            delegates = await registry.getDelegatesForToken(vault.address, mockERC721.address, tokenId);
+            expect(delegates.length).to.eq(0);
+
+            delegates = await registry.getDelegatesForToken(vault.address, mockERC721.address, tokenId2);
+            expect(delegates.length).to.eq(0);
+        });
+
+        it("revokes all delegates if delegated to ICallDelegator", async () => {
+            const { vault, registry, user, mockERC20, mockERC721, nft, other } = ctx;
+
+            const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+            await mockCallDelegator.connect(other).setCanCall(true);
+
+            await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
+
+            await expect(vault.connect(user).callRevokeAllDelegates())
+                .to.emit(vault, "DelegateRevoke")
+                .withArgs(user.address);
+
+            let delegates = await registry.getDelegatesForContract(vault.address, mockERC20.address);
+            expect(delegates.length).to.eq(0);
+
+            delegates = await registry.getDelegatesForToken(vault.address, mockERC721.address, tokenId);
+            expect(delegates.length).to.eq(0);
+
+            delegates = await registry.getDelegatesForToken(vault.address, mockERC721.address, tokenId2);
+            expect(delegates.length).to.eq(0);
+        });
+
+        it("fails if withdraw enabled on vault", async () => {
+            const { vault, user } = ctx;
+
+            // enable withdraw on the vault
+            await vault.connect(user).enableWithdraw();
+
+            await expect(vault.connect(user).callRevokeAllDelegates())
+                .to.be.revertedWith("AV_WithdrawsEnabled");
+        });
+
+        it("fails if delegator disallows", async () => {
+            const { vault, user, nft, other } = ctx;
+
+            const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+            await mockCallDelegator.connect(other).setCanCall(false);
+
+            await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
+
+            await expect(vault.connect(user).callRevokeAllDelegates())
+                .to.be.revertedWith("AV_CallDisallowed");
+        });
+
+        it("fails if delegator is contract which doesn't support interface", async () => {
+            const { vault, user, nft, mockERC20 } = ctx;
+
+            await nft.transferFrom(user.address, mockERC20.address, vault.address);
+
+            await expect(vault.connect(user).callRevokeAllDelegates())
+                .to.be.revertedWith(
+                    "Transaction reverted: function selector was not recognized and there's no fallback function",
+                );
+        });
+    });
+
     describe("Withdraw", () => {
         describe("ERC20", () => {
             /**
@@ -804,7 +1174,7 @@ describe("AssetVault", () => {
              * Set up a withdrawal test by depositing some ERC721s into a bundle
              */
             const deposit = async (token: MockERC721, vault: AssetVault, user: Signer) => {
-                const tokenId = await mintERC721(token, user);
+                const tokenId = await mintERC721(token, user.address);
                 await token["safeTransferFrom(address,address,uint256)"](
                     await user.getAddress(),
                     vault.address,
@@ -946,7 +1316,7 @@ describe("AssetVault", () => {
             };
 
             const depositERC721 = async (token: MockERC721, vault: AssetVault, user: Signer) => {
-                const tokenId = await mintERC721(token, user);
+                const tokenId = await mintERC721(token, user.address);
                 await token["safeTransferFrom(address,address,uint256)"](
                     await user.getAddress(),
                     vault.address,
