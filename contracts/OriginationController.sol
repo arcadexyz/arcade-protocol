@@ -2,14 +2,12 @@
 
 pragma solidity ^0.8.11;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/cryptography/draft-EIP712Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
-import { ECDSAUpgradeable as ECDSA } from "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 import "./interfaces/IOriginationController.sol";
 import "./interfaces/ILoanCore.sol";
@@ -60,15 +58,13 @@ import {
  * of both the collateral and loan principal.
  */
 contract OriginationController is
-    Initializable,
     InstallmentsCalc,
     IOriginationController,
-    EIP712Upgradeable,
-    ReentrancyGuardUpgradeable,
-    AccessControlEnumerableUpgradeable,
-    UUPSUpgradeable
+    EIP712,
+    ReentrancyGuard,
+    AccessControlEnumerable
 {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeERC20 for IERC20;
 
     // ============================================ STATE ==============================================
 
@@ -114,16 +110,6 @@ contract OriginationController is
     // ========================================== CONSTRUCTOR ===========================================
 
     /**
-     * @notice Runs the initializer function in an upgradeable contract.
-     *
-     *  @dev Add Unsafe-allow comment to notify upgrades plugin to accept the constructor.
-     */
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() initializer {}
-
-    // ========================================== INITIALIZER ===========================================
-
-    /**
      * @notice Creates a new origination controller contract, also initializing
      *         the parent signature verifier.
      *
@@ -132,12 +118,8 @@ contract OriginationController is
      *
      * @param _loanCore                     The address of the loan core logic of the protocol.
      */
-
-    function initialize(address _loanCore) public initializer {
-        __EIP712_init("OriginationController", "2");
-        __AccessControlEnumerable_init_unchained();
-        __UUPSUpgradeable_init_unchained();
-        __ReentrancyGuard_init_unchained();
+    constructor(address _loanCore) EIP712("OriginationController", "3") {
+        if (_loanCore == address(0)) revert OC_ZeroAddress();
 
         _setupRole(ADMIN_ROLE, msg.sender);
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
@@ -145,20 +127,8 @@ contract OriginationController is
         _setupRole(WHITELIST_MANAGER_ROLE, msg.sender);
         _setRoleAdmin(WHITELIST_MANAGER_ROLE, ADMIN_ROLE);
 
-        if (_loanCore == address(0)) revert OC_ZeroAddress();
-
         loanCore = _loanCore;
     }
-
-    // ========================================== ADMIN UTILS ===========================================
-
-    /**
-     * @notice Authorization function to define who should be allowed to upgrade the contract
-     *
-     * @param newImplementation             The address of the upgraded verion of this contract
-     */
-
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(ADMIN_ROLE) {}
 
     // ===================================== WHITELIST MANAGER UTILS =====================================
 
@@ -846,8 +816,8 @@ contract OriginationController is
         address lender
     ) internal nonReentrant returns (uint256 loanId) {
         // Take custody of funds
-        IERC20Upgradeable(loanTerms.payableCurrency).safeTransferFrom(lender, address(this), loanTerms.principal);
-        IERC20Upgradeable(loanTerms.payableCurrency).approve(loanCore, loanTerms.principal);
+        IERC20(loanTerms.payableCurrency).safeTransferFrom(lender, address(this), loanTerms.principal);
+        IERC20(loanTerms.payableCurrency).approve(loanCore, loanTerms.principal);
 
         IERC721(loanTerms.collateralAddress).transferFrom(borrower, address(this), loanTerms.collateralId);
         IERC721(loanTerms.collateralAddress).approve(loanCore, loanTerms.collateralId);
@@ -877,7 +847,7 @@ contract OriginationController is
         LoanLibrary.LoanTerms memory oldTerms = oldLoanData.terms;
 
         address oldLender = ILoanCore(loanCore).lenderNote().ownerOf(oldLoanId);
-        IERC20Upgradeable payableCurrency = IERC20Upgradeable(oldTerms.payableCurrency);
+        IERC20 payableCurrency = IERC20(oldTerms.payableCurrency);
         uint256 rolloverFee = ILoanCore(loanCore).feeController().getRolloverFee();
 
         // Settle amounts
