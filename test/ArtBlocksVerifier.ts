@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import hre, { ethers, waffle, upgrades } from "hardhat";
+import hre, { ethers, waffle } from "hardhat";
 
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
@@ -43,14 +43,7 @@ describe("ArtBlocksVerifier", () => {
         const verifier = <ArtBlocksVerifier>await deploy("ArtBlocksVerifier", deployer, []);
 
         const vaultTemplate = <AssetVault>await deploy("AssetVault", deployer, []);
-        const VaultFactoryFactory = await hre.ethers.getContractFactory("VaultFactory");
-        const vaultFactory = <VaultFactory>await upgrades.deployProxy(
-            VaultFactoryFactory,
-            [vaultTemplate.address, whitelist.address],
-            {
-                kind: "uups",
-            },
-        );
+        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address])
 
         // Mint a few projects - will start with ID 3
         await artblocks.addProject("Project 1", user.address, price, false);

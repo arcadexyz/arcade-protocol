@@ -1,12 +1,12 @@
 import { expect } from "chai";
-import hre, { waffle, upgrades } from "hardhat";
+import hre, { waffle } from "hardhat";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { BigNumber, BigNumberish } from "ethers";
 import { fromRpcSig } from "ethereumjs-util";
 
 import { ZERO_ADDRESS } from "./utils/erc20";
-import { CallWhitelist, AssetVault, VaultFactory, VaultFactoryV2 } from "../typechain";
+import { CallWhitelist, AssetVault, VaultFactory } from "../typechain";
 import { deploy } from "./utils/contracts";
 
 type Signer = SignerWithAddress;
@@ -29,10 +29,7 @@ describe("VaultFactory", () => {
         const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
         const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
 
-        const VaultFactory = await hre.ethers.getContractFactory("VaultFactory");
-        const factory = <VaultFactory>(
-            await upgrades.deployProxy(VaultFactory, [vaultTemplate.address, whitelist.address], { kind: "uups" })
-        );
+        const factory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address])
 
         return {
             factory,
@@ -69,7 +66,7 @@ describe("VaultFactory", () => {
 
         const VaultFactory = await hre.ethers.getContractFactory("VaultFactory");
         await expect(
-            upgrades.deployProxy(VaultFactory, [ZERO_ADDRESS, whitelist.address], { kind: "uups" }),
+            VaultFactory.deploy(ZERO_ADDRESS, whitelist.address)
         ).to.be.revertedWith("VF_InvalidTemplate");
     });
 
@@ -507,7 +504,7 @@ describe("VaultFactory", () => {
                             token
                                 .connect(user)
                                 .transferFrom(await other.getAddress(), await other.getAddress(), tokenId),
-                        ).to.be.revertedWith("ERC721: transfer from incorrect owner");
+                        ).to.be.revertedWith("ERC721: transfer of token that is not own");
                     });
 
                     it("fails when the sender is not authorized", async () => {
@@ -536,16 +533,6 @@ describe("VaultFactory", () => {
                     });
                 });
             });
-        });
-    });
-
-    describe("Upgradeable", () => {
-        it("Upgrades to v2", async () => {
-            const { factory } = await loadFixture(fixture);
-            const VaultFactoryV2 = await hre.ethers.getContractFactory("VaultFactoryV2");
-            const vaultFactoryV2 = <VaultFactoryV2>await hre.upgrades.upgradeProxy(factory.address, VaultFactoryV2);
-
-            expect(await vaultFactoryV2.version()).to.equal("This is VaultFactory V2!");
         });
     });
 });

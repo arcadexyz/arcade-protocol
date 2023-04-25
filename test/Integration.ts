@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import hre, { ethers, waffle, upgrades } from "hardhat";
+import hre, { ethers, waffle } from "hardhat";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { BigNumber } from "ethers";
@@ -55,27 +55,14 @@ describe("Integration", () => {
 
         const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
         const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
-        const VaultFactoryFactory = await hre.ethers.getContractFactory("VaultFactory");
-        const vaultFactory = <VaultFactory>await upgrades.deployProxy(
-            VaultFactoryFactory,
-            [vaultTemplate.address, whitelist.address],
-            {
-                kind: "uups",
-            },
-        );
+        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address])
+
         const feeController = <FeeController>await deploy("FeeController", admin, []);
 
         const borrowerNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz BorrowerNote", "aBN"]);
         const lenderNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz LenderNote", "aLN"]);
 
-        const LoanCore = await hre.ethers.getContractFactory("LoanCore");
-        const loanCore = <LoanCore>await upgrades.deployProxy(
-            LoanCore,
-            [feeController.address, borrowerNote.address, lenderNote.address],
-            {
-                kind: "uups",
-            },
-        );
+        const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [feeController.address, borrowerNote.address, lenderNote.address]);
 
         // Grant correct permissions for promissory note
         for (const note of [borrowerNote, lenderNote]) {
@@ -95,10 +82,9 @@ describe("Integration", () => {
         );
         await updateRepaymentControllerPermissions.wait();
 
-        const OriginationController = await hre.ethers.getContractFactory("OriginationController");
-        const originationController = <OriginationController>(
-            await upgrades.deployProxy(OriginationController, [loanCore.address], { kind: "uups" })
-        );
+        const originationController = <OriginationController>await deploy(
+            "OriginationController", signers[0], [loanCore.address]
+        )
         await originationController.deployed();
 
         // admin whitelists MockERC20 on OriginationController
@@ -113,7 +99,7 @@ describe("Integration", () => {
         // verify the collateral is whitelisted
         const isVaultFactoryWhitelisted = await originationController.allowedCollateral(vaultFactory.address);
         expect(isVaultFactoryWhitelisted).to.be.true;
-        
+
         const updateOriginationControllerPermissions = await loanCore.grantRole(
             ORIGINATOR_ROLE,
             originationController.address,
@@ -188,7 +174,7 @@ describe("Integration", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 1,
                 "b",
             );
@@ -220,7 +206,7 @@ describe("Integration", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 1,
                 "b",
             );
@@ -249,7 +235,7 @@ describe("Integration", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 1,
                 "b",
             );
@@ -276,7 +262,7 @@ describe("Integration", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 1,
                 "b",
             );
@@ -316,7 +302,7 @@ describe("Integration", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 nonce,
                 "b",
             );
@@ -450,7 +436,7 @@ describe("Integration", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 nonce,
                 "b",
             );
