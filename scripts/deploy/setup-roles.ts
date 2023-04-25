@@ -72,21 +72,6 @@ export async function main(
     console.log(`CallWhitelist: ownership transferred to ${ADMIN_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
-    // ============= VaultFactory ==============
-
-    // grant VaultFactory the admin role to enable authorizeUpgrade onlyRole(ADMIN_ROLE)
-    const updateVaultFactoryAdmin = await factory.grantRole(ADMIN_ROLE, ADMIN_ADDRESS);
-    await updateVaultFactoryAdmin.wait();
-
-    console.log(`VaultFactory: admin role granted to ${ADMIN_ADDRESS}`);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const renounceVaultFactoryAdmin = await factory.renounceRole(ADMIN_ROLE, deployer.address);
-    await renounceVaultFactoryAdmin.wait();
-
-    console.log("VaultFactory: deployer has renounced admin role");
-    console.log(SUBSECTION_SEPARATOR);
-
     // ============= FeeController ==============
 
     // set FeeController admin
@@ -112,7 +97,7 @@ export async function main(
 
     // ============= LoanCore ==============
 
-    // grant LoanCore the admin role to enable authorizeUpgrade onlyRole(ADMIN_ROLE)
+    // grant the admin role for LoanCore
     const updateLoanCoreAdmin = await loanCore.grantRole(ADMIN_ROLE, ADMIN_ADDRESS);
     await updateLoanCoreAdmin.wait();
 
@@ -160,7 +145,7 @@ export async function main(
     console.log(`OriginationController: added ${verifier.address} as allowed verifier`);
     console.log(SUBSECTION_SEPARATOR);
 
-    // grant originationContoller the owner role to enable authorizeUpgrade onlyOwner
+    // grant originationContoller the owner role
     const updateOriginationControllerAdmin = await originationController.grantRole(ADMIN_ROLE, ADMIN_ADDRESS);
     await updateOriginationControllerAdmin.wait();
 
