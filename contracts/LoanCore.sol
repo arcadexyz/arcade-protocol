@@ -475,7 +475,7 @@ contract LoanCore is
      *
      * @return allowed              True if the caller is allowed to call on the vault.
      */
-    function canCallOn(address caller, address vault) external view override returns (bool) {
+    function canCallOn(address caller, address vault) external view override whenNotPaused returns (bool) {
         // if the collateral is not currently being used in a loan, disallow
         if (!collateralInUse[keccak256(abi.encode(OwnableERC721(vault).ownershipToken(), uint256(uint160(vault))))]) {
             return false;
