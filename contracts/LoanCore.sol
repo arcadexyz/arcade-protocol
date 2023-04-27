@@ -62,6 +62,7 @@ contract LoanCore is
     bytes32 public constant FEE_CLAIMER_ROLE = keccak256("FEE_CLAIMER_ROLE");
 
     uint256 private constant PERCENT_MISSED_FOR_LENDER_CLAIM = 4000;
+
     // =============== Contract References ================
 
     IPromissoryNote public override borrowerNote;
@@ -79,10 +80,12 @@ contract LoanCore is
     // ========================================== CONSTRUCTOR ===========================================
 
     /**
-     * @notice Initializes the loan core contract, by initializing parent
-     *         contracts, setting up roles, and setting up contract references.
+     * @notice Deploys the loan core contract, by setting up roles and external
+     *         contract references.
      *
      * @param _feeController      The address of the contract governing protocol fees.
+     * @param _borrowerNote       The address of the PromissoryNote contract representing borrower obligation.
+     * @param _lenderNote         The address of the PromissoryNote contract representing lender obligation.
      */
     constructor(
         IFeeController _feeController,
@@ -339,7 +342,7 @@ contract LoanCore is
         emit LoanRolledOver(oldLoanId, newLoanId);
     }
 
-    // ===================================== INSTALLMENT OPERATI\ONS =====================================
+    // ===================================== INSTALLMENT OPERATIONS =====================================
 
     /**
      * @notice Called from RepaymentController when paying back an installment loan.
