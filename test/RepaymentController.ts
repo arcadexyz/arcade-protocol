@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import hre, { ethers, waffle, upgrades } from "hardhat";
+import hre, { ethers, waffle } from "hardhat";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import {
@@ -72,25 +72,14 @@ const fixture = async (): Promise<TestContext> => {
 
     const whitelist = <CallWhitelist>await deploy("CallWhitelist", admin, []);
     const vaultTemplate = <AssetVault>await deploy("AssetVault", admin, []);
-
-    const VaultFactory = await ethers.getContractFactory("VaultFactory");
-    const vaultFactory = <VaultFactory>(
-        await upgrades.deployProxy(VaultFactory, [vaultTemplate.address, whitelist.address], { kind: "uups" })
-    );
+    const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address])
 
     const feeController = <FeeController>await deploy("FeeController", admin, []);
 
     const borrowerNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz BorrowerNote", "aBN"]);
     const lenderNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz LenderNote", "aLN"]);
 
-    const LoanCore = await hre.ethers.getContractFactory("LoanCore");
-    const loanCore = <LoanCore>await upgrades.deployProxy(
-        LoanCore,
-        [feeController.address, borrowerNote.address, lenderNote.address],
-        {
-            kind: "uups",
-        },
-    );
+    const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [feeController.address, borrowerNote.address, lenderNote.address]);
 
     // Grant correct permissions for promissory note
     for (const note of [borrowerNote, lenderNote]) {
@@ -99,10 +88,9 @@ const fixture = async (): Promise<TestContext> => {
 
     const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
 
-    const OriginationController = await hre.ethers.getContractFactory("OriginationController");
-    const originationController = <OriginationController>(
-        await upgrades.deployProxy(OriginationController, [loanCore.address], { kind: "uups" })
-    );
+    const originationController = <OriginationController>await deploy(
+        "OriginationController", signers[0], [loanCore.address]
+    )
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController
@@ -210,7 +198,7 @@ const initializeLoan = async (
         "OriginationController",
         loanTerms,
         borrower,
-        "2",
+        "3",
         1,
         "b",
     );

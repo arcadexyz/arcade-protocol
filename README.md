@@ -117,23 +117,14 @@ This is version 2 of the protocol. Version 1 of the protocol can be found [here]
 
 # Privileged Roles and Access
 
-The Arcade.xyz lending protocol has myriad functionality available to contract owners. This functionality represents a tradeoff between immutability, operational security, and recoverability in the case of exploit.
-
-Arcade.xyz's policy is to assign any ownership functions to a multisig with a subset of signers external to the team, and a signing threshold such that one external signer must always participate. This precludes internal collusion, "rogue insider" attacks, and malicious upgrades. Other groups deploying these contracts should implement their own policies.
+The Arcade.xyz lending protocol has myriad functionality available to contract owners. This functionality represents a tradeoff between immutability, operational security, and recoverability in the case of exploit. All Arcade.xyz lending protocol contracts are non-upgradeable.
 
 - `CallWhitelist.sol` is `Ownable` and has a defined owner, who can update a whitelist of allowed calls. This whitelist is global to every `AssetVault` deployed through the `VaultFactory`. In plain terms, the `CallWhitelist` owner has the ability to change the allowed functions an `AssetVault` can call. In practice, ownership follows the stated ownership policy above.
-- `VaultFactory.sol` is `AccessControl` and upgradeable. The only role `AccessControl` manages is the `ADMIN_ROLE`. Callers must possess the `ADMIN_ROLE` in order to perform an upgrade. Since the contract is upgradeable, the contract owner can update the code of the contract as they see fit, which may:
-  _ affect future deployments of `AssetVault`, causing them to be deployed with different code
-  _ change the way ownership is defined for `AssetVault`, including pre-existing owners \* add additional functionality to the factory
-  In practice, ownership (and thus access to upgradeability) follows the stated ownership policy above.
+- `VaultFactory.sol` contains no privileged roles or functionality.
 - `FeeController.sol` is `Ownable` and has a defined owner, who can update the protocol fees. In practice, this contract may be administered by an internal Arcade.xyz team without external signers, since it defines business logic around fees and has limited functionality. Internal constants define maximum fees that the protocol can set, preventing an attack whereby funds are drained via setting fees to 100%. Note that `LoanCore.sol` can switch out to a different FeeController entirely.
 - `LoanCore.sol` is `AccessControl` and has a number of defined access roles:
   - The `ORIGINATOR_ROLE` is the only role allowed to access any functions which originate loans. In practice this role is granted to another smart contract, `OriginationController.sol`, which performs necessary checks and validation before starting loans.
   - The `REPAYER_ROLE` is the only role allowed to access any functions which affect the loan lifecycle of currently active loans (repayment or default claims). In practice this role is granted to another smart contract, `RepaymentController.sol`, which performs necessary checks, calculations and validation before starting loans.
   - The `FEE_CLAIMER_ROLE` is the only role allowed to update references to the `FeeController`, and claim any accumulated protocol fees. In practice this role will be assigned to an internal multisig, since withdrawing accumulated fees is a regular aspect of protocol operation.
-  - The `ADMIN_ROLE` is the role allowed to perform contract upgrades. Since `LoanCore` is upgradeable, any aspect of the core protocol may change. Users should be aware that since `LoanCore` custodies collateral, contract upgrades may change access of security of the collateral. In practice, ownership (and thus access to upgradeability) follows the stated ownership policy above. `LoanCore` upgradeability is a last-resort feature to only be used in emergencies.
-- `OriginationController.sol` is `Ownable` and upgradeable. The defined owner is the only role which can perform a contract upgrade. Since the contract is upgradeable, the contract owner can update the code of the contract as they see fit, which may:
-  _ change, add, or, remove validation checks for originating loans
-  _ change signature schemes for loan consent
-  Upgradeability is enabled in order to preserve approval state held by the contract. In practice, ownership (and thus access to upgradeability) follows the stated ownership policy above.
+- `OriginationController.sol` is `AccessControl` and specifies an `ADMIN_ROLE` and a `WHITELIST_MANAGER_ROLE`. The latter role can update the principal currency, collateral, and verifier whitelist. The `ADMIN_ROLE` can grant or revoke the whitelist manager role.
 - `PromissoryNote.sol` is `Ownable`, and the owner has exclusive permission to initialize the contract with a reference to an address which is allowed to mint and burn note tokens. In practice, this permission will be granted to `LoanCore.sol`. Since `initialize` is called on deployment and can only be called once, in practice, the owner will be the deployer.

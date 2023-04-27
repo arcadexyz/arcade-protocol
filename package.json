@@ -5,6 +5,7 @@
     "repository": "https://github.com/arcadexyz/v2-contracts",
     "devDependencies": {
         "@aave/protocol-v2": "^1.0.1",
+        "@balancer-labs/v2-vault": "^2.0.0",
         "@commitlint/cli": "^9.1.2",
         "@commitlint/config-conventional": "^9.1.2",
         "@ethersproject/abstract-signer": "^5.0.6",
@@ -93,10 +94,5 @@
         "bootstrap-no-loans": "npx hardhat --network localhost run scripts/bootstrap-state-no-loans.ts",
         "verify-contracts": "ts-node scripts/verify-contracts.ts",
         "setup-roles": "ts-node scripts/utils/setup-roles.ts"
-    },
-    "dependencies": {
-        "@balancer-labs/v2-vault": "^2.0.0",
-        "@openzeppelin/contracts-upgradeable": "4.5.2",
-        "@openzeppelin/hardhat-upgrades": "^1.17.0"
     }
 }

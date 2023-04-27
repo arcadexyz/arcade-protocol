@@ -1,11 +1,10 @@
 import fs from "fs";
 import path from "path";
-import hre, { upgrades } from "hardhat";
+import hre from "hardhat";
 import { BigNumberish } from "ethers";
 
 export interface ContractData {
     contractAddress: string;
-    contractImplementationAddress?: string;
     constructorArgs: BigNumberish[];
 }
 
@@ -85,25 +84,21 @@ export async function createInfo(
 
     contractInfo["CallWhitelist"] = {
         contractAddress: whitelistAddress,
-        contractImplementationAddress: "",
         constructorArgs: []
     };
 
     contractInfo["AssetVault"] = {
         contractAddress: assetVaultAddress,
-        contractImplementationAddress: "",
         constructorArgs: []
     };
 
     contractInfo["VaultFactory"] = {
         contractAddress: vaultFactoryAddress,
-        contractImplementationAddress: await upgrades.erc1967.getImplementationAddress(vaultFactoryAddress),
         constructorArgs: []
     };
 
     contractInfo["FeeController"] = {
         contractAddress: feeControllerAddress,
-        contractImplementationAddress: "",
         constructorArgs: []
     };
 
@@ -119,25 +114,21 @@ export async function createInfo(
 
     contractInfo["LoanCore"] = {
         contractAddress: loanCoreAddress,
-        contractImplementationAddress: await upgrades.erc1967.getImplementationAddress(loanCoreAddress),
         constructorArgs: [],
     };
 
     contractInfo["RepaymentController"] = {
         contractAddress: repaymentContAddress,
-        contractImplementationAddress: "",
         constructorArgs: [loanCoreAddress]
     };
 
     contractInfo["OriginationController"] = {
         contractAddress: originationContAddress,
-        contractImplementationAddress: await upgrades.erc1967.getImplementationAddress(originationContAddress),
         constructorArgs: []
     };
 
     contractInfo["ArcadeItemsVerifier"] = {
         contractAddress: verifierAddress,
-        contractImplementationAddress: "",
         constructorArgs: []
     };
 

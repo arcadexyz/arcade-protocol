@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import hre, { waffle, upgrades, ethers } from "hardhat";
+import hre, { waffle, ethers } from "hardhat";
 import { BigNumber } from "ethers";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
@@ -49,14 +49,7 @@ describe("ItemsVerifier", () => {
         const mockERC1155 = <MockERC1155>await deploy("MockERC1155", deployer, []);
 
         const vaultTemplate = <AssetVault>await deploy("AssetVault", deployer, []);
-        const VaultFactoryFactory = await hre.ethers.getContractFactory("VaultFactory");
-        const vaultFactory = <VaultFactory>await upgrades.deployProxy(
-            VaultFactoryFactory,
-            [vaultTemplate.address, whitelist.address],
-            {
-                kind: "uups",
-            },
-        );
+        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address])
 
         return {
             verifier,

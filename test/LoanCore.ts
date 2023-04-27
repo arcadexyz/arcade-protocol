@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import hre, { ethers, waffle, upgrades } from "hardhat";
+import hre, { ethers, waffle } from "hardhat";
 const { loadFixture } = waffle;
 import { BigNumber, BigNumberish, Signer } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -11,8 +11,7 @@ import {
     MockERC20,
     CallWhitelist,
     VaultFactory,
-    AssetVault,
-    LoanCoreV2Mock,
+    AssetVault
 } from "../typechain";
 import { BlockchainTime } from "./utils/time";
 import { LoanTerms, LoanState } from "./utils/types";
@@ -94,15 +93,7 @@ describe("LoanCore", () => {
         const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
         const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
 
-        const VaultFactoryFactory = await hre.ethers.getContractFactory("VaultFactory");
-        const vaultFactory = <VaultFactory>await upgrades.deployProxy(
-            VaultFactoryFactory,
-            [vaultTemplate.address, whitelist.address],
-            {
-                kind: "uups",
-                initializer: "initialize(address, address)",
-            },
-        );
+        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address])
 
         const feeController = <FeeController>await deploy("FeeController", signers[0], []);
 
@@ -114,13 +105,10 @@ describe("LoanCore", () => {
         const originator = signers[0];
         const repayer = signers[0];
 
-        const LoanCoreFactory = await hre.ethers.getContractFactory("LoanCore");
-        const loanCore = <LoanCore>(
-            await upgrades.deployProxy(
-                LoanCoreFactory,
-                [feeController.address, mockBorrowerNote.address, mockLenderNote.address],
-                { kind: "uups" },
-            )
+        const loanCore = <LoanCore>await deploy(
+            "LoanCore",
+            signers[0],
+            [feeController.address, mockBorrowerNote.address, mockLenderNote.address]
         );
 
         // Grant correct permissions for promissory note
@@ -179,23 +167,12 @@ describe("LoanCore", () => {
     };
 
     describe("Deployment", () => {
-        let deployedLoanCore: LoanCore;
-
-        beforeEach(async () => {
-            const signers: SignerWithAddress[] = await hre.ethers.getSigners();
-            deployedLoanCore = <LoanCore>await deploy("LoanCore", signers[0], []);
-        });
-
         it("should not allow initialization with an invalid fee controller", async () => {
             const { mockBorrowerNote, mockLenderNote } = await loadFixture(fixture);
             const LoanCoreFactory = await hre.ethers.getContractFactory("LoanCore");
 
             await expect(
-                upgrades.deployProxy(
-                    LoanCoreFactory,
-                    [ZERO_ADDRESS, mockBorrowerNote.address, mockLenderNote.address],
-                    { kind: "uups" },
-                ),
+                LoanCoreFactory.deploy(ZERO_ADDRESS, mockBorrowerNote.address, mockLenderNote.address)
             ).to.be.revertedWith("LC_ZeroAddress");
         });
 
@@ -204,9 +181,7 @@ describe("LoanCore", () => {
             const LoanCoreFactory = await hre.ethers.getContractFactory("LoanCore");
 
             await expect(
-                upgrades.deployProxy(LoanCoreFactory, [feeController.address, ZERO_ADDRESS, mockLenderNote.address], {
-                    kind: "uups",
-                }),
+                LoanCoreFactory.deploy(feeController.address, ZERO_ADDRESS, mockLenderNote.address)
             ).to.be.revertedWith("LC_ZeroAddress");
         });
 
@@ -215,9 +190,7 @@ describe("LoanCore", () => {
             const LoanCoreFactory = await hre.ethers.getContractFactory("LoanCore");
 
             await expect(
-                upgrades.deployProxy(LoanCoreFactory, [feeController.address, mockBorrowerNote.address, ZERO_ADDRESS], {
-                    kind: "uups",
-                }),
+                LoanCoreFactory.deploy(feeController.address, mockBorrowerNote.address, ZERO_ADDRESS)
             ).to.be.revertedWith("LC_ZeroAddress");
         });
     });
@@ -1065,63 +1038,6 @@ describe("LoanCore", () => {
             const { loanCore } = await loadFixture(fixture);
 
             await expect(loanCore.setFeeController(ZERO_ADDRESS)).to.be.revertedWith("LC_ZeroAddress");
-        });
-    });
-
-    describe("Upgradeable", async () => {
-        interface StartLoanState extends TestContext {
-            loanId: BigNumberish;
-            terms: LoanTerms;
-            borrower: SignerWithAddress;
-            lender: SignerWithAddress;
-        }
-
-        const setupLoan = async (): Promise<StartLoanState> => {
-            const context = await loadFixture(fixture);
-
-            const { vaultFactory, mockERC20, loanCore, user: borrower, other: lender } = context;
-            const collateralId = await initializeBundle(borrower);
-            const terms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId });
-
-            await vaultFactory
-                .connect(borrower)
-                .transferFrom(await borrower.getAddress(), await borrower.getAddress(), collateralId);
-            await vaultFactory.connect(borrower).approve(loanCore.address, collateralId);
-
-            await createVault(vaultFactory, borrower);
-
-            await mockERC20.connect(lender).mint(await lender.getAddress(), terms.principal);
-            await mockERC20.connect(lender).transfer(await borrower.getAddress(), terms.principal);
-            await mockERC20.connect(borrower).approve(loanCore.address, terms.principal);
-
-            const loanId = await startLoan(
-                loanCore,
-                borrower,
-                await lender.getAddress(),
-                await borrower.getAddress(),
-                terms,
-            );
-
-            return { ...context, loanId, terms, borrower, lender };
-        };
-
-        it("maintains state: confirms that v1 loans still exist after upgrading to v2", async () => {
-            const { loanCore, loanId } = await setupLoan();
-
-            const storedLoanData = await loanCore.getLoan(loanId);
-            expect(storedLoanData.state).to.equal(LoanState.Active);
-            // READS LOAN STATE FROM V2 (loanCoreV2Mock) ////////////
-
-            const LoanCoreV2MockFactory = await hre.ethers.getContractFactory("LoanCoreV2Mock");
-            const loanCoreV2Mock = <LoanCoreV2Mock>(
-                await hre.upgrades.upgradeProxy(loanCore.address, LoanCoreV2MockFactory)
-            );
-
-            // UPGRADES TO V2 (loanCoreV2Mock) /////////////////////////////
-            expect(await loanCoreV2Mock.version()).to.equal("This is LoanCore V2!");
-
-            const v2StoredLoanData = await loanCoreV2Mock.getLoan(loanId);
-            expect(v2StoredLoanData.state).to.equal(LoanState.Active);
         });
     });
 

@@ -1,5 +1,5 @@
 import chai, { expect } from "chai";
-import hre, { waffle, upgrades } from "hardhat";
+import hre, { waffle } from "hardhat";
 import { solidity } from "ethereum-waffle";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
@@ -19,13 +19,10 @@ import {
     LoanCore,
     ArcadeItemsVerifier,
     FeeController,
-    ERC1271LenderMock,
-    MockOriginationController,
-    ERC721Permit,
+    ERC1271LenderMock
 } from "../typechain";
 import { approve, mint, ZERO_ADDRESS } from "./utils/erc20";
 import { mint as mint721 } from "./utils/erc721";
-import { BlockchainTime } from "./utils/time";
 import { ItemsPredicate, LoanTerms, SignatureItem } from "./utils/types";
 import { createLoanTermsSignature, createLoanItemsSignature, createPermitSignature } from "./utils/eip712";
 import { encodePredicates, encodeSignatureItems, initializeBundle } from "./utils/loans";
@@ -82,13 +79,7 @@ const fixture = async (): Promise<TestContext> => {
     const lenderNote = <PromissoryNote>await deploy("PromissoryNote", deployer, ["Arcade.xyz LenderNote", "aLN"]);
 
     const LoanCore = await hre.ethers.getContractFactory("LoanCore");
-    const loanCore = <LoanCore>await upgrades.deployProxy(
-        LoanCore,
-        [feeController.address, borrowerNote.address, lenderNote.address],
-        {
-            kind: "uups",
-        },
-    );
+    const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [feeController.address, borrowerNote.address, lenderNote.address]);
 
     // Grant correct permissions for promissory note
     for (const note of [borrowerNote, lenderNote]) {
@@ -97,20 +88,16 @@ const fixture = async (): Promise<TestContext> => {
 
     const whitelist = <CallWhitelist>await deploy("CallWhitelist", deployer, []);
     const vaultTemplate = <AssetVault>await deploy("AssetVault", deployer, []);
+    const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address])
 
-    const VaultFactoryFactory = await hre.ethers.getContractFactory("VaultFactory");
-    const vaultFactory = <VaultFactory>(
-        await upgrades.deployProxy(VaultFactoryFactory, [vaultTemplate.address, whitelist.address], { kind: "uups" })
-    );
     const vault = await createVault(vaultFactory, signers[0]);
 
     const mockERC20 = <MockERC20>await deploy("MockERC20", deployer, ["Mock ERC20", "MOCK"]);
     const mockERC721 = <MockERC721>await deploy("MockERC721", deployer, ["Mock ERC721", "MOCK"]);
 
-    const OriginationController = await hre.ethers.getContractFactory("OriginationController");
-    const originationController = <OriginationController>(
-        await upgrades.deployProxy(OriginationController, [loanCore.address], { kind: "uups" })
-    );
+    const originationController = <OriginationController>await deploy(
+        "OriginationController", signers[0], [loanCore.address]
+    )
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController
@@ -205,52 +192,20 @@ describe("OriginationController", () => {
     describe("initializer", () => {
         it("Reverts if _loanCore address is not provided", async () => {
             const OriginationController = await hre.ethers.getContractFactory("OriginationController");
-            await expect(upgrades.deployProxy(OriginationController, [ZERO_ADDRESS])).to.be.revertedWith(
-                "OC_ZeroAddress",
-            );
+            await expect(OriginationController.deploy(ZERO_ADDRESS)).to.be.revertedWith("OC_ZeroAddress");
         });
 
         it("Instantiates the OriginationController", async () => {
             const signers: Signer[] = await hre.ethers.getSigners();
             const [deployer] = signers;
 
-            const loanCore = <LoanCore>await deploy("LoanCore", deployer, []);
+            const { loanCore } = await loadFixture(fixture);
+
             const OriginationController = await hre.ethers.getContractFactory("OriginationController");
-            const originationController = await upgrades.deployProxy(OriginationController, [loanCore.address]);
+            const originationController = await OriginationController.deploy(loanCore.address);
+            await originationController.deployed();
 
             expect(await originationController.loanCore()).to.equal(loanCore.address);
-        });
-    });
-
-    describe("Upgradeability", async () => {
-        let ctx: TestContext;
-
-        beforeEach(async () => {
-            ctx = await loadFixture(fixture);
-        });
-
-        it("v1 functionality can be upgraded in v2", async () => {
-            const { originationController, user: lender, other: borrower } = ctx;
-
-            // THIS IS WHERE ORIGINATION CONTROLLER UPGRADES TO V2 / BECOMES MOCKORIGINATION CONTROLLER
-            const MockOriginationController = await hre.ethers.getContractFactory("MockOriginationController");
-            const mockOriginationController = <MockOriginationController>(
-                await hre.upgrades.upgradeProxy(originationController.address, MockOriginationController)
-            );
-            // THE .version() FUNCTION RETURNS THAT THIS IS V2
-            expect(await mockOriginationController.version()).to.equal("This is OriginationController V2!");
-            // isApproved() IS CALLED AND RETURNS TRUE FOR FOR THE 2 ARGUMENTS NOT BEING EQUAL
-            expect(await mockOriginationController.isApproved(await borrower.getAddress(), await lender.getAddress()))
-                .to.be.true;
-        });
-
-        it("v1 functionality cannot be upgraded to v2 by non authorized user", async () => {
-            const { originationController, user: lender, other } = ctx;
-            const MockOriginationController = await hre.ethers.getContractFactory("MockOriginationController", other);
-
-            await expect(
-                hre.upgrades.upgradeProxy(originationController.address, MockOriginationController),
-            ).to.be.revertedWith(`AccessControl: account ${other.address.toLowerCase()} is missing role ${ADMIN_ROLE}`);
         });
     });
 
@@ -274,7 +229,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 1,
                 "b",
             );
@@ -302,7 +257,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 1,
                 "b",
             );
@@ -328,7 +283,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 1,
                 "b",
             );
@@ -357,7 +312,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 1,
                 "b",
             );
@@ -383,7 +338,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 1,
                 "b",
             );
@@ -411,7 +366,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 signers[3],
-                "2",
+                "3",
                 1,
                 "b",
             );
@@ -437,7 +392,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 3, // Use nonce 3
                 "b",
             );
@@ -466,7 +421,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 3, // Use nonce 3
                 "b",
             );
@@ -492,7 +447,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 2, // Use nonce 2
                 "b",
             );
@@ -518,7 +473,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 1,
                 "b",
             );
@@ -546,7 +501,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "2",
+                "3",
                 1,
                 "l",
             );
@@ -580,7 +535,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 1,
                 "l",
             );
@@ -607,7 +562,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 1,
                 "b",
             );
@@ -635,7 +590,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "2",
+                "3",
                 1,
                 "l",
             );
@@ -698,7 +653,7 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     user,
-                    "2",
+                    "3",
                     1,
                     "b",
                 );
@@ -754,7 +709,7 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     user,
-                    "2",
+                    "3",
                     1,
                     "b",
                 );
@@ -801,7 +756,7 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     borrower,
-                    "2",
+                    "3",
                     1,
                     "b",
                 );
@@ -870,7 +825,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 encodePredicates(predicates),
                 lender,
-                "2",
+                "3",
                 "1",
                 "l",
             );
@@ -920,7 +875,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 encodePredicates(predicates),
                 lender,
-                "2",
+                "3",
                 "1",
                 "l",
             );
@@ -956,7 +911,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 encodePredicates(predicates),
                 lender,
-                "2",
+                "3",
                 "1",
                 "l",
             );
@@ -1010,7 +965,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 encodePredicates(predicates),
                 borrower,
-                "2",
+                "3",
                 "2", // Use nonce 2
                 "l",
             );
@@ -1065,7 +1020,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 encodePredicates(predicates),
                 borrower,
-                "2",
+                "3",
                 "2", // Use nonce 2,
                 "b",
             );
@@ -1123,7 +1078,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 encodePredicates(predicates),
                 borrower,
-                "2",
+                "3",
                 "1",
                 "b",
             );
@@ -1205,7 +1160,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 encodePredicates(predicates),
                 borrower,
-                "2",
+                "3",
                 "1",
                 "b",
             );
@@ -1263,7 +1218,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 encodePredicates(predicates),
                 borrower,
-                "2",
+                "3",
                 "1",
                 "b",
             );
@@ -1320,7 +1275,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 encodePredicates(predicates),
                 lender,
-                "2",
+                "3",
                 "1",
                 "l",
             );
@@ -1386,7 +1341,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 encodePredicates(predicates),
                 lender,
-                "2",
+                "3",
                 "1",
                 "l",
             );
@@ -1482,7 +1437,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 encodePredicates(predicates),
                 borrower,
-                "2",
+                "3",
                 "1",
                 "b",
             );
@@ -1567,7 +1522,7 @@ describe("OriginationController", () => {
                     loanTerms,
                     encodePredicates(predicates),
                     lender,
-                    "2",
+                    "3",
                     "1",
                     "b",
                 );
@@ -1646,7 +1601,7 @@ describe("OriginationController", () => {
                     loanTerms,
                     encodePredicates(predicates),
                     lender,
-                    "2",
+                    "3",
                     "1",
                     "b",
                 );
@@ -1786,7 +1741,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 newSigner, // Now signed by a third party
-                "2",
+                "3",
                 1,
                 "b",
             );
@@ -1819,7 +1774,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 newSigner, // Now signed by a third party
-                "2",
+                "3",
                 1,
                 "l",
             );
@@ -1852,7 +1807,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "2",
+                "3",
                 1,
                 "l",
             );
@@ -1885,7 +1840,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 1,
                 "b",
             );
@@ -1919,7 +1874,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "2",
+                "3",
                 1,
                 "l",
             );
@@ -1956,7 +1911,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "2",
+                "3",
                 1,
                 "l",
             );
@@ -1986,7 +1941,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 1,
                 "b",
             );
@@ -2016,7 +1971,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "2",
+                "3",
                 1,
                 "l",
             );
@@ -2053,7 +2008,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "2",
+                "3",
                 1,
                 "b",
             );

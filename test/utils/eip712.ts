@@ -98,7 +98,7 @@ export async function createLoanTermsSignature(
     name: string,
     terms: LoanTerms,
     signer: SignerWithAddress,
-    version = "1",
+    version = "3",
     nonce: BigNumberish,
     _side: "b" | "l",
 ): Promise<ECDSASignature> {
@@ -125,7 +125,7 @@ export async function createLoanItemsSignature(
     terms: LoanTerms,
     itemsHash: string,
     signer: SignerWithAddress,
-    version = "1",
+    version = "3",
     nonce = "1",
     _side: "b" | "l",
 ): Promise<ECDSASignature> {
