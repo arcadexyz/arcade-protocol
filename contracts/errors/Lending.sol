@@ -42,13 +42,6 @@ error OC_LoanDuration(uint256 durationSecs);
 error OC_InterestRate(uint256 interestRate);
 
 /**
- * @notice Number of installment periods must be greater than 1 and less than or equal to 36.
- *
- * @param numInstallments               Number of installment periods in loan.
- */
-error OC_NumberInstallments(uint256 numInstallments);
-
-/**
  * @notice One of the predicates for item verification failed.
  *
  * @param verifier                      The address of the verifier contract.
@@ -180,20 +173,6 @@ error OC_ZeroArrayElements();
 error OC_ArrayTooManyElements();
 
 /**
- * @notice Provided duration and number of installments are not valid.
- *
- * @dev Ensure durationSecs % numInstallments == 0. This is necessary because the
- *      installments calculator cannot handle installment periods which are not whole numbers
- *      and will result in an invalid minimum payment due. For example, if the loan is 3600
- *      seconds long, with 35 installments, the _timePerInstallment value will be ~102.85
- *      seconds, which cannot be handled by the installments calculator.
- *
- * @param durationSecs         Total loan duration in seconds.
- * @param numInstallments      Total number of installment periods.
- */
-error OC_InvalidInstallments(uint256 durationSecs, uint256 numInstallments);
-
-/**
  * @notice Signer is attempting to take the wrong side of the loan.
  *
  * @param signer                       The address of the external signer.
@@ -266,11 +245,6 @@ error RC_CannotDereference(uint256 target);
 error RC_InvalidState(LoanLibrary.LoanState state);
 
 /**
- * @notice Repayment has already been completed for this loan without installments.
- */
-error RC_NoPaymentDue();
-
-/**
  * @notice Caller is not the owner of lender note.
  *
  * @param caller                     Msg.sender of the function call.
@@ -283,20 +257,6 @@ error RC_OnlyLender(address caller);
  * @param startDate                 block timestamp of the startDate of loan stored in LoanData.
  */
 error RC_BeforeStartDate(uint256 startDate);
-
-/**
- * @notice Loan terms do not have any installments, use repay for repayments.
- *
- * @param numInstallments           Number of installments returned from LoanTerms.
- */
-error RC_NoInstallments(uint256 numInstallments);
-
-/**
- * @notice Loan terms have installments, use repaypart or repayPartMinimum for repayments.
- *
- * @param numInstallments           Number of installments returned from LoanTerms.
- */
-error RC_HasInstallments(uint256 numInstallments);
 
 /**
  * @notice No interest payment or late fees due.
@@ -318,6 +278,11 @@ error RC_RepayPartZero();
  * @param minAmount                 The minimum amount due.
  */
 error RC_RepayPartLTMin(uint256 amount, uint256 minAmount);
+
+/**
+ * @notice The loan has zero amount due.
+ */
+error RC_NoPaymentDue();
 
 // ==================================== Loan Core ======================================
 /// @notice All errors prefixed with LC_, to separate from other contracts in the protocol.
@@ -357,11 +322,6 @@ error LC_NotExpired(uint256 dueDate);
  * @param nonce                         Represents the number of transactions sent by address.
  */
 error LC_NonceUsed(address user, uint160 nonce);
-
-/**
- * @notice Installment loan has not defaulted.
- */
-error LC_LoanNotDefaulted();
 
 // ================================== Full Insterest Amount Calc ====================================
 /// @notice All errors prefixed with FIAC_, to separate from other contracts in the protocol.
