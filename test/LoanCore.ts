@@ -150,7 +150,6 @@ describe("LoanCore", () => {
             principal = hre.ethers.utils.parseEther("100"),
             interestRate = hre.ethers.utils.parseEther("1"),
             collateralId = 1,
-            numInstallments = 0,
             deadline = 259200,
         }: Partial<LoanTerms> = {},
     ): LoanTerms => {
@@ -161,7 +160,6 @@ describe("LoanCore", () => {
             collateralAddress,
             collateralId,
             payableCurrency,
-            numInstallments,
             deadline,
         };
     };
@@ -463,7 +461,7 @@ describe("LoanCore", () => {
 
             await blockchainTime.increaseTime(360001);
 
-            await loanCore.connect(borrower).claim(loanId, BigNumber.from(0));
+            await loanCore.connect(borrower).claim(loanId);
             await expect(
                 loanCore.connect(borrower).startLoan(await lender.getAddress(), await borrower.getAddress(), terms),
             ).to.be.revertedWith("ERC721: transfer caller is not owner nor approved");
@@ -713,7 +711,7 @@ describe("LoanCore", () => {
 
             await blockchainTime.increaseTime(360001);
 
-            await expect(loanCore.connect(borrower).claim(loanId, BigNumber.from(0)))
+            await expect(loanCore.connect(borrower).claim(loanId))
                 .to.emit(loanCore, "LoanClaimed")
                 .withArgs(loanId);
         });
@@ -724,7 +722,7 @@ describe("LoanCore", () => {
             await mockERC20.connect(borrower).mint(loanCore.address, terms.principal.add(terms.interestRate));
             await blockchainTime.increaseTime(360001);
 
-            await expect(loanCore.connect(other).claim(loanId, BigNumber.from(0))).to.be.revertedWith(
+            await expect(loanCore.connect(other).claim(loanId)).to.be.revertedWith(
                 `AccessControl: account ${(await other.getAddress()).toLowerCase()} is missing role ${REPAYER_ROLE}`,
             );
         });
@@ -732,7 +730,7 @@ describe("LoanCore", () => {
         it("should fail if loan doesnt exist", async () => {
             const { loanCore, user: borrower } = await setupLoan();
             const loanId = "123412341324";
-            await expect(loanCore.connect(borrower).claim(loanId, 0)).to.be.revertedWith("LC_InvalidState");
+            await expect(loanCore.connect(borrower).claim(loanId)).to.be.revertedWith("LC_InvalidState");
         });
 
         it("should fail if the loan is not active", async () => {
@@ -740,7 +738,7 @@ describe("LoanCore", () => {
             const collateralId = await initializeBundle(borrower);
             terms.collateralId = collateralId;
             const loanId = 100;
-            await expect(loanCore.connect(borrower).claim(loanId, 0)).to.be.revertedWith("LC_InvalidState");
+            await expect(loanCore.connect(borrower).claim(loanId)).to.be.revertedWith("LC_InvalidState");
         });
 
         it("should fail if the loan is already repaid", async () => {
@@ -751,7 +749,7 @@ describe("LoanCore", () => {
             await mockERC20.connect(borrower).approve(loanCore.address, terms.principal.add(terms.interestRate));
 
             await loanCore.connect(borrower).repay(loanId);
-            await expect(loanCore.connect(borrower).claim(loanId, 0)).to.be.revertedWith("LC_InvalidState");
+            await expect(loanCore.connect(borrower).claim(loanId)).to.be.revertedWith("LC_InvalidState");
         });
 
         it("should fail if the loan is already claimed", async () => {
@@ -761,15 +759,15 @@ describe("LoanCore", () => {
 
             await blockchainTime.increaseTime(360001);
 
-            await loanCore.connect(borrower).claim(loanId, 0);
-            await expect(loanCore.connect(borrower).claim(loanId, 0)).to.be.revertedWith("LC_InvalidState");
+            await loanCore.connect(borrower).claim(loanId);
+            await expect(loanCore.connect(borrower).claim(loanId)).to.be.revertedWith("LC_InvalidState");
         });
 
         it("should fail if the loan is not expired", async () => {
             const { mockERC20, loanId, loanCore, user: borrower, terms } = await setupLoan();
             await mockERC20.connect(borrower).mint(loanCore.address, terms.principal.add(terms.interestRate));
 
-            await expect(loanCore.connect(borrower).claim(loanId, BigNumber.from(0))).to.be.revertedWith(
+            await expect(loanCore.connect(borrower).claim(loanId)).to.be.revertedWith(
                 "LC_NotExpired",
             );
         });
@@ -781,7 +779,7 @@ describe("LoanCore", () => {
             await blockchainTime.increaseTime(360001);
 
             await loanCore.connect(borrower).pause();
-            await expect(loanCore.connect(borrower).claim(loanId, BigNumber.from(0))).to.be.revertedWith(
+            await expect(loanCore.connect(borrower).claim(loanId)).to.be.revertedWith(
                 "Pausable: paused",
             );
         });
@@ -804,7 +802,7 @@ describe("LoanCore", () => {
             await blockchainTime.increaseTime(100);
             await loanCore.connect(borrower).unpause();
 
-            await expect(loanCore.connect(borrower).claim(loanId, BigNumber.from(0)))
+            await expect(loanCore.connect(borrower).claim(loanId))
                 .to.emit(loanCore, "LoanClaimed")
                 .withArgs(loanId);
         });

@@ -146,7 +146,6 @@ const createLoanTermsExpired = (
         principal = hre.ethers.utils.parseEther("100"),
         interestRate = hre.ethers.utils.parseEther("1"),
         collateralId = "1",
-        numInstallments = 0,
         deadline = 808113600, // August 11, 1995
     }: Partial<LoanTerms> = {},
 ): LoanTerms => {
@@ -157,7 +156,6 @@ const createLoanTermsExpired = (
         collateralId,
         collateralAddress,
         payableCurrency,
-        numInstallments,
         deadline,
     };
 };
@@ -170,7 +168,6 @@ const createLoanTerms = (
         principal = hre.ethers.utils.parseEther("100"),
         interestRate = hre.ethers.utils.parseEther("1"),
         collateralId = "1",
-        numInstallments = 0,
         deadline = 1754884800,
     }: Partial<LoanTerms> = {},
 ): LoanTerms => {
@@ -181,7 +178,6 @@ const createLoanTerms = (
         collateralId,
         collateralAddress,
         payableCurrency,
-        numInstallments,
         deadline,
     };
 };

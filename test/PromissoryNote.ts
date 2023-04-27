@@ -50,7 +50,6 @@ describe("PromissoryNote", () => {
             principal = hre.ethers.utils.parseEther("100"),
             interestRate = hre.ethers.utils.parseEther("1"),
             collateralId = 1,
-            numInstallments = 0,
             deadline = 259200,
         }: Partial<LoanTerms> = {},
     ): LoanTerms => {
@@ -61,7 +60,6 @@ describe("PromissoryNote", () => {
             collateralId,
             collateralAddress,
             payableCurrency,
-            numInstallments,
             deadline,
         };
     };

@@ -144,7 +144,6 @@ const createLoanTerms = (
     principal: BigNumber,
     interestRate: BigNumber,
     collateralAddress: string,
-    numInstallments: number,
     deadline: BigNumberish,
     { collateralId = 1 }: Partial<LoanTerms> = {},
 ): LoanTerms => {
@@ -155,7 +154,6 @@ const createLoanTerms = (
         collateralAddress,
         collateralId,
         payableCurrency,
-        numInstallments,
         deadline,
     };
 };
@@ -176,7 +174,6 @@ const initializeLoan = async (
     durationSecs: BigNumber,
     principal: BigNumber,
     interest: BigNumber,
-    numInstallments: number,
     deadline: BigNumberish,
 ): Promise<LoanDef> => {
     const { originationController, mockERC20, vaultFactory, loanCore, lender, borrower } = context;
@@ -187,7 +184,6 @@ const initializeLoan = async (
         principal,
         interest,
         vaultFactory.address,
-        numInstallments,
         deadline,
         { collateralId: bundleId },
     );
@@ -241,7 +237,6 @@ describe("RepaymentController", () => {
             BigNumber.from(86400), // durationSecs
             hre.ethers.utils.parseEther("100"), // principal
             hre.ethers.utils.parseEther("1000"), // interest
-            0, // numInstallments
             1754884800, // deadline
         );
         // total repayment amount
@@ -267,7 +262,6 @@ describe("RepaymentController", () => {
             BigNumber.from(86400), // durationSecs
             hre.ethers.utils.parseEther("10"), // principal
             hre.ethers.utils.parseEther("750"), // interest
-            0, // numInstallments
             1754884800, // deadline
         );
 
@@ -294,7 +288,6 @@ describe("RepaymentController", () => {
             BigNumber.from(86400), // durationSecs
             hre.ethers.utils.parseEther("25"), // principal
             hre.ethers.utils.parseEther("250"), // interest
-            0, // numInstallments
             1754884800, // deadline
         );
         // total repayment amount
@@ -320,7 +313,6 @@ describe("RepaymentController", () => {
             BigNumber.from(86400), // durationSecs
             hre.ethers.utils.parseEther("100"), // principal
             hre.ethers.utils.parseEther("1000"), // interest
-            0, // numInstallments
             1754884800, // deadline
         );
         // total repayment amount
@@ -346,7 +338,6 @@ describe("RepaymentController", () => {
             BigNumber.from(86400), // durationSecs
             hre.ethers.utils.parseEther("25"), // principal
             hre.ethers.utils.parseEther("250"), // interest
-            0, // numInstallments
             1754884800, // deadline
         );
         // total repayment amount less than 25.625ETH
@@ -372,7 +363,6 @@ describe("RepaymentController", () => {
             BigNumber.from(86400), // durationSecs
             hre.ethers.utils.parseEther("25"), // principal
             hre.ethers.utils.parseEther("250"), // interest
-            0, // numInstallments
             1754884800, // deadline
         );
         // total repayment amount less than 25.625ETH
@@ -398,7 +388,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(86400), // durationSecs
                 hre.ethers.utils.parseEther(".000000000000009999"), // principal
                 hre.ethers.utils.parseEther("250"), // interest
-                0, // numInstallments
+
                 1754884800, // deadline
             ),
         ).to.be.revertedWith("OC_PrincipalTooLow");
@@ -413,7 +403,6 @@ describe("RepaymentController", () => {
             BigNumber.from(86400), // durationSecs
             hre.ethers.utils.parseEther(".00000000001"), // principal
             hre.ethers.utils.parseEther("250"), // interest
-            0, // numInstallments
             1754884800, // deadline
         );
         // total repayment amount less than 25.625ETH
