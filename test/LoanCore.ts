@@ -666,7 +666,7 @@ describe("LoanCore", () => {
         });
     });
 
-    describe("Claim loan (no installments)", async function () {
+    describe("Claim loan", async function () {
         interface RepayLoanState extends TestContext {
             loanId: BigNumberish;
             terms: LoanTerms;

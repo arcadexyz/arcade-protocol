@@ -135,9 +135,6 @@ const fixture = async (): Promise<TestContext> => {
     };
 };
 
-/**
- * Create a NON-INSTALLMENT LoanTerms object
- */
 const createLoanTerms = (
     payableCurrency: string,
     durationSecs: BigNumber,
@@ -158,9 +155,6 @@ const createLoanTerms = (
     };
 };
 
-/**
- * Initialize a loan WITHOUT installments
- */
 interface LoanDef {
     loanId: string;
     bundleId: BigNumberish;
@@ -228,7 +222,7 @@ const initializeLoan = async (
 };
 
 describe("RepaymentController", () => {
-    it("Legacy loan type (no installments), repay interest and principal. 100 ETH principal, 10% interest rate.", async () => {
+    it("Standard loan type, repay interest and principal. 100 ETH principal, 10% interest rate.", async () => {
         const context = await loadFixture(fixture);
         const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = context;
         const { loanId, bundleId } = await initializeLoan(
@@ -253,7 +247,7 @@ describe("RepaymentController", () => {
         expect(await mockERC20.balanceOf(borrower.address)).to.equal(0);
     });
 
-    it("Legacy loan type (no installments), repay interest and principal. 10 ETH principal, 7.5% interest rate.", async () => {
+    it("Standard loan type, repay interest and principal. 10 ETH principal, 7.5% interest rate.", async () => {
         const context = await loadFixture(fixture);
         const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = context;
         const { loanId, bundleId } = await initializeLoan(
@@ -279,7 +273,7 @@ describe("RepaymentController", () => {
         expect(await mockERC20.balanceOf(borrower.address)).to.equal(0);
     });
 
-    it("Legacy loan type (no installments), repay interest and principal. 25 ETH principal, 2.5% interest rate.", async () => {
+    it("Standard loan type, repay interest and principal. 25 ETH principal, 2.5% interest rate.", async () => {
         const context = await loadFixture(fixture);
         const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = context;
         const { loanId, bundleId } = await initializeLoan(
@@ -304,7 +298,7 @@ describe("RepaymentController", () => {
         expect(await mockERC20.balanceOf(borrower.address)).to.equal(0);
     });
 
-    it("Legacy loan type (no installments), 3rd party repayment, interest and principal. 100 ETH principal, 10% interest rate.", async () => {
+    it("Standard loan type, 3rd party repayment, interest and principal. 100 ETH principal, 10% interest rate.", async () => {
         const context = await loadFixture(fixture);
         const { repaymentController, vaultFactory, mockERC20, loanCore, other } = context;
         const { loanId, bundleId } = await initializeLoan(
@@ -329,7 +323,7 @@ describe("RepaymentController", () => {
         expect(await mockERC20.balanceOf(other.address)).to.equal(0);
     });
 
-    it("Legacy loan type (no installments), repay interest and principal. 25 ETH principal, 2.5% interest rate. Borrower tries to repay with insufficient balance. Should revert.", async () => {
+    it("Standard loan type, repay interest and principal. 25 ETH principal, 2.5% interest rate. Borrower tries to repay with insufficient balance. Should revert.", async () => {
         const context = await loadFixture(fixture);
         const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = context;
         const { loanId, bundleId } = await initializeLoan(
@@ -354,7 +348,7 @@ describe("RepaymentController", () => {
         );
     });
 
-    it("Legacy loan type (no installments), repay interest and principal. 25 ETH principal, 2.5% interest rate. Borrower tries to repay with insufficient allowance. Should revert.", async () => {
+    it("Standard loan type, repay interest and principal. 25 ETH principal, 2.5% interest rate. Borrower tries to repay with insufficient allowance. Should revert.", async () => {
         const context = await loadFixture(fixture);
         const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = context;
         const { loanId, bundleId } = await initializeLoan(
@@ -378,7 +372,7 @@ describe("RepaymentController", () => {
         );
     });
 
-    it("Legacy loan type (no installments), repay interest and principal. 9999 Wei principal, 2.5% interest rate. Should revert on initialization.", async () => {
+    it("Standard loan type, repay interest and principal. 9999 Wei principal, 2.5% interest rate. Should revert on initialization.", async () => {
         const context = await loadFixture(fixture);
         const { mockERC20 } = context;
         await expect(
@@ -394,7 +388,7 @@ describe("RepaymentController", () => {
         ).to.be.revertedWith("OC_PrincipalTooLow");
     });
 
-    it("Legacy loan type (no installments), repay interest and principal. 1000000 Wei principal, 2.5% interest rate.", async () => {
+    it("Standard loan type, repay interest and principal. 1000000 Wei principal, 2.5% interest rate.", async () => {
         const context = await loadFixture(fixture);
         const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = context;
         const { loanId, bundleId } = await initializeLoan(
