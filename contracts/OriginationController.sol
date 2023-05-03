@@ -134,9 +134,6 @@ contract OriginationController is
      * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
      *      addresses is the zero address or already allowed. The array of addresses passed to this
      *      function is limited to 50 elements.
-     * @dev The only token types that will work with the interest rate calculations are those with
-     *      between 6 and 18 decimals. tokens with more or less than this range will not work and can
-     *      result in unnecessary borrower default.
      *
      * @param _tokenAddress               Array of token addresses to add.
      */

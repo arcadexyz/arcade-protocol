@@ -24,7 +24,7 @@ import { RC_CannotDereference, RC_InvalidState, RC_OnlyLender, RC_NoPaymentDue, 
  * is this contract's responsibility to verify loan conditions before
  * calling LoanCore.
  */
-contract RepaymentController is InterestCalculator, IRepaymentController {
+contract RepaymentController is IRepaymentController, InterestCalculator {
     using SafeERC20 for IERC20;
 
     // ============================================ STATE ===============================================

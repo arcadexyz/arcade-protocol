@@ -259,27 +259,6 @@ error RC_OnlyLender(address caller);
 error RC_BeforeStartDate(uint256 startDate);
 
 /**
- * @notice No interest payment or late fees due.
- *
- * @param amount                    Minimum interest plus late fee amount returned
- *                                  from minimum payment calculation.
- */
-error RC_NoMinPaymentDue(uint256 amount);
-
-/**
- * @notice Repaid amount must be larger than zero.
- */
-error RC_RepayPartZero();
-
-/**
- * @notice Amount paramater less than the minimum amount due.
- *
- * @param amount                    Amount function call parameter.
- * @param minAmount                 The minimum amount due.
- */
-error RC_RepayPartLTMin(uint256 amount, uint256 minAmount);
-
-/**
  * @notice The loan has zero amount due.
  */
 error RC_NoPaymentDue();

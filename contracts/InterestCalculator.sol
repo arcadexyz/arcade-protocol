@@ -8,7 +8,7 @@ import { FIAC_InterestRate } from "./errors/Lending.sol";
  * @title InterestCalculator
  * @author Non-Fungible Technologies, Inc.
  *
- * Interface for a calculating the interest amount
+ * Interface for calculating the interest amount
  * given an interest rate and principal amount. Assumes
  * that the interestRate is already expressed over the desired
  * time period.
@@ -20,7 +20,6 @@ abstract contract InterestCalculator {
     uint256 public constant INTEREST_RATE_DENOMINATOR = 1e18;
     /// @dev The denominator to express the final interest in terms of basis ponits.
     uint256 public constant BASIS_POINTS_DENOMINATOR = 10_000;
-    // Interest rate parameter
 
     // ======================================== CALCULATIONS ===========================================
 
