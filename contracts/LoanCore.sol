@@ -10,13 +10,13 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+import "./InterestCalculator.sol";
 import "./interfaces/ICallDelegator.sol";
 import "./interfaces/IPromissoryNote.sol";
 import "./interfaces/IAssetVault.sol";
 import "./interfaces/IFeeController.sol";
 import "./interfaces/ILoanCore.sol";
 
-import "./InstallmentsCalc.sol";
 import "./PromissoryNote.sol";
 import "./vault/OwnableERC721.sol";
 import {
@@ -25,8 +25,7 @@ import {
     LC_CollateralInUse,
     LC_InvalidState,
     LC_NotExpired,
-    LC_NonceUsed,
-    LC_LoanNotDefaulted
+    LC_NonceUsed
 } from "./errors/Lending.sol";
 
 /**
@@ -43,7 +42,7 @@ import {
  */
 contract LoanCore is
     ILoanCore,
-    InstallmentsCalc,
+    InterestCalculator,
     AccessControlEnumerable,
     Pausable,
     ReentrancyGuard,
@@ -149,11 +148,7 @@ contract LoanCore is
         loans[loanId] = LoanLibrary.LoanData({
             terms: terms,
             state: LoanLibrary.LoanState.Active,
-            startDate: uint160(block.timestamp),
-            balance: terms.principal,
-            balancePaid: 0,
-            lateFeesAccrued: 0,
-            numInstallmentsPaid: 0
+            startDate: uint160(block.timestamp)
         });
 
         collateralInUse[collateralKey] = true;
@@ -215,10 +210,8 @@ contract LoanCore is
      *         notes will be burned and the loan will be marked as complete.
      *
      * @param loanId                              The ID of the loan to claim.
-     * @param currentInstallmentPeriod            The current installment period if
-     *                                            installment loan type, else 0.
      */
-    function claim(uint256 loanId, uint256 currentInstallmentPeriod)
+    function claim(uint256 loanId)
         external
         override
         whenNotPaused
@@ -230,21 +223,8 @@ contract LoanCore is
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
 
         // First check if the call is being made after the due date.
-        // Additionally, if an unexpired installment loan, verify over 40% of the total
-        // number of installments have been missed before the lender can claim.
         uint256 dueDate = data.startDate + data.terms.durationSecs;
-        if (data.terms.numInstallments == 0 || block.timestamp > dueDate) {
-            // for non installment loan types call must be after due date
-            if (dueDate > block.timestamp) revert LC_NotExpired(dueDate);
-
-            // perform claim...
-        }
-        else {
-            // verify installment loan type, not legacy loan (safety check)
-            if (data.terms.numInstallments == 0) revert LC_NotExpired(dueDate);
-            // verify greater than 40% total installments have been missed
-            _verifyDefaultedLoan(data.terms.numInstallments, data.numInstallmentsPaid, currentInstallmentPeriod);
-        }
+        if (dueDate > block.timestamp) revert LC_NotExpired(dueDate);
 
         address lender = lenderNote.ownerOf(loanId);
 
@@ -295,24 +275,6 @@ contract LoanCore is
         address oldLender = lenderNote.ownerOf(oldLoanId);
         IERC20 payableCurrency = IERC20(data.terms.payableCurrency);
 
-        if (data.terms.numInstallments > 0) {
-            (uint256 interestDue, uint256 lateFees, uint256 numMissedPayments) = _calcAmountsDue(
-                data.balance,
-                data.startDate,
-                data.terms.durationSecs,
-                data.terms.numInstallments,
-                data.numInstallmentsPaid,
-                data.terms.interestRate
-            );
-
-            data.lateFeesAccrued += lateFees;
-            if (interestDue + lateFees > 0) {
-                data.numInstallmentsPaid += uint24(numMissedPayments) + 1;
-            }
-            data.balancePaid += data.balance + interestDue + lateFees;
-            data.balance = 0;
-        }
-
         _burnLoanNotes(oldLoanId);
 
         // Set up new loan
@@ -322,11 +284,7 @@ contract LoanCore is
         loans[newLoanId] = LoanLibrary.LoanData({
             terms: terms,
             state: LoanLibrary.LoanState.Active,
-            startDate: uint160(block.timestamp),
-            balance: terms.principal,
-            balancePaid: 0,
-            lateFeesAccrued: 0,
-            numInstallmentsPaid: 0
+            startDate: uint160(block.timestamp)
         });
 
         // Distribute notes and principal
@@ -340,93 +298,6 @@ contract LoanCore is
         emit LoanRepaid(oldLoanId);
         emit LoanStarted(newLoanId, lender, borrower);
         emit LoanRolledOver(oldLoanId, newLoanId);
-    }
-
-    // ===================================== INSTALLMENT OPERATIONS =====================================
-
-    /**
-     * @notice Called from RepaymentController when paying back an installment loan.
-     *         New loan state parameters are calculated in the Repayment Controller.
-     *         Based on if the _paymentToPrincipal is greater than the current balance,
-     *         the loan state is updated. (0 = minimum payment sent, > 0 pay down principal).
-     *         The paymentTotal (_paymentToPrincipal + _paymentToLateFees) is always transferred to the lender.
-     *
-     * @param _loanId                       The ID of the loan.
-     * @param _currentMissedPayments        Number of payments missed since the last installment payment.
-     * @param _paymentToPrincipal           Amount sent in addition to minimum amount due, used to pay down principal.
-     * @param _paymentToInterest            Amount due in interest.
-     * @param _paymentToLateFees            Amount due in only late fees.
-     * @param _refundRecipient              The address of the account to recieve funds if an additional amount is sent.
-     */
-    function repayPart(
-        uint256 _loanId,
-        uint256 _currentMissedPayments,
-        uint256 _paymentToPrincipal,
-        uint256 _paymentToInterest,
-        uint256 _paymentToLateFees,
-        address _refundRecipient
-    ) external override onlyRole(REPAYER_ROLE) nonReentrant {
-        LoanLibrary.LoanData storage data = loans[_loanId];
-        // ensure valid initial loan state when repaying loan
-        if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
-
-        // get the lender and borrower
-        address lender = lenderNote.ownerOf(_loanId);
-        address borrower = borrowerNote.ownerOf(_loanId);
-
-        uint256 _balanceToPay = _paymentToPrincipal;
-        if (_balanceToPay >= data.balance) {
-            _balanceToPay = data.balance;
-
-            // mark loan as closed
-            data.state = LoanLibrary.LoanState.Repaid;
-            collateralInUse[keccak256(abi.encode(data.terms.collateralAddress, data.terms.collateralId))] = false;
-
-            _burnLoanNotes(_loanId);
-        }
-
-        // Unlike paymentTotal, cannot go over maximum amount owed
-        uint256 boundedPaymentTotal = _balanceToPay + _paymentToLateFees + _paymentToInterest;
-
-        // update loan state
-        data.lateFeesAccrued += _paymentToLateFees;
-        if (_paymentToInterest + _paymentToLateFees > 0) {
-            data.numInstallmentsPaid += uint24(_currentMissedPayments) + 1;
-        }
-        data.balance -= _balanceToPay;
-        data.balancePaid += boundedPaymentTotal;
-
-        LoanLibrary.LoanState currentState = data.state;
-
-        // calculate total sent by borrower and transferFrom repayment controller to this address
-        uint256 paymentTotal = _paymentToPrincipal + _paymentToLateFees + _paymentToInterest;
-        IERC20(data.terms.payableCurrency).safeTransferFrom(msg.sender, address(this), paymentTotal);
-        // Send payment to lender.
-        // Not using safeTransfer to prevent lenders from blocking
-        // loan receipt and forcing a default
-        IERC20(data.terms.payableCurrency).transfer(lender, boundedPaymentTotal);
-
-        // If repaid, send collateral to borrower
-        if (currentState == LoanLibrary.LoanState.Repaid) {
-            IERC721(data.terms.collateralAddress).transferFrom(
-                address(this),
-                borrower,
-                data.terms.collateralId
-            );
-
-            if (_paymentToPrincipal > _balanceToPay) {
-                // overpaid, send refund to _refundRecipient
-                IERC20(data.terms.payableCurrency).safeTransfer(
-                    _refundRecipient,
-                    _paymentToPrincipal - _balanceToPay
-                );
-            }
-
-            emit LoanRepaid(_loanId);
-        } else {
-            // minimum repayment events will emit 0 and unchanged principal
-            emit InstallmentPaymentReceived(_loanId, _paymentToPrincipal, data.balance);
-        }
     }
 
     // ======================================== NONCE MANAGEMENT ========================================
@@ -586,44 +457,6 @@ contract LoanCore is
         usedNonces[user][nonce] = true;
 
         emit NonceUsed(user, nonce);
-    }
-
-    /**
-     * @notice Check collateral is available to claim via default.
-     *         This function passes when the last payment made by the borrower
-     *         was made over 40% of the total number of installment periods previously.
-     *         For example a loan with 10 installment periods. The borrower would
-     *         have to miss 4 consecutive payments during the loan to default.
-     *
-     * @dev Missed payments checked are consecutive due how the numInstallmentsPaid
-     *      value in LoanData is being updated to the current installment period
-     *      everytime a repayment at any time is made for an installment loan.
-     *      (numInstallmentsPaid += _currentMissedPayments + 1).
-     *
-     * @param numInstallments                  Total number of installments in loan.
-     * @param numInstallmentsPaid              Installment period of the last installment payment.
-     * @param currentInstallmentPeriod         Current installment period call made in.
-     */
-    function _verifyDefaultedLoan(
-        uint256 numInstallments,
-        uint256 numInstallmentsPaid,
-        uint256 currentInstallmentPeriod
-    ) internal pure {
-        // make sure if called in the same installment period as payment was made,
-        // does not get to currentInstallmentsMissed calculation. needs to be first.
-        if (numInstallmentsPaid == currentInstallmentPeriod) revert LC_LoanNotDefaulted();
-
-        // get installments missed necessary for loan default (*1000)
-        uint256 installmentsMissedForDefault = ((numInstallments * PERCENT_MISSED_FOR_LENDER_CLAIM) * 1000) /
-            BASIS_POINTS_DENOMINATOR;
-
-        // get current installments missed (*1000)
-        // +1 added to numInstallmentsPaid as a grace period on the current installment payment.
-        uint256 currentInstallmentsMissed = ((currentInstallmentPeriod) * 1000) - ((numInstallmentsPaid + 1) * 1000);
-
-        // check if the number of missed payments is greater than
-        // 40% the total number of installment periods
-        if (currentInstallmentsMissed < installmentsMissedForDefault) revert LC_LoanNotDefaulted();
     }
 
     /*

@@ -37,7 +37,6 @@ const typedLoanTermsData: TypeData = {
         LoanTerms: [
             { name: "durationSecs", type: "uint32" },
             { name: "deadline", type: "uint32" },
-            { name: "numInstallments", type: "uint24" },
             { name: "interestRate", type: "uint160" },
             { name: "principal", type: "uint256" },
             { name: "collateralAddress", type: "address" },
@@ -55,7 +54,6 @@ const typedLoanItemsData: TypeData = {
         LoanTermsWithItems: [
             { name: "durationSecs", type: "uint32" },
             { name: "deadline", type: "uint32" },
-            { name: "numInstallments", type: "uint24" },
             { name: "interestRate", type: "uint160" },
             { name: "principal", type: "uint256" },
             { name: "collateralAddress", type: "address" },
@@ -138,7 +136,6 @@ export async function createLoanItemsSignature(
         collateralAddress: terms.collateralAddress,
         itemsHash,
         payableCurrency: terms.payableCurrency,
-        numInstallments: terms.numInstallments,
         nonce,
         side,
         deadline: terms.deadline,

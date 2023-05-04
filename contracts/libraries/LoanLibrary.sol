@@ -36,9 +36,6 @@ library LoanLibrary {
         uint32 durationSecs;
         // Timestamp for when signature for terms expires
         uint32 deadline;
-        // Total number of installment periods within the loan duration.
-        /// @dev Max is 1,000,000, fits in 24 bits
-        uint24 numInstallments;
         // Interest expressed as a rate, unlike V1 gross value.
         // Input conversion: 0.01% = (1 * 10**18) ,  10.00% = (1000 * 10**18)
         // This represents the rate over the lifetime of the loan, not APR.
@@ -69,9 +66,6 @@ library LoanLibrary {
         uint32 durationSecs;
         // Timestamp for when signature for terms expires
         uint32 deadline;
-        // Total number of installment periods within the loan duration.
-        /// @dev Max is 1,000,000, fits in 24 bits
-        uint24 numInstallments;
         // Interest expressed as a rate, unlike V1 gross value.
         // Input conversion: 0.01% = (1 * 10**18) ,  10.00% = (1000 * 10**18)
         // This represents the rate over the lifetime of the loan, not APR.
@@ -106,20 +100,10 @@ library LoanLibrary {
         /// @dev Packed variables
         // The current state of the loan
         LoanState state;
-        // Number of installment payments made on the loan
-        uint24 numInstallmentsPaid;
-        // installment loan specific
-        // Start date of the loan, using block.timestamp - for determining installment period
+        // Start date of the loan, using block.timestamp
         uint160 startDate;
         /// @dev Full-slot variables
         // The raw terms of the loan
         LoanTerms terms;
-        // Remaining balance of the loan. Starts as equal to principal. Can reduce based on
-        // payments made, can increased based on compounded interest from missed payments and late fees
-        uint256 balance;
-        // Amount paid in total by the borrower
-        uint256 balancePaid;
-        // Total amount of late fees accrued
-        uint256 lateFeesAccrued;
     }
 }

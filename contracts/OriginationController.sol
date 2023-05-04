@@ -16,7 +16,7 @@ import "./interfaces/IAssetVault.sol";
 import "./interfaces/IVaultFactory.sol";
 import "./interfaces/ISignatureVerifier.sol";
 
-import "./InstallmentsCalc.sol";
+import "./InterestCalculator.sol";
 import "./verifiers/ItemsVerifier.sol";
 import {
     OC_ZeroAddress,
@@ -32,7 +32,6 @@ import {
     OC_PrincipalTooLow,
     OC_LoanDuration,
     OC_InterestRate,
-    OC_NumberInstallments,
     OC_SignatureIsExpired,
     OC_RolloverCurrencyMismatch,
     OC_RolloverCollateralMismatch,
@@ -42,7 +41,6 @@ import {
     OC_AlreadyAllowed,
     OC_ZeroArrayElements,
     OC_ArrayTooManyElements,
-    OC_InvalidInstallments,
     OC_SideMismatch
 } from "./errors/Lending.sol";
 
@@ -58,7 +56,7 @@ import {
  * of both the collateral and loan principal.
  */
 contract OriginationController is
-    InstallmentsCalc,
+    InterestCalculator,
     IOriginationController,
     EIP712,
     ReentrancyGuard,
@@ -70,8 +68,6 @@ contract OriginationController is
 
     // =================== Constants =====================
 
-    /// @notice The maximum number of installments allowed for an installment type loan.
-    uint256 public constant MAX_NUM_INSTALLMENTS = 36;
     /// @notice The minimum principal amount allowed to start a loan.
     uint256 public constant MIN_LOAN_PRINCIPAL = 1_000_000;
 
@@ -82,14 +78,14 @@ contract OriginationController is
     bytes32 private constant _TOKEN_ID_TYPEHASH =
         keccak256(
             // solhint-disable-next-line max-line-length
-            "LoanTerms(uint32 durationSecs,uint32 deadline,uint24 numInstallments,uint160 interestRate,uint256 principal,address collateralAddress,uint256 collateralId,address payableCurrency,uint160 nonce,uint8 side)"
+            "LoanTerms(uint32 durationSecs,uint32 deadline,uint160 interestRate,uint256 principal,address collateralAddress,uint256 collateralId,address payableCurrency,uint160 nonce,uint8 side)"
         );
 
     /// @notice EIP712 type hash for item-based signatures.
     bytes32 private constant _ITEMS_TYPEHASH =
         keccak256(
             // solhint-disable max-line-length
-            "LoanTermsWithItems(uint32 durationSecs,uint32 deadline,uint24 numInstallments,uint160 interestRate,uint256 principal,address collateralAddress,bytes32 itemsHash,address payableCurrency,uint160 nonce,uint8 side)"
+            "LoanTermsWithItems(uint32 durationSecs,uint32 deadline,uint160 interestRate,uint256 principal,address collateralAddress,bytes32 itemsHash,address payableCurrency,uint160 nonce,uint8 side)"
         );
 
     // =============== Contract References ===============
@@ -138,9 +134,6 @@ contract OriginationController is
      * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
      *      addresses is the zero address or already allowed. The array of addresses passed to this
      *      function is limited to 50 elements.
-     * @dev The only token types that will work with the interest rate calculations are those with
-     *      between 6 and 18 decimals. tokens with more or less than this range will not work and can
-     *      result in unnecessary borrower default.
      *
      * @param _tokenAddress               Array of token addresses to add.
      */
@@ -592,7 +585,6 @@ contract OriginationController is
                 _TOKEN_ID_TYPEHASH,
                 loanTerms.durationSecs,
                 loanTerms.deadline,
-                loanTerms.numInstallments,
                 loanTerms.interestRate,
                 loanTerms.principal,
                 loanTerms.collateralAddress,
@@ -633,7 +625,6 @@ contract OriginationController is
                 _ITEMS_TYPEHASH,
                 loanTerms.durationSecs,
                 loanTerms.deadline,
-                loanTerms.numInstallments,
                 loanTerms.interestRate,
                 loanTerms.principal,
                 loanTerms.collateralAddress,
@@ -712,15 +703,6 @@ contract OriginationController is
         // interest rate must be greater than or equal to 0.01%
         // and less than 10,000% (1e6 basis points)
         if (terms.interestRate < 1e18 || terms.interestRate > 1e24) revert OC_InterestRate(terms.interestRate);
-
-        // number of installments must be either 0, or between 2 and the MAX_NUM_INSTALLMENTS constant
-        if (terms.numInstallments == 1 || terms.numInstallments > MAX_NUM_INSTALLMENTS)
-            revert OC_NumberInstallments(terms.numInstallments);
-
-        // if durationSecs mod numInstallments != 0, then the _timePerInstallment will result
-        // in a decimal value which cannot be used in the minimum payment per installment calculation.
-        if (terms.numInstallments > 1 && terms.durationSecs % terms.numInstallments != 0)
-            revert OC_InvalidInstallments(terms.durationSecs, terms.numInstallments);
 
         // signature must not have already expired
         if (terms.deadline < block.timestamp) revert OC_SignatureIsExpired(terms.deadline);
@@ -917,24 +899,10 @@ contract OriginationController is
         address lender,
         address oldLender,
         uint256 rolloverFee
-    ) internal view returns (RolloverAmounts memory amounts) {
+    ) internal pure returns (RolloverAmounts memory amounts) {
         LoanLibrary.LoanTerms memory oldTerms = oldLoanData.terms;
 
-        uint256 repayAmount;
-        if (oldTerms.numInstallments == 0) {
-            repayAmount = getFullInterestAmount(oldTerms.principal, oldTerms.interestRate);
-        } else {
-            (uint256 interestDue, uint256 lateFees, ) = _calcAmountsDue(
-                oldLoanData.balance,
-                oldLoanData.startDate,
-                oldTerms.durationSecs,
-                oldTerms.numInstallments,
-                oldLoanData.numInstallmentsPaid,
-                oldTerms.interestRate
-            );
-
-            repayAmount = oldLoanData.balance + interestDue + lateFees;
-        }
+        uint256 repayAmount = getFullInterestAmount(oldTerms.principal, oldTerms.interestRate);
 
         amounts.fee = (newTerms.principal * rolloverFee) / BASIS_POINTS_DENOMINATOR;
         uint256 borrowerWillGet = newTerms.principal - amounts.fee;

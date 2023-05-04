@@ -135,16 +135,12 @@ const fixture = async (): Promise<TestContext> => {
     };
 };
 
-/**
- * Create a NON-INSTALLMENT LoanTerms object
- */
 const createLoanTerms = (
     payableCurrency: string,
     durationSecs: BigNumber,
     principal: BigNumber,
     interestRate: BigNumber,
     collateralAddress: string,
-    numInstallments: number,
     deadline: BigNumberish,
     { collateralId = 1 }: Partial<LoanTerms> = {},
 ): LoanTerms => {
@@ -155,14 +151,10 @@ const createLoanTerms = (
         collateralAddress,
         collateralId,
         payableCurrency,
-        numInstallments,
         deadline,
     };
 };
 
-/**
- * Initialize a loan WITHOUT installments
- */
 interface LoanDef {
     loanId: string;
     bundleId: BigNumberish;
@@ -176,7 +168,6 @@ const initializeLoan = async (
     durationSecs: BigNumber,
     principal: BigNumber,
     interest: BigNumber,
-    numInstallments: number,
     deadline: BigNumberish,
 ): Promise<LoanDef> => {
     const { originationController, mockERC20, vaultFactory, loanCore, lender, borrower } = context;
@@ -187,7 +178,6 @@ const initializeLoan = async (
         principal,
         interest,
         vaultFactory.address,
-        numInstallments,
         deadline,
         { collateralId: bundleId },
     );
@@ -232,7 +222,7 @@ const initializeLoan = async (
 };
 
 describe("RepaymentController", () => {
-    it("Legacy loan type (no installments), repay interest and principal. 100 ETH principal, 10% interest rate.", async () => {
+    it("Standard loan type, repay interest and principal. 100 ETH principal, 10% interest rate.", async () => {
         const context = await loadFixture(fixture);
         const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = context;
         const { loanId, bundleId } = await initializeLoan(
@@ -241,7 +231,6 @@ describe("RepaymentController", () => {
             BigNumber.from(86400), // durationSecs
             hre.ethers.utils.parseEther("100"), // principal
             hre.ethers.utils.parseEther("1000"), // interest
-            0, // numInstallments
             1754884800, // deadline
         );
         // total repayment amount
@@ -258,7 +247,7 @@ describe("RepaymentController", () => {
         expect(await mockERC20.balanceOf(borrower.address)).to.equal(0);
     });
 
-    it("Legacy loan type (no installments), repay interest and principal. 10 ETH principal, 7.5% interest rate.", async () => {
+    it("Standard loan type, repay interest and principal. 10 ETH principal, 7.5% interest rate.", async () => {
         const context = await loadFixture(fixture);
         const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = context;
         const { loanId, bundleId } = await initializeLoan(
@@ -267,7 +256,6 @@ describe("RepaymentController", () => {
             BigNumber.from(86400), // durationSecs
             hre.ethers.utils.parseEther("10"), // principal
             hre.ethers.utils.parseEther("750"), // interest
-            0, // numInstallments
             1754884800, // deadline
         );
 
@@ -285,7 +273,7 @@ describe("RepaymentController", () => {
         expect(await mockERC20.balanceOf(borrower.address)).to.equal(0);
     });
 
-    it("Legacy loan type (no installments), repay interest and principal. 25 ETH principal, 2.5% interest rate.", async () => {
+    it("Standard loan type, repay interest and principal. 25 ETH principal, 2.5% interest rate.", async () => {
         const context = await loadFixture(fixture);
         const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = context;
         const { loanId, bundleId } = await initializeLoan(
@@ -294,7 +282,6 @@ describe("RepaymentController", () => {
             BigNumber.from(86400), // durationSecs
             hre.ethers.utils.parseEther("25"), // principal
             hre.ethers.utils.parseEther("250"), // interest
-            0, // numInstallments
             1754884800, // deadline
         );
         // total repayment amount
@@ -311,7 +298,7 @@ describe("RepaymentController", () => {
         expect(await mockERC20.balanceOf(borrower.address)).to.equal(0);
     });
 
-    it("Legacy loan type (no installments), 3rd party repayment, interest and principal. 100 ETH principal, 10% interest rate.", async () => {
+    it("Standard loan type, 3rd party repayment, interest and principal. 100 ETH principal, 10% interest rate.", async () => {
         const context = await loadFixture(fixture);
         const { repaymentController, vaultFactory, mockERC20, loanCore, other } = context;
         const { loanId, bundleId } = await initializeLoan(
@@ -320,7 +307,6 @@ describe("RepaymentController", () => {
             BigNumber.from(86400), // durationSecs
             hre.ethers.utils.parseEther("100"), // principal
             hre.ethers.utils.parseEther("1000"), // interest
-            0, // numInstallments
             1754884800, // deadline
         );
         // total repayment amount
@@ -337,7 +323,7 @@ describe("RepaymentController", () => {
         expect(await mockERC20.balanceOf(other.address)).to.equal(0);
     });
 
-    it("Legacy loan type (no installments), repay interest and principal. 25 ETH principal, 2.5% interest rate. Borrower tries to repay with insufficient balance. Should revert.", async () => {
+    it("Standard loan type, repay interest and principal. 25 ETH principal, 2.5% interest rate. Borrower tries to repay with insufficient balance. Should revert.", async () => {
         const context = await loadFixture(fixture);
         const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = context;
         const { loanId, bundleId } = await initializeLoan(
@@ -346,7 +332,6 @@ describe("RepaymentController", () => {
             BigNumber.from(86400), // durationSecs
             hre.ethers.utils.parseEther("25"), // principal
             hre.ethers.utils.parseEther("250"), // interest
-            0, // numInstallments
             1754884800, // deadline
         );
         // total repayment amount less than 25.625ETH
@@ -363,7 +348,7 @@ describe("RepaymentController", () => {
         );
     });
 
-    it("Legacy loan type (no installments), repay interest and principal. 25 ETH principal, 2.5% interest rate. Borrower tries to repay with insufficient allowance. Should revert.", async () => {
+    it("Standard loan type, repay interest and principal. 25 ETH principal, 2.5% interest rate. Borrower tries to repay with insufficient allowance. Should revert.", async () => {
         const context = await loadFixture(fixture);
         const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = context;
         const { loanId, bundleId } = await initializeLoan(
@@ -372,7 +357,6 @@ describe("RepaymentController", () => {
             BigNumber.from(86400), // durationSecs
             hre.ethers.utils.parseEther("25"), // principal
             hre.ethers.utils.parseEther("250"), // interest
-            0, // numInstallments
             1754884800, // deadline
         );
         // total repayment amount less than 25.625ETH
@@ -388,7 +372,7 @@ describe("RepaymentController", () => {
         );
     });
 
-    it("Legacy loan type (no installments), repay interest and principal. 9999 Wei principal, 2.5% interest rate. Should revert on initialization.", async () => {
+    it("Standard loan type, repay interest and principal. 9999 Wei principal, 2.5% interest rate. Should revert on initialization.", async () => {
         const context = await loadFixture(fixture);
         const { mockERC20 } = context;
         await expect(
@@ -398,13 +382,13 @@ describe("RepaymentController", () => {
                 BigNumber.from(86400), // durationSecs
                 hre.ethers.utils.parseEther(".000000000000009999"), // principal
                 hre.ethers.utils.parseEther("250"), // interest
-                0, // numInstallments
+
                 1754884800, // deadline
             ),
         ).to.be.revertedWith("OC_PrincipalTooLow");
     });
 
-    it("Legacy loan type (no installments), repay interest and principal. 1000000 Wei principal, 2.5% interest rate.", async () => {
+    it("Standard loan type, repay interest and principal. 1000000 Wei principal, 2.5% interest rate.", async () => {
         const context = await loadFixture(fixture);
         const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = context;
         const { loanId, bundleId } = await initializeLoan(
@@ -413,7 +397,6 @@ describe("RepaymentController", () => {
             BigNumber.from(86400), // durationSecs
             hre.ethers.utils.parseEther(".00000000001"), // principal
             hre.ethers.utils.parseEther("250"), // interest
-            0, // numInstallments
             1754884800, // deadline
         );
         // total repayment amount less than 25.625ETH
