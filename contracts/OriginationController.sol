@@ -16,6 +16,7 @@ import "./interfaces/IAssetVault.sol";
 import "./interfaces/IVaultFactory.sol";
 import "./interfaces/ISignatureVerifier.sol";
 
+import "./FeeLookups.sol";
 import "./InterestCalculator.sol";
 import "./verifiers/ItemsVerifier.sol";
 import {
@@ -57,6 +58,7 @@ import {
  */
 contract OriginationController is
     InterestCalculator,
+    FeeLookups,
     IOriginationController,
     EIP712,
     ReentrancyGuard,
@@ -830,7 +832,7 @@ contract OriginationController is
 
         address oldLender = ILoanCore(loanCore).lenderNote().ownerOf(oldLoanId);
         IERC20 payableCurrency = IERC20(oldTerms.payableCurrency);
-        uint256 rolloverFee = ILoanCore(loanCore).feeController().getRolloverFee();
+        uint256 rolloverFee = ILoanCore(loanCore).feeController().get(FL_04);
 
         // Settle amounts
         RolloverAmounts memory amounts = _calculateRolloverAmounts(

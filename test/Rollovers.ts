@@ -72,6 +72,9 @@ describe("Rollovers", () => {
 
         const feeController = <FeeController>await deploy("FeeController", admin, []);
 
+        await feeController.set(await feeController.FL_02(), 50);
+        await feeController.set(await feeController.FL_04(), 10);
+
         const borrowerNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz BorrowerNote", "aBN"]);
         const lenderNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz LenderNote", "aLN"]);
 

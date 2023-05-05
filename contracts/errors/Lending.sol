@@ -350,4 +350,4 @@ error PN_ContractPaused();
 /**
  * @notice Caller attempted to set a fee which is larger than the global maximum.
  */
-error FC_FeeTooLarge();
+error FC_FeeTooLarge(bytes32 selector, uint256 fee, uint256 maxFee);

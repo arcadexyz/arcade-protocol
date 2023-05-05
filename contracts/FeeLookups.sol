@@ -8,7 +8,7 @@ pragma solidity ^0.8.11;
  *
  * Enumerates unique identifiers for any fee that can be looked up.
  */
-library FeeLookups {
+abstract contract FeeLookups {
     /// @dev Vault mint fee: gross amount, payable in ETH
     bytes32 public constant FL_01 = keccak256("VAULT_MINT_FEE");
 
@@ -21,7 +21,7 @@ library FeeLookups {
     bytes32 public constant FL_05 = keccak256("LENDER_ROLLOVER_FEE");
 
     /// @dev Loan closure fees, payable in loan token
-    bytes32 public constant FL_06 = keccak256("LENDER_CLAIM_FEE");
+    bytes32 public constant FL_06 = keccak256("LENDER_DEFAULT_FEE");
     bytes32 public constant FL_07 = keccak256("LENDER_INTEREST_FEE");
     bytes32 public constant FL_08 = keccak256("LENDER_PRINCIPAL_FEE");
 

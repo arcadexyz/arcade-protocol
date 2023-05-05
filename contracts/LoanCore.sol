@@ -18,6 +18,7 @@ import "./interfaces/IFeeController.sol";
 import "./interfaces/ILoanCore.sol";
 
 import "./PromissoryNote.sol";
+import "./FeeLookups.sol";
 import "./vault/OwnableERC721.sol";
 import {
     LC_ZeroAddress,
@@ -43,6 +44,7 @@ import {
 contract LoanCore is
     ILoanCore,
     InterestCalculator,
+    FeeLookups,
     AccessControlEnumerable,
     Pausable,
     ReentrancyGuard,
@@ -441,7 +443,7 @@ contract LoanCore is
      * @return principalLessFees    The amount after fees.
      */
     function _getPrincipalLessFees(uint256 principal) internal view returns (uint256) {
-        return principal - (principal * feeController.getOriginationFee()) / BASIS_POINTS_DENOMINATOR;
+        return principal - (principal * feeController.get(FL_02)) / BASIS_POINTS_DENOMINATOR;
     }
 
     /**

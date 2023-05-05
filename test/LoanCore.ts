@@ -214,6 +214,7 @@ describe("LoanCore", () => {
                 mockLenderNote,
                 mockBorrowerNote,
                 vaultFactory,
+                feeController,
                 loanCore,
                 mockERC20,
                 terms,
@@ -237,6 +238,9 @@ describe("LoanCore", () => {
             await mockERC20.connect(lender).transfer(await borrower.getAddress(), principal);
             await mockERC20.connect(borrower).approve(loanCore.address, principal);
 
+            const fee = principal.mul(5).div(1000);
+            await feeController.set(await feeController.FL_02(), 50);
+
             const loanId = await startLoan(
                 loanCore,
                 user,
@@ -245,7 +249,7 @@ describe("LoanCore", () => {
                 terms,
             );
 
-            const fee = principal.mul(5).div(1000);
+
             const borrowerBalanceAfter = await mockERC20.balanceOf(await borrower.getAddress());
             expect(borrowerBalanceAfter.sub(borrowerBalanceBefore)).to.equal(principal.sub(fee));
             const loanCoreBalanceAfter = await mockERC20.balanceOf(loanCore.address);
@@ -266,7 +270,7 @@ describe("LoanCore", () => {
             const loanCoreBalanceBefore = await mockERC20.balanceOf(loanCore.address);
             const feeController = <FeeController>await deploy("FeeController", borrower, []);
             // set the fee to 1%
-            await feeController.connect(borrower).setOriginationFee(100);
+            await feeController.set(await feeController.FL_02(), 1_00);
             await loanCore.setFeeController(feeController.address);
 
             // borrower is originator with originator role
@@ -827,7 +831,7 @@ describe("LoanCore", () => {
         };
 
         it("should successfully claim fees", async () => {
-            const { vaultFactory, loanCore, mockERC20, terms, borrower, lender } = await setupLoan();
+            const { vaultFactory, loanCore, mockERC20, terms, borrower, lender, feeController } = await setupLoan();
             const { collateralId, principal } = terms;
 
             // run originator controller logic inline then invoke loanCore
@@ -841,9 +845,12 @@ describe("LoanCore", () => {
             await mockERC20.connect(lender).transfer(await borrower.getAddress(), principal);
             await mockERC20.connect(borrower).approve(loanCore.address, principal);
 
+            const fee = principal.mul(5).div(1000);
+            await feeController.set(await feeController.FL_02(), 50);
+
             await startLoan(loanCore, borrower, await lender.getAddress(), await borrower.getAddress(), terms);
 
-            const fee = principal.mul(5).div(1000);
+
             expect(await mockERC20.balanceOf(loanCore.address)).to.equal(fee);
             await expect(loanCore.connect(borrower).claimFees(mockERC20.address))
                 .to.emit(loanCore, "FeesClaimed")
@@ -852,7 +859,7 @@ describe("LoanCore", () => {
         });
 
         it("should fail for anyone other than the admin", async () => {
-            const { vaultFactory, loanCore, mockERC20, terms, borrower, lender } = await setupLoan();
+            const { vaultFactory, loanCore, mockERC20, terms, borrower, lender, feeController } = await setupLoan();
             const { collateralId, principal } = terms;
 
             // run originator controller logic inline then invoke loanCore
@@ -866,10 +873,12 @@ describe("LoanCore", () => {
             await mockERC20.connect(lender).transfer(await borrower.getAddress(), principal);
             await mockERC20.connect(borrower).approve(loanCore.address, principal);
 
+            await feeController.set(await feeController.FL_02(), 50);
             await startLoan(loanCore, borrower, await lender.getAddress(), await borrower.getAddress(), terms);
 
             const fee = principal.mul(5).div(1000);
             expect(await mockERC20.balanceOf(loanCore.address)).to.equal(fee);
+
             await expect(loanCore.connect(lender).claimFees(mockERC20.address)).to.be.revertedWith(
                 `AccessControl: account ${(
                     await lender.getAddress()
