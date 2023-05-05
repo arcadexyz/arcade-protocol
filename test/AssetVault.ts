@@ -13,7 +13,8 @@ import {
     MockERC721,
     MockERC1155,
     CryptoPunksMarket,
-    DelegationRegistry
+    DelegationRegistry,
+    FeeController
 } from "../typechain";
 import { mint } from "./utils/erc20";
 import { mintToAddress as mintERC721 } from "./utils/erc721";
@@ -75,7 +76,8 @@ describe("AssetVault", () => {
         const mockERC1155 = <MockERC1155>await deploy("MockERC1155", signers[0], []);
 
         const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
-        const factory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address])
+        const feeController = <FeeController>await deploy("FeeController", signers[0], []);
+        const factory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address])
         const vault = await createVault(factory, signers[0]);
 
         const punks = <CryptoPunksMarket>await deploy("CryptoPunksMarket", signers[0], []);

@@ -1,13 +1,14 @@
 import { expect } from "chai";
-import hre, { waffle } from "hardhat";
+import hre, { waffle, ethers } from "hardhat";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { BigNumber, BigNumberish } from "ethers";
 import { fromRpcSig } from "ethereumjs-util";
 
 import { ZERO_ADDRESS } from "./utils/erc20";
-import { CallWhitelist, AssetVault, VaultFactory } from "../typechain";
+import { CallWhitelist, AssetVault, VaultFactory, FeeController } from "../typechain";
 import { deploy } from "./utils/contracts";
+import { Test } from "mocha";
 
 type Signer = SignerWithAddress;
 
@@ -15,6 +16,7 @@ interface TestContext {
     factory: VaultFactory;
     vaultTemplate: AssetVault;
     whitelist: CallWhitelist;
+    feeController: FeeController;
     user: Signer;
     other: Signer;
     signers: Signer[];
@@ -28,12 +30,14 @@ describe("VaultFactory", () => {
         const signers: Signer[] = await hre.ethers.getSigners();
         const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
         const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
+        const feeController = <FeeController>await deploy("FeeController", signers[0], []);
 
-        const factory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address])
+        const factory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address]);
 
         return {
             factory,
             whitelist,
+            feeController,
             vaultTemplate,
             user: signers[0],
             other: signers[1],
@@ -62,17 +66,45 @@ describe("VaultFactory", () => {
     };
 
     it("should fail to initialize if passed an invalid template", async () => {
-        const { whitelist } = await loadFixture(fixture);
+        const { whitelist, feeController } = await loadFixture(fixture);
 
         const VaultFactory = await hre.ethers.getContractFactory("VaultFactory");
         await expect(
-            VaultFactory.deploy(ZERO_ADDRESS, whitelist.address)
-        ).to.be.revertedWith("VF_InvalidTemplate");
+            VaultFactory.deploy(ZERO_ADDRESS, whitelist.address, feeController.address)
+        ).to.be.revertedWith("VF_ZeroAddress");
     });
 
     it("should return template address", async () => {
         const { factory, vaultTemplate } = await loadFixture(fixture);
         expect(await factory.template()).to.equal(vaultTemplate.address);
+    });
+
+    it("should fail to initialize if passed an invalid whitelist", async () => {
+        const { vaultTemplate, feeController } = await loadFixture(fixture);
+
+        const VaultFactory = await hre.ethers.getContractFactory("VaultFactory");
+        await expect(
+            VaultFactory.deploy(vaultTemplate.address, ZERO_ADDRESS, feeController.address)
+        ).to.be.revertedWith("VF_ZeroAddress");
+    });
+
+    it("should return whitelist address", async () => {
+        const { factory, whitelist } = await loadFixture(fixture);
+        expect(await factory.whitelist()).to.equal(whitelist.address);
+    });
+
+    it("should fail to initialize if passed an invalid fee controller", async () => {
+        const { vaultTemplate, whitelist } = await loadFixture(fixture);
+
+        const VaultFactory = await hre.ethers.getContractFactory("VaultFactory");
+        await expect(
+            VaultFactory.deploy(vaultTemplate.address, whitelist.address, ZERO_ADDRESS)
+        ).to.be.revertedWith("VF_ZeroAddress");
+    });
+
+    it("should return fee controller address", async () => {
+        const { factory, feeController } = await loadFixture(fixture);
+        expect(await factory.feeController()).to.equal(feeController.address);
     });
 
     describe("isInstance", async () => {
@@ -136,6 +168,82 @@ describe("VaultFactory", () => {
             expect(await factory.instanceAt(instAtIndex3)).to.equal(vault3.address);
         });
     });
+
+    describe("mint fees", async () => {
+        let ctx: TestContext;
+        const MINT_FEE = ethers.utils.parseEther("0.1");
+
+        beforeEach(async () => {
+            ctx = await loadFixture(fixture);
+
+            // Set a mint fee of 0.1 ETH
+            await ctx.feeController.set(await ctx.feeController.FL_01(), MINT_FEE);
+        });
+
+        it("should fail to mint if the required fee is not provided", async () => {
+            const { user, factory } = ctx;
+
+            await expect(
+                factory.initializeBundle(user.address)
+            ).to.be.revertedWith("VF_InsufficientMintFee");
+        });
+
+        it("mints and collects a fee", async () => {
+            const { user, factory } = ctx;
+
+            const userBalanceBefore = await ethers.provider.getBalance(user.address);
+
+            await expect(
+                factory.initializeBundle(user.address, { value: MINT_FEE })
+            ).to.emit(factory, "VaultCreated");
+
+            const userBalanceAfter = await ethers.provider.getBalance(user.address);
+
+            expect(userBalanceBefore.sub(userBalanceAfter)).to.be.gt(MINT_FEE);
+            expect(await ethers.provider.getBalance(factory.address)).to.eq(MINT_FEE);
+        });
+
+        it("refunds an overpaid mint fee", async () => {
+            const { user, factory } = ctx;
+
+            const userBalanceBefore = await ethers.provider.getBalance(user.address);
+
+            await expect(
+                factory.initializeBundle(user.address, { value: MINT_FEE.mul(10) }) // extra large fee paid
+            ).to.emit(factory, "VaultCreated");
+
+            const userBalanceAfter = await ethers.provider.getBalance(user.address);
+
+            expect(userBalanceBefore.sub(userBalanceAfter)).to.be.gt(MINT_FEE);
+            expect(await ethers.provider.getBalance(factory.address)).to.eq(MINT_FEE);
+        });
+
+        it("mint fee cannot be collected by non-admin", async () => {
+            const { user, other, factory } = ctx;
+
+            await expect(
+                factory.initializeBundle(user.address, { value: MINT_FEE })
+            ).to.emit(factory, "VaultCreated");
+
+            await expect(
+                factory.connect(other).claimFees(other.address)
+            ).to.be.revertedWith("Ownable: caller is not the owner");
+        });
+
+        it("collects the mint fee", async () => {
+            const { user, factory } = ctx;
+
+            await expect(
+                factory.initializeBundle(user.address, { value: MINT_FEE })
+            ).to.emit(factory, "VaultCreated");
+
+            expect(await ethers.provider.getBalance(factory.address)).to.eq(MINT_FEE);
+
+            await expect(factory.connect(user).claimFees(user.address))
+                .to.emit(factory, "ClaimFees")
+                .withArgs(user.address, MINT_FEE);
+        });
+    })
 
     describe("Permit", () => {
         const typedData = {

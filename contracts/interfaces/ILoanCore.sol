@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "../libraries/LoanLibrary.sol";
 
 import "./IPromissoryNote.sol";
-import "./IFeeController.sol";
 import "./ILoanCore.sol";
 
 interface ILoanCore {

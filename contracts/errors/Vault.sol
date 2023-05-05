@@ -96,11 +96,9 @@ error OERC721_CallerNotOwner(address caller);
 /// @notice All errors prefixed with VF_, to separate from other contracts in the protocol.
 
 /**
- * @notice Template contract is invalid.
- *
- * @param template                           Template contract to be cloned.
+ * @notice Zero address passed in constructor.
  */
-error VF_InvalidTemplate(address template);
+error VF_ZeroAddress();
 
 /**
  * @notice Global index out of bounds.
@@ -115,3 +113,11 @@ error VF_TokenIdOutOfBounds(uint256 tokenId);
  * @param tokenId                            AW-V2 tokenId of the asset vault.
  */
 error VF_NoTransferWithdrawEnabled(uint256 tokenId);
+
+/**
+ * @notice Not enough msg.value sent for the required mint fee.
+ *
+ * @param value                              The msg.value.
+ * @param requiredMintFee                    The required mint fee.
+ */
+error VF_InsufficientMintFee(uint256 value, uint256 requiredMintFee);

@@ -15,6 +15,7 @@ import "./interfaces/IERC721Permit.sol";
 import "./interfaces/IAssetVault.sol";
 import "./interfaces/IVaultFactory.sol";
 import "./interfaces/ISignatureVerifier.sol";
+import "./interfaces/IFeeController.sol";
 
 import "./FeeLookups.sol";
 import "./InterestCalculator.sol";

@@ -5,15 +5,17 @@ pragma solidity ^0.8.11;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 
 import "../interfaces/IAssetVault.sol";
 import "../interfaces/IVaultFactory.sol";
+import "../interfaces/IFeeController.sol";
 import "../ERC721Permit.sol";
 
-import { VF_InvalidTemplate, VF_TokenIdOutOfBounds, VF_NoTransferWithdrawEnabled } from "../errors/Vault.sol";
+import { VF_ZeroAddress, VF_TokenIdOutOfBounds, VF_NoTransferWithdrawEnabled, VF_InsufficientMintFee } from "../errors/Vault.sol";
 
 /**
  * @title VaultFactory
@@ -33,13 +35,18 @@ import { VF_InvalidTemplate, VF_TokenIdOutOfBounds, VF_NoTransferWithdrawEnabled
  * VaultFactory in order to determine their own contract owner. The VaultFactory contains
  * conveniences to allow switching between the address and uint256 formats.
  */
-contract VaultFactory is ERC165, ERC721Permit, ERC721Enumerable, IVaultFactory {
+contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, ERC721Enumerable, Ownable {
     // ============================================ STATE ==============================================
 
+    /// @dev Lookup identifier for minting fee in fee controller
+    bytes32 public constant FL_01 = keccak256("VAULT_MINT_FEE");
+
     /// @dev The template contract for asset vaults.
-    address public template;
+    address public immutable template;
     /// @dev The CallWhitelist contract definining the calling restrictions for vaults.
-    address public whitelist;
+    address public immutable whitelist;
+    /// @dev The contract specifying minting fees, if non-zero
+    IFeeController public immutable feeController;
 
     // ========================================== CONSTRUCTOR ===========================================
 
@@ -52,12 +59,16 @@ contract VaultFactory is ERC165, ERC721Permit, ERC721Enumerable, IVaultFactory {
      */
     constructor(
         address _template,
-        address _whitelist
+        address _whitelist,
+        address _feeController
     ) ERC721("Asset Vault", "AV") ERC721Permit("Asset Vault") {
-        if (_template == address(0)) revert VF_InvalidTemplate(_template);
+        if (_template == address(0)) revert VF_ZeroAddress();
+        if (_whitelist == address(0)) revert VF_ZeroAddress();
+        if (_feeController == address(0)) revert VF_ZeroAddress();
 
         template = _template;
         whitelist = _whitelist;
+        feeController = IFeeController(_feeController);
     }
 
     // ========================================= VIEW FUNCTIONS =========================================
@@ -123,10 +134,16 @@ contract VaultFactory is ERC165, ERC721Permit, ERC721Enumerable, IVaultFactory {
      *
      * @return tokenID              The token ID of the bundle token, derived from the vault address.
      */
-    function initializeBundle(address to) external override returns (uint256) {
+    function initializeBundle(address to) external payable override returns (uint256) {
+        uint256 mintFee = feeController.get(FL_01);
+
+        if (msg.value < mintFee) revert VF_InsufficientMintFee(msg.value, mintFee);
+
         address vault = _create();
 
         _mint(to, uint256(uint160(vault)));
+
+        if (msg.value > mintFee) payable(msg.sender).transfer(msg.value - mintFee);
 
         emit VaultCreated(vault, to);
         return uint256(uint160(vault));
@@ -142,6 +159,16 @@ contract VaultFactory is ERC165, ERC721Permit, ERC721Enumerable, IVaultFactory {
         vault = Clones.clone(template);
         IAssetVault(vault).initialize(whitelist);
         return vault;
+    }
+
+    /**
+     * @notice Claim any accrued minting fees. Only callable by owner.
+     */
+    function claimFees(address to) external onlyOwner {
+        uint256 balance = address(this).balance;
+        payable(to).transfer(balance);
+
+        emit ClaimFees(to, balance);
     }
 
     // ===================================== ERC721 UTILITIES ===========================================

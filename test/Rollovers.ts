@@ -68,9 +68,8 @@ describe("Rollovers", () => {
 
         const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
         const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
-        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address])
-
         const feeController = <FeeController>await deploy("FeeController", admin, []);
+        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address]);
 
         await feeController.set(await feeController.FL_02(), 50);
         await feeController.set(await feeController.FL_04(), 10);

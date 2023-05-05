@@ -70,11 +70,12 @@ describe("PromissoryNote", () => {
 
         const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
         const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
-        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address])
+        const feeController = <FeeController>await deploy("FeeController", signers[0], []);
+
+        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address]);
 
         const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
 
-        const feeController = <FeeController>await deploy("FeeController", signers[0], []);
 
         const borrowerNote = <PromissoryNote>(
             await deploy("PromissoryNote", signers[0], ["Arcade.xyz BorrowerNote", "aBN"])

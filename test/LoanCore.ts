@@ -92,10 +92,9 @@ describe("LoanCore", () => {
 
         const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
         const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
-
-        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address])
-
         const feeController = <FeeController>await deploy("FeeController", signers[0], []);
+
+        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address]);
 
         const mockBorrowerNote = <PromissoryNote>(
             await deploy("PromissoryNote", admin, ["Arcade.xyz BorrowerNote", "aBN"])

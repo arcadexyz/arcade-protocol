@@ -10,6 +10,7 @@ import {
     VaultFactory,
     GenArt721Core,
     ArtBlocksVerifier,
+    FeeController
 } from "../typechain";
 import { deploy } from "./utils/contracts";
 
@@ -43,7 +44,8 @@ describe("ArtBlocksVerifier", () => {
         const verifier = <ArtBlocksVerifier>await deploy("ArtBlocksVerifier", deployer, []);
 
         const vaultTemplate = <AssetVault>await deploy("AssetVault", deployer, []);
-        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address])
+        const feeController = <FeeController>await deploy("FeeController", signers[0], []);
+        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address])
 
         // Mint a few projects - will start with ID 3
         await artblocks.addProject("Project 1", user.address, price, false);
