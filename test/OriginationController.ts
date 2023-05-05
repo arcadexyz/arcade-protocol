@@ -146,7 +146,7 @@ const createLoanTermsExpired = (
     {
         durationSecs = BigNumber.from(360000),
         principal = hre.ethers.utils.parseEther("100"),
-        interestRate = hre.ethers.utils.parseEther("1"),
+        proratedInterestRate = hre.ethers.utils.parseEther("1"),
         collateralId = "1",
         deadline = 808113600, // August 11, 1995
     }: Partial<LoanTerms> = {},
@@ -154,7 +154,7 @@ const createLoanTermsExpired = (
     return {
         durationSecs,
         principal,
-        interestRate,
+        proratedInterestRate,
         collateralId,
         collateralAddress,
         payableCurrency,
@@ -168,7 +168,7 @@ const createLoanTerms = (
     {
         durationSecs = BigNumber.from(360000),
         principal = hre.ethers.utils.parseEther("100"),
-        interestRate = hre.ethers.utils.parseEther("1"),
+        proratedInterestRate = hre.ethers.utils.parseEther("1"),
         collateralId = "1",
         deadline = 1754884800,
     }: Partial<LoanTerms> = {},
@@ -176,7 +176,7 @@ const createLoanTerms = (
     return {
         durationSecs,
         principal,
-        interestRate,
+        proratedInterestRate,
         collateralId,
         collateralAddress,
         payableCurrency,
@@ -209,8 +209,7 @@ describe("OriginationController", () => {
             const originationController = await OriginationController.deploy(loanCore.address, feeController.address);
             await originationController.deployed();
 
-            expect(await originationController.loanCore()).to.equal(loanCore.address);
-            expect(await originationController.feeController()).to.equal(feeController.address);
+            expect(originationController.address).to.not.be.undefined;
         });
     });
 

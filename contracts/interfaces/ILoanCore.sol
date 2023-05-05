@@ -33,7 +33,8 @@ interface ILoanCore {
 
     function repay(
         uint256 loanId,
-        uint256 _amountFromBorrower,
+        address payer,
+        uint256 _amountFromPayer,
         uint256 _amountToLender
     ) external;
 

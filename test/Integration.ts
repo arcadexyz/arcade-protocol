@@ -73,7 +73,7 @@ describe("Integration", () => {
 
         const mockERC20 = <MockERC20>await deploy("MockERC20", admin, ["Mock ERC20", "MOCK"]);
 
-        const repaymentController = <RepaymentController>await deploy("RepaymentController", admin, [loanCore.address]);
+        const repaymentController = <RepaymentController>await deploy("RepaymentController", admin, [loanCore.address, feeController.address]);
         await repaymentController.deployed();
         const updateRepaymentControllerPermissions = await loanCore.grantRole(
             REPAYER_ROLE,
@@ -130,7 +130,7 @@ describe("Integration", () => {
         {
             durationSecs = BigNumber.from(3600000),
             principal = hre.ethers.utils.parseEther("100"),
-            interestRate = hre.ethers.utils.parseEther("1"),
+            proratedInterestRate = hre.ethers.utils.parseEther("1"),
             collateralId = 1,
             deadline = 1754884800,
         }: Partial<LoanTerms> = {},
@@ -138,7 +138,7 @@ describe("Integration", () => {
         return {
             durationSecs,
             principal,
-            interestRate,
+            proratedInterestRate,
             collateralAddress,
             collateralId,
             payableCurrency,
@@ -334,10 +334,10 @@ describe("Integration", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender } = context;
             const { loanId, loanTerms, bundleId } = await initializeLoan(context, 1);
 
-            await mint(mockERC20, borrower, loanTerms.principal.add(loanTerms.interestRate));
+            await mint(mockERC20, borrower, loanTerms.principal.add(loanTerms.proratedInterestRate));
             await mockERC20
                 .connect(borrower)
-                .approve(repaymentController.address, loanTerms.principal.add(loanTerms.interestRate));
+                .approve(loanCore.address, loanTerms.principal.add(loanTerms.proratedInterestRate));
 
             // pre-repaid state
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
@@ -358,11 +358,11 @@ describe("Integration", () => {
             const { repaymentController, mockERC20, loanCore, borrower } = context;
             const { loanId, loanTerms, bundleId } = await initializeLoan(context, 1);
 
-            await mint(mockERC20, borrower, loanTerms.principal.add(loanTerms.interestRate));
+            await mint(mockERC20, borrower, loanTerms.principal.add(loanTerms.proratedInterestRate));
 
             await mockERC20
                 .connect(borrower)
-                .approve(repaymentController.address, loanTerms.principal.add(loanTerms.interestRate));
+                .approve(loanCore.address, loanTerms.principal.add(loanTerms.proratedInterestRate));
 
             await expect(repaymentController.connect(borrower).repay(loanId))
                 .to.emit(loanCore, "LoanRepaid")
@@ -382,7 +382,7 @@ describe("Integration", () => {
             const { repaymentController, mockERC20, borrower } = context;
             const { loanTerms, loanId } = await initializeLoan(context, 1);
 
-            await mint(mockERC20, borrower, loanTerms.principal.add(loanTerms.interestRate));
+            await mint(mockERC20, borrower, loanTerms.principal.add(loanTerms.proratedInterestRate));
 
             await expect(repaymentController.connect(borrower).repay(loanId)).to.be.revertedWith(
                 "ERC20: transfer amount exceeds allowance",
@@ -394,10 +394,10 @@ describe("Integration", () => {
             const { repaymentController, mockERC20, borrower } = context;
             const { loanTerms } = await initializeLoan(context, 1);
 
-            await mint(mockERC20, borrower, loanTerms.principal.add(loanTerms.interestRate));
+            await mint(mockERC20, borrower, loanTerms.principal.add(loanTerms.proratedInterestRate));
             await mockERC20
                 .connect(borrower)
-                .approve(repaymentController.address, loanTerms.principal.add(loanTerms.interestRate));
+                .approve(repaymentController.address, loanTerms.principal.add(loanTerms.proratedInterestRate));
 
             await expect(repaymentController.connect(borrower).repay(1234)).to.be.revertedWith("RC_CannotDereference");
         });

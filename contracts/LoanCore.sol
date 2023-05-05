@@ -22,7 +22,7 @@ import "./vault/OwnableERC721.sol";
 import {
     LC_ZeroAddress,
     LC_ReusedNote,
-    LC_CannotSettleOrigination,
+    LC_CannotSettle,
     LC_CollateralInUse,
     LC_InvalidState,
     LC_NotExpired,
@@ -138,7 +138,7 @@ contract LoanCore is
         if (collateralInUse[collateralKey]) revert LC_CollateralInUse(terms.collateralAddress, terms.collateralId);
 
         // Check that we will not net lose tokens.
-        if (_amountToBorrower > _amountFromLender) revert LC_CannotSettleOrigination(_amountToBorrower, _amountFromLender);
+        if (_amountToBorrower > _amountFromLender) revert LC_CannotSettle(_amountToBorrower, _amountFromLender);
 
         // get current loanId and increment for next function call
         loanId = loanIdTracker.current();
@@ -174,17 +174,22 @@ contract LoanCore is
      *         All promissory notes will be burned and the loan will be marked as complete.
      *
      * @param loanId                The ID of the loan to repay.
-     * @param _amountFromBorrower   The amount of tokens to be collected from the borrower.
+     * @param payer                 The party repaying the loan.
+     * @param _amountFromPayer      The amount of tokens to be collected from the repayer.
      * @param _amountToLender       The amount of tokens to be distributed to the lender (net after fees).
      */
     function repay(
         uint256 loanId,
-        uint256 _amountFromBorrower,
+        address payer,
+        uint256 _amountFromPayer,
         uint256 _amountToLender
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         LoanLibrary.LoanData memory data = loans[loanId];
         // ensure valid initial loan state when starting loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
+
+        // Check that we will not net lose tokens.
+        if (_amountToLender > _amountFromPayer) revert LC_CannotSettle(_amountToLender, _amountFromPayer);
 
         // get promissory notes from two parties involved
         address lender = lenderNote.ownerOf(loanId);
@@ -198,7 +203,7 @@ contract LoanCore is
         _burnLoanNotes(loanId);
 
         // Collect from borrower and redistribute collateral
-        IERC20(data.terms.payableCurrency).safeTransferFrom(borrower, address(this), _amountFromBorrower);
+        IERC20(data.terms.payableCurrency).safeTransferFrom(payer, address(this), _amountFromPayer);
         IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
 
         // Not using safeTransfer to prevent lenders from blocking loan receipt

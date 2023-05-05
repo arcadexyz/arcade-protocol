@@ -106,7 +106,7 @@ const fixture = async (): Promise<TestContext> => {
     const isVaultFactoryWhitelisted = await originationController.allowedCollateral(vaultFactory.address);
     expect(isVaultFactoryWhitelisted).to.be.true;
 
-    const repaymentController = <RepaymentController>await deploy("RepaymentController", admin, [loanCore.address]);
+    const repaymentController = <RepaymentController>await deploy("RepaymentController", admin, [loanCore.address, feeController.address]);
 
     await repaymentController.deployed();
     const updateRepaymentControllerPermissions = await loanCore.grantRole(REPAYER_ROLE, repaymentController.address);
@@ -139,7 +139,7 @@ const createLoanTerms = (
     payableCurrency: string,
     durationSecs: BigNumber,
     principal: BigNumber,
-    interestRate: BigNumber,
+    proratedInterestRate: BigNumber,
     collateralAddress: string,
     deadline: BigNumberish,
     { collateralId = 1 }: Partial<LoanTerms> = {},
@@ -147,7 +147,7 @@ const createLoanTerms = (
     return {
         durationSecs,
         principal,
-        interestRate,
+        proratedInterestRate,
         collateralAddress,
         collateralId,
         payableCurrency,
@@ -238,7 +238,7 @@ describe("RepaymentController", () => {
         const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
         // mint borrower exactly enough to repay loan
         await mint(mockERC20, borrower, repayAdditionalAmount);
-        await mockERC20.connect(borrower).approve(repaymentController.address, total);
+        await mockERC20.connect(borrower).approve(loanCore.address, total);
 
         expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
 
@@ -264,7 +264,7 @@ describe("RepaymentController", () => {
         const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
         // mint borrower exactly enough to repay loan
         await mint(mockERC20, borrower, repayAdditionalAmount);
-        await mockERC20.connect(borrower).approve(repaymentController.address, total);
+        await mockERC20.connect(borrower).approve(loanCore.address, total);
 
         expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
 
@@ -289,7 +289,7 @@ describe("RepaymentController", () => {
         const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
         // mint borrower exactly enough to repay loan
         await mint(mockERC20, borrower, repayAdditionalAmount);
-        await mockERC20.connect(borrower).approve(repaymentController.address, total);
+        await mockERC20.connect(borrower).approve(loanCore.address, total);
 
         expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
 
@@ -298,7 +298,7 @@ describe("RepaymentController", () => {
         expect(await mockERC20.balanceOf(borrower.address)).to.equal(0);
     });
 
-    it("Rrd party repayment, interest and principal. 100 ETH principal, 10% interest rate.", async () => {
+    it("Third party repayment, interest and principal. 100 ETH principal, 10% interest rate.", async () => {
         const context = await loadFixture(fixture);
         const { repaymentController, vaultFactory, mockERC20, loanCore, other } = context;
         const { loanId, bundleId } = await initializeLoan(
@@ -314,7 +314,7 @@ describe("RepaymentController", () => {
 
         // mint 3rd party account exactly enough to repay loan
         await mint(mockERC20, other, total);
-        await mockERC20.connect(other).approve(repaymentController.address, total);
+        await mockERC20.connect(other).approve(loanCore.address, total);
 
         expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
 
@@ -339,7 +339,7 @@ describe("RepaymentController", () => {
         const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
         // mint borrower exactly enough to repay loan
         await mint(mockERC20, borrower, repayAdditionalAmount);
-        await mockERC20.connect(borrower).approve(repaymentController.address, total);
+        await mockERC20.connect(borrower).approve(loanCore.address, total);
 
         expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
 
@@ -404,7 +404,7 @@ describe("RepaymentController", () => {
         const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
         // mint borrower exactly enough to repay loan
         await mint(mockERC20, borrower, repayAdditionalAmount);
-        await mockERC20.connect(borrower).approve(repaymentController.address, total);
+        await mockERC20.connect(borrower).approve(loanCore.address, total);
 
         expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
 
@@ -413,7 +413,7 @@ describe("RepaymentController", () => {
         expect(await mockERC20.balanceOf(borrower.address)).to.equal(0);
 
         await mint(mockERC20, borrower, ethers.utils.parseEther("1"));
-        await mockERC20.connect(borrower).approve(repaymentController.address, ethers.utils.parseEther("1"));
+        await mockERC20.connect(borrower).approve(loanCore.address, ethers.utils.parseEther("1"));
         await expect(repaymentController.connect(borrower).repay(loanId)).to.be.revertedWith("RC_InvalidState");
     });
 });
@@ -423,7 +423,7 @@ describe("RepaymentController revert branches", () => {
         const context = await loadFixture(fixture);
         const { repaymentController } = context;
         await expect(
-            repaymentController.getFullInterestAmount(ethers.utils.parseEther("100"), ethers.utils.parseEther("0.9")),
+            repaymentController.getInterestAmount(ethers.utils.parseEther("100"), ethers.utils.parseEther("0.9")),
         ).to.be.revertedWith("FIAC_InterestRate");
     });
 });

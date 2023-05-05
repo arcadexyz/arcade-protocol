@@ -81,7 +81,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         uint256 amountToLender = amountFromBorrower - interestFee - principalFee;
 
         // call repay function in loan core
-        loanCore.repay(loanId, amountFromBorrower, amountToLender);
+        loanCore.repay(loanId, msg.sender, amountFromBorrower, amountToLender);
     }
 
     /**

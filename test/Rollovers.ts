@@ -90,7 +90,7 @@ describe("Rollovers", () => {
         const mockERC20 = <MockERC20>await deploy("MockERC20", admin, ["Mock ERC20", "MOCK"]);
         const mockERC721 = <MockERC721>await deploy("MockERC721", admin, ["Mock ERC721", "MOCK"]);
 
-        const repaymentController = <RepaymentController>await deploy("RepaymentController", admin, [loanCore.address]);
+        const repaymentController = <RepaymentController>await deploy("RepaymentController", admin, [loanCore.address, feeController.address]);
         await repaymentController.deployed();
         const updateRepaymentControllerPermissions = await loanCore.grantRole(
             REPAYER_ROLE,
@@ -157,7 +157,7 @@ describe("Rollovers", () => {
         {
             durationSecs = BigNumber.from(3600000),
             principal = hre.ethers.utils.parseEther("100"),
-            interestRate = hre.ethers.utils.parseEther("1"),
+            proratedInterestRate = hre.ethers.utils.parseEther("1"),
             collateralId = 1,
             deadline = 1754884800,
         }: Partial<LoanTerms> = {},
@@ -165,7 +165,7 @@ describe("Rollovers", () => {
         return {
             durationSecs,
             principal,
-            interestRate,
+            proratedInterestRate,
             collateralAddress,
             collateralId,
             payableCurrency,
@@ -194,7 +194,7 @@ describe("Rollovers", () => {
         payableCurrency: string,
         durationSecs: BigNumberish,
         principal: BigNumber,
-        interestRate: BigNumber,
+        proratedInterestRate: BigNumber,
         deadline: BigNumberish,
         nonce = 1,
     ): Promise<LoanDef> => {
@@ -203,7 +203,7 @@ describe("Rollovers", () => {
         const loanTerms = createLoanTerms(payableCurrency, vaultFactory.address, {
             durationSecs,
             principal,
-            interestRate,
+            proratedInterestRate,
             deadline,
             collateralId: bundleId,
         });
@@ -324,13 +324,13 @@ describe("Rollovers", () => {
         });
 
         it("should not allow a rollover on an already closed loan", async () => {
-            const { originationController, repaymentController, mockERC20, vaultFactory, borrower, lender, admin } =
+            const { originationController, loanCore, repaymentController, mockERC20, vaultFactory, borrower, lender, admin } =
                 ctx;
             const { loanId, loanTerms } = loan;
 
             // Repay the loan
             await mockERC20.connect(admin).mint(borrower.address, ethers.utils.parseEther("1000"));
-            await mockERC20.connect(borrower).approve(repaymentController.address, ethers.utils.parseEther("1000"));
+            await mockERC20.connect(borrower).approve(loanCore.address, ethers.utils.parseEther("1000"));
             await repaymentController.connect(borrower).repay(loanId);
 
             // create new terms for rollover and sign them

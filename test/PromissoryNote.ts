@@ -48,7 +48,7 @@ describe("PromissoryNote", () => {
         {
             durationSecs = BigNumber.from(360000),
             principal = hre.ethers.utils.parseEther("100"),
-            interestRate = hre.ethers.utils.parseEther("1"),
+            proratedInterestRate = hre.ethers.utils.parseEther("1"),
             collateralId = 1,
             deadline = 259200,
         }: Partial<LoanTerms> = {},
@@ -56,7 +56,7 @@ describe("PromissoryNote", () => {
         return {
             durationSecs,
             principal,
-            interestRate,
+            proratedInterestRate,
             collateralId,
             collateralAddress,
             payableCurrency,
@@ -102,7 +102,7 @@ describe("PromissoryNote", () => {
         await loanCore.connect(signers[0]).grantRole(REPAYER_ROLE, await repayer.getAddress());
 
         const repaymentController = <RepaymentController>(
-            await deploy("RepaymentController", signers[0], [loanCore.address])
+            await deploy("RepaymentController", signers[0], [loanCore.address, feeController.address])
         );
         await repaymentController.deployed();
         const updateRepaymentControllerPermissions = await loanCore.grantRole(
