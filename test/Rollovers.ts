@@ -78,7 +78,7 @@ describe("Rollovers", () => {
         const borrowerNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz BorrowerNote", "aBN"]);
         const lenderNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz LenderNote", "aLN"]);
 
-        const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [feeController.address, borrowerNote.address, lenderNote.address]);
+        const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [borrowerNote.address, lenderNote.address]);
 
         // Grant correct permissions for promissory note
         for (const note of [borrowerNote, lenderNote]) {
@@ -100,7 +100,7 @@ describe("Rollovers", () => {
         await updateRepaymentControllerPermissions.wait();
 
         const originationController = <OriginationController>await deploy(
-            "OriginationController", signers[0], [loanCore.address]
+            "OriginationController", signers[0], [loanCore.address, feeController.address]
         );
         await originationController.deployed();
 
@@ -221,12 +221,12 @@ describe("Rollovers", () => {
             "b",
         );
 
-        await approve(mockERC20, lender, originationController.address, loanTerms.principal);
-        await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
+        await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
+        await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
 
         const tx = await originationController
             .connect(lender)
-            .initializeLoan(loanTerms, await borrower.getAddress(), await lender.getAddress(), sig, nonce);
+            .initializeLoan(loanTerms, borrower.address, lender.address, sig, nonce);
         const receipt = await tx.wait();
 
         let loanId;

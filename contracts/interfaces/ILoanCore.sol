@@ -27,7 +27,9 @@ interface ILoanCore {
     function startLoan(
         address lender,
         address borrower,
-        LoanLibrary.LoanTerms calldata terms
+        LoanLibrary.LoanTerms calldata terms,
+        uint256 _amountFromLender,
+        uint256 _amountToBorrower
     ) external returns (uint256 loanId);
 
     function repay(uint256 loanId) external;
@@ -60,6 +62,4 @@ interface ILoanCore {
     function borrowerNote() external returns (IPromissoryNote);
 
     function lenderNote() external returns (IPromissoryNote);
-
-    function feeController() external returns (IFeeController);
 }

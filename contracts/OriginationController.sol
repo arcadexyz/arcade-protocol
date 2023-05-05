@@ -92,7 +92,8 @@ contract OriginationController is
 
     // =============== Contract References ===============
 
-    address public loanCore;
+    ILoanCore public loanCore;
+    IFeeController public feeController;
 
     // ================= Approval State ==================
 
@@ -115,9 +116,11 @@ contract OriginationController is
      *      in loan core after deployment.
      *
      * @param _loanCore                     The address of the loan core logic of the protocol.
+     * @param _feeController                The address of the fee logic of the protocol.
      */
-    constructor(address _loanCore) EIP712("OriginationController", "3") {
+    constructor(address _loanCore, address _feeController) EIP712("OriginationController", "3") {
         if (_loanCore == address(0)) revert OC_ZeroAddress();
+        if (_feeController == address(0)) revert OC_ZeroAddress();
 
         _setupRole(ADMIN_ROLE, msg.sender);
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
@@ -125,7 +128,24 @@ contract OriginationController is
         _setupRole(WHITELIST_MANAGER_ROLE, msg.sender);
         _setRoleAdmin(WHITELIST_MANAGER_ROLE, ADMIN_ROLE);
 
-        loanCore = _loanCore;
+        loanCore = ILoanCore(_loanCore);
+        feeController = IFeeController(_feeController);
+    }
+
+    // ========================================== ADMIN UTILS ==========================================
+
+    /**
+     * @notice Sets the fee controller to a new address. It must implement the
+     *         IFeeController interface. Can only be called by the contract owner.
+     *
+     * @param _newController        The new fee controller contract.
+     */
+    function setFeeController(IFeeController _newController) external onlyRole(ADMIN_ROLE) {
+        if (address(_newController) == address(0)) revert OC_ZeroAddress();
+
+        feeController = _newController;
+
+        emit SetFeeController(address(feeController));
     }
 
     // ===================================== WHITELIST MANAGER UTILS =====================================
@@ -148,6 +168,8 @@ contract OriginationController is
             if (allowedCurrencies[_tokenAddress[i]]) revert OC_AlreadyAllowed(_tokenAddress[i]);
 
             allowedCurrencies[_tokenAddress[i]] = true;
+
+            // TODO: Add events
         }
     }
 
@@ -169,6 +191,8 @@ contract OriginationController is
             if (!allowedCurrencies[_tokenAddress[i]]) revert OC_DoesNotExist(_tokenAddress[i]);
 
             allowedCurrencies[_tokenAddress[i]] = false;
+
+            // TODO: Add events
         }
     }
 
@@ -190,6 +214,8 @@ contract OriginationController is
             if (allowedCollateral[_tokenAddress[i]]) revert OC_AlreadyAllowed(_tokenAddress[i]);
 
             allowedCollateral[_tokenAddress[i]] = true;
+
+            // TODO: Add events
         }
     }
 
@@ -249,7 +275,7 @@ contract OriginationController is
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
 
-        ILoanCore(loanCore).consumeNonce(externalSigner, nonce);
+        loanCore.consumeNonce(externalSigner, nonce);
         loanId = _initialize(loanTerms, borrower, lender);
     }
 
@@ -309,7 +335,7 @@ contract OriginationController is
             }
         }
 
-        ILoanCore(loanCore).consumeNonce(externalSigner, nonce);
+        loanCore.consumeNonce(externalSigner, nonce);
         loanId = _initialize(loanTerms, borrower, lender);
     }
 
@@ -341,7 +367,7 @@ contract OriginationController is
     ) external override returns (uint256 loanId) {
         IERC721Permit(loanTerms.collateralAddress).permit(
             borrower,
-            address(this),
+            address(loanCore),
             loanTerms.collateralId,
             permitDeadline,
             collateralSig.v,
@@ -383,7 +409,7 @@ contract OriginationController is
     ) external override returns (uint256 loanId) {
         IERC721Permit(loanTerms.collateralAddress).permit(
             borrower,
-            address(this),
+            address(loanCore),
             loanTerms.collateralId,
             permitDeadline,
             collateralSig.v,
@@ -418,10 +444,10 @@ contract OriginationController is
     ) public override returns (uint256 newLoanId) {
         _validateLoanTerms(loanTerms);
 
-        LoanLibrary.LoanData memory data = ILoanCore(loanCore).getLoan(oldLoanId);
+        LoanLibrary.LoanData memory data = loanCore.getLoan(oldLoanId);
         if (data.state != LoanLibrary.LoanState.Active) revert OC_InvalidState(data.state);
 
-        address borrower = IERC721(ILoanCore(loanCore).borrowerNote()).ownerOf(oldLoanId);
+        address borrower = IERC721(loanCore.borrowerNote()).ownerOf(oldLoanId);
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
@@ -431,7 +457,7 @@ contract OriginationController is
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
 
-        ILoanCore(loanCore).consumeNonce(externalSigner, nonce);
+        loanCore.consumeNonce(externalSigner, nonce);
 
         newLoanId = _rollover(oldLoanId, loanTerms, borrower, lender);
     }
@@ -462,10 +488,10 @@ contract OriginationController is
     ) public override returns (uint256 newLoanId) {
         _validateLoanTerms(loanTerms);
 
-        LoanLibrary.LoanData memory data = ILoanCore(loanCore).getLoan(oldLoanId);
+        LoanLibrary.LoanData memory data = loanCore.getLoan(oldLoanId);
         _validateRollover(data.terms, loanTerms);
 
-        address borrower = IERC721(ILoanCore(loanCore).borrowerNote()).ownerOf(oldLoanId);
+        address borrower = IERC721(loanCore.borrowerNote()).ownerOf(oldLoanId);
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
@@ -494,7 +520,7 @@ contract OriginationController is
             }
         }
 
-        ILoanCore(loanCore).consumeNonce(externalSigner, nonce);
+        loanCore.consumeNonce(externalSigner, nonce);
 
         newLoanId = _rollover(oldLoanId, loanTerms, borrower, lender);
     }
@@ -799,15 +825,14 @@ contract OriginationController is
         address borrower,
         address lender
     ) internal nonReentrant returns (uint256 loanId) {
-        // Take custody of funds
-        IERC20(loanTerms.payableCurrency).safeTransferFrom(lender, address(this), loanTerms.principal);
-        IERC20(loanTerms.payableCurrency).approve(loanCore, loanTerms.principal);
+        uint256 borrowerFee = (loanTerms.principal * feeController.get(FL_02)) / BASIS_POINTS_DENOMINATOR;
+        uint256 lenderFee = (loanTerms.principal * feeController.get(FL_03)) / BASIS_POINTS_DENOMINATOR;
 
-        IERC721(loanTerms.collateralAddress).transferFrom(borrower, address(this), loanTerms.collateralId);
-        IERC721(loanTerms.collateralAddress).approve(loanCore, loanTerms.collateralId);
+        // Determine settlement amounts based on fees
+        uint256 amountFromLender = loanTerms.principal + lenderFee;
+        uint256 amountToBorrower = loanTerms.principal - borrowerFee;
 
-        // Start loan
-        loanId = ILoanCore(loanCore).startLoan(lender, borrower, loanTerms);
+        loanId = loanCore.startLoan(lender, borrower, loanTerms, amountFromLender, amountToBorrower);
     }
 
     /**
@@ -827,12 +852,12 @@ contract OriginationController is
         address borrower,
         address lender
     ) internal nonReentrant returns (uint256 loanId) {
-        LoanLibrary.LoanData memory oldLoanData = ILoanCore(loanCore).getLoan(oldLoanId);
+        LoanLibrary.LoanData memory oldLoanData = loanCore.getLoan(oldLoanId);
         LoanLibrary.LoanTerms memory oldTerms = oldLoanData.terms;
 
-        address oldLender = ILoanCore(loanCore).lenderNote().ownerOf(oldLoanId);
+        address oldLender = loanCore.lenderNote().ownerOf(oldLoanId);
         IERC20 payableCurrency = IERC20(oldTerms.payableCurrency);
-        uint256 rolloverFee = ILoanCore(loanCore).feeController().get(FL_04);
+        uint256 rolloverFee = feeController.get(FL_04);
 
         // Settle amounts
         RolloverAmounts memory amounts = _calculateRolloverAmounts(
@@ -866,9 +891,9 @@ contract OriginationController is
         }
 
         {
-            payableCurrency.approve(loanCore, settledAmount);
+            payableCurrency.approve(address(loanCore), settledAmount);
 
-            loanId = ILoanCore(loanCore).rollover(
+            loanId = loanCore.rollover(
                 oldLoanId,
                 borrower,
                 lender,

@@ -14,7 +14,6 @@ import "./InterestCalculator.sol";
 import "./interfaces/ICallDelegator.sol";
 import "./interfaces/IPromissoryNote.sol";
 import "./interfaces/IAssetVault.sol";
-import "./interfaces/IFeeController.sol";
 import "./interfaces/ILoanCore.sol";
 
 import "./PromissoryNote.sol";
@@ -23,11 +22,14 @@ import "./vault/OwnableERC721.sol";
 import {
     LC_ZeroAddress,
     LC_ReusedNote,
+    LC_CannotSettleOrigination,
     LC_CollateralInUse,
     LC_InvalidState,
     LC_NotExpired,
     LC_NonceUsed
 } from "./errors/Lending.sol";
+
+import "hardhat/console.sol";
 
 /**
  * @title LoanCore
@@ -44,7 +46,6 @@ import {
 contract LoanCore is
     ILoanCore,
     InterestCalculator,
-    FeeLookups,
     AccessControlEnumerable,
     Pausable,
     ReentrancyGuard,
@@ -62,13 +63,10 @@ contract LoanCore is
     bytes32 public constant REPAYER_ROLE = keccak256("REPAYER_ROLE");
     bytes32 public constant FEE_CLAIMER_ROLE = keccak256("FEE_CLAIMER_ROLE");
 
-    uint256 private constant PERCENT_MISSED_FOR_LENDER_CLAIM = 4000;
-
     // =============== Contract References ================
 
     IPromissoryNote public override borrowerNote;
     IPromissoryNote public override lenderNote;
-    IFeeController public override feeController;
 
     // =================== Loan State =====================
 
@@ -84,16 +82,13 @@ contract LoanCore is
      * @notice Deploys the loan core contract, by setting up roles and external
      *         contract references.
      *
-     * @param _feeController      The address of the contract governing protocol fees.
      * @param _borrowerNote       The address of the PromissoryNote contract representing borrower obligation.
      * @param _lenderNote         The address of the PromissoryNote contract representing lender obligation.
      */
     constructor(
-        IFeeController _feeController,
         IPromissoryNote _borrowerNote,
         IPromissoryNote _lenderNote
     ) AccessControl() Pausable() {
-        if (address(_feeController) == address(0)) revert LC_ZeroAddress();
         if (address(_borrowerNote) == address(0)) revert LC_ZeroAddress();
         if (address(_lenderNote) == address(0)) revert LC_ZeroAddress();
         if (address(_borrowerNote) == address(_lenderNote)) revert LC_ReusedNote();
@@ -106,8 +101,6 @@ contract LoanCore is
         // only those with FEE_CLAIMER_ROLE can update or grant FEE_CLAIMER_ROLE
         _setupRole(FEE_CLAIMER_ROLE, msg.sender);
         _setRoleAdmin(FEE_CLAIMER_ROLE, FEE_CLAIMER_ROLE);
-
-        feeController = _feeController;
 
         /// @dev Although using references for both promissory notes, these
         ///      must be fresh versions and cannot be re-used across multiple
@@ -130,17 +123,23 @@ contract LoanCore is
      * @param lender                The lender for the loan.
      * @param borrower              The borrower for the loan.
      * @param terms                 The terms of the loan.
+     * @param _amountToBorrower     The terms of the loan.
      *
      * @return loanId               The ID of the newly created loan.
      */
     function startLoan(
         address lender,
         address borrower,
-        LoanLibrary.LoanTerms calldata terms
+        LoanLibrary.LoanTerms calldata terms,
+        uint256 _amountFromLender,
+        uint256 _amountToBorrower
     ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 loanId) {
         // check collateral is not already used in a loan.
         bytes32 collateralKey = keccak256(abi.encode(terms.collateralAddress, terms.collateralId));
         if (collateralInUse[collateralKey]) revert LC_CollateralInUse(terms.collateralAddress, terms.collateralId);
+
+        // Check that we will not net lose tokens.
+        if (_amountToBorrower > _amountFromLender) revert LC_CannotSettleOrigination(_amountToBorrower, _amountFromLender);
 
         // get current loanId and increment for next function call
         loanId = loanIdTracker.current();
@@ -158,11 +157,12 @@ contract LoanCore is
         // Distribute notes and principal
         _mintLoanNotes(loanId, borrower, lender);
 
-        IERC721(terms.collateralAddress).transferFrom(msg.sender, address(this), terms.collateralId);
+        // Send collateral to borrower
+        IERC721(terms.collateralAddress).transferFrom(borrower, address(this), terms.collateralId);
 
-        IERC20(terms.payableCurrency).safeTransferFrom(msg.sender, address(this), terms.principal);
-
-        IERC20(terms.payableCurrency).safeTransfer(borrower, _getPrincipalLessFees(terms.principal));
+        // Collect principal from lender and send net (minus fees) amount to borrower
+        IERC20(terms.payableCurrency).transferFrom(lender, address(this), _amountFromLender);
+        IERC20(terms.payableCurrency).safeTransfer(borrower, _amountToBorrower);
 
         emit LoanStarted(loanId, lender, borrower);
     }
@@ -388,20 +388,6 @@ contract LoanCore is
     // ======================================== ADMIN FUNCTIONS =========================================
 
     /**
-     * @notice Sets the fee controller to a new address. It must implement the
-     *         IFeeController interface. Can only be called by the contract owner.
-     *
-     * @param _newController        The new fee controller contract.
-     */
-    function setFeeController(IFeeController _newController) external onlyRole(FEE_CLAIMER_ROLE) {
-        if (address(_newController) == address(0)) revert LC_ZeroAddress();
-
-        feeController = _newController;
-
-        emit SetFeeController(address(feeController));
-    }
-
-    /**
      * @notice Claim the protocol fees for the given token. Any token used as principal
      *         for a loan will have accumulated fees. Must be called by contract owner.
      *
@@ -433,18 +419,6 @@ contract LoanCore is
     }
 
     // ============================================= HELPERS ============================================
-
-    /**
-     * @dev Takes a principal value and returns the amount that will be distributed
-     *      to the borrower after protocol fees.
-     *
-     * @param principal             The principal amount.
-     *
-     * @return principalLessFees    The amount after fees.
-     */
-    function _getPrincipalLessFees(uint256 principal) internal view returns (uint256) {
-        return principal - (principal * feeController.get(FL_02)) / BASIS_POINTS_DENOMINATOR;
-    }
 
     /**
      * @dev Consume a nonce, by marking it as used for that user. Reverts if the nonce

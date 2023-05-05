@@ -31,6 +31,7 @@ interface IOriginationController {
 
     event Approval(address indexed owner, address indexed signer, bool isApproved);
     event SetAllowedVerifier(address indexed verifier, bool isAllowed);
+    event SetFeeController(address feeController);
 
     // ============== Origination Operations ==============
 

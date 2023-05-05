@@ -81,7 +81,7 @@ describe("PromissoryNote", () => {
         );
         const lenderNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["Arcade.xyz LenderNote", "aLN"]);
 
-        const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [feeController.address, borrowerNote.address, lenderNote.address]);
+        const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [borrowerNote.address, lenderNote.address]);
 
         // Grant correct permissions for promissory note
         // Giving to user to call PromissoryNote functions directly
@@ -90,7 +90,7 @@ describe("PromissoryNote", () => {
         }
 
         const originationController = <OriginationController>await deploy(
-            "OriginationController", signers[0], [loanCore.address]
+            "OriginationController", signers[0], [loanCore.address, feeController.address]
         )
         await originationController.deployed();
 

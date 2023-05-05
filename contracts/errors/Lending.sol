@@ -281,6 +281,16 @@ error LC_ReusedNote();
 error LC_CollateralInUse(address collateralAddress, uint256 collateralId);
 
 /**
+ * @notice The reported settlements are invalid, and LoanCore would lose tokens
+ *         attempting to repay the loan.
+ *
+ *
+ * @param payout                        Amount of tokens to be paid out.
+ * @param collected                     Amount of tokens to collect - should be fewer than payout.
+ */
+error LC_CannotSettleOrigination(uint256 payout, uint256 collected);
+
+/**
  * @notice Ensure valid loan state for loan lifceycle operations.
  *
  * @param state                         Current state of a loan according to LoanState enum.
