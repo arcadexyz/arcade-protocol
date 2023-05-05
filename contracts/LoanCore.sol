@@ -219,8 +219,9 @@ contract LoanCore is
      *         notes will be burned and the loan will be marked as complete.
      *
      * @param loanId                              The ID of the loan to claim.
+     * @param _amountFromLender                   Any claiming fees to be collected from the lender.
      */
-    function claim(uint256 loanId)
+    function claim(uint256 loanId, uint256 _amountFromLender)
         external
         override
         whenNotPaused
@@ -245,6 +246,10 @@ contract LoanCore is
 
         // collateral redistribution
         IERC721(data.terms.collateralAddress).transferFrom(address(this), lender, data.terms.collateralId);
+
+        if (_amountFromLender > 0) {
+            IERC20(data.terms.payableCurrency).transferFrom(lender, address(this), _amountFromLender);
+        }
 
         emit LoanClaimed(loanId);
     }

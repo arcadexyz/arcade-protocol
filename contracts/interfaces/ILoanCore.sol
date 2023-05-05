@@ -38,7 +38,10 @@ interface ILoanCore {
         uint256 _amountToLender
     ) external;
 
-    function claim(uint256 loanId) external;
+    function claim(
+        uint256 loanId,
+        uint256 _amountFromLender
+    ) external;
 
     function rollover(
         uint256 oldLoanId,

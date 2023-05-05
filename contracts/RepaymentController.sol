@@ -92,11 +92,19 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
      * @param  loanId               The ID of the loan.
      */
     function claim(uint256 loanId) external override {
+        LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
+        if (data.state == LoanLibrary.LoanState.DUMMY_DO_NOT_USE) revert RC_CannotDereference(loanId);
+
         // make sure that caller owns lender note
         // Implicitly checks if loan is active - if inactive, note will not exist
-        address lender = lenderNote.ownerOf(loanId);
-        if (lender != msg.sender) revert RC_OnlyLender(msg.sender);
+        if (lenderNote.ownerOf(loanId) != msg.sender) revert RC_OnlyLender(msg.sender);
 
-        loanCore.claim(loanId);
+        LoanLibrary.LoanTerms memory terms = data.terms;
+        uint256 interest = getInterestAmount(terms.principal, terms.proratedInterestRate);
+        uint256 totalOwed = terms.principal + interest;
+
+        uint256 claimFee = (totalOwed * feeController.get(FL_06)) / BASIS_POINTS_DENOMINATOR;
+
+        loanCore.claim(loanId, claimFee);
     }
 }

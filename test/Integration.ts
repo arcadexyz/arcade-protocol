@@ -518,7 +518,7 @@ describe("Integration", () => {
 
             await blockchainTime.increaseTime(5000);
             await expect(repaymentController.connect(lender).claim(1234)).to.be.revertedWith(
-                "ERC721: owner query for nonexistent token",
+                "RC_CannotDereference"
             );
         });
 
