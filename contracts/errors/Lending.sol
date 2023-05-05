@@ -230,6 +230,9 @@ error IV_InvalidProjectId(uint256 projectId, uint256 nextProjectId);
 // ==================================== REPAYMENT CONTROLLER ======================================
 /// @notice All errors prefixed with RC_, to separate from other contracts in the protocol.
 
+/// @notice Zero address passed in where not allowed.
+error RC_ZeroAddress();
+
 /**
  * @notice Could not dereference loan from loan ID.
  *

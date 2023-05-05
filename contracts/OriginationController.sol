@@ -81,20 +81,20 @@ contract OriginationController is
     bytes32 private constant _TOKEN_ID_TYPEHASH =
         keccak256(
             // solhint-disable-next-line max-line-length
-            "LoanTerms(uint32 durationSecs,uint32 deadline,uint160 interestRate,uint256 principal,address collateralAddress,uint256 collateralId,address payableCurrency,uint160 nonce,uint8 side)"
+            "LoanTerms(uint32 durationSecs,uint32 deadline,uint160 proratedInterestRate,uint256 principal,address collateralAddress,uint256 collateralId,address payableCurrency,uint160 nonce,uint8 side)"
         );
 
     /// @notice EIP712 type hash for item-based signatures.
     bytes32 private constant _ITEMS_TYPEHASH =
         keccak256(
             // solhint-disable max-line-length
-            "LoanTermsWithItems(uint32 durationSecs,uint32 deadline,uint160 interestRate,uint256 principal,address collateralAddress,bytes32 itemsHash,address payableCurrency,uint160 nonce,uint8 side)"
+            "LoanTermsWithItems(uint32 durationSecs,uint32 deadline,uint160 proratedInterestRate,uint256 principal,address collateralAddress,bytes32 itemsHash,address payableCurrency,uint160 nonce,uint8 side)"
         );
 
     // =============== Contract References ===============
 
-    ILoanCore public loanCore;
-    IFeeController public feeController;
+    ILoanCore private immutable loanCore;
+    IFeeController private feeController;
 
     // ================= Approval State ==================
 
@@ -614,7 +614,7 @@ contract OriginationController is
                 _TOKEN_ID_TYPEHASH,
                 loanTerms.durationSecs,
                 loanTerms.deadline,
-                loanTerms.interestRate,
+                loanTerms.proratedInterestRate,
                 loanTerms.principal,
                 loanTerms.collateralAddress,
                 loanTerms.collateralId,
@@ -654,7 +654,7 @@ contract OriginationController is
                 _ITEMS_TYPEHASH,
                 loanTerms.durationSecs,
                 loanTerms.deadline,
-                loanTerms.interestRate,
+                loanTerms.proratedInterestRate,
                 loanTerms.principal,
                 loanTerms.collateralAddress,
                 itemsHash,
@@ -731,7 +731,7 @@ contract OriginationController is
 
         // interest rate must be greater than or equal to 0.01%
         // and less than 10,000% (1e6 basis points)
-        if (terms.interestRate < 1e18 || terms.interestRate > 1e24) revert OC_InterestRate(terms.interestRate);
+        if (terms.proratedInterestRate < 1e18 || terms.proratedInterestRate > 1e24) revert OC_InterestRate(terms.proratedInterestRate);
 
         // signature must not have already expired
         if (terms.deadline < block.timestamp) revert OC_SignatureIsExpired(terms.deadline);
@@ -930,7 +930,9 @@ contract OriginationController is
     ) internal pure returns (RolloverAmounts memory amounts) {
         LoanLibrary.LoanTerms memory oldTerms = oldLoanData.terms;
 
-        uint256 repayAmount = getFullInterestAmount(oldTerms.principal, oldTerms.interestRate);
+        // TODO: Fix now that calculator only returns interest
+        uint256 interest = getInterestAmount(oldTerms.principal, oldTerms.proratedInterestRate);
+        uint256 repayAmount = oldTerms.principal + interest;
 
         amounts.fee = (newTerms.principal * rolloverFee) / BASIS_POINTS_DENOMINATOR;
         uint256 borrowerWillGet = newTerms.principal - amounts.fee;

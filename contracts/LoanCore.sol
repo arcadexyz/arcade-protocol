@@ -121,7 +121,8 @@ contract LoanCore is
      * @param lender                The lender for the loan.
      * @param borrower              The borrower for the loan.
      * @param terms                 The terms of the loan.
-     * @param _amountToBorrower     The terms of the loan.
+     * @param _amountFromLender     The amount of principal to be collected from the lender.
+     * @param _amountToBorrower     The amount of principal to be distributed to the borrower (net after fees).
      *
      * @return loanId               The ID of the newly created loan.
      */
@@ -173,13 +174,17 @@ contract LoanCore is
      *         All promissory notes will be burned and the loan will be marked as complete.
      *
      * @param loanId                The ID of the loan to repay.
+     * @param _amountFromBorrower   The amount of tokens to be collected from the borrower.
+     * @param _amountToLender       The amount of tokens to be distributed to the lender (net after fees).
      */
-    function repay(uint256 loanId) external override onlyRole(REPAYER_ROLE) nonReentrant {
+    function repay(
+        uint256 loanId,
+        uint256 _amountFromBorrower,
+        uint256 _amountToLender
+    ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         LoanLibrary.LoanData memory data = loans[loanId];
         // ensure valid initial loan state when starting loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
-
-        uint256 returnAmount = getFullInterestAmount(data.terms.principal, data.terms.interestRate);
 
         // get promissory notes from two parties involved
         address lender = lenderNote.ownerOf(loanId);
@@ -192,13 +197,12 @@ contract LoanCore is
 
         _burnLoanNotes(loanId);
 
-        // transfer from msg.sender to this contract
-        IERC20(data.terms.payableCurrency).safeTransferFrom(msg.sender, address(this), returnAmount);
-        // asset and collateral redistribution
-        // Not using safeTransfer to prevent lenders from blocking
-        // loan receipt and forcing a default
-        IERC20(data.terms.payableCurrency).transfer(lender, returnAmount);
-        IERC721(data.terms.collateralAddress).transferFrom(address(this), borrower, data.terms.collateralId);
+        // Collect from borrower and redistribute collateral
+        IERC20(data.terms.payableCurrency).safeTransferFrom(borrower, address(this), _amountFromBorrower);
+        IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
+
+        // Not using safeTransfer to prevent lenders from blocking loan receipt
+        IERC20(data.terms.payableCurrency).transfer(lender, _amountToLender);
 
         emit LoanRepaid(loanId);
     }
