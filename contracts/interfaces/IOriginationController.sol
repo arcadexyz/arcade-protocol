@@ -21,10 +21,10 @@ interface IOriginationController {
     struct RolloverAmounts {
         uint256 needFromBorrower;
         uint256 leftoverPrincipal;
+        uint256 amountFromLender;
         uint256 amountToOldLender;
         uint256 amountToLender;
         uint256 amountToBorrower;
-        uint256 fee;
     }
 
     // ================ Events =================

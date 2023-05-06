@@ -858,15 +858,13 @@ contract OriginationController is
 
         address oldLender = loanCore.lenderNote().ownerOf(oldLoanId);
         IERC20 payableCurrency = IERC20(oldTerms.payableCurrency);
-        uint256 rolloverFee = feeController.get(FL_04);
 
         // Settle amounts
         RolloverAmounts memory amounts = _calculateRolloverAmounts(
             oldLoanData,
             newTerms,
             lender,
-            oldLender,
-            rolloverFee
+            oldLender
         );
 
         // Collect funds
@@ -874,8 +872,8 @@ contract OriginationController is
         if (lender != oldLender) {
             // Take new principal from lender
             // OriginationController should have collected
-            payableCurrency.safeTransferFrom(lender, address(this), newTerms.principal);
-            settledAmount += newTerms.principal;
+            payableCurrency.safeTransferFrom(lender, address(this), amounts.amountFromLender);
+            settledAmount += amounts.amountFromLender;
         }
 
         if (amounts.needFromBorrower > 0) {
@@ -917,7 +915,6 @@ contract OriginationController is
      * @param newTerms              The terms struct for the new loan.
      * @param lender                The lender for the new loan.
      * @param oldLender             The lender for the existing loan.
-     * @param rolloverFee           The protocol fee for rollovers.
      *
      * @return amounts              The net amounts owed to each party.
      */
@@ -925,24 +922,28 @@ contract OriginationController is
         LoanLibrary.LoanData memory oldLoanData,
         LoanLibrary.LoanTerms calldata newTerms,
         address lender,
-        address oldLender,
-        uint256 rolloverFee
-    ) internal pure returns (RolloverAmounts memory amounts) {
+        address oldLender
+    ) internal view returns (RolloverAmounts memory amounts) {
         LoanLibrary.LoanTerms memory oldTerms = oldLoanData.terms;
 
-        // TODO: Fix now that calculator only returns interest
+        uint256 borrowerFeeBps = feeController.get(FL_04);
+        uint256 lenderFeeBps = feeController.get(FL_05);
+
         uint256 interest = getInterestAmount(oldTerms.principal, oldTerms.proratedInterestRate);
         uint256 repayAmount = oldTerms.principal + interest;
 
-        amounts.fee = (newTerms.principal * rolloverFee) / BASIS_POINTS_DENOMINATOR;
-        uint256 borrowerWillGet = newTerms.principal - amounts.fee;
+        uint256 borrowerFee = (newTerms.principal * borrowerFeeBps) / BASIS_POINTS_DENOMINATOR;
+        uint256 borrowerWillGet = newTerms.principal - borrowerFee;
+
+        uint256 lenderFee = (newTerms.principal * lenderFeeBps) / BASIS_POINTS_DENOMINATOR;
+        amounts.amountFromLender = newTerms.principal + lenderFee;
 
         // Settle amounts
         if (repayAmount > borrowerWillGet) {
             amounts.needFromBorrower = repayAmount - borrowerWillGet;
         } else {
-            amounts.leftoverPrincipal = newTerms.principal - repayAmount;
-            amounts.amountToBorrower = amounts.leftoverPrincipal - amounts.fee;
+            amounts.leftoverPrincipal = amounts.amountFromLender - repayAmount;
+            amounts.amountToBorrower = borrowerWillGet - repayAmount;
         }
 
         // Collect funds
@@ -952,8 +953,8 @@ contract OriginationController is
         } else {
             amounts.amountToOldLender = 0;
 
-            if (amounts.needFromBorrower > 0 && repayAmount > newTerms.principal) {
-                amounts.amountToLender = repayAmount - newTerms.principal;
+            if (amounts.needFromBorrower > 0 && repayAmount > amounts.amountFromLender) {
+                amounts.amountToLender = repayAmount - amounts.amountFromLender;
             }
         }
     }
