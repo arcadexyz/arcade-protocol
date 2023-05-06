@@ -1,4 +1,4 @@
-import { BigNumber, BigNumberish } from "ethers";
+import { BigNumberish } from "ethers";
 
 export enum LoanState {
     DUMMY = 0,
@@ -30,8 +30,8 @@ export interface ItemsPredicate {
 
 export interface LoanTerms {
     durationSecs: BigNumberish;
-    principal: BigNumber;
-    proratedInterestRate: BigNumber;
+    principal: BigNumberish;
+    proratedInterestRate: BigNumberish;
     collateralAddress: string;
     collateralId: BigNumberish;
     payableCurrency: string;
@@ -40,8 +40,8 @@ export interface LoanTerms {
 
 export interface ItemsPayload {
     durationSecs: BigNumberish;
-    principal: BigNumber;
-    proratedInterestRate: BigNumber;
+    principal: BigNumberish;
+    proratedInterestRate: BigNumberish;
     collateralAddress: string;
     itemsHash: string;
     payableCurrency: string;
