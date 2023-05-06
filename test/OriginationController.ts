@@ -1987,7 +1987,137 @@ describe("OriginationController", () => {
         });
     });
 
-    describe("collateral and currency whitelisting", () => {
+    describe("Origination Fees", () => {
+        let ctx: TestContext;
+
+        beforeEach(async () => {
+            ctx = await loadFixture(fixture);
+        });
+
+        it("Initializes a loan signed by the borrower, with 2% borrower origination fee", async () => {
+            const { loanCore, originationController, feeController, mockERC20, vaultFactory, user: lender, other: borrower } = ctx;
+
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
+            await mint(mockERC20, lender, loanTerms.principal);
+
+            // Set a borrower origination fee
+            await feeController.set(await feeController.FL_02(), 2_00);
+
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                borrower,
+                "3",
+                1,
+                "b",
+            );
+
+            const fee = BigNumber.from(loanTerms.principal).div(100).mul(2);
+            const amountReceived = BigNumber.from(loanTerms.principal).div(100).mul(98);
+
+            await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
+            await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+            await expect(
+                originationController
+                    .connect(lender)
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+            )
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(lender.address, loanCore.address, loanTerms.principal)
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(loanCore.address, borrower.address, amountReceived);
+
+            expect(await mockERC20.balanceOf(lender.address)).to.equal(0);
+            expect(await mockERC20.balanceOf(loanCore.address)).to.equal(fee);
+            expect(await mockERC20.balanceOf(borrower.address)).to.equal(amountReceived);
+        });
+
+        it("Initializes a loan signed by the borrower, with 2% lender origination fee", async () => {
+            const { loanCore, originationController, feeController, mockERC20, vaultFactory, user: lender, other: borrower } = ctx;
+
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
+            const fee = BigNumber.from(loanTerms.principal).div(100).mul(2);
+            const amountSent = BigNumber.from(loanTerms.principal).add(fee);
+
+            await mint(mockERC20, lender, amountSent);
+
+            // Set a lender origination fee
+            await feeController.set(await feeController.FL_03(), 2_00);
+
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                borrower,
+                "3",
+                1,
+                "b",
+            );
+
+            await approve(mockERC20, lender, loanCore.address, amountSent);
+            await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+            await expect(
+                originationController
+                    .connect(lender)
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+            )
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(lender.address, loanCore.address, amountSent)
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(loanCore.address, borrower.address, loanTerms.principal);
+
+            expect(await mockERC20.balanceOf(lender.address)).to.equal(0);
+            expect(await mockERC20.balanceOf(loanCore.address)).to.equal(fee);
+            expect(await mockERC20.balanceOf(borrower.address)).to.equal(loanTerms.principal);
+        });
+
+        it("Initializes a loan signed by the borrower, with 2% borrower AND lender origination fee", async () => {
+            const { loanCore, originationController, feeController, mockERC20, vaultFactory, user: lender, other: borrower } = ctx;
+
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
+            const fee = BigNumber.from(loanTerms.principal).div(100).mul(2);
+            const amountSent = BigNumber.from(loanTerms.principal).add(fee);
+            const amountReceived = BigNumber.from(loanTerms.principal).sub(fee);
+
+            await mint(mockERC20, lender, amountSent);
+
+            // Set a borrower and lender origination fee
+            await feeController.set(await feeController.FL_02(), 2_00);
+            await feeController.set(await feeController.FL_03(), 2_00);
+
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                borrower,
+                "3",
+                1,
+                "b",
+            );
+
+            await approve(mockERC20, lender, loanCore.address, amountSent);
+            await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+            await expect(
+                originationController
+                    .connect(lender)
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+            )
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(lender.address, loanCore.address, amountSent)
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(loanCore.address, borrower.address, amountReceived);
+
+            expect(await mockERC20.balanceOf(lender.address)).to.equal(0);
+            expect(await mockERC20.balanceOf(loanCore.address)).to.equal(fee.mul(2));
+            expect(await mockERC20.balanceOf(borrower.address)).to.equal(amountReceived);
+        });
+    });
+
+    describe("Collateral and currency whitelisting", () => {
         let ctx: TestContext;
 
         beforeEach(async () => {
