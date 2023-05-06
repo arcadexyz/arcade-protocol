@@ -147,8 +147,8 @@ const createLoanTerms = (
 ): LoanTerms => {
     return {
         durationSecs,
-        principal,
-        proratedInterestRate,
+        principal: BigNumber.from(principal),
+        proratedInterestRate: BigNumber.from(proratedInterestRate),
         collateralAddress,
         collateralId,
         payableCurrency,
