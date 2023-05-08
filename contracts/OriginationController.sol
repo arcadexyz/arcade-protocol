@@ -943,27 +943,35 @@ contract OriginationController is
         uint256 repayAmount = oldTerms.principal + interest;
 
         uint256 borrowerFee = (newTerms.principal * borrowerFeeBps) / BASIS_POINTS_DENOMINATOR;
-        uint256 borrowerWillGet = newTerms.principal - borrowerFee;
+        uint256 borrowerOwedForNewLoan = newTerms.principal - borrowerFee;
 
         uint256 lenderFee = (newTerms.principal * lenderFeeBps) / BASIS_POINTS_DENOMINATOR;
         amounts.amountFromLender = newTerms.principal + lenderFee;
 
         // Settle amounts
-        if (repayAmount > borrowerWillGet) {
-            amounts.needFromBorrower = repayAmount - borrowerWillGet;
+        if (repayAmount > borrowerOwedForNewLoan) {
+            amounts.needFromBorrower = repayAmount - borrowerOwedForNewLoan;
         } else {
+            // amount to collect from lender (either old or now)
             amounts.leftoverPrincipal = amounts.amountFromLender - repayAmount;
-            amounts.amountToBorrower = borrowerWillGet - repayAmount;
+
+            // amount to send to borrower
+            amounts.amountToBorrower = borrowerOwedForNewLoan - repayAmount;
         }
 
         // Collect funds
         if (lender != oldLender) {
+            // old lender
             amounts.amountToOldLender = repayAmount;
+
+            // new lender
             amounts.amountToLender = 0;
+            amounts.amountFromLender = amounts.amountFromLender;
         } else {
             amounts.amountToOldLender = 0;
 
             if (amounts.needFromBorrower > 0 && repayAmount > amounts.amountFromLender) {
+            // if (amounts.needFromBorrower > 0 && amounts.needFromBorrower <= lenderFee) {
                 amounts.amountToLender = repayAmount - amounts.amountFromLender;
             }
         }

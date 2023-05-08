@@ -30,7 +30,8 @@ import {
     LC_CollateralInUse,
     LC_InvalidState,
     LC_NotExpired,
-    LC_NonceUsed
+    LC_NonceUsed,
+    LC_AffiliateCodeAlreadySet
 } from "./errors/Lending.sol";
 
 /**
@@ -83,8 +84,8 @@ contract LoanCore is
     mapping(bytes32 => bool) private collateralInUse;
     mapping(address => mapping(uint160 => bool)) public usedNonces;
 
-    mapping(bytes32 => AffiliateSplit) affiliateSplits;
-    mapping(address => mapping(address => uint256)) withdrawable;
+    mapping(bytes32 => AffiliateSplit) public affiliateSplits;
+    mapping(address => mapping(address => uint256)) public withdrawable;
 
     // ========================================== CONSTRUCTOR ===========================================
 
@@ -505,6 +506,10 @@ contract LoanCore is
         for (uint256 i = 0; i < codes.length; i++) {
             if (splits[i].splitBps > MAX_AFFILIATE_SPLIT) {
                 revert LC_InvalidSplit(splits[i].splitBps, MAX_AFFILIATE_SPLIT);
+            }
+
+            if (affiliateSplits[codes[i]].affiliate != address(0)) {
+                revert LC_AffiliateCodeAlreadySet(codes[i]);
             }
 
             affiliateSplits[codes[i]] = splits[i];

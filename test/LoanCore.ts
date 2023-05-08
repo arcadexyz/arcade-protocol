@@ -41,6 +41,19 @@ interface TestContext {
     blockchainTime: BlockchainTime;
 }
 
+interface StartLoanState extends TestContext {
+    terms: LoanTerms;
+    borrower: SignerWithAddress;
+    lender: SignerWithAddress;
+}
+
+interface RepayLoanState extends TestContext {
+    loanId: BigNumberish;
+    terms: LoanTerms;
+    borrower: SignerWithAddress;
+    lender: SignerWithAddress;
+}
+
 describe("LoanCore", () => {
     /**
      * Sets up a test asset vault for the user passed as an arg
@@ -185,12 +198,6 @@ describe("LoanCore", () => {
     });
 
     describe("Start Loan", () => {
-        interface StartLoanState extends TestContext {
-            terms: LoanTerms;
-            borrower: SignerWithAddress;
-            lender: SignerWithAddress;
-        }
-
         const setupLoan = async (context?: TestContext): Promise<StartLoanState> => {
             context = <TestContext>(context || (await loadFixture(fixture)));
 
@@ -594,12 +601,6 @@ describe("LoanCore", () => {
     });
 
     describe("Repay Loan", function () {
-        interface RepayLoanState extends TestContext {
-            loanId: BigNumberish;
-            terms: LoanTerms;
-            borrower: SignerWithAddress;
-            lender: SignerWithAddress;
-        }
 
         const setupLoan = async (context?: TestContext): Promise<RepayLoanState> => {
             context = <TestContext>(context || (await loadFixture(fixture)));
@@ -751,13 +752,6 @@ describe("LoanCore", () => {
     });
 
     describe("Claim loan", async function () {
-        interface RepayLoanState extends TestContext {
-            loanId: BigNumberish;
-            terms: LoanTerms;
-            borrower: SignerWithAddress;
-            lender: SignerWithAddress;
-        }
-
         const setupLoan = async (context?: TestContext): Promise<RepayLoanState> => {
             context = <TestContext>(context || (await loadFixture(fixture)));
 
@@ -893,12 +887,6 @@ describe("LoanCore", () => {
     });
 
     describe("Claim fees", async () => {
-        interface StartLoanState extends TestContext {
-            terms: LoanTerms;
-            borrower: SignerWithAddress;
-            lender: SignerWithAddress;
-        }
-
         const setupLoan = async (context?: TestContext): Promise<StartLoanState> => {
             context = <TestContext>(context || (await loadFixture(fixture)));
 
@@ -990,14 +978,7 @@ describe("LoanCore", () => {
     });
 
     describe("canCallOn", function () {
-        interface StartLoanState extends TestContext {
-            loanId: BigNumberish;
-            terms: LoanTerms;
-            borrower: SignerWithAddress;
-            lender: SignerWithAddress;
-        }
-
-        const setupLoan = async (): Promise<StartLoanState> => {
+        const setupLoan = async (): Promise<RepayLoanState> => {
             const context = await loadFixture(fixture);
 
             const { vaultFactory, mockERC20, loanCore, user: borrower, other: lender } = context;
@@ -1154,5 +1135,221 @@ describe("LoanCore", () => {
 
             await expect(loanCore.connect(user).consumeNonce(user.address, 10)).to.be.revertedWith("LC_NonceUsed");
         });
+    });
+
+    describe.only("Affiliate fees", () => {
+        let context: TestContext;
+
+        beforeEach(async () => {
+            context = await loadFixture(fixture);
+        });
+
+        describe("Setting affiliate splits", () => {
+            it("does not let a non-owner set affiliate splits", async () => {
+                const { loanCore, other } = context;
+
+                const code = ethers.utils.id("FOO");
+                await expect(
+                    loanCore.connect(other).setAffiliateSplits([code], [{ affiliate: other.address, splitBps: 50_00 }]),
+                ).to.be.revertedWith("AccessControl");
+            });
+
+            it("does not set an affiliate fee over the maximum", async () => {
+                const { loanCore, other } = context;
+
+                const code = ethers.utils.id("FOO");
+                await expect(
+                    loanCore.setAffiliateSplits([code], [{ affiliate: other.address, splitBps: 100_00 }]),
+                ).to.be.revertedWith("LC_InvalidSplit");
+            });
+
+            it("sets multiple affiliate splits", async () => {
+                const { loanCore, user, other } = context;
+
+                const codes = [ethers.utils.id("FOO"), ethers.utils.id("BAR")];
+
+                await expect(
+                    loanCore.setAffiliateSplits(
+                        codes,
+                        [
+                            { affiliate: user.address, splitBps: 20_00 },
+                            { affiliate: other.address, splitBps: 10_00 },
+                        ]
+                    )
+                )
+                    .to.emit(loanCore, "AffiliateSet")
+                    .withArgs(codes[0], user.address, 20_00)
+                    .to.emit(loanCore, "AffiliateSet")
+                    .withArgs(codes[1], other.address, 10_00);
+            });
+
+            it("does not let an affiliate code be overwritten", async () => {
+                const { loanCore, user, other } = context;
+
+                const code = ethers.utils.id("FOO");
+
+                await expect(
+                    loanCore.setAffiliateSplits([code], [{ affiliate: user.address, splitBps: 20_00 }])
+                )
+                    .to.emit(loanCore, "AffiliateSet")
+                    .withArgs(code, user.address, 20_00)
+
+                // Cannot change recipient
+                await expect(
+                    loanCore.setAffiliateSplits([code], [{ affiliate: other.address, splitBps: 20_00 }])
+                ).to.be.revertedWith("LC_AffiliateCodeAlreadySet")
+
+                // Cannot change fee, including revocation
+                await expect(
+                    loanCore.setAffiliateSplits([code], [{ affiliate: user.address, splitBps: 0 }])
+                ).to.be.revertedWith("LC_AffiliateCodeAlreadySet")
+            });
+        });
+
+        describe("Withdrawal", () => {
+            let ctx: RepayLoanState;
+            let fee: BigNumber;
+            const affiliateCode = ethers.utils.id("FOO");
+
+            const setupLoan = async (context?: TestContext): Promise<RepayLoanState> => {
+                context = <TestContext>(context || (await loadFixture(fixture)));
+
+                const { vaultFactory, mockERC20, loanCore, user: borrower, other: lender } = context;
+                const collateralId = await initializeBundle(borrower);
+
+                // Add a 1 ETH fee
+                fee = ethers.utils.parseEther("1");
+
+                // Set up an affilate code - 50% share
+                await loanCore.setAffiliateSplits([affiliateCode], [{ affiliate: borrower.address, splitBps: 50_00 }]);
+
+                const terms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId });
+
+                // run originator controller logic inline then invoke loanCore
+                // borrower is originator with originator role
+                await vaultFactory
+                    .connect(borrower)
+                    .transferFrom(borrower.address, borrower.address, collateralId);
+                await vaultFactory.connect(borrower).approve(loanCore.address, collateralId);
+
+                await mockERC20.connect(lender).mint(lender.address, terms.principal.add(fee));
+                await mockERC20.connect(lender).approve(loanCore.address, terms.principal.add(fee));
+
+                const loanId = await startLoan(
+                    loanCore,
+                    borrower,
+                    lender.address,
+                    borrower.address,
+                    terms,
+                    terms.principal.add(fee),
+                    terms.principal,
+                    affiliateCode
+                );
+
+                return  { ...context, loanId, terms, borrower, lender };
+            };
+
+            beforeEach(async () => {
+                // Start a loan, assigning some fees
+                ctx = await setupLoan();
+            });
+
+            it("does not let an affiliate withdraw 0", async () => {
+                const { borrower, loanCore, mockERC20 } = ctx;
+
+                expect(await loanCore.withdrawable(mockERC20.address, borrower.address))
+                    .to.eq(fee.div(2));
+
+                await expect(loanCore.connect(borrower).withdraw(mockERC20.address, 0, borrower.address))
+                    .to.be.revertedWith("LC_ZeroAmount");
+            });
+
+            it("does not let an affiliate withdraw more than they have earned", async () => {
+                const { borrower, loanCore, mockERC20 } = ctx;
+
+                expect(await loanCore.withdrawable(mockERC20.address, borrower.address))
+                    .to.eq(fee.div(2));
+
+                await expect(loanCore.connect(borrower).withdraw(mockERC20.address, fee, borrower.address))
+                    .to.be.revertedWith("LC_CannotWithdraw");
+            });
+
+            it("affiliate can withdraw fees", async () => {
+                const { borrower, loanCore, mockERC20 } = ctx;
+
+                expect(await loanCore.withdrawable(mockERC20.address, borrower.address))
+                    .to.eq(fee.div(2));
+
+                await expect(loanCore.connect(borrower).withdraw(mockERC20.address, fee.div(2), borrower.address))
+                    .to.emit(loanCore, "FundsWithdrawn")
+                    .withArgs(mockERC20.address, borrower.address, borrower.address, fee.div(2))
+                    .to.emit(mockERC20, "Transfer")
+                    .withArgs(loanCore.address, borrower.address, fee.div(2));
+            });
+
+            it("affiliate can withdraw fees, sending to a third party", async () => {
+                const { borrower, loanCore, mockERC20 } = ctx;
+
+                expect(await loanCore.withdrawable(mockERC20.address, borrower.address))
+                    .to.eq(fee.div(2));
+
+                await expect(loanCore.connect(borrower).withdraw(mockERC20.address, fee.div(2), borrower.address))
+                    .to.emit(loanCore, "FundsWithdrawn")
+                    .withArgs(mockERC20.address, borrower.address, borrower.address, fee.div(2))
+                    .to.emit(mockERC20, "Transfer")
+                    .withArgs(loanCore.address, borrower.address, fee.div(2));
+            });
+
+            it("does not let an affiliate withdraw the same fees twice", async () => {
+                const { borrower, loanCore, mockERC20 } = ctx;
+
+                expect(await loanCore.withdrawable(mockERC20.address, borrower.address))
+                    .to.eq(fee.div(2));
+
+                await expect(loanCore.connect(borrower).withdraw(mockERC20.address, fee.div(2), borrower.address))
+                    .to.emit(loanCore, "FundsWithdrawn")
+                    .withArgs(mockERC20.address, borrower.address, borrower.address, fee.div(2))
+                    .to.emit(mockERC20, "Transfer")
+                    .withArgs(loanCore.address, borrower.address, fee.div(2));
+
+                await expect(loanCore.connect(borrower).withdraw(mockERC20.address, fee.div(2), borrower.address))
+                    .to.be.revertedWith("LC_CannotWithdraw");
+
+                await expect(loanCore.connect(borrower).withdraw(mockERC20.address, 1, borrower.address))
+                    .to.be.revertedWith("LC_CannotWithdraw");
+            });
+
+            it("affiliate can partially withdraw fees", async () => {
+                const { borrower, loanCore, mockERC20 } = ctx;
+
+                expect(await loanCore.withdrawable(mockERC20.address, borrower.address))
+                    .to.eq(fee.div(2));
+
+                await expect(loanCore.connect(borrower).withdraw(mockERC20.address, fee.div(8), borrower.address))
+                    .to.emit(loanCore, "FundsWithdrawn")
+                    .withArgs(mockERC20.address, borrower.address, borrower.address, fee.div(8))
+                    .to.emit(mockERC20, "Transfer")
+                    .withArgs(loanCore.address, borrower.address, fee.div(8));
+
+                expect(await loanCore.withdrawable(mockERC20.address, borrower.address))
+                    .to.eq(fee.div(8).mul(3));
+
+                await expect(loanCore.connect(borrower).withdraw(mockERC20.address, fee.div(2), borrower.address))
+                    .to.be.revertedWith("LC_CannotWithdraw");
+
+                await expect(loanCore.connect(borrower).withdraw(mockERC20.address, fee.div(8).mul(3), borrower.address))
+                    .to.emit(loanCore, "FundsWithdrawn")
+                    .withArgs(mockERC20.address, borrower.address, borrower.address, fee.div(8).mul(3))
+                    .to.emit(mockERC20, "Transfer")
+                    .withArgs(loanCore.address, borrower.address, fee.div(8).mul(3));
+
+                expect(await loanCore.withdrawable(mockERC20.address, borrower.address))
+                    .to.eq(0);
+
+                await expect(loanCore.connect(borrower).withdraw(mockERC20.address, 1, borrower.address))
+                    .to.be.revertedWith("LC_CannotWithdraw");
+            });
+        });
+
     });
 });

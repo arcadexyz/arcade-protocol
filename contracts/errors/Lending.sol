@@ -343,6 +343,14 @@ error LC_NotExpired(uint256 dueDate);
  */
 error LC_NonceUsed(address user, uint160 nonce);
 
+/**
+ * @notice Protocol attempted to set an affiliate code which already exists. Affiliate
+ *         codes are immutable.
+ *
+ * @param affiliateCode                 The affiliate code being set.
+ */
+error LC_AffiliateCodeAlreadySet(bytes32 affiliateCode);
+
 // ================================== Full Insterest Amount Calc ====================================
 /// @notice All errors prefixed with FIAC_, to separate from other contracts in the protocol.
 
