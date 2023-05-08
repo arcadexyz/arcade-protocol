@@ -531,4 +531,8 @@ describe("Integration", () => {
             await expect(repaymentController.connect(borrower).claim(loanId)).to.be.revertedWith("RC_OnlyLender");
         });
     });
+
+    describe("End-to-end", () => {
+        it("full loan cycle, with realistic fees and registered affiliate");
+    })
 });

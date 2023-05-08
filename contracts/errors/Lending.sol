@@ -275,6 +275,10 @@ error LC_ZeroAddress();
 /// @notice Borrower address is same as lender address.
 error LC_ReusedNote();
 
+/// @notice Zero amount passed in where not allowed.
+error LC_ZeroAmount();
+
+
 /**
  * @notice Check collateral is not already used in a active loan.
  *

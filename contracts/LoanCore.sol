@@ -24,6 +24,7 @@ import {
     LC_ReusedNote,
     LC_CannotSettle,
     LC_CannotWithdraw,
+    LC_ZeroAmount,
     LC_ArrayLengthMismatch,
     LC_InvalidSplit,
     LC_CollateralInUse,
@@ -440,6 +441,8 @@ contract LoanCore is
      * @param to                    The address to send the tokens to.
      */
     function withdraw(address token, uint256 amount, address to) external override nonReentrant {
+        if (amount == 0) revert LC_ZeroAmount();
+
         // any token balances remaining on this contract are fees owned by the protocol
         uint256 available = withdrawable[token][msg.sender];
         if (amount > available) revert LC_CannotWithdraw(amount, available);
