@@ -23,6 +23,7 @@ import {
     LC_ZeroAddress,
     LC_ReusedNote,
     LC_CannotSettle,
+    LC_CannotWithdraw,
     LC_CollateralInUse,
     LC_InvalidState,
     LC_NotExpired,
@@ -51,6 +52,8 @@ contract LoanCore is
 {
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
+
+    event FundsWithdrawn(address indexed token, address indexed caller, address indexed to, uint256 amount);
 
     // ============================================ STATE ==============================================
 
@@ -203,6 +206,8 @@ contract LoanCore is
 
         // Check that we will not net lose tokens.
         if (_amountToLender > _amountFromPayer) revert LC_CannotSettle(_amountToLender, _amountFromPayer);
+        uint256 feesEarned = _amountFromPayer - _amountToLender;
+        withdrawable[data.terms.payableCurrency][address(this)] += feesEarned;
 
         // get promissory notes from two parties involved
         address lender = lenderNote.ownerOf(loanId);
@@ -261,6 +266,9 @@ contract LoanCore is
         IERC721(data.terms.collateralAddress).transferFrom(address(this), lender, data.terms.collateralId);
 
         if (_amountFromLender > 0) {
+            // Assign fees for withdrawal
+            withdrawable[data.terms.payableCurrency][address(this)] += _amountFromLender;
+
             IERC20(data.terms.payableCurrency).transferFrom(lender, address(this), _amountFromLender);
         }
 
@@ -302,6 +310,14 @@ contract LoanCore is
         address oldLender = lenderNote.ownerOf(oldLoanId);
         IERC20 payableCurrency = IERC20(data.terms.payableCurrency);
 
+        if (_amountToOldLender + _amountToLender + _amountToBorrower > _settledAmount) {
+            revert LC_CannotSettle(_amountToOldLender + _amountToLender + _amountToBorrower, _settledAmount);
+        }
+
+        // Assign fees for withdrawal
+        uint256 feesEarned = _settledAmount - _amountToOldLender - _amountToLender - _amountToBorrower;
+        withdrawable[address(payableCurrency)][address(this)] += feesEarned;
+
         _burnLoanNotes(oldLoanId);
 
         // Set up new loan
@@ -317,7 +333,7 @@ contract LoanCore is
         // Distribute notes and principal
         _mintLoanNotes(newLoanId, borrower, lender);
 
-        IERC20(payableCurrency).safeTransferFrom(msg.sender, address(this), _settledAmount);
+        payableCurrency.safeTransferFrom(msg.sender, address(this), _settledAmount);
         _transferIfNonzero(payableCurrency, oldLender, _amountToOldLender);
         _transferIfNonzero(payableCurrency, lender, _amountToLender);
         _transferIfNonzero(payableCurrency, borrower, _amountToBorrower);
@@ -413,16 +429,40 @@ contract LoanCore is
     // ======================================== ADMIN FUNCTIONS =========================================
 
     /**
+     * @notice Claim any withdrawable balance pending for the caller, as specified by token.
+     *         This may accumulate from either affiliate fee shares or borrower forced repayments.
+     *
+     * @param token                 The contract address of the token to claim tokens for.
+     * @param amount                The amount of tokens to claim.
+     * @param to                    The address to send the tokens to.
+     */
+    function withdraw(address token, uint256 amount, address to) external override nonReentrant {
+        // any token balances remaining on this contract are fees owned by the protocol
+        uint256 available = withdrawable[token][msg.sender];
+        if (amount > available) revert LC_CannotWithdraw(amount, available);
+
+        withdrawable[token][msg.sender] -= amount;
+
+        IERC20(token).safeTransfer(msg.sender, amount);
+
+        emit FundsWithdrawn(token, msg.sender, to, amount);
+    }
+
+    /**
      * @notice Claim the protocol fees for the given token. Any token used as principal
      *         for a loan will have accumulated fees. Must be called by contract owner.
      *
      * @param token                 The contract address of the token to claim fees for.
+     * @param to                    The address to send the fees to.
      */
-    function claimFees(IERC20 token) external onlyRole(FEE_CLAIMER_ROLE) {
+    function withdrawProtocolFees(address token, address to) external override nonReentrant onlyRole(FEE_CLAIMER_ROLE) {
         // any token balances remaining on this contract are fees owned by the protocol
-        uint256 amount = token.balanceOf(address(this));
-        token.safeTransfer(msg.sender, amount);
-        emit FeesClaimed(address(token), msg.sender, amount);
+        uint256 amount = withdrawable[token][address(this)];
+        withdrawable[token][address(this)] = 0;
+
+        IERC20(token).safeTransfer(to, amount);
+
+        emit FundsWithdrawn(token, msg.sender, to, amount);
     }
 
     /**

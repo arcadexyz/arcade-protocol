@@ -294,6 +294,15 @@ error LC_CollateralInUse(address collateralAddress, uint256 collateralId);
 error LC_CannotSettle(uint256 payout, uint256 collected);
 
 /**
+ * @notice User attempted to withdraw a pending balance that was in excess
+ *         of what is available.
+ *
+ * @param amount                        Amount of tokens to be withdrawn.
+ * @param available                     Amount of tokens available to withdraw.
+ */
+error LC_CannotWithdraw(uint256 amount, uint256 available);
+
+/**
  * @notice Ensure valid loan state for loan lifceycle operations.
  *
  * @param state                         Current state of a loan according to LoanState enum.

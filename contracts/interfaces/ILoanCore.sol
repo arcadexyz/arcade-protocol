@@ -24,7 +24,6 @@ interface ILoanCore {
     event LoanRepaid(uint256 loanId);
     event LoanRolledOver(uint256 oldLoanId, uint256 newLoanId);
     event LoanClaimed(uint256 loanId);
-    event FeesClaimed(address token, address to, uint256 amount);
     event SetFeeController(address feeController);
     event NonceUsed(address indexed user, uint160 nonce);
 
@@ -67,6 +66,12 @@ interface ILoanCore {
     function consumeNonce(address user, uint160 nonce) external;
 
     function cancelNonce(uint160 nonce) external;
+
+    // ============== Fees ==============
+
+    function withdraw(address token, uint256 amount, address to) external;
+
+    function withdrawProtocolFees(address token, address to) external;
 
     // ============== View Functions ==============
 
