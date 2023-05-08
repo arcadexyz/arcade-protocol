@@ -14,7 +14,7 @@ import { FC_FeeTooLarge } from "./errors/Lending.sol";
  * @author Non-Fungible Technologies, Inc.
  *
  * The Fee Controller is used by other lending protocol contracts to query for fees
- * for different protocol operations (origiations, rollovers, etc). All fees should
+ * for different protocol operations (originations, rollovers, etc). All fees should
  * have setters and getters. In the future, this contract could be extended to
  * support more complex logic (introducing a mapping of users who get a discount, e.g.).
  * Since LoanCore can change the fee controller reference, any changes to this contract

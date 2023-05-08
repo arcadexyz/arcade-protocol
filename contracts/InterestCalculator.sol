@@ -35,9 +35,6 @@ abstract contract InterestCalculator {
      * @return interest                             The amount of interest due.
      */
     function getInterestAmount(uint256 principal, uint256 proratedInterestRate) public pure returns (uint256) {
-        // Interest rate to be greater than or equal to 0.01%
-        if (proratedInterestRate / INTEREST_RATE_DENOMINATOR < 1) revert FIAC_InterestRate(proratedInterestRate);
-
         return principal * proratedInterestRate / (INTEREST_RATE_DENOMINATOR * BASIS_POINTS_DENOMINATOR);
     }
 }

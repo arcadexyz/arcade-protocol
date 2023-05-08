@@ -198,7 +198,7 @@ const initializeLoan = async (
     proratedInterestRate: BigNumber,
     deadline: BigNumberish,
     nonce = 1,
-    affiliateCode = ethers.constant.HashZero
+    affiliateCode = ethers.constants.HashZero
 ): Promise<LoanDef> => {
     const { originationController, mockERC20, vaultFactory, loanCore, lender, borrower } = context;
     const bundleId = await initializeBundle(vaultFactory, borrower);

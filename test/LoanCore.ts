@@ -1137,7 +1137,7 @@ describe("LoanCore", () => {
         });
     });
 
-    describe.only("Affiliate fees", () => {
+    describe("Affiliate fees", () => {
         let context: TestContext;
 
         beforeEach(async () => {

@@ -741,6 +741,7 @@ contract OriginationController is
         // and less than 10,000% (1e6 basis points)
         if (terms.proratedInterestRate < 1e18 || terms.proratedInterestRate > 1e24) revert OC_InterestRate(terms.proratedInterestRate);
 
+
         // signature must not have already expired
         if (terms.deadline < block.timestamp) revert OC_SignatureIsExpired(terms.deadline);
 
@@ -871,7 +872,7 @@ contract OriginationController is
 
         // Settle amounts
         RolloverAmounts memory amounts = _calculateRolloverAmounts(
-            oldLoanData,
+            oldTerms,
             newTerms,
             lender,
             oldLender
@@ -881,19 +882,16 @@ contract OriginationController is
         uint256 settledAmount;
         if (lender != oldLender) {
             // Take new principal from lender
-            // OriginationController should have collected
             payableCurrency.safeTransferFrom(lender, address(this), amounts.amountFromLender);
             settledAmount += amounts.amountFromLender;
         }
 
         if (amounts.needFromBorrower > 0) {
             // Borrower must pay difference
-            // OriginationController should have collected
             payableCurrency.safeTransferFrom(borrower, address(this), amounts.needFromBorrower);
             settledAmount += amounts.needFromBorrower;
         } else if (amounts.leftoverPrincipal > 0 && lender == oldLender) {
             // Lender must pay difference
-            // OriginationController should have collected
             // Make sure to collect fee
             payableCurrency.safeTransferFrom(lender, address(this), amounts.leftoverPrincipal);
             settledAmount += amounts.leftoverPrincipal;
@@ -921,7 +919,7 @@ contract OriginationController is
      *      Determine the amount to either pay or withdraw from the borrower, and
      *      any payments to be sent to the old lender.
      *
-     * @param oldLoanData           The LoanData struct for the old loan.
+     * @param oldTerms              The terms struct for the old loan.
      * @param newTerms              The terms struct for the new loan.
      * @param lender                The lender for the new loan.
      * @param oldLender             The lender for the existing loan.
@@ -929,13 +927,11 @@ contract OriginationController is
      * @return amounts              The net amounts owed to each party.
      */
     function _calculateRolloverAmounts(
-        LoanLibrary.LoanData memory oldLoanData,
+        LoanLibrary.LoanTerms memory oldTerms,
         LoanLibrary.LoanTerms calldata newTerms,
         address lender,
         address oldLender
     ) internal view returns (RolloverAmounts memory amounts) {
-        LoanLibrary.LoanTerms memory oldTerms = oldLoanData.terms;
-
         uint256 borrowerFeeBps = feeController.get(FL_04);
         uint256 lenderFeeBps = feeController.get(FL_05);
 

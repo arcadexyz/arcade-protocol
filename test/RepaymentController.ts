@@ -587,14 +587,6 @@ describe("RepaymentController", () => {
             expect(await mockERC20.balanceOf(loanCore.address)).to.eq(ethers.utils.parseEther("5"));
             expect(await mockERC20.balanceOf(lender.address)).to.eq(ethers.utils.parseEther("105"));
         });
-
-        it("Get full interest with invaild rate, should revert.", async () => {
-            const { repaymentController } = ctx;
-
-            await expect(
-                repaymentController.getInterestAmount(ethers.utils.parseEther("100"), ethers.utils.parseEther("0.9")),
-            ).to.be.revertedWith("FIAC_InterestRate");
-        });
     });
 
     describe("Defaults", () => {
