@@ -18,6 +18,7 @@ import { LoanTerms, LoanState } from "./utils/types";
 import { deploy } from "./utils/contracts";
 import { startLoan } from "./utils/loans";
 import { ZERO_ADDRESS } from "./utils/erc20";
+import { Test } from "mocha";
 
 const ORIGINATOR_ROLE = "0x59abfac6520ec36a6556b2a4dd949cc40007459bcd5cd2507f1e5cc77b6bc97e";
 const REPAYER_ROLE = "0x9c60024347074fd9de2c1e36003080d22dbc76a41ef87444d21e361bcb39118e";
@@ -69,7 +70,7 @@ describe("LoanCore", () => {
         if (receipt && receipt.events) {
             for (const event of receipt.events) {
                 if (event.args && event.args.vault) {
-                    vault = <AssetVault>await hre.ethers.getContractAt("AssetVault", event.args.vault);
+                    vault = <AssetVault>await ethers.getContractAt("AssetVault", event.args.vault);
                 }
             }
         } else {
@@ -87,7 +88,7 @@ describe("LoanCore", () => {
     const fixture = async (): Promise<TestContext> => {
         const blockchainTime = new BlockchainTime();
         const currentTimestamp = await blockchainTime.secondsFromNow(0);
-        const signers: SignerWithAddress[] = await hre.ethers.getSigners();
+        const signers: SignerWithAddress[] = await ethers.getSigners();
         const [borrower, lender, admin] = signers;
 
         const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
@@ -146,8 +147,8 @@ describe("LoanCore", () => {
         collateralAddress: string,
         {
             durationSecs = BigNumber.from(360000),
-            principal = hre.ethers.utils.parseEther("100"),
-            proratedInterestRate = hre.ethers.utils.parseEther("1"),
+            principal = ethers.utils.parseEther("100"),
+            proratedInterestRate = ethers.utils.parseEther("1"),
             collateralId = 1,
             deadline = 259200,
         }: Partial<LoanTerms> = {},
@@ -166,7 +167,7 @@ describe("LoanCore", () => {
     describe("Deployment", () => {
         it("should not allow initialization with an invalid borrower note", async () => {
             const { mockLenderNote } = await loadFixture(fixture);
-            const LoanCoreFactory = await hre.ethers.getContractFactory("LoanCore");
+            const LoanCoreFactory = await ethers.getContractFactory("LoanCore");
 
             await expect(
                 LoanCoreFactory.deploy(ZERO_ADDRESS, mockLenderNote.address)
@@ -175,7 +176,7 @@ describe("LoanCore", () => {
 
         it("should not allow initialization with an invalid lender note", async () => {
             const { mockBorrowerNote } = await loadFixture(fixture);
-            const LoanCoreFactory = await hre.ethers.getContractFactory("LoanCore");
+            const LoanCoreFactory = await ethers.getContractFactory("LoanCore");
 
             await expect(
                 LoanCoreFactory.deploy(mockBorrowerNote.address, ZERO_ADDRESS)
@@ -191,11 +192,12 @@ describe("LoanCore", () => {
         }
 
         const setupLoan = async (context?: TestContext): Promise<StartLoanState> => {
-            context = context || (await loadFixture(fixture));
+            context = <TestContext>(context || (await loadFixture(fixture)));
 
             const { vaultFactory, mockERC20, user: borrower, other: lender } = context;
             const collateralId = await initializeBundle(borrower);
             const terms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId });
+
             return { ...context, terms, borrower, lender };
         };
 
@@ -355,14 +357,29 @@ describe("LoanCore", () => {
 
             // fails because the full input from the first loan was factored into the stored contract balance
             await expect(
-                loanCore.connect(borrower).startLoan(lender.address, borrower.address, terms, principal, principal),
+                loanCore.connect(borrower).startLoan(
+                    lender.address,
+                    borrower.address,
+                    terms,
+                    ethers.constants.HashZero,
+                    principal,
+                    principal
+                )
             ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
         });
 
         it("rejects calls from non-originator", async () => {
             const { loanCore, user: borrower, other: lender, terms } = await setupLoan();
+
             await expect(
-                loanCore.connect(lender).startLoan(borrower.address, lender.address, terms, terms.principal, terms.principal),
+                loanCore.connect(lender).startLoan(
+                    lender.address,
+                    borrower.address,
+                    terms,
+                    ethers.constants.HashZero,
+                    terms.principal,
+                    terms.principal,
+                )
             ).to.be.revertedWith(
                 `AccessControl: account ${(
                     lender.address
@@ -384,9 +401,24 @@ describe("LoanCore", () => {
             await mockERC20.connect(lender).mint(lender.address, principal);
             await mockERC20.connect(lender).approve(loanCore.address, principal);
 
-            await loanCore.connect(borrower).startLoan(lender.address, borrower.address, terms, terms.principal, terms.principal);
+            await loanCore.connect(borrower).startLoan(
+                lender.address,
+                borrower.address,
+                terms,
+                ethers.constants.HashZero,
+                terms.principal,
+                terms.principal
+            );
+
             await expect(
-                loanCore.connect(borrower).startLoan(lender.address, borrower.address, terms, terms.principal, terms.principal),
+                loanCore.connect(borrower).startLoan(
+                    lender.address,
+                    borrower.address,
+                    terms,
+                    ethers.constants.HashZero,
+                    terms.principal,
+                    terms.principal
+                ),
             ).to.be.revertedWith("LC_CollateralInUse");
         });
 
@@ -422,7 +454,14 @@ describe("LoanCore", () => {
 
             // Originator no longer owns collateral
             await expect(
-                loanCore.connect(borrower).startLoan(lender.address, borrower.address, terms, principal, principal),
+                loanCore.connect(borrower).startLoan(
+                    lender.address,
+                    borrower.address,
+                    terms,
+                    ethers.constants.HashZero,
+                    principal,
+                    principal
+                ),
             ).to.be.revertedWith("ERC721: transfer caller is not owner nor approved");
         });
 
@@ -456,14 +495,29 @@ describe("LoanCore", () => {
 
             await loanCore.connect(borrower).claim(loanId, 0);
             await expect(
-                loanCore.connect(borrower).startLoan(lender.address, borrower.address, terms, principal, principal),
+                loanCore.connect(borrower).startLoan(
+                    lender.address,
+                    borrower.address,
+                    terms,
+                    ethers.constants.HashZero,
+                    principal,
+                    principal
+                ),
             ).to.be.revertedWith("ERC721: transfer caller is not owner nor approved");
         });
 
         it("should fail to start a loan if collateral has not been sent", async () => {
             const { loanCore, terms, borrower, lender } = await setupLoan();
+
             await expect(
-                loanCore.connect(borrower).startLoan(lender.address, borrower.address, terms, terms.principal, terms.principal),
+                loanCore.connect(borrower).startLoan(
+                    lender.address,
+                    borrower.address,
+                    terms,
+                    ethers.constants.HashZero,
+                    terms.principal,
+                    terms.principal
+                ),
             ).to.be.revertedWith("ERC721: transfer caller is not owner nor approved");
         });
 
@@ -478,7 +532,14 @@ describe("LoanCore", () => {
             await vaultFactory.connect(borrower).approve(loanCore.address, collateralId);
 
             await expect(
-                loanCore.connect(borrower).startLoan(lender.address, borrower.address, terms, principal, principal),
+                loanCore.connect(borrower).startLoan(
+                    lender.address,
+                    borrower.address,
+                    terms,
+                    ethers.constants.HashZero,
+                    principal,
+                    principal
+                ),
             ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
         });
 
@@ -497,7 +558,14 @@ describe("LoanCore", () => {
             await mockERC20.connect(lender).approve(loanCore.address, principal.sub(1));
 
             await expect(
-                loanCore.connect(borrower).startLoan(lender.address, borrower.address, terms, principal, principal),
+                loanCore.connect(borrower).startLoan(
+                    lender.address,
+                    borrower.address,
+                    terms,
+                    ethers.constants.HashZero,
+                    principal,
+                    principal
+                ),
             ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
         });
 
@@ -513,7 +581,14 @@ describe("LoanCore", () => {
 
             await loanCore.connect(borrower).pause();
             await expect(
-                loanCore.connect(borrower).startLoan(lender.address, borrower.address, terms, principal, principal),
+                loanCore.connect(borrower).startLoan(
+                    lender.address,
+                    borrower.address,
+                    terms,
+                    ethers.constants.HashZero,
+                    principal,
+                    principal
+                ),
             ).to.be.revertedWith("Pausable: paused");
         });
     });
@@ -527,7 +602,7 @@ describe("LoanCore", () => {
         }
 
         const setupLoan = async (context?: TestContext): Promise<RepayLoanState> => {
-            context = context || (await loadFixture(fixture));
+            context = <TestContext>(context || (await loadFixture(fixture)));
 
             const { vaultFactory, mockERC20, loanCore, user: borrower, other: lender } = context;
             const collateralId = await initializeBundle(borrower);
@@ -684,7 +759,7 @@ describe("LoanCore", () => {
         }
 
         const setupLoan = async (context?: TestContext): Promise<RepayLoanState> => {
-            context = context || (await loadFixture(fixture));
+            context = <TestContext>(context || (await loadFixture(fixture)));
 
             const { vaultFactory, mockERC20, loanCore, user: borrower, other: lender } = context;
             const collateralId = await initializeBundle(borrower);
@@ -825,7 +900,7 @@ describe("LoanCore", () => {
         }
 
         const setupLoan = async (context?: TestContext): Promise<StartLoanState> => {
-            context = context || (await loadFixture(fixture));
+            context = <TestContext>(context || (await loadFixture(fixture)));
 
             const { vaultFactory, mockERC20, user: borrower, other: lender } = context;
             const collateralId = await initializeBundle(borrower);
@@ -854,9 +929,9 @@ describe("LoanCore", () => {
 
 
             expect(await mockERC20.balanceOf(loanCore.address)).to.equal(fee);
-            await expect(loanCore.connect(borrower).claimFees(mockERC20.address))
-                .to.emit(loanCore, "FeesClaimed")
-                .withArgs(mockERC20.address, borrower.address, fee);
+            await expect(loanCore.connect(borrower).withdrawProtocolFees(mockERC20.address, borrower.address))
+                .to.emit(loanCore, "FundsWithdrawn")
+                .withArgs(mockERC20.address, borrower.address, borrower.address, fee);
             expect(await mockERC20.balanceOf(loanCore.address)).to.equal(0);
         });
 
@@ -879,7 +954,7 @@ describe("LoanCore", () => {
 
             expect(await mockERC20.balanceOf(loanCore.address)).to.equal(fee);
 
-            await expect(loanCore.connect(lender).claimFees(mockERC20.address)).to.be.revertedWith(
+            await expect(loanCore.connect(lender).withdrawProtocolFees(mockERC20.address, borrower.address)).to.be.revertedWith(
                 `AccessControl: account ${(
                     lender.address
                 ).toLowerCase()} is missing role ${CLAIM_FEES_ROLE}`,

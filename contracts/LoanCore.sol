@@ -24,6 +24,8 @@ import {
     LC_ReusedNote,
     LC_CannotSettle,
     LC_CannotWithdraw,
+    LC_ArrayLengthMismatch,
+    LC_InvalidSplit,
     LC_CollateralInUse,
     LC_InvalidState,
     LC_NotExpired,
@@ -53,7 +55,6 @@ contract LoanCore is
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
-    event FundsWithdrawn(address indexed token, address indexed caller, address indexed to, uint256 amount);
 
     // ============================================ STATE ==============================================
 
@@ -63,6 +64,8 @@ contract LoanCore is
     bytes32 public constant ORIGINATOR_ROLE = keccak256("ORIGINATOR_ROLE");
     bytes32 public constant REPAYER_ROLE = keccak256("REPAYER_ROLE");
     bytes32 public constant FEE_CLAIMER_ROLE = keccak256("FEE_CLAIMER_ROLE");
+
+    uint96 private constant MAX_AFFILIATE_SPLIT = 50_00;
 
     // =============== Contract References ================
 
@@ -426,7 +429,7 @@ contract LoanCore is
         return usedNonces[user][nonce];
     }
 
-    // ======================================== ADMIN FUNCTIONS =========================================
+    // ========================================= FEE MANAGEMENT =========================================
 
     /**
      * @notice Claim any withdrawable balance pending for the caller, as specified by token.
@@ -452,8 +455,8 @@ contract LoanCore is
      * @notice Claim the protocol fees for the given token. Any token used as principal
      *         for a loan will have accumulated fees. Must be called by contract owner.
      *
-     * @param token                 The contract address of the token to claim fees for.
-     * @param to                    The address to send the fees to.
+     * @param token                     The contract address of the token to claim fees for.
+     * @param to                        The address to send the fees to.
      */
     function withdrawProtocolFees(address token, address to) external override nonReentrant onlyRole(FEE_CLAIMER_ROLE) {
         // any token balances remaining on this contract are fees owned by the protocol
@@ -463,6 +466,32 @@ contract LoanCore is
         IERC20(token).safeTransfer(to, amount);
 
         emit FundsWithdrawn(token, msg.sender, to, amount);
+    }
+
+    // ======================================== ADMIN FUNCTIONS =========================================
+
+    /**
+     * @notice Set the affiliate fee splits for the batch of affiliate codes. Codes and splits should
+     *         be matched index-wise. Can only be called by protocol admin.
+     *
+     * @param codes                     The affiliate code  to set the split for.
+     * @param splits                    The splits to set for the given codes.
+     */
+    function setAffiliateSplits(
+        bytes32[] calldata codes,
+        AffiliateSplit[] calldata splits
+    ) external override onlyRole(ADMIN_ROLE) {
+        if (codes.length != splits.length) revert LC_ArrayLengthMismatch();
+
+        for (uint256 i = 0; i < codes.length; i++) {
+            if (splits[i].splitBps > MAX_AFFILIATE_SPLIT) {
+                revert LC_InvalidSplit(splits[i].splitBps, MAX_AFFILIATE_SPLIT);
+            }
+
+            affiliateSplits[codes[i]] = splits[i];
+
+            emit AffiliateSet(codes[i], splits[i].affiliate, splits[i].splitBps);
+        }
     }
 
     /**

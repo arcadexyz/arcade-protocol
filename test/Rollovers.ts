@@ -226,7 +226,7 @@ const initializeLoan = async (
 
     const tx = await originationController
         .connect(lender)
-        .initializeLoan(loanTerms, borrower.address, lender.address, sig, nonce);
+        .initializeLoan(loanTerms, borrower.address, lender.address, sig, nonce, ethers.constants.HashZero);
     const receipt = await tx.wait();
 
     let loanId;

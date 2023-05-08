@@ -10,11 +10,12 @@ import "./IPromissoryNote.sol";
 import "./ILoanCore.sol";
 
 interface ILoanCore {
-    // ================ Data Structures =================
+
+    // ================ Data Types =================
 
     struct AffiliateSplit {
         address affiliate;
-        uint256 splitBps;
+        uint96 splitBps;
     }
 
     // ================ Events =================
@@ -24,8 +25,10 @@ interface ILoanCore {
     event LoanRepaid(uint256 loanId);
     event LoanRolledOver(uint256 oldLoanId, uint256 newLoanId);
     event LoanClaimed(uint256 loanId);
-    event SetFeeController(address feeController);
     event NonceUsed(address indexed user, uint160 nonce);
+
+    event FundsWithdrawn(address indexed token, address indexed caller, address indexed to, uint256 amount);
+    event AffiliateSet(bytes32 indexed code, address indexed affiliate, uint96 splitBps);
 
     // ============== Lifecycle Operations ==============
 
@@ -68,6 +71,8 @@ interface ILoanCore {
     function cancelNonce(uint160 nonce) external;
 
     // ============== Fees ==============
+
+    function setAffiliateSplits(bytes32[] calldata codes, AffiliateSplit[] calldata splits) external;
 
     function withdraw(address token, uint256 amount, address to) external;
 

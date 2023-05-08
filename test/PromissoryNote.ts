@@ -3,7 +3,6 @@ import hre, { waffle } from "hardhat";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { BigNumber, BigNumberish } from "ethers";
-import { initializeBundle, startLoan } from "./utils/loans";
 import {
     OriginationController,
     MockERC20,
@@ -16,7 +15,7 @@ import {
     RepaymentController,
 } from "../typechain";
 import { deploy } from "./utils/contracts";
-import { LoanTerms, LoanState } from "./utils/types";
+import { LoanTerms } from "./utils/types";
 import { fromRpcSig } from "ethereumjs-util";
 
 type Signer = SignerWithAddress;

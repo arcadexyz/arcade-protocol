@@ -1,5 +1,5 @@
 import chai, { expect } from "chai";
-import hre, { waffle } from "hardhat";
+import hre, { waffle, ethers } from "hardhat";
 import { solidity } from "ethereum-waffle";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
@@ -58,7 +58,7 @@ const createVault = async (factory: VaultFactory, user: Signer): Promise<AssetVa
     if (receipt && receipt.events) {
         for (const event of receipt.events) {
             if (event.args && event.args.vault) {
-                vault = <AssetVault>await hre.ethers.getContractAt("AssetVault", event.args.vault);
+                vault = <AssetVault>await ethers.getContractAt("AssetVault", event.args.vault);
             }
         }
     } else {
@@ -71,7 +71,7 @@ const createVault = async (factory: VaultFactory, user: Signer): Promise<AssetVa
 };
 
 const fixture = async (): Promise<TestContext> => {
-    const signers: Signer[] = await hre.ethers.getSigners();
+    const signers: Signer[] = await ethers.getSigners();
     const [deployer] = signers;
 
     const feeController = <FeeController>await deploy("FeeController", signers[0], []);
@@ -79,7 +79,7 @@ const fixture = async (): Promise<TestContext> => {
     const borrowerNote = <PromissoryNote>await deploy("PromissoryNote", deployer, ["Arcade.xyz BorrowerNote", "aBN"]);
     const lenderNote = <PromissoryNote>await deploy("PromissoryNote", deployer, ["Arcade.xyz LenderNote", "aLN"]);
 
-    const LoanCore = await hre.ethers.getContractFactory("LoanCore");
+    const LoanCore = await ethers.getContractFactory("LoanCore");
     const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [borrowerNote.address, lenderNote.address]);
 
     // Grant correct permissions for promissory note
@@ -145,8 +145,8 @@ const createLoanTermsExpired = (
     collateralAddress: string,
     {
         durationSecs = BigNumber.from(360000),
-        principal = hre.ethers.utils.parseEther("100"),
-        proratedInterestRate = hre.ethers.utils.parseEther("1"),
+        principal = ethers.utils.parseEther("100"),
+        proratedInterestRate = ethers.utils.parseEther("1"),
         collateralId = "1",
         deadline = 808113600, // August 11, 1995
     }: Partial<LoanTerms> = {},
@@ -167,8 +167,8 @@ const createLoanTerms = (
     collateralAddress: string,
     {
         durationSecs = BigNumber.from(360000),
-        principal = hre.ethers.utils.parseEther("100"),
-        proratedInterestRate = hre.ethers.utils.parseEther("1"),
+        principal = ethers.utils.parseEther("100"),
+        proratedInterestRate = ethers.utils.parseEther("1"),
         collateralId = "1",
         deadline = 1754884800,
     }: Partial<LoanTerms> = {},
@@ -184,28 +184,28 @@ const createLoanTerms = (
     };
 };
 
-const maxDeadline = hre.ethers.constants.MaxUint256;
+const maxDeadline = ethers.constants.MaxUint256;
 
 describe("OriginationController", () => {
     describe("constructor", () => {
         it("Reverts if loanCore address is not provided", async () => {
             const { feeController } = await loadFixture(fixture);
 
-            const OriginationController = await hre.ethers.getContractFactory("OriginationController");
+            const OriginationController = await ethers.getContractFactory("OriginationController");
             await expect(OriginationController.deploy(ZERO_ADDRESS, feeController.address)).to.be.revertedWith("OC_ZeroAddress");
         });
 
         it("Reverts if feeController address is not provided", async () => {
             const { loanCore } = await loadFixture(fixture);
 
-            const OriginationController = await hre.ethers.getContractFactory("OriginationController");
+            const OriginationController = await ethers.getContractFactory("OriginationController");
             await expect(OriginationController.deploy(loanCore.address, ZERO_ADDRESS)).to.be.revertedWith("OC_ZeroAddress");
         });
 
         it("Instantiates the OriginationController", async () => {
             const { loanCore, feeController } = await loadFixture(fixture);
 
-            const OriginationController = await hre.ethers.getContractFactory("OriginationController");
+            const OriginationController = await ethers.getContractFactory("OriginationController");
             const originationController = await OriginationController.deploy(loanCore.address, feeController.address);
             await originationController.deployed();
 
@@ -245,7 +245,7 @@ describe("OriginationController", () => {
                 originationController
                     // some random guy
                     .connect(signers[3])
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             ).to.be.revertedWith("OC_CallerNotParticipant");
         });
 
@@ -271,7 +271,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             ).to.be.revertedWith("ERC721: transfer caller is not owner nor approved");
         });
 
@@ -297,7 +297,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
         });
 
@@ -326,7 +326,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             ).to.be.revertedWith("OC_PrincipalTooLow");
         });
 
@@ -353,7 +353,7 @@ describe("OriginationController", () => {
                 originationController
                     // sender is the borrower, signer is also the borrower
                     .connect(borrower)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
 
@@ -380,7 +380,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
 
@@ -407,7 +407,7 @@ describe("OriginationController", () => {
                 originationController
                     .connect(lender)
                     // Use nonce of 2, skipping nonce 1
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 2),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 2, ethers.constants.HashZero),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
 
@@ -435,7 +435,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             ).to.be.revertedWith("OC_SignatureIsExpired");
         });
 
@@ -461,7 +461,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
 
@@ -487,7 +487,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, loanCore.address, loanTerms.principal);
@@ -515,7 +515,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, loanCore.address, loanTerms.principal);
@@ -549,7 +549,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(caller)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             ).to.be.revertedWith("SideMismatch");
         });
 
@@ -576,7 +576,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, loanCore.address, loanTerms.principal);
@@ -604,7 +604,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, loanCore.address, loanTerms.principal);
@@ -613,7 +613,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             ).to.be.revertedWith("LC_NonceUsed");
         });
 
@@ -672,6 +672,7 @@ describe("OriginationController", () => {
                             1,
                             collateralSig,
                             maxDeadline,
+                            ethers.constants.HashZero
                         ),
                 ).to.be.revertedWith("function selector was not recognized and there's no fallback function");
             });
@@ -728,6 +729,7 @@ describe("OriginationController", () => {
                             1,
                             collateralSig,
                             maxDeadline,
+                            ethers.constants.HashZero
                         ),
                 ).to.be.revertedWith("ERC721P_NotTokenOwner");
             });
@@ -776,6 +778,7 @@ describe("OriginationController", () => {
                             1,
                             collateralSig,
                             maxDeadline,
+                            ethers.constants.HashZero
                         ),
                 )
                     .to.emit(mockERC20, "Transfer")
@@ -843,6 +846,7 @@ describe("OriginationController", () => {
                         sig,
                         1,
                         predicates,
+                        ethers.constants.HashZero
                     ),
             ).to.be.revertedWith("function selector was not recognized and there's no fallback function");
         });
@@ -895,6 +899,7 @@ describe("OriginationController", () => {
                         sig,
                         1,
                         predicates,
+                        ethers.constants.HashZero
                     ),
             ).to.be.revertedWith("OC_PredicateFailed");
         });
@@ -930,6 +935,7 @@ describe("OriginationController", () => {
                         sig,
                         1,
                         predicates,
+                        ethers.constants.HashZero
                     ),
             ).to.be.revertedWith("OC_PredicatesArrayEmpty");
         });
@@ -985,6 +991,7 @@ describe("OriginationController", () => {
                     // Use nonce a nonce value that does not match the nonce in sig
                     2,
                     predicates,
+                    ethers.constants.HashZero
                 ),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
@@ -1040,6 +1047,7 @@ describe("OriginationController", () => {
                         sig,
                         1,
                         predicates,
+                        ethers.constants.HashZero
                     ),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
@@ -1098,6 +1106,7 @@ describe("OriginationController", () => {
                         sig,
                         1,
                         predicates,
+                        ethers.constants.HashZero
                     ),
             ).to.be.revertedWith("OC_InvalidVerifier");
         });
@@ -1180,6 +1189,7 @@ describe("OriginationController", () => {
                         collateralSig,
                         maxDeadline,
                         predicates,
+                        ethers.constants.HashZero
                     ),
             )
                 .to.be.revertedWith(`OC_InvalidCurrency("${unapprovedERC20.address}")`);
@@ -1236,6 +1246,7 @@ describe("OriginationController", () => {
                         sig,
                         1,
                         predicates,
+                        ethers.constants.HashZero
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -1293,6 +1304,7 @@ describe("OriginationController", () => {
                         sig,
                         1,
                         predicates,
+                        ethers.constants.HashZero
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -1359,6 +1371,7 @@ describe("OriginationController", () => {
                         sig,
                         1,
                         predicates,
+                        ethers.constants.HashZero
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -1376,6 +1389,7 @@ describe("OriginationController", () => {
                         sig,
                         1,
                         predicates,
+                        ethers.constants.HashZero
                     ),
             ).to.be.revertedWith("LC_NonceUsed");
         });
@@ -1456,6 +1470,7 @@ describe("OriginationController", () => {
                         collateralSig,
                         maxDeadline,
                         predicates,
+                        ethers.constants.HashZero
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -1539,6 +1554,7 @@ describe("OriginationController", () => {
                             collateralSig,
                             maxDeadline,
                             predicates,
+                            ethers.constants.HashZero
                         ),
                 ).to.be.revertedWith("ERC721P_NotTokenOwner");
             });
@@ -1618,6 +1634,7 @@ describe("OriginationController", () => {
                             collateralSig,
                             maxDeadline,
                             predicates,
+                            ethers.constants.HashZero
                         ),
                 ).to.be.revertedWith("ERC721P_NotTokenOwner");
             });
@@ -1751,7 +1768,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, loanCore.address, loanTerms.principal);
@@ -1784,7 +1801,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, loanCore.address, loanTerms.principal);
@@ -1817,7 +1834,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(newOriginator)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, loanCore.address, loanTerms.principal);
@@ -1850,7 +1867,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(newOriginator)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, loanCore.address, loanTerms.principal);
@@ -1885,7 +1902,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoan(loanTerms, borrower.address, lenderContract.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lenderContract.address, sig, 1, ethers.constants.HashZero),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lenderContract.address, loanCore.address, loanTerms.principal);
@@ -1922,7 +1939,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoan(loanTerms, borrower.address, lenderContract.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lenderContract.address, sig, 1, ethers.constants.HashZero),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
 
@@ -1952,7 +1969,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
 
@@ -1982,7 +1999,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             ).to.be.revertedWith("OC_ApprovedOwnLoan");
         });
     });
@@ -2022,7 +2039,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, loanCore.address, loanTerms.principal)
@@ -2062,7 +2079,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, loanCore.address, amountSent)
@@ -2104,7 +2121,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, loanCore.address, amountSent)
@@ -2149,7 +2166,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
             )
                 .to.be.revertedWith(`OC_InvalidCollateral("${unapprovedERC721.address}")`);
         });

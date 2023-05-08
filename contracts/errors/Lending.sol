@@ -303,6 +303,21 @@ error LC_CannotSettle(uint256 payout, uint256 collected);
 error LC_CannotWithdraw(uint256 amount, uint256 available);
 
 /**
+ * @notice Two arrays were provided that must be of matching length, but were not.
+ *
+ */
+error LC_ArrayLengthMismatch();
+
+/**
+ * @notice A proposed affiliate split was submitted that is over the maximum.
+ *
+ * @param splitBps                     The proposed affiliate split.
+ * @param maxSplitBps                  The maximum allowed affiliate split.
+ *
+ */
+error LC_InvalidSplit(uint96 splitBps, uint96 maxSplitBps);
+
+/**
  * @notice Ensure valid loan state for loan lifceycle operations.
  *
  * @param state                         Current state of a loan according to LoanState enum.
