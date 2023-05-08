@@ -167,8 +167,9 @@ contract LoanCore is
         // Initiate loan state
         loans[loanId] = LoanLibrary.LoanData({
             terms: terms,
-            state: LoanLibrary.LoanState.Active,
-            startDate: uint160(block.timestamp)
+            startDate: uint160(block.timestamp),
+            affiliateCode: affiliateCode,
+            state: LoanLibrary.LoanState.Active
         });
 
         collateralInUse[collateralKey] = true;
@@ -211,7 +212,11 @@ contract LoanCore is
         // Check that we will not net lose tokens.
         if (_amountToLender > _amountFromPayer) revert LC_CannotSettle(_amountToLender, _amountFromPayer);
         uint256 feesEarned = _amountFromPayer - _amountToLender;
-        withdrawable[data.terms.payableCurrency][address(this)] += feesEarned;
+        (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(feesEarned, data.affiliateCode);
+
+        // Assign fees for withdrawal
+        withdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
+        withdrawable[data.terms.payableCurrency][affiliate] += affiliateFee;
 
         // get promissory notes from two parties involved
         address lender = lenderNote.ownerOf(loanId);
@@ -270,8 +275,12 @@ contract LoanCore is
         IERC721(data.terms.collateralAddress).transferFrom(address(this), lender, data.terms.collateralId);
 
         if (_amountFromLender > 0) {
+            (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
+                _getAffiliateSplit(_amountFromLender, data.affiliateCode);
+
             // Assign fees for withdrawal
-            withdrawable[data.terms.payableCurrency][address(this)] += _amountFromLender;
+            withdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
+            withdrawable[data.terms.payableCurrency][affiliate] += affiliateFee;
 
             IERC20(data.terms.payableCurrency).transferFrom(lender, address(this), _amountFromLender);
         }
@@ -318,9 +327,15 @@ contract LoanCore is
             revert LC_CannotSettle(_amountToOldLender + _amountToLender + _amountToBorrower, _settledAmount);
         }
 
-        // Assign fees for withdrawal
-        uint256 feesEarned = _settledAmount - _amountToOldLender - _amountToLender - _amountToBorrower;
-        withdrawable[address(payableCurrency)][address(this)] += feesEarned;
+        {
+            uint256 feesEarned = _settledAmount - _amountToOldLender - _amountToLender - _amountToBorrower;
+            (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
+                _getAffiliateSplit(feesEarned, data.affiliateCode);
+
+            // Assign fees for withdrawal
+            withdrawable[address(payableCurrency)][address(this)] += protocolFee;
+            withdrawable[address(payableCurrency)][affiliate] += affiliateFee;
+        }
 
         _burnLoanNotes(oldLoanId);
 
@@ -331,6 +346,7 @@ contract LoanCore is
         loans[newLoanId] = LoanLibrary.LoanData({
             terms: terms,
             state: LoanLibrary.LoanState.Active,
+            affiliateCode: data.affiliateCode,
             startDate: uint160(block.timestamp)
         });
 

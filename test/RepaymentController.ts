@@ -619,7 +619,7 @@ describe("RepaymentController", () => {
         });
 
         it("100 ETH principal, 10% interest, borrower defaults, non-lender, reverts", async () => {
-            const { lender, repaymentController, loanCore, borrower } = ctx;
+            const { repaymentController, borrower } = ctx;
 
             // Wind to expiry
             await hre.network.provider.send("evm_increaseTime", [duration + 100]);
@@ -630,7 +630,7 @@ describe("RepaymentController", () => {
         });
 
         it("100 ETH principal, 10% interest, borrower defaults, lender cannot pay claim fee, reverts", async () => {
-            const { lender, repaymentController, loanCore, vaultFactory, feeController, mockERC20 } = ctx;
+            const { lender, repaymentController, feeController, mockERC20 } = ctx;
 
             // Wind to expiry
             await hre.network.provider.send("evm_increaseTime", [duration + 100]);
