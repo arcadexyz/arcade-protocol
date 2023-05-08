@@ -10,6 +10,13 @@ import "./IPromissoryNote.sol";
 import "./ILoanCore.sol";
 
 interface ILoanCore {
+    // ================ Data Structures =================
+
+    struct AffiliateSplit {
+        address affiliate;
+        uint256 splitBps;
+    }
+
     // ================ Events =================
 
     event LoanCreated(LoanLibrary.LoanTerms terms, uint256 loanId);
@@ -27,6 +34,7 @@ interface ILoanCore {
         address lender,
         address borrower,
         LoanLibrary.LoanTerms calldata terms,
+        bytes32 affiliateCode,
         uint256 _amountFromLender,
         uint256 _amountToBorrower
     ) external returns (uint256 loanId);

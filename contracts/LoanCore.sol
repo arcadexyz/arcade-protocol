@@ -68,11 +68,16 @@ contract LoanCore is
 
     // =================== Loan State =====================
 
+    // TODO: Add dev docs to these
+
     Counters.Counter private loanIdTracker;
     mapping(uint256 => LoanLibrary.LoanData) private loans;
     // key is hash of (collateralAddress, collateralId)
     mapping(bytes32 => bool) private collateralInUse;
     mapping(address => mapping(uint160 => bool)) public usedNonces;
+
+    mapping(bytes32 => AffiliateSplit) affiliateSplits;
+    mapping(address => mapping(address => uint256)) withdrawable;
 
     // ========================================== CONSTRUCTOR ===========================================
 
@@ -121,6 +126,7 @@ contract LoanCore is
      * @param lender                The lender for the loan.
      * @param borrower              The borrower for the loan.
      * @param terms                 The terms of the loan.
+     * @param affiliateCode                 A referral code from a registered protocol affiliate.
      * @param _amountFromLender     The amount of principal to be collected from the lender.
      * @param _amountToBorrower     The amount of principal to be distributed to the borrower (net after fees).
      *
@@ -130,6 +136,7 @@ contract LoanCore is
         address lender,
         address borrower,
         LoanLibrary.LoanTerms calldata terms,
+        bytes32 affiliateCode,
         uint256 _amountFromLender,
         uint256 _amountToBorrower
     ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 loanId) {
@@ -139,6 +146,12 @@ contract LoanCore is
 
         // Check that we will not net lose tokens.
         if (_amountToBorrower > _amountFromLender) revert LC_CannotSettle(_amountToBorrower, _amountFromLender);
+        uint256 feesEarned = _amountFromLender - _amountToBorrower;
+        (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(feesEarned, affiliateCode);
+
+        // Assign fees for withdrawal
+        withdrawable[terms.payableCurrency][address(this)] += protocolFee;
+        withdrawable[terms.payableCurrency][affiliate] += affiliateFee;
 
         // get current loanId and increment for next function call
         loanId = loanIdTracker.current();
@@ -431,6 +444,32 @@ contract LoanCore is
     }
 
     // ============================================= HELPERS ============================================
+
+    /**
+     * @dev Lookup the submitted affiliateCode for a split value, and return the amount
+     *      going to protocol and the amount going to the affiliate, along with destination.
+     *
+     * @param amount                The amount to split.
+     * @param affiliateCode         The affiliate code to lookup.
+     *
+     * @return protocolFee          The amount going to protocol.
+     * @return affiliateFee         The amount going to the affiliate.
+     * @return affiliate            The address of the affiliate.
+     */
+    function _getAffiliateSplit(
+        uint256 amount,
+        bytes32 affiliateCode
+    ) internal view returns (uint256 protocolFee, uint256 affiliateFee, address affiliate) {
+        AffiliateSplit memory split = affiliateSplits[affiliateCode];
+
+        if (split.affiliate == address(0)) {
+            return (amount, 0, address(0));
+        }
+
+        affiliate = split.affiliate;
+        affiliateFee = amount * split.splitBps / BASIS_POINTS_DENOMINATOR;
+        protocolFee = amount - affiliateFee;
+    }
 
     /**
      * @dev Consume a nonce, by marking it as used for that user. Reverts if the nonce
