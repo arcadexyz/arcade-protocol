@@ -109,10 +109,7 @@ contract LoanCore is
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
         _setRoleAdmin(ORIGINATOR_ROLE, ADMIN_ROLE);
         _setRoleAdmin(REPAYER_ROLE, ADMIN_ROLE);
-
-        // only those with FEE_CLAIMER_ROLE can update or grant FEE_CLAIMER_ROLE
-        _setupRole(FEE_CLAIMER_ROLE, msg.sender);
-        _setRoleAdmin(FEE_CLAIMER_ROLE, FEE_CLAIMER_ROLE);
+        _setRoleAdmin(AFFILIATE_MANAGER_ROLE, ADMIN_ROLE);
 
         /// @dev Although using references for both promissory notes, these
         ///      must be fresh versions and cannot be re-used across multiple
@@ -504,7 +501,7 @@ contract LoanCore is
     ) external override onlyRole(AFFILIATE_MANAGER_ROLE) {
         if (codes.length != splits.length) revert LC_ArrayLengthMismatch();
 
-        for (uint256 i = 0; i < codes.length; ++i {
+        for (uint256 i = 0; i < codes.length; ++i) {
             if (splits[i].splitBps > MAX_AFFILIATE_SPLIT) {
                 revert LC_InvalidSplit(splits[i].splitBps, MAX_AFFILIATE_SPLIT);
             }
