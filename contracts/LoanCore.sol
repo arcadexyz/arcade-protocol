@@ -214,9 +214,10 @@ contract LoanCore is
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         LoanLibrary.LoanData memory data = _handleRepay(loanId, _amountFromPayer, _amountToLender);
 
-        // get promissory notes from two parties involved
+        // get promissory notes from two parties involved, then burn
         address lender = lenderNote.ownerOf(loanId);
         address borrower = borrowerNote.ownerOf(loanId);
+        _burnLoanNotes(loanId);
 
         // Collect from borrower and redistribute collateral
         IERC20(data.terms.payableCurrency).safeTransferFrom(payer, address(this), _amountFromPayer);
@@ -247,9 +248,10 @@ contract LoanCore is
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         LoanLibrary.LoanData memory data = _handleRepay(loanId, _amountFromPayer, _amountToLender);
 
-        // get promissory notes from two parties involved
+        // get promissory notes from two parties involved, then burn
         address lender = lenderNote.ownerOf(loanId);
         address borrower = borrowerNote.ownerOf(loanId);
+        _burnLoanNotes(loanId);
 
         // Collect from borrower and redistribute collateral
         IERC20(data.terms.payableCurrency).safeTransferFrom(payer, address(this), _amountFromPayer);
@@ -592,10 +594,8 @@ contract LoanCore is
         // NOTE: these must be performed before assets are released to prevent reentrance
         loans[loanId].state = LoanLibrary.LoanState.Repaid;
         collateralInUse[keccak256(abi.encode(data.terms.collateralAddress, data.terms.collateralId))] = false;
-
-        // Burn promissory notes associated with the loan
-        _burnLoanNotes(loanId);
     }
+
     /**
      * @dev Lookup the submitted affiliateCode for a split value, and return the amount
      *      going to protocol and the amount going to the affiliate, along with destination.
