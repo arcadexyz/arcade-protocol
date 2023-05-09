@@ -552,7 +552,6 @@ describe("PromissoryNote", () => {
             const { lenderPromissoryNote: promissoryNote, user, other, baseURI } = await loadFixture(fixture);
 
             await promissoryNote.connect(user).mint(await other.getAddress(), 1);
-
             expect(await promissoryNote.tokenURI(1)).to.be.eq(`${baseURI + 1}`);
         });
     });

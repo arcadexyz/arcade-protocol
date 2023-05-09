@@ -652,7 +652,6 @@ describe("VaultFactory", () => {
             const { factory, baseURI, user } = await loadFixture(fixture);
 
             await createVault(factory, user);
-
             expect(await factory.baseURI()).to.be.eq(baseURI);
         });
 

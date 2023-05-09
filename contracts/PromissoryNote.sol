@@ -14,7 +14,13 @@ import "./ERC721Permit.sol";
 import "./interfaces/ILoanCore.sol";
 import "./interfaces/IPromissoryNote.sol";
 
-import { PN_MintingRole, PN_BurningRole, PN_ContractPaused, PN_CannotInitialize, PN_AlreadyInitialized } from "./errors/Lending.sol";
+import {
+    PN_MintingRole,
+    PN_BurningRole,
+    PN_ContractPaused,
+    PN_CannotInitialize,
+    PN_AlreadyInitialized
+} from "./errors/Lending.sol";
 
 /**
  * @title PromissoryNote
