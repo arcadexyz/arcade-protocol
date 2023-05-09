@@ -592,6 +592,97 @@ describe("RepaymentController", () => {
         });
     });
 
+    describe.only("Two-Step Repayment", () => {
+        it("100 ETH principal, 10% interest, borrower force repays (5% fee, 10% affiliate split)", async () => {
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController } = ctx;
+
+            const { loanId, bundleId } = await initializeLoan(
+                ctx,
+                mockERC20.address,
+                BigNumber.from(86400), // durationSecs
+                ethers.utils.parseEther("100"), // principal
+                ethers.utils.parseEther("1000"), // interest
+                1754884800, // deadline
+            );
+
+            // total repayment amount
+            const total = ethers.utils.parseEther("110");
+            const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
+            // mint borrower exactly enough to repay loan
+            await mint(mockERC20, borrower, repayAdditionalAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, total);
+
+            expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            // Assess fee on lender
+            await feeController.set(await feeController.FL_07(), 20_00);
+            await feeController.set(await feeController.FL_08(), 2_00);
+
+            await expect(
+                repaymentController.connect(borrower).forceRepay(loanId)
+            ).to.emit(loanCore, "LoanRepaid").withArgs(loanId)
+                .to.emit(loanCore, "ForceRepay").withArgs(loanId);
+
+            expect(await mockERC20.balanceOf(borrower.address)).to.eq(0);
+
+            // Should have 4 for fees, 106 for lender
+            expect(await mockERC20.balanceOf(loanCore.address)).to.eq(ethers.utils.parseEther("110"));
+
+            expect(await loanCore.withdrawable(mockERC20.address, lender.address)).to.eq(ethers.utils.parseEther("106"));
+
+            await expect(
+                loanCore.connect(lender).withdraw(mockERC20.address, ethers.utils.parseEther("106"), lender.address)
+            ).to.emit(loanCore, "FundsWithdrawn")
+                .withArgs(mockERC20.address, lender.address, lender.address, ethers.utils.parseEther("106"));
+        });
+
+        it("forceRepay works even if lender cannot receive tokens", async () => {
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController } = ctx;
+
+            const { loanId, bundleId } = await initializeLoan(
+                ctx,
+                mockERC20.address,
+                BigNumber.from(86400), // durationSecs
+                ethers.utils.parseEther("100"), // principal
+                ethers.utils.parseEther("1000"), // interest
+                1754884800, // deadline
+            );
+
+            // total repayment amount
+            const total = ethers.utils.parseEther("110");
+            const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
+            // mint borrower exactly enough to repay loan
+            await mint(mockERC20, borrower, repayAdditionalAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, total);
+
+            expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            // Assess fee on lender
+            await feeController.set(await feeController.FL_07(), 20_00);
+            await feeController.set(await feeController.FL_08(), 2_00);
+
+            await expect(
+                repaymentController.connect(borrower).forceRepay(loanId)
+            ).to.emit(loanCore, "LoanRepaid").withArgs(loanId)
+                .to.emit(loanCore, "ForceRepay").withArgs(loanId);
+
+            expect(await mockERC20.balanceOf(borrower.address)).to.eq(0);
+
+            // Should have 4 for fees, 106 for lender
+            expect(await mockERC20.balanceOf(loanCore.address)).to.eq(ethers.utils.parseEther("110"));
+
+            expect(await loanCore.withdrawable(mockERC20.address, lender.address)).to.eq(ethers.utils.parseEther("106"));
+
+            await expect(
+                loanCore.connect(lender).withdraw(mockERC20.address, ethers.utils.parseEther("106"), lender.address)
+            ).to.emit(loanCore, "FundsWithdrawn")
+                .withArgs(mockERC20.address, lender.address, lender.address, ethers.utils.parseEther("106"));
+        });
+
+        it("other parties cannot claim lender repayment funds");
+        it("lender can withdraw funds collected during a forceRepay, along with affiliate funds");
+    });
+
     describe("Defaults", () => {
         let loanId: BigNumberish;
         let bundleId: BigNumberish;

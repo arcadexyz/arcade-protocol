@@ -31,7 +31,9 @@ import {
     LC_InvalidState,
     LC_NotExpired,
     LC_NonceUsed,
-    LC_AffiliateCodeAlreadySet
+    LC_AffiliateCodeAlreadySet,
+    LC_OnlyLender,
+    LC_NoReceipt
 } from "./errors/Lending.sol";
 
 /**
@@ -91,9 +93,12 @@ contract LoanCore is
     ///      split contains payout address and a feeShare in bps
     mapping(bytes32 => AffiliateSplit) public affiliateSplits;
 
-    /// @dev token => user => amount withdrawable
-    ///      incremented by calling deposit
-    mapping(address => mapping(address => uint256)) public withdrawable;
+    /// @dev token => user => amount fees
+    mapping(address => mapping(address => uint256)) public feesWithdrawable;
+
+    /// @dev tokenId => [token, amount]
+    ///      can be withdrawn by burning LenderNote of matching tokenId
+    mapping(uint256 => NoteReceipt) public noteReceipts;
 
     // ========================================== CONSTRUCTOR ===========================================
 
@@ -164,8 +169,8 @@ contract LoanCore is
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(feesEarned, affiliateCode);
 
         // Assign fees for withdrawal
-        withdrawable[terms.payableCurrency][address(this)] += protocolFee;
-        withdrawable[terms.payableCurrency][affiliate] += affiliateFee;
+        feesWithdrawable[terms.payableCurrency][address(this)] += protocolFee;
+        feesWithdrawable[terms.payableCurrency][affiliate] += affiliateFee;
 
         // get current loanId and increment for next function call
         loanId = loanIdTracker.current();
@@ -249,16 +254,17 @@ contract LoanCore is
         LoanLibrary.LoanData memory data = _handleRepay(loanId, _amountFromPayer, _amountToLender);
 
         // get promissory notes from two parties involved, then burn
-        address lender = lenderNote.ownerOf(loanId);
+        // borrower note _only_ - do not burn lender note until receipt
+        // is redeemed
         address borrower = borrowerNote.ownerOf(loanId);
-        _burnLoanNotes(loanId);
+        borrowerNote.burn(loanId);
 
         // Collect from borrower and redistribute collateral
         IERC20(data.terms.payableCurrency).safeTransferFrom(payer, address(this), _amountFromPayer);
         IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
 
-        // Do not send collected principal, but make it available for withdrawal
-        withdrawable[data.terms.payableCurrency][lender] += _amountToLender;
+        // Do not send collected principal, but make it available for withdrawal by a holder of the lender note
+        noteReceipts[loanId] = NoteReceipt(data.terms.payableCurrency, _amountToLender);
 
         emit LoanRepaid(loanId);
         emit ForceRepay(loanId);
@@ -304,13 +310,42 @@ contract LoanCore is
                 _getAffiliateSplit(_amountFromLender, data.affiliateCode);
 
             // Assign fees for withdrawal
-            withdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
-            withdrawable[data.terms.payableCurrency][affiliate] += affiliateFee;
+            feesWithdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
+            feesWithdrawable[data.terms.payableCurrency][affiliate] += affiliateFee;
 
             IERC20(data.terms.payableCurrency).transferFrom(lender, address(this), _amountFromLender);
         }
 
         emit LoanClaimed(loanId);
+    }
+
+    /**
+     * @notice Burn a lender note, for an already-completed loan, in order to receive
+     *         held tokens already paid back by the lender. Can only be called by the
+     *         owner of the note.
+     *
+     * @param loanId                    The ID of the lender note to redeem.
+     */
+    function redeemNote(uint256 loanId, address to) external override nonReentrant {
+        LoanLibrary.LoanData memory data = loans[loanId];
+
+        if (lenderNote.ownerOf(loanId) != msg.sender) revert LC_OnlyLender(msg.sender);
+        if (data.state == LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
+
+        NoteReceipt memory receipt = noteReceipts[loanId];
+        (address token, uint256 amount) = (receipt.token, receipt.amount);
+        if (token == address(0) || amount == 0) revert LC_NoReceipt(loanId);
+
+        // delete the receipt
+        delete noteReceipts[loanId];
+
+        // burn the note
+        lenderNote.burn(loanId);
+
+        // transfer the held tokens to the lender
+        IERC20(token).safeTransfer(to, amount);
+
+        emit NoteRedeemed(token, msg.sender, to, loanId, amount);
     }
 
     /**
@@ -358,8 +393,8 @@ contract LoanCore is
                 _getAffiliateSplit(feesEarned, data.affiliateCode);
 
             // Assign fees for withdrawal
-            withdrawable[address(payableCurrency)][address(this)] += protocolFee;
-            withdrawable[address(payableCurrency)][affiliate] += affiliateFee;
+            feesWithdrawable[address(payableCurrency)][address(this)] += protocolFee;
+            feesWithdrawable[address(payableCurrency)][affiliate] += affiliateFee;
         }
 
         _burnLoanNotes(oldLoanId);
@@ -474,7 +509,7 @@ contract LoanCore is
     // ========================================= FEE MANAGEMENT =========================================
 
     /**
-     * @notice Claim any withdrawable balance pending for the caller, as specified by token.
+     * @notice Claim any feesWithdrawable balance pending for the caller, as specified by token.
      *         This may accumulate from either affiliate fee shares or borrower forced repayments.
      *
      * @param token                 The contract address of the token to claim tokens for.
@@ -485,10 +520,10 @@ contract LoanCore is
         if (amount == 0) revert LC_ZeroAmount();
 
         // any token balances remaining on this contract are fees owned by the protocol
-        uint256 available = withdrawable[token][msg.sender];
+        uint256 available = feesWithdrawable[token][msg.sender];
         if (amount > available) revert LC_CannotWithdraw(amount, available);
 
-        withdrawable[token][msg.sender] -= amount;
+        feesWithdrawable[token][msg.sender] -= amount;
 
         IERC20(token).safeTransfer(msg.sender, amount);
 
@@ -504,8 +539,8 @@ contract LoanCore is
      */
     function withdrawProtocolFees(address token, address to) external override nonReentrant onlyRole(FEE_CLAIMER_ROLE) {
         // any token balances remaining on this contract are fees owned by the protocol
-        uint256 amount = withdrawable[token][address(this)];
-        withdrawable[token][address(this)] = 0;
+        uint256 amount = feesWithdrawable[token][address(this)];
+        feesWithdrawable[token][address(this)] = 0;
 
         IERC20(token).safeTransfer(to, amount);
 
@@ -587,8 +622,8 @@ contract LoanCore is
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(feesEarned, data.affiliateCode);
 
         // Assign fees for withdrawal
-        withdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
-        withdrawable[data.terms.payableCurrency][affiliate] += affiliateFee;
+        feesWithdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
+        feesWithdrawable[data.terms.payableCurrency][affiliate] += affiliateFee;
 
         // state changes and cleanup
         // NOTE: these must be performed before assets are released to prevent reentrance

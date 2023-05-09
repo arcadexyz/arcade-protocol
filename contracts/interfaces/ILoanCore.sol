@@ -18,6 +18,11 @@ interface ILoanCore {
         uint96 splitBps;
     }
 
+    struct NoteReceipt {
+        address token;
+        uint256 amount;
+    }
+
     // ================ Events =================
 
     event LoanCreated(LoanLibrary.LoanTerms terms, uint256 loanId);
@@ -29,6 +34,7 @@ interface ILoanCore {
     event NonceUsed(address indexed user, uint160 nonce);
 
     event FundsWithdrawn(address indexed token, address indexed caller, address indexed to, uint256 amount);
+    event NoteRedeemed(address indexed token, address indexed caller, address indexed to, uint256 tokenId, uint256 amount);
     event AffiliateSet(bytes32 indexed code, address indexed affiliate, uint96 splitBps);
 
     // ============== Lifecycle Operations ==============
@@ -85,6 +91,8 @@ interface ILoanCore {
     function withdraw(address token, uint256 amount, address to) external;
 
     function withdrawProtocolFees(address token, address to) external;
+
+    function redeemNote(uint256 loanId, address to) external;
 
     // ============== View Functions ==============
 
