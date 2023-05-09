@@ -23,6 +23,7 @@ interface ILoanCore {
     event LoanCreated(LoanLibrary.LoanTerms terms, uint256 loanId);
     event LoanStarted(uint256 loanId, address lender, address borrower);
     event LoanRepaid(uint256 loanId);
+    event ForceRepay(uint256 loanId);
     event LoanRolledOver(uint256 oldLoanId, uint256 newLoanId);
     event LoanClaimed(uint256 loanId);
     event NonceUsed(address indexed user, uint160 nonce);
@@ -42,6 +43,13 @@ interface ILoanCore {
     ) external returns (uint256 loanId);
 
     function repay(
+        uint256 loanId,
+        address payer,
+        uint256 _amountFromPayer,
+        uint256 _amountToLender
+    ) external;
+
+    function forceRepay(
         uint256 loanId,
         address payer,
         uint256 _amountFromPayer,

@@ -63,25 +63,26 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
      * @param  loanId               The ID of the loan.
      */
     function repay(uint256 loanId) external override {
-        LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
-        if (data.state == LoanLibrary.LoanState.DUMMY_DO_NOT_USE) revert RC_CannotDereference(loanId);
-        if (data.state != LoanLibrary.LoanState.Active) revert RC_InvalidState(data.state);
-
-        LoanLibrary.LoanTerms memory terms = data.terms;
-
-        // withdraw principal plus interest from borrower and send to loan core
-        uint256 interest = getInterestAmount(terms.principal, terms.proratedInterestRate);
-        if (terms.principal + interest == 0) revert RC_NoPaymentDue();
-
-        // Account for fees to determine amount to lender
-        uint256 interestFee = (interest * feeController.get(FL_07)) / BASIS_POINTS_DENOMINATOR;
-        uint256 principalFee = (terms.principal * feeController.get(FL_08)) / BASIS_POINTS_DENOMINATOR;
-
-        uint256 amountFromBorrower = terms.principal + interest;
-        uint256 amountToLender = amountFromBorrower - interestFee - principalFee;
+        (uint256 amountFromBorrower, uint256 amountToLender) = _prepareRepay(loanId);
 
         // call repay function in loan core
         loanCore.repay(loanId, msg.sender, amountFromBorrower, amountToLender);
+    }
+
+    /**
+     * @notice Repay an active loan, referenced by borrower note ID (equivalent to loan ID). The interest for a loan
+     *         is calculated, and the principal plus interest is withdrawn from the borrower.
+     *         Using forceRepay will not send funds to the lender: instead, those funds will be made
+     *         available for withdrawal in LoanCore. Can be used in cases where a borrower has funds to repay
+     *         but the lender is not able to receive those tokens (e.g. token blacklist).
+     *
+     * @param  loanId               The ID of the loan.
+     */
+    function forceRepay(uint256 loanId) external override {
+        (uint256 amountFromBorrower, uint256 amountToLender) = _prepareRepay(loanId);
+
+        // call forceRepay function in loan core
+        loanCore.forceRepay(loanId, msg.sender, amountFromBorrower, amountToLender);
     }
 
     /**
@@ -106,5 +107,32 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         uint256 claimFee = (totalOwed * feeController.get(FL_06)) / BASIS_POINTS_DENOMINATOR;
 
         loanCore.claim(loanId, claimFee);
+    }
+
+    /**
+     * @dev Shared logic to perform validation and calculations for repay and forceRepay.
+     *
+     * @param  loanId               The ID of the loan.
+     *
+     * @return amountFromBorrower   The amount to collect from the borrower.
+     * @return amountToLender       The amount owed to the lender.
+     */
+    function _prepareRepay(uint256 loanId) internal view returns (uint256 amountFromBorrower, uint256 amountToLender) {
+        LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
+        if (data.state == LoanLibrary.LoanState.DUMMY_DO_NOT_USE) revert RC_CannotDereference(loanId);
+        if (data.state != LoanLibrary.LoanState.Active) revert RC_InvalidState(data.state);
+
+        LoanLibrary.LoanTerms memory terms = data.terms;
+
+        // withdraw principal plus interest from borrower and send to loan core
+        uint256 interest = getInterestAmount(terms.principal, terms.proratedInterestRate);
+        if (terms.principal + interest == 0) revert RC_NoPaymentDue();
+
+        // Account for fees to determine amount to lender
+        uint256 interestFee = (interest * feeController.get(FL_07)) / BASIS_POINTS_DENOMINATOR;
+        uint256 principalFee = (terms.principal * feeController.get(FL_08)) / BASIS_POINTS_DENOMINATOR;
+
+        amountFromBorrower = terms.principal + interest;
+        amountToLender = amountFromBorrower - interestFee - principalFee;
     }
 }

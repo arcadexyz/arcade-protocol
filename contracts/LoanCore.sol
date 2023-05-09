@@ -212,38 +212,54 @@ contract LoanCore is
         uint256 _amountFromPayer,
         uint256 _amountToLender
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
-        LoanLibrary.LoanData memory data = loans[loanId];
-        // ensure valid initial loan state when starting loan
-        if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
-
-        // Check that we will not net lose tokens.
-        if (_amountToLender > _amountFromPayer) revert LC_CannotSettle(_amountToLender, _amountFromPayer);
-        uint256 feesEarned = _amountFromPayer - _amountToLender;
-        (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(feesEarned, data.affiliateCode);
-
-        // Assign fees for withdrawal
-        withdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
-        withdrawable[data.terms.payableCurrency][affiliate] += affiliateFee;
+        LoanLibrary.LoanData memory data = _handleRepay(loanId, _amountFromPayer, _amountToLender);
 
         // get promissory notes from two parties involved
         address lender = lenderNote.ownerOf(loanId);
         address borrower = borrowerNote.ownerOf(loanId);
 
-        // state changes and cleanup
-        // NOTE: these must be performed before assets are released to prevent reentrance
-        loans[loanId].state = LoanLibrary.LoanState.Repaid;
-        collateralInUse[keccak256(abi.encode(data.terms.collateralAddress, data.terms.collateralId))] = false;
+        // Collect from borrower and redistribute collateral
+        IERC20(data.terms.payableCurrency).safeTransferFrom(payer, address(this), _amountFromPayer);
+        IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
 
-        _burnLoanNotes(loanId);
+        // Send collected principal + interest, less fees, to lender
+        IERC20(data.terms.payableCurrency).safeTransfer(lender, _amountToLender);
+
+        emit LoanRepaid(loanId);
+    }
+
+    /**
+     * @notice Let the borrower repay the given loan, but do not release principal to the lender:
+     *         instead, make it available for withdrawal. Should be used in cases where the borrower wants
+     *         to fulfill loan obligations but the lender cannot receive tokens (due to malicious or
+     *         accidental behavior, token blacklisting etc).
+     *
+     * @param loanId                The ID of the loan to repay.
+     * @param payer                 The party repaying the loan.
+     * @param _amountFromPayer      The amount of tokens to be collected from the repayer.
+     * @param _amountToLender       The amount of tokens to be distributed to the lender (net after fees).
+     */
+    function forceRepay(
+        uint256 loanId,
+        address payer,
+        uint256 _amountFromPayer,
+        uint256 _amountToLender
+    ) external override onlyRole(REPAYER_ROLE) nonReentrant {
+        LoanLibrary.LoanData memory data = _handleRepay(loanId, _amountFromPayer, _amountToLender);
+
+        // get promissory notes from two parties involved
+        address lender = lenderNote.ownerOf(loanId);
+        address borrower = borrowerNote.ownerOf(loanId);
 
         // Collect from borrower and redistribute collateral
         IERC20(data.terms.payableCurrency).safeTransferFrom(payer, address(this), _amountFromPayer);
         IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
 
-        // Not using safeTransfer to prevent lenders from blocking loan receipt
-        IERC20(data.terms.payableCurrency).transfer(lender, _amountToLender);
+        // Do not send collected principal, but make it available for withdrawal
+        withdrawable[data.terms.payableCurrency][lender] += _amountToLender;
 
         emit LoanRepaid(loanId);
+        emit ForceRepay(loanId);
     }
 
     /**
@@ -544,6 +560,42 @@ contract LoanCore is
 
     // ============================================= HELPERS ============================================
 
+
+    /**
+     * @dev Perform shared logic across repay operations repay and forceRepay - all "checks" and "effects".
+     *      Will validate loan state, perform accounting calculations, update storage and burn loan notes.
+     *      Transfers should occur in the calling function.
+     *
+     * @param loanId                The ID of the loan to repay.
+     * @param _amountFromPayer      The amount of tokens to be collected from the repayer.
+     * @param _amountToLender       The amount of tokens to be distributed to the lender (net after fees).
+     */
+    function _handleRepay(
+        uint256 loanId,
+        uint256 _amountFromPayer,
+        uint256 _amountToLender
+    ) internal returns (LoanLibrary.LoanData memory data) {
+        data = loans[loanId];
+        // ensure valid initial loan state when starting loan
+        if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
+
+        // Check that we will not net lose tokens.
+        if (_amountToLender > _amountFromPayer) revert LC_CannotSettle(_amountToLender, _amountFromPayer);
+        uint256 feesEarned = _amountFromPayer - _amountToLender;
+        (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(feesEarned, data.affiliateCode);
+
+        // Assign fees for withdrawal
+        withdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
+        withdrawable[data.terms.payableCurrency][affiliate] += affiliateFee;
+
+        // state changes and cleanup
+        // NOTE: these must be performed before assets are released to prevent reentrance
+        loans[loanId].state = LoanLibrary.LoanState.Repaid;
+        collateralInUse[keccak256(abi.encode(data.terms.collateralAddress, data.terms.collateralId))] = false;
+
+        // Burn promissory notes associated with the loan
+        _burnLoanNotes(loanId);
+    }
     /**
      * @dev Lookup the submitted affiliateCode for a split value, and return the amount
      *      going to protocol and the amount going to the affiliate, along with destination.
