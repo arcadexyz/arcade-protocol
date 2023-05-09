@@ -50,6 +50,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
     address public immutable whitelist;
     /// @dev The contract specifying minting fees, if non-zero
     IFeeController public immutable feeController;
+
     /// @dev The baseURI for the minted vaults.
     string public baseURI;
 
@@ -70,7 +71,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
     constructor(
         address _template,
         address _whitelist,
-        address _feeController
+        address _feeController,
         string memory _baseURI
     ) ERC721("Asset Vault", "AV") ERC721Permit("Asset Vault") {
         if (_template == address(0)) revert VF_ZeroAddress();

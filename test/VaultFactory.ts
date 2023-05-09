@@ -85,11 +85,11 @@ describe("VaultFactory", () => {
     });
 
     it("should fail to initialize if passed an invalid whitelist", async () => {
-        const { vaultTemplate, feeController } = await loadFixture(fixture);
+        const { vaultTemplate, feeController, baseURI } = await loadFixture(fixture);
 
         const VaultFactory = await hre.ethers.getContractFactory("VaultFactory");
         await expect(
-            VaultFactory.deploy(vaultTemplate.address, ZERO_ADDRESS, feeController.address)
+            VaultFactory.deploy(vaultTemplate.address, ZERO_ADDRESS, feeController.address, baseURI),
         ).to.be.revertedWith("VF_ZeroAddress");
     });
 
@@ -99,11 +99,11 @@ describe("VaultFactory", () => {
     });
 
     it("should fail to initialize if passed an invalid fee controller", async () => {
-        const { vaultTemplate, whitelist } = await loadFixture(fixture);
+        const { vaultTemplate, whitelist, baseURI } = await loadFixture(fixture);
 
         const VaultFactory = await hre.ethers.getContractFactory("VaultFactory");
         await expect(
-            VaultFactory.deploy(vaultTemplate.address, whitelist.address, ZERO_ADDRESS)
+            VaultFactory.deploy(vaultTemplate.address, whitelist.address, ZERO_ADDRESS, baseURI),
         ).to.be.revertedWith("VF_ZeroAddress");
     });
 

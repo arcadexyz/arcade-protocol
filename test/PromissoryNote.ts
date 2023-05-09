@@ -124,31 +124,6 @@ const mintPromissoryNote = async (note: PromissoryNote, user: Signer): Promise<B
 };
 
 describe("PromissoryNote", () => {
-    // ========== HELPER FUNCTIONS ===========
-    // Create Loan Terms
-    const createLoanTerms = (
-        payableCurrency: string,
-        collateralAddress: string,
-        {
-            durationSecs = BigNumber.from(360000),
-            principal = hre.ethers.utils.parseEther("100"),
-            interestRate = hre.ethers.utils.parseEther("1"),
-            collateralId = 1,
-            deadline = 259200,
-        }: Partial<LoanTerms> = {},
-    ): LoanTerms => {
-        return {
-            durationSecs,
-            principal,
-            interestRate,
-            collateralId,
-            collateralAddress,
-            payableCurrency,
-            deadline,
-        };
-    };
-
-    // ========== PROMISSORY NOTE TESTS ===========
     describe("constructor", () => {
         it("Creates a PromissoryNote", async () => {
             const signers: Signer[] = await ethers.getSigners();
