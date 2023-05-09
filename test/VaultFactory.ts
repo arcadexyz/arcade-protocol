@@ -8,7 +8,6 @@ import { fromRpcSig } from "ethereumjs-util";
 import { ZERO_ADDRESS } from "./utils/erc20";
 import { CallWhitelist, AssetVault, VaultFactory, FeeController } from "../typechain";
 import { deploy } from "./utils/contracts";
-import { Test } from "mocha";
 
 type Signer = SignerWithAddress;
 
@@ -20,6 +19,7 @@ interface TestContext {
     user: Signer;
     other: Signer;
     signers: Signer[];
+    baseURI: string;
 }
 
 describe("VaultFactory", () => {
@@ -27,12 +27,16 @@ describe("VaultFactory", () => {
      * Sets up a test context, deploying new contracts and returning them for use in a test
      */
     const fixture = async (): Promise<TestContext> => {
+        const baseURI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnBeats/`;
+
         const signers: Signer[] = await hre.ethers.getSigners();
         const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
         const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
         const feeController = <FeeController>await deploy("FeeController", signers[0], []);
 
-        const factory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address]);
+        const factory = <VaultFactory>(
+            await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, `${baseURI}`])
+        );
 
         return {
             factory,
@@ -42,6 +46,7 @@ describe("VaultFactory", () => {
             user: signers[0],
             other: signers[1],
             signers: signers.slice(2),
+            baseURI
         };
     };
 
@@ -66,11 +71,11 @@ describe("VaultFactory", () => {
     };
 
     it("should fail to initialize if passed an invalid template", async () => {
-        const { whitelist, feeController } = await loadFixture(fixture);
+        const { whitelist, feeController, baseURI } = await loadFixture(fixture);
 
         const VaultFactory = await hre.ethers.getContractFactory("VaultFactory");
         await expect(
-            VaultFactory.deploy(ZERO_ADDRESS, whitelist.address, feeController.address)
+            VaultFactory.deploy(ZERO_ADDRESS, whitelist.address, feeController.address, baseURI)
         ).to.be.revertedWith("VF_ZeroAddress");
     });
 
@@ -641,6 +646,43 @@ describe("VaultFactory", () => {
                     });
                 });
             });
+        });
+
+        it("sets a baseURI upon deployment", async () => {
+            const { factory, baseURI, user } = await loadFixture(fixture);
+
+            await createVault(factory, user);
+
+            expect(await factory.baseURI()).to.be.eq(baseURI);
+        });
+
+        it("admin sets the baseURI", async () => {
+            const { factory, baseURI, user } = await loadFixture(fixture);
+            const newBaseURI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnArt/`;
+
+            expect(await factory.baseURI()).to.be.eq(baseURI);
+
+            await factory.connect(user).setBaseURI(newBaseURI);
+            expect(await factory.baseURI()).to.be.eq(newBaseURI);
+        });
+
+        it("reverts if setBaseURI is called by non admin", async () => {
+            const { factory, other } = await loadFixture(fixture);
+            const newBaseURI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnArt/`;
+
+            const tx = factory.connect(other).setBaseURI(newBaseURI);
+            await expect(tx).to.be.revertedWith(
+                `AccessControl: account ${other.address.toLowerCase()} is missing role 0xa49807205ce4d355092ef5a8a18f56e8913cf4a201fbe287825b095693c21775`,
+            );
+        });
+
+        it("gets the tokenURI", async () => {
+            const { factory, baseURI, user } = await loadFixture(fixture);
+
+            await createVault(factory, user);
+            const tokenId = await factory.tokenOfOwnerByIndex(user.address, 0);
+
+            expect(await factory.bundleURI(tokenId.toString())).to.be.eq(`${baseURI + tokenId}`);
         });
     });
 });

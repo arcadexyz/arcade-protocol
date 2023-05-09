@@ -8,7 +8,9 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+import "base64-sol/base64.sol";
 
 import "../interfaces/IAssetVault.sol";
 import "../interfaces/IVaultFactory.sol";
@@ -35,7 +37,8 @@ import { VF_ZeroAddress, VF_TokenIdOutOfBounds, VF_NoTransferWithdrawEnabled, VF
  * VaultFactory in order to determine their own contract owner. The VaultFactory contains
  * conveniences to allow switching between the address and uint256 formats.
  */
-contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, ERC721Enumerable, Ownable {
+contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC721Enumerable, Ownable {
+    using Strings for uint256;
     // ============================================ STATE ==============================================
 
     /// @dev Lookup identifier for minting fee in fee controller
@@ -47,6 +50,12 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, ERC721Enumerable, 
     address public immutable whitelist;
     /// @dev The contract specifying minting fees, if non-zero
     IFeeController public immutable feeController;
+    /// @dev The baseURI for the minted vaults.
+    string public baseURI;
+
+    // =================== Constants =====================
+
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     // ========================================== CONSTRUCTOR ===========================================
 
@@ -55,16 +64,23 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, ERC721Enumerable, 
      *
      * @param _template          The address of the template contract for vaults.
      * @param _whitelist         The address of the CallWhitelist contract.
+     * @param _baseURI           The value of the baseURI state variable.
      *
      */
     constructor(
         address _template,
         address _whitelist,
         address _feeController
+        string memory _baseURI
     ) ERC721("Asset Vault", "AV") ERC721Permit("Asset Vault") {
         if (_template == address(0)) revert VF_ZeroAddress();
         if (_whitelist == address(0)) revert VF_ZeroAddress();
         if (_feeController == address(0)) revert VF_ZeroAddress();
+
+        _setupRole(ADMIN_ROLE, msg.sender);
+        _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
+
+        baseURI = _baseURI;
 
         template = _template;
         whitelist = _whitelist;
@@ -72,7 +88,6 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, ERC721Enumerable, 
     }
 
     // ========================================= VIEW FUNCTIONS =========================================
-
 
     /**
      * @notice Check if the given address is a vault instance created by this factory.
@@ -150,6 +165,29 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, ERC721Enumerable, 
     }
 
     /**
+     * @notice Getter of specific URI for a bundle token ID.
+     *
+     * @param tokenId               The ID of the bundle to get the URI for.
+     *
+     * @return                      The bundle ID's URI string.
+     */
+    function bundleURI(uint256 tokenId) public view returns (string memory) {
+        _exists(tokenId);
+
+        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : "";
+    }
+
+    /**
+     * @notice An ADMIN_ROLE function for setting the string value of the base URI.
+     *
+     * @param newBaseURI              The new value of the base URI.
+     *
+     */
+    function setBaseURI(string memory newBaseURI) public onlyRole(ADMIN_ROLE) {
+        baseURI = newBaseURI;
+    }
+
+    /**
      * @dev Creates and initializes a minimal proxy vault instance,
      *      using the OpenZeppelin Clones library.
      *
@@ -202,7 +240,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, ERC721Enumerable, 
         public
         view
         virtual
-        override(ERC165, ERC721, ERC721Enumerable)
+        override(ERC165, ERC721, ERC721Enumerable, AccessControl)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
