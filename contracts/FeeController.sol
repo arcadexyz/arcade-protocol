@@ -31,7 +31,7 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
 
     /// @dev Max fees
     /// @dev Functionally immutable, can only be set on deployment. Can specify a maximum fee
-    ///      for any selector.
+    ///      for any id.
     mapping(bytes32 => uint256) public maxFees;
 
     // ========================================= CONSTRUCTOR ===========================================
@@ -64,41 +64,41 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
     // ======================================== GETTER/SETTER ==========================================
 
     /**
-     * @notice Set the origination fee to the given value. The caller
-     *         must be the owner of the contract.
+     * @notice Set the protocol fee for a given operation to the given value.
+     *         The caller must be the owner of the contract.
      *
-     * @param selector                      The bytes32 selector for the fee.
+     * @param id                            The bytes32 identifier for the fee.
      * @param fee                           The fee to set.
      */
-    function set(bytes32 selector, uint256 fee) public onlyOwner {
-        if (maxFees[selector] != 0 && fee > maxFees[selector]) {
-            revert FC_FeeTooLarge(selector, fee, maxFees[selector]);
+    function set(bytes32 id, uint256 fee) public override onlyOwner {
+        if (maxFees[id] != 0 && fee > maxFees[id]) {
+            revert FC_FeeTooLarge(id, fee, maxFees[id]);
         }
 
-        fees[selector] = fee;
+        fees[id] = fee;
 
-        emit SetFee(selector, fee);
+        emit SetFee(id, fee);
     }
 
     /**
-     * @notice Get the fee for the given selector.
+     * @notice Get the fee for the given id.
      *
-     * @param selector                      The bytes32 selector for the fee.
+     * @param id                      The bytes32 id for the fee.
      *
-     * @return fee                          The fee for the given selector.
+     * @return fee                          The fee for the given id.
      */
-    function get(bytes32 selector) external view returns (uint256) {
-        return fees[selector];
+    function get(bytes32 id) external view override returns (uint256) {
+        return fees[id];
     }
 
     /**
-     * @notice Get the max for the given selector. Unset max fees return 0.
+     * @notice Get the max for the given id. Unset max fees return 0.
      *
-     * @param selector                      The bytes32 selector for the fee.
+     * @param id                      The bytes32 id for the fee.
      *
-     * @return fee                          The maximum fee for the given selector.
+     * @return fee                          The maximum fee for the given id.
      */
-    function getMaxFee(bytes32 selector) external view returns (uint256) {
-        return maxFees[selector];
+    function getMaxFee(bytes32 id) external view override returns (uint256) {
+        return maxFees[id];
     }
 }

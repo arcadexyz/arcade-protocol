@@ -62,10 +62,11 @@ contract LoanCore is
 
     // =================== Constants =====================
 
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    bytes32 public constant ORIGINATOR_ROLE = keccak256("ORIGINATOR_ROLE");
-    bytes32 public constant REPAYER_ROLE = keccak256("REPAYER_ROLE");
-    bytes32 public constant FEE_CLAIMER_ROLE = keccak256("FEE_CLAIMER_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
+    bytes32 public constant ORIGINATOR_ROLE = keccak256("ORIGINATOR");
+    bytes32 public constant REPAYER_ROLE = keccak256("REPAYER");
+    bytes32 public constant AFFILIATE_MANAGER_ROLE = keccak256("AFFILIATE_MANAGER");
+    bytes32 public constant FEE_CLAIMER_ROLE = keccak256("FEE_CLAIMER");
 
     uint96 private constant MAX_AFFILIATE_SPLIT = 50_00;
 
@@ -134,7 +135,7 @@ contract LoanCore is
      * @param lender                The lender for the loan.
      * @param borrower              The borrower for the loan.
      * @param terms                 The terms of the loan.
-     * @param affiliateCode                 A referral code from a registered protocol affiliate.
+     * @param affiliateCode         A referral code from a registered protocol affiliate.
      * @param _amountFromLender     The amount of principal to be collected from the lender.
      * @param _amountToBorrower     The amount of principal to be distributed to the borrower (net after fees).
      *
@@ -178,7 +179,7 @@ contract LoanCore is
         // Distribute notes and principal
         _mintLoanNotes(loanId, borrower, lender);
 
-        // Send collateral to borrower
+        // Collect collateral from borrower
         IERC721(terms.collateralAddress).transferFrom(borrower, address(this), terms.collateralId);
 
         // Collect principal from lender and send net (minus fees) amount to borrower
@@ -303,7 +304,7 @@ contract LoanCore is
      * @param _settledAmount        The amount LoanCore needs to withdraw to settle.
      * @param _amountToOldLender    The payment to the old lender (if lenders are changing).
      * @param _amountToLender       The payment to the lender (if same as old lender).
-     * @param _amountToBorrower     The payemnt to the borrower (in the case of leftover principal).
+     * @param _amountToBorrower     The payment to the borrower (in the case of leftover principal).
      *
      * @return newLoanId            The ID of the new loan.
      */
@@ -500,10 +501,10 @@ contract LoanCore is
     function setAffiliateSplits(
         bytes32[] calldata codes,
         AffiliateSplit[] calldata splits
-    ) external override onlyRole(ADMIN_ROLE) {
+    ) external override onlyRole(AFFILIATE_MANAGER_ROLE) {
         if (codes.length != splits.length) revert LC_ArrayLengthMismatch();
 
-        for (uint256 i = 0; i < codes.length; i++) {
+        for (uint256 i = 0; i < codes.length; ++i {
             if (splits[i].splitBps > MAX_AFFILIATE_SPLIT) {
                 revert LC_InvalidSplit(splits[i].splitBps, MAX_AFFILIATE_SPLIT);
             }

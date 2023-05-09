@@ -5,13 +5,13 @@ pragma solidity ^0.8.11;
 interface IFeeController {
     // ================ Events =================
 
-    event SetFee(bytes32 indexed selector, uint256 fee);
+    event SetFee(bytes32 indexed id, uint256 fee);
 
     // ================ Getter/Setter =================
 
-    function get(bytes32 selector) external view returns (uint256);
+    function get(bytes32 id) external view returns (uint256);
 
-    function set(bytes32 selector, uint256 fee) external;
+    function set(bytes32 id, uint256 fee) external;
 
-    function getMaxFee(bytes32 selector) external view returns (uint256);
+    function getMaxFee(bytes32 id) external view returns (uint256);
 }

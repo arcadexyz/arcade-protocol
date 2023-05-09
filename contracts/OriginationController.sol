@@ -948,7 +948,7 @@ contract OriginationController is
         if (repayAmount > borrowerOwedForNewLoan) {
             amounts.needFromBorrower = repayAmount - borrowerOwedForNewLoan;
         } else {
-            // amount to collect from lender (either old or now)
+            // amount to collect from lender (either old or new)
             amounts.leftoverPrincipal = amounts.amountFromLender - repayAmount;
 
             // amount to send to borrower
@@ -962,12 +962,10 @@ contract OriginationController is
 
             // new lender
             amounts.amountToLender = 0;
-            amounts.amountFromLender = amounts.amountFromLender;
         } else {
             amounts.amountToOldLender = 0;
 
             if (amounts.needFromBorrower > 0 && repayAmount > amounts.amountFromLender) {
-            // if (amounts.needFromBorrower > 0 && amounts.needFromBorrower <= lenderFee) {
                 amounts.amountToLender = repayAmount - amounts.amountFromLender;
             }
         }

@@ -27,8 +27,10 @@ import { ItemsPredicate, LoanTerms, SignatureItem } from "./utils/types";
 import { createLoanTermsSignature, createLoanItemsSignature, createPermitSignature } from "./utils/eip712";
 import { encodePredicates, encodeSignatureItems, initializeBundle } from "./utils/loans";
 
-const ORIGINATOR_ROLE = "0x59abfac6520ec36a6556b2a4dd949cc40007459bcd5cd2507f1e5cc77b6bc97e";
-const ADMIN_ROLE = "0xa49807205ce4d355092ef5a8a18f56e8913cf4a201fbe287825b095693c21775";
+import {
+    ORIGINATOR_ROLE,
+    ADMIN_ROLE
+} from "./utils/constants";
 
 type Signer = SignerWithAddress;
 
