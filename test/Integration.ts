@@ -600,6 +600,73 @@ describe("Integration", () => {
                 loanCore.connect(admin).withdrawProtocolFees(mockERC20.address, admin.address)
             ).to.emit(loanCore, "FundsWithdrawn")
                 .withArgs(mockERC20.address, admin.address, admin.address, ethers.utils.parseEther("1.35"));
+
+            // All fees withdrawn
+            expect(await mockERC20.balanceOf(loanCore.address)).to.equal(0);
+        });
+
+        it("full loan cycle, with realistic fees and registered affiliate, two-step repay", async () => {
+            const context = await loadFixture(fixture);
+            const { feeController, repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, admin, lenderNote } = context;
+
+            // Set a 50 bps lender fee on origination,
+            // and a 10% fee on interest, plus 5% on redemption.
+            // Total fees earned should be
+            // 0.5 (on principal) + 1 (on interest) + 5.45 (on redemption) = 6.95 ETH
+            await feeController.set(await feeController.FL_03(), 50);
+            await feeController.set(await feeController.FL_07(), 10_00);
+            await feeController.set(await feeController.FL_09(), 5_00);
+
+            // Set affiliate share to 10% of fees for borrower
+            await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);
+            const code = ethers.utils.id("BORROWER_A");
+            await loanCore.connect(admin).setAffiliateSplits([code], [{ affiliate: borrower.address, splitBps: 10_00 }]);
+            const { loanId, loanTerms, bundleId } = await initializeLoan(context, 1, undefined, code);
+
+            const grossInterest = loanTerms.principal.mul(loanTerms.proratedInterestRate).div(ethers.utils.parseEther("10000"));
+            const repayAmount = loanTerms.principal.add(grossInterest);
+
+            await mint(mockERC20, borrower, repayAmount);
+            await mockERC20
+                .connect(borrower)
+                .approve(loanCore.address, repayAmount);
+
+            // pre-repaid state
+            expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
+
+            await expect(repaymentController.connect(borrower).forceRepay(loanId))
+                .to.emit(loanCore, "LoanRepaid")
+                .withArgs(loanId)
+                .to.emit(loanCore, "ForceRepay")
+                .withArgs(loanId)
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(borrower.address, loanCore.address, repayAmount);
+
+            // post-repaid state
+            expect(await vaultFactory.ownerOf(bundleId)).to.equal(borrower.address);
+            expect(await lenderNote.ownerOf(loanId)).to.equal(lender.address);
+
+            // redeem the note to complete the repay flow
+            await expect(repaymentController.connect(lender).redeemNote(loanId, lender.address))
+                .to.emit(loanCore, "NoteRedeemed")
+                .withArgs(mockERC20.address, lender.address, lender.address, loanId, ethers.utils.parseEther("103.55"))
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(loanCore.address, lender.address, ethers.utils.parseEther("103.55"));
+
+            // Withdraw fees for both protocol and affiliate
+            await expect(
+                loanCore.connect(borrower).withdraw(mockERC20.address, ethers.utils.parseEther("0.695"), borrower.address)
+            ).to.emit(loanCore, "FundsWithdrawn")
+               .withArgs(mockERC20.address, borrower.address, borrower.address, ethers.utils.parseEther("0.695"));
+
+            // Protocol admin gets 6.255 ETH - 6.95 total fees minus 10% affiliate share on fees
+            await expect(
+                loanCore.connect(admin).withdrawProtocolFees(mockERC20.address, admin.address)
+            ).to.emit(loanCore, "FundsWithdrawn")
+                .withArgs(mockERC20.address, admin.address, admin.address, ethers.utils.parseEther("6.255"));
+
+            // All fees withdrawn
+            expect(await mockERC20.balanceOf(loanCore.address)).to.equal(0);
         });
     })
 });

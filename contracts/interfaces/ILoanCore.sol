@@ -67,6 +67,12 @@ interface ILoanCore {
         uint256 _amountFromLender
     ) external;
 
+    function redeemNote(
+        uint256 loanId,
+        uint256 _amountDeducted,
+        address to
+    ) external;
+
     function rollover(
         uint256 oldLoanId,
         address borrower,
@@ -92,15 +98,17 @@ interface ILoanCore {
 
     function withdrawProtocolFees(address token, address to) external;
 
-    function redeemNote(uint256 loanId, address to) external;
 
     // ============== View Functions ==============
 
     function getLoan(uint256 loanId) external view returns (LoanLibrary.LoanData calldata loanData);
 
+    function getNoteReceipt(uint256 loanId) external view returns (address token, uint256 amount);
+
     function isNonceUsed(address user, uint160 nonce) external view returns (bool);
 
-    function borrowerNote() external returns (IPromissoryNote);
+    function borrowerNote() external view returns (IPromissoryNote);
 
-    function lenderNote() external returns (IPromissoryNote);
+    function lenderNote() external view returns (IPromissoryNote);
+
 }

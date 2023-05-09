@@ -96,7 +96,7 @@ contract LoanCore is
     /// @dev token => user => amount fees
     mapping(address => mapping(address => uint256)) public feesWithdrawable;
 
-    /// @dev tokenId => [token, amount]
+    /// @dev tokenId => {token, amount}
     ///      can be withdrawn by burning LenderNote of matching tokenId
     mapping(uint256 => NoteReceipt) public noteReceipts;
 
@@ -325,27 +325,39 @@ contract LoanCore is
      *         owner of the note.
      *
      * @param loanId                    The ID of the lender note to redeem.
+     * @param _amountDeducted           Any redemption fees to be collected from the lender.
+     * @param to                        The address to receive the held tokens.
      */
-    function redeemNote(uint256 loanId, address to) external override nonReentrant {
-        LoanLibrary.LoanData memory data = loans[loanId];
-
-        if (lenderNote.ownerOf(loanId) != msg.sender) revert LC_OnlyLender(msg.sender);
-        if (data.state == LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
-
+    function redeemNote(
+        uint256 loanId,
+        uint256 _amountDeducted,
+        address to
+    ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         NoteReceipt memory receipt = noteReceipts[loanId];
         (address token, uint256 amount) = (receipt.token, receipt.amount);
         if (token == address(0) || amount == 0) revert LC_NoReceipt(loanId);
+
+        // Deduce the redeem fee from the amount and assign for withdrawal
+        amount -= _amountDeducted;
+
+        (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
+            _getAffiliateSplit(_amountDeducted, loans[loanId].affiliateCode);
+
+        // Assign fees for withdrawal
+        feesWithdrawable[token][address(this)] += protocolFee;
+        feesWithdrawable[token][affiliate] += affiliateFee;
 
         // delete the receipt
         delete noteReceipts[loanId];
 
         // burn the note
+        address lender = lenderNote.ownerOf(loanId);
         lenderNote.burn(loanId);
 
         // transfer the held tokens to the lender
         IERC20(token).safeTransfer(to, amount);
 
-        emit NoteRedeemed(token, msg.sender, to, loanId, amount);
+        emit NoteRedeemed(token, lender, to, loanId, amount);
     }
 
     /**
@@ -458,6 +470,19 @@ contract LoanCore is
      */
     function getLoan(uint256 loanId) external view override returns (LoanLibrary.LoanData memory loanData) {
         return loans[loanId];
+    }
+
+    /**
+     * @notice Returns the note receipt data for a given loan ID. Does
+     *         not revert, returns 0 if no receipt.
+     *
+     * @param loanId                The ID of the given loan.
+     *
+     * @return token                The address of the token for the note.
+     * @return amount               The amount of the note.
+     */
+    function getNoteReceipt(uint256 loanId) external view override returns (address, uint256) {
+        return (noteReceipts[loanId].token, noteReceipts[loanId].amount);
     }
 
     /**

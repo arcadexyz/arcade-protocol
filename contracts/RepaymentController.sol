@@ -110,6 +110,25 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     }
 
     /**
+     * @notice Redeem a lender note for a completed return in return for funds repaid in an earlier
+     *         transaction via forceRepay. The lender note must be owned by the caller.
+
+     *
+     * @param loanId                    The ID of the lender note to redeem.
+     */
+    function redeemNote(uint256 loanId, address to) external override {
+        LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
+        (, uint256 amountOwed) = loanCore.getNoteReceipt(loanId);
+
+        if (data.state == LoanLibrary.LoanState.Active) revert RC_InvalidState(data.state);
+        if (lenderNote.ownerOf(loanId) != msg.sender) revert RC_OnlyLender(msg.sender);
+
+        uint256 redeemFee = (amountOwed * feeController.get(FL_09)) / BASIS_POINTS_DENOMINATOR;
+
+        loanCore.redeemNote(loanId, redeemFee, to);
+    }
+
+    /**
      * @dev Shared logic to perform validation and calculations for repay and forceRepay.
      *
      * @param  loanId               The ID of the loan.
