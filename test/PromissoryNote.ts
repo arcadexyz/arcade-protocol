@@ -17,6 +17,7 @@ import {
 import { deploy } from "./utils/contracts";
 import { fromRpcSig } from "ethereumjs-util";
 
+
 type Signer = SignerWithAddress;
 
 import {
@@ -37,10 +38,12 @@ interface TestContext {
     user: Signer;
     other: Signer;
     signers: Signer[];
+    baseURI: string;
 }
 
 // Context / Fixture
 const fixture = async (): Promise<TestContext> => {
+    const baseURI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnBeats/`;
     const signers: Signer[] = await ethers.getSigners();
 
     const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
@@ -53,9 +56,11 @@ const fixture = async (): Promise<TestContext> => {
 
 
     const borrowerNote = <PromissoryNote>(
-        await deploy("PromissoryNote", signers[0], ["Arcade.xyz BorrowerNote", "aBN"])
+        await deploy("PromissoryNote", signers[0], ["Arcade.xyz BorrowerNote", "aBN", `${baseURI}`])
     );
-    const lenderNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["Arcade.xyz LenderNote", "aLN"]);
+    const lenderNote = <PromissoryNote>(
+        await deploy("PromissoryNote", signers[0], ["Arcade.xyz LenderNote", "aLN", `${baseURI}`])
+    );
 
     const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [borrowerNote.address, lenderNote.address]);
 
@@ -99,6 +104,7 @@ const fixture = async (): Promise<TestContext> => {
         user: signers[0],
         other: signers[1],
         signers: signers.slice(2),
+        baseURI
     };
 };
 
@@ -116,6 +122,29 @@ const mintPromissoryNote = async (note: PromissoryNote, user: Signer): Promise<B
 };
 
 describe("PromissoryNote", () => {
+    // ========== HELPER FUNCTIONS ===========
+    // Create Loan Terms
+    const createLoanTerms = (
+        payableCurrency: string,
+        collateralAddress: string,
+        {
+            durationSecs = BigNumber.from(360000),
+            principal = hre.ethers.utils.parseEther("100"),
+            interestRate = hre.ethers.utils.parseEther("1"),
+            collateralId = 1,
+            deadline = 259200,
+        }: Partial<LoanTerms> = {},
+    ): LoanTerms => {
+        return {
+            durationSecs,
+            principal,
+            interestRate,
+            collateralId,
+            collateralAddress,
+            payableCurrency,
+            deadline,
+        };
+    };
 
     // ========== PROMISSORY NOTE TESTS ===========
     describe("constructor", () => {
@@ -487,6 +516,42 @@ describe("PromissoryNote", () => {
                     s,
                 ),
             ).to.be.revertedWith("ERC721P_DeadlineExpired");
+        });
+    });
+
+    describe("baseURI", () => {
+        it("sets a baseURI upon deployment", async () => {
+            const { lenderPromissoryNote: promissoryNote, baseURI } = await loadFixture(fixture);
+
+            expect(await promissoryNote.baseURI()).to.be.eq(baseURI);
+        });
+
+        it("sets the baseURI", async () => {
+            const { lenderPromissoryNote: promissoryNote, user, baseURI } = await loadFixture(fixture);
+            const newBaseURI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnArt/`;
+
+            expect(await promissoryNote.baseURI()).to.be.eq(baseURI);
+
+            await promissoryNote.connect(user).setBaseURI(newBaseURI);
+            expect(await promissoryNote.baseURI()).to.be.eq(newBaseURI);
+        });
+
+        it("reverts if setBaseURI is called by non manager", async () => {
+            const { lenderPromissoryNote: promissoryNote, other } = await loadFixture(fixture);
+            const newBaseURI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnArt/`;
+
+            const tx = promissoryNote.connect(other).setBaseURI(newBaseURI);
+            await expect(tx).to.be.revertedWith(
+                `AccessControl: account ${other.address.toLowerCase()} is missing role 0xa49807205ce4d355092ef5a8a18f56e8913cf4a201fbe287825b095693c21775`,
+            );
+        });
+
+        it("gets the tokenURI", async () => {
+            const { lenderPromissoryNote: promissoryNote, user, other, baseURI } = await loadFixture(fixture);
+
+            await promissoryNote.connect(user).mint(await other.getAddress(), 1);
+
+            expect(await promissoryNote.tokenURI(1)).to.be.eq(`${baseURI + 1}`);
         });
     });
 

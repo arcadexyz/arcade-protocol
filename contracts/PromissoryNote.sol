@@ -7,18 +7,14 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+import "base64-sol/base64.sol";
 
 import "./ERC721Permit.sol";
 import "./interfaces/ILoanCore.sol";
 import "./interfaces/IPromissoryNote.sol";
 
-import {
-    PN_MintingRole,
-    PN_BurningRole,
-    PN_ContractPaused,
-    PN_CannotInitialize,
-    PN_AlreadyInitialized
-} from "./errors/Lending.sol";
+import { PN_MintingRole, PN_BurningRole, PN_ContractPaused, PN_CannotInitialize, PN_AlreadyInitialized } from "./errors/Lending.sol";
 
 /**
  * @title PromissoryNote
@@ -52,6 +48,7 @@ contract PromissoryNote is
     IPromissoryNote
 {
     using Counters for Counters.Counter;
+    using Strings for uint256;
 
     // ============================================ STATE ==============================================
 
@@ -59,7 +56,8 @@ contract PromissoryNote is
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
-    // ============= Loan State ==============
+    // =================== Loan State =====================
+    string public baseURI;
 
     /// @dev Initially deployer, then account with burn/mint/pause roles (LoanCore).
     address public owner;
@@ -76,10 +74,17 @@ contract PromissoryNote is
      *
      * @param name                  The name of the token (see ERC721).
      * @param symbol                The symbol of the token (see ERC721).
+     * @param _baseURI              The value of the baseURI state variable.
      */
-    constructor(string memory name, string memory symbol) ERC721(name, symbol) ERC721Permit(name) {
+    constructor(
+        string memory name,
+        string memory symbol,
+        string memory _baseURI
+    ) ERC721(name, symbol) ERC721Permit(name) {
         // We don't want token IDs of 0
         _tokenIdTracker.increment();
+
+        baseURI = _baseURI;
 
         owner = msg.sender;
     }
@@ -121,6 +126,29 @@ contract PromissoryNote is
         _mint(to, loanId);
 
         return loanId;
+    }
+
+    /**
+     * @notice Getter of specific URI for an ERC721 token ID.
+     *
+     * @param tokenId               The ID of the token to get the URI for.
+     *
+     * @return                      The token ID's URI.
+     */
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        _exists(tokenId);
+
+        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : "";
+    }
+
+    /**
+     * @notice An ADMIN_ROLE function for setting the string value of the base URI.
+     *
+     * @param newBaseURI              The new value of the base URI.
+     *
+     */
+    function setBaseURI(string memory newBaseURI) public onlyRole(ADMIN_ROLE) {
+        baseURI = newBaseURI;
     }
 
     /**
