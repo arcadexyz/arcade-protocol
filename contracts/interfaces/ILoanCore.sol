@@ -7,10 +7,17 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "../libraries/LoanLibrary.sol";
 
 import "./IPromissoryNote.sol";
-import "./IFeeController.sol";
 import "./ILoanCore.sol";
 
 interface ILoanCore {
+
+    // ================ Data Types =================
+
+    struct AffiliateSplit {
+        address affiliate;
+        uint96 splitBps;
+    }
+
     // ================ Events =================
 
     event LoanCreated(LoanLibrary.LoanTerms terms, uint256 loanId);
@@ -18,21 +25,33 @@ interface ILoanCore {
     event LoanRepaid(uint256 loanId);
     event LoanRolledOver(uint256 oldLoanId, uint256 newLoanId);
     event LoanClaimed(uint256 loanId);
-    event FeesClaimed(address token, address to, uint256 amount);
-    event SetFeeController(address feeController);
     event NonceUsed(address indexed user, uint160 nonce);
+
+    event FundsWithdrawn(address indexed token, address indexed caller, address indexed to, uint256 amount);
+    event AffiliateSet(bytes32 indexed code, address indexed affiliate, uint96 splitBps);
 
     // ============== Lifecycle Operations ==============
 
     function startLoan(
         address lender,
         address borrower,
-        LoanLibrary.LoanTerms calldata terms
+        LoanLibrary.LoanTerms calldata terms,
+        bytes32 affiliateCode,
+        uint256 _amountFromLender,
+        uint256 _amountToBorrower
     ) external returns (uint256 loanId);
 
-    function repay(uint256 loanId) external;
+    function repay(
+        uint256 loanId,
+        address payer,
+        uint256 _amountFromPayer,
+        uint256 _amountToLender
+    ) external;
 
-    function claim(uint256 loanId) external;
+    function claim(
+        uint256 loanId,
+        uint256 _amountFromLender
+    ) external;
 
     function rollover(
         uint256 oldLoanId,
@@ -51,6 +70,14 @@ interface ILoanCore {
 
     function cancelNonce(uint160 nonce) external;
 
+    // ============== Fees ==============
+
+    function setAffiliateSplits(bytes32[] calldata codes, AffiliateSplit[] calldata splits) external;
+
+    function withdraw(address token, uint256 amount, address to) external;
+
+    function withdrawProtocolFees(address token, address to) external;
+
     // ============== View Functions ==============
 
     function getLoan(uint256 loanId) external view returns (LoanLibrary.LoanData calldata loanData);
@@ -60,6 +87,4 @@ interface ILoanCore {
     function borrowerNote() external returns (IPromissoryNote);
 
     function lenderNote() external returns (IPromissoryNote);
-
-    function feeController() external returns (IFeeController);
 }

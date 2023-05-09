@@ -56,8 +56,11 @@ export const startLoan = async (
     lender: string,
     borrower: string,
     terms: LoanTerms,
+    amountFromLender: BigNumberish,
+    amountToBorrower: BigNumberish,
+    affiliateCode = ethers.constants.HashZero
 ): Promise<BigNumber> => {
-    const tx = await loanCore.connect(originator).startLoan(lender, borrower, terms);
+    const tx = await loanCore.connect(originator).startLoan(lender, borrower, terms, affiliateCode, amountFromLender, amountToBorrower);
     const receipt = await tx.wait();
 
     const loanStartedEvent = receipt?.events?.find(e => e.event === "LoanStarted");

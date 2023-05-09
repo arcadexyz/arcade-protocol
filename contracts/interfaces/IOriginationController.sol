@@ -21,16 +21,17 @@ interface IOriginationController {
     struct RolloverAmounts {
         uint256 needFromBorrower;
         uint256 leftoverPrincipal;
+        uint256 amountFromLender;
         uint256 amountToOldLender;
         uint256 amountToLender;
         uint256 amountToBorrower;
-        uint256 fee;
     }
 
     // ================ Events =================
 
     event Approval(address indexed owner, address indexed signer, bool isApproved);
     event SetAllowedVerifier(address indexed verifier, bool isAllowed);
+    event SetFeeController(address feeController);
 
     // ============== Origination Operations ==============
 
@@ -39,7 +40,8 @@ interface IOriginationController {
         address borrower,
         address lender,
         Signature calldata sig,
-        uint160 nonce
+        uint160 nonce,
+        bytes32 affiliateCode
     ) external returns (uint256 loanId);
 
     function initializeLoanWithItems(
@@ -48,7 +50,8 @@ interface IOriginationController {
         address lender,
         Signature calldata sig,
         uint160 nonce,
-        LoanLibrary.Predicate[] calldata itemPredicates
+        LoanLibrary.Predicate[] calldata itemPredicates,
+        bytes32 affiliateCode
     ) external returns (uint256 loanId);
 
     function initializeLoanWithCollateralPermit(
@@ -58,7 +61,8 @@ interface IOriginationController {
         Signature calldata sig,
         uint160 nonce,
         Signature calldata collateralSig,
-        uint256 permitDeadline
+        uint256 permitDeadline,
+        bytes32 affiliateCode
     ) external returns (uint256 loanId);
 
     function initializeLoanWithCollateralPermitAndItems(
@@ -69,7 +73,8 @@ interface IOriginationController {
         uint160 nonce,
         Signature calldata collateralSig,
         uint256 permitDeadline,
-        LoanLibrary.Predicate[] calldata itemPredicates
+        LoanLibrary.Predicate[] calldata itemPredicates,
+        bytes32 affiliateCode
     ) external returns (uint256 loanId);
 
     function rolloverLoan(

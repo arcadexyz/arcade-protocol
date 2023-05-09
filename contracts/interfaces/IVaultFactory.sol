@@ -6,6 +6,7 @@ interface IVaultFactory {
     // ============= Events ==============
 
     event VaultCreated(address vault, address to);
+    event ClaimFees(address owner, uint256 amount);
 
     // ================ View Functions ================
 
@@ -19,5 +20,5 @@ interface IVaultFactory {
 
     // ================ Factory Operations ================
 
-    function initializeBundle(address to) external returns (uint256);
+    function initializeBundle(address to) external payable returns (uint256);
 }

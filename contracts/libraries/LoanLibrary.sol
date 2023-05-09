@@ -41,7 +41,7 @@ library LoanLibrary {
         // This represents the rate over the lifetime of the loan, not APR.
         // 0.01% is the minimum interest rate allowed by the protocol.
         /// @dev Max is 10,000%, fits in 160 bits
-        uint160 interestRate;
+        uint160 proratedInterestRate;
         /// @dev Full-slot variables
         // The amount of principal in terms of the payableCurrency.
         uint256 principal;
@@ -71,7 +71,7 @@ library LoanLibrary {
         // This represents the rate over the lifetime of the loan, not APR.
         // 0.01% is the minimum interest rate allowed by the protocol.
         /// @dev Max is 10,000%, fits in 160 bits
-        uint160 interestRate;
+        uint160 proratedInterestRate;
         /// @dev Full-slot variables
         uint256 principal;
         // The tokenID of the address holding the collateral
@@ -102,6 +102,8 @@ library LoanLibrary {
         LoanState state;
         // Start date of the loan, using block.timestamp
         uint160 startDate;
+        // Affiliate code used to start the loan
+        bytes32 affiliateCode;
         /// @dev Full-slot variables
         // The raw terms of the loan
         LoanTerms terms;

@@ -12,6 +12,7 @@ import {
     MockERC20,
     MockERC721,
     MockERC1155,
+    FeeController
 } from "../typechain";
 import { deploy } from "./utils/contracts";
 
@@ -49,7 +50,8 @@ describe("ItemsVerifier", () => {
         const mockERC1155 = <MockERC1155>await deploy("MockERC1155", deployer, []);
 
         const vaultTemplate = <AssetVault>await deploy("AssetVault", deployer, []);
-        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address])
+        const feeController = <FeeController>await deploy("FeeController", signers[0], []);
+        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address])
 
         return {
             verifier,

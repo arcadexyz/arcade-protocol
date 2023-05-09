@@ -6,12 +6,14 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "./InterestCalculator.sol";
+import "./FeeLookups.sol";
 import "./libraries/LoanLibrary.sol";
 import "./interfaces/IPromissoryNote.sol";
 import "./interfaces/ILoanCore.sol";
+import "./interfaces/IFeeController.sol";
 import "./interfaces/IRepaymentController.sol";
 
-import { RC_CannotDereference, RC_InvalidState, RC_OnlyLender, RC_NoPaymentDue, RC_BeforeStartDate } from "./errors/Lending.sol";
+import { RC_CannotDereference, RC_InvalidState, RC_OnlyLender, RC_NoPaymentDue, RC_BeforeStartDate, RC_ZeroAddress } from "./errors/Lending.sol";
 
 /**
  * @title RepaymentController
@@ -24,19 +26,31 @@ import { RC_CannotDereference, RC_InvalidState, RC_OnlyLender, RC_NoPaymentDue, 
  * is this contract's responsibility to verify loan conditions before
  * calling LoanCore.
  */
-contract RepaymentController is IRepaymentController, InterestCalculator {
+contract RepaymentController is IRepaymentController, InterestCalculator, FeeLookups {
     using SafeERC20 for IERC20;
 
     // ============================================ STATE ===============================================
 
     ILoanCore private immutable loanCore;
     IPromissoryNote private immutable lenderNote;
+    IFeeController private immutable feeController;
 
-    constructor(
-        ILoanCore _loanCore
-    ) {
-        loanCore = _loanCore;
+    /**
+     * @notice Creates a new repayment controller contract.
+     *
+     * @dev For this controller to work, it needs to be granted the REPAYER_ROLE
+     *      in loan core after deployment.
+     *
+     * @param _loanCore                     The address of the loan core logic of the protocol.
+     * @param _feeController                The address of the fee logic of the protocol.
+     */
+    constructor(address _loanCore, address _feeController) {
+        if (_loanCore == address(0)) revert RC_ZeroAddress();
+        if (_feeController == address(0)) revert RC_ZeroAddress();
+
+        loanCore = ILoanCore(_loanCore);
         lenderNote = loanCore.lenderNote();
+        feeController = IFeeController(_feeController);
     }
 
     // ==================================== LIFECYCLE OPERATIONS ========================================
@@ -56,14 +70,18 @@ contract RepaymentController is IRepaymentController, InterestCalculator {
         LoanLibrary.LoanTerms memory terms = data.terms;
 
         // withdraw principal plus interest from borrower and send to loan core
-        uint256 total = getFullInterestAmount(terms.principal, terms.interestRate);
-        if (total == 0) revert RC_NoPaymentDue();
+        uint256 interest = getInterestAmount(terms.principal, terms.proratedInterestRate);
+        if (terms.principal + interest == 0) revert RC_NoPaymentDue();
 
-        IERC20(terms.payableCurrency).safeTransferFrom(msg.sender, address(this), total);
-        IERC20(terms.payableCurrency).approve(address(loanCore), total);
+        // Account for fees to determine amount to lender
+        uint256 interestFee = (interest * feeController.get(FL_07)) / BASIS_POINTS_DENOMINATOR;
+        uint256 principalFee = (terms.principal * feeController.get(FL_08)) / BASIS_POINTS_DENOMINATOR;
+
+        uint256 amountFromBorrower = terms.principal + interest;
+        uint256 amountToLender = amountFromBorrower - interestFee - principalFee;
 
         // call repay function in loan core
-        loanCore.repay(loanId);
+        loanCore.repay(loanId, msg.sender, amountFromBorrower, amountToLender);
     }
 
     /**
@@ -74,11 +92,19 @@ contract RepaymentController is IRepaymentController, InterestCalculator {
      * @param  loanId               The ID of the loan.
      */
     function claim(uint256 loanId) external override {
+        LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
+        if (data.state == LoanLibrary.LoanState.DUMMY_DO_NOT_USE) revert RC_CannotDereference(loanId);
+
         // make sure that caller owns lender note
         // Implicitly checks if loan is active - if inactive, note will not exist
-        address lender = lenderNote.ownerOf(loanId);
-        if (lender != msg.sender) revert RC_OnlyLender(msg.sender);
+        if (lenderNote.ownerOf(loanId) != msg.sender) revert RC_OnlyLender(msg.sender);
 
-        loanCore.claim(loanId);
+        LoanLibrary.LoanTerms memory terms = data.terms;
+        uint256 interest = getInterestAmount(terms.principal, terms.proratedInterestRate);
+        uint256 totalOwed = terms.principal + interest;
+
+        uint256 claimFee = (totalOwed * feeController.get(FL_06)) / BASIS_POINTS_DENOMINATOR;
+
+        loanCore.claim(loanId, claimFee);
     }
 }

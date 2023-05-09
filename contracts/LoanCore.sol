@@ -10,22 +10,28 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import "./InterestCalculator.sol";
 import "./interfaces/ICallDelegator.sol";
 import "./interfaces/IPromissoryNote.sol";
 import "./interfaces/IAssetVault.sol";
-import "./interfaces/IFeeController.sol";
 import "./interfaces/ILoanCore.sol";
 
+import "./InterestCalculator.sol";
 import "./PromissoryNote.sol";
+import "./FeeLookups.sol";
 import "./vault/OwnableERC721.sol";
 import {
     LC_ZeroAddress,
     LC_ReusedNote,
+    LC_CannotSettle,
+    LC_CannotWithdraw,
+    LC_ZeroAmount,
+    LC_ArrayLengthMismatch,
+    LC_InvalidSplit,
     LC_CollateralInUse,
     LC_InvalidState,
     LC_NotExpired,
-    LC_NonceUsed
+    LC_NonceUsed,
+    LC_AffiliateCodeAlreadySet
 } from "./errors/Lending.sol";
 
 /**
@@ -51,24 +57,27 @@ contract LoanCore is
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
+
     // ============================================ STATE ==============================================
 
     // =================== Constants =====================
 
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    bytes32 public constant ORIGINATOR_ROLE = keccak256("ORIGINATOR_ROLE");
-    bytes32 public constant REPAYER_ROLE = keccak256("REPAYER_ROLE");
-    bytes32 public constant FEE_CLAIMER_ROLE = keccak256("FEE_CLAIMER_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
+    bytes32 public constant ORIGINATOR_ROLE = keccak256("ORIGINATOR");
+    bytes32 public constant REPAYER_ROLE = keccak256("REPAYER");
+    bytes32 public constant AFFILIATE_MANAGER_ROLE = keccak256("AFFILIATE_MANAGER");
+    bytes32 public constant FEE_CLAIMER_ROLE = keccak256("FEE_CLAIMER");
 
-    uint256 private constant PERCENT_MISSED_FOR_LENDER_CLAIM = 4000;
+    uint96 private constant MAX_AFFILIATE_SPLIT = 50_00;
 
     // =============== Contract References ================
 
     IPromissoryNote public override borrowerNote;
     IPromissoryNote public override lenderNote;
-    IFeeController public override feeController;
 
     // =================== Loan State =====================
+
+    // TODO: Add dev docs to these
 
     Counters.Counter private loanIdTracker;
     mapping(uint256 => LoanLibrary.LoanData) private loans;
@@ -76,22 +85,29 @@ contract LoanCore is
     mapping(bytes32 => bool) private collateralInUse;
     mapping(address => mapping(uint160 => bool)) public usedNonces;
 
+    // =================== Fee Management =====================
+
+    /// @dev affiliate code => affiliate split
+    ///      split contains payout address and a feeShare in bps
+    mapping(bytes32 => AffiliateSplit) public affiliateSplits;
+
+    /// @dev token => user => amount withdrawable
+    ///      incremented by calling deposit
+    mapping(address => mapping(address => uint256)) public withdrawable;
+
     // ========================================== CONSTRUCTOR ===========================================
 
     /**
      * @notice Deploys the loan core contract, by setting up roles and external
      *         contract references.
      *
-     * @param _feeController      The address of the contract governing protocol fees.
      * @param _borrowerNote       The address of the PromissoryNote contract representing borrower obligation.
      * @param _lenderNote         The address of the PromissoryNote contract representing lender obligation.
      */
     constructor(
-        IFeeController _feeController,
         IPromissoryNote _borrowerNote,
         IPromissoryNote _lenderNote
     ) AccessControl() Pausable() {
-        if (address(_feeController) == address(0)) revert LC_ZeroAddress();
         if (address(_borrowerNote) == address(0)) revert LC_ZeroAddress();
         if (address(_lenderNote) == address(0)) revert LC_ZeroAddress();
         if (address(_borrowerNote) == address(_lenderNote)) revert LC_ReusedNote();
@@ -100,12 +116,8 @@ contract LoanCore is
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
         _setRoleAdmin(ORIGINATOR_ROLE, ADMIN_ROLE);
         _setRoleAdmin(REPAYER_ROLE, ADMIN_ROLE);
-
-        // only those with FEE_CLAIMER_ROLE can update or grant FEE_CLAIMER_ROLE
-        _setupRole(FEE_CLAIMER_ROLE, msg.sender);
-        _setRoleAdmin(FEE_CLAIMER_ROLE, FEE_CLAIMER_ROLE);
-
-        feeController = _feeController;
+        _setRoleAdmin(FEE_CLAIMER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(AFFILIATE_MANAGER_ROLE, ADMIN_ROLE);
 
         /// @dev Although using references for both promissory notes, these
         ///      must be fresh versions and cannot be re-used across multiple
@@ -123,22 +135,37 @@ contract LoanCore is
      * @notice Start a loan, matching a set of terms, with a given
      *         lender and borrower. Collects collateral and distributes
      *         principal, along with collecting an origination fee for the
-     *         protocol. Can only be called by OriginationController.
+     *         protocol and/or affiliate. Can only be called by OriginationController.
      *
      * @param lender                The lender for the loan.
      * @param borrower              The borrower for the loan.
      * @param terms                 The terms of the loan.
+     * @param affiliateCode         A referral code from a registered protocol affiliate.
+     * @param _amountFromLender     The amount of principal to be collected from the lender.
+     * @param _amountToBorrower     The amount of principal to be distributed to the borrower (net after fees).
      *
      * @return loanId               The ID of the newly created loan.
      */
     function startLoan(
         address lender,
         address borrower,
-        LoanLibrary.LoanTerms calldata terms
+        LoanLibrary.LoanTerms calldata terms,
+        bytes32 affiliateCode,
+        uint256 _amountFromLender,
+        uint256 _amountToBorrower
     ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 loanId) {
         // check collateral is not already used in a loan.
         bytes32 collateralKey = keccak256(abi.encode(terms.collateralAddress, terms.collateralId));
         if (collateralInUse[collateralKey]) revert LC_CollateralInUse(terms.collateralAddress, terms.collateralId);
+
+        // Check that we will not net lose tokens.
+        if (_amountToBorrower > _amountFromLender) revert LC_CannotSettle(_amountToBorrower, _amountFromLender);
+        uint256 feesEarned = _amountFromLender - _amountToBorrower;
+        (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(feesEarned, affiliateCode);
+
+        // Assign fees for withdrawal
+        withdrawable[terms.payableCurrency][address(this)] += protocolFee;
+        withdrawable[terms.payableCurrency][affiliate] += affiliateFee;
 
         // get current loanId and increment for next function call
         loanId = loanIdTracker.current();
@@ -147,8 +174,9 @@ contract LoanCore is
         // Initiate loan state
         loans[loanId] = LoanLibrary.LoanData({
             terms: terms,
-            state: LoanLibrary.LoanState.Active,
-            startDate: uint160(block.timestamp)
+            startDate: uint160(block.timestamp),
+            affiliateCode: affiliateCode,
+            state: LoanLibrary.LoanState.Active
         });
 
         collateralInUse[collateralKey] = true;
@@ -156,11 +184,12 @@ contract LoanCore is
         // Distribute notes and principal
         _mintLoanNotes(loanId, borrower, lender);
 
-        IERC721(terms.collateralAddress).transferFrom(msg.sender, address(this), terms.collateralId);
+        // Collect collateral from borrower
+        IERC721(terms.collateralAddress).transferFrom(borrower, address(this), terms.collateralId);
 
-        IERC20(terms.payableCurrency).safeTransferFrom(msg.sender, address(this), terms.principal);
-
-        IERC20(terms.payableCurrency).safeTransfer(borrower, _getPrincipalLessFees(terms.principal));
+        // Collect principal from lender and send net (minus fees) amount to borrower
+        IERC20(terms.payableCurrency).transferFrom(lender, address(this), _amountFromLender);
+        IERC20(terms.payableCurrency).safeTransfer(borrower, _amountToBorrower);
 
         emit LoanStarted(loanId, lender, borrower);
     }
@@ -173,13 +202,28 @@ contract LoanCore is
      *         All promissory notes will be burned and the loan will be marked as complete.
      *
      * @param loanId                The ID of the loan to repay.
+     * @param payer                 The party repaying the loan.
+     * @param _amountFromPayer      The amount of tokens to be collected from the repayer.
+     * @param _amountToLender       The amount of tokens to be distributed to the lender (net after fees).
      */
-    function repay(uint256 loanId) external override onlyRole(REPAYER_ROLE) nonReentrant {
+    function repay(
+        uint256 loanId,
+        address payer,
+        uint256 _amountFromPayer,
+        uint256 _amountToLender
+    ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         LoanLibrary.LoanData memory data = loans[loanId];
         // ensure valid initial loan state when starting loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
 
-        uint256 returnAmount = getFullInterestAmount(data.terms.principal, data.terms.interestRate);
+        // Check that we will not net lose tokens.
+        if (_amountToLender > _amountFromPayer) revert LC_CannotSettle(_amountToLender, _amountFromPayer);
+        uint256 feesEarned = _amountFromPayer - _amountToLender;
+        (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(feesEarned, data.affiliateCode);
+
+        // Assign fees for withdrawal
+        withdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
+        withdrawable[data.terms.payableCurrency][affiliate] += affiliateFee;
 
         // get promissory notes from two parties involved
         address lender = lenderNote.ownerOf(loanId);
@@ -192,13 +236,12 @@ contract LoanCore is
 
         _burnLoanNotes(loanId);
 
-        // transfer from msg.sender to this contract
-        IERC20(data.terms.payableCurrency).safeTransferFrom(msg.sender, address(this), returnAmount);
-        // asset and collateral redistribution
-        // Not using safeTransfer to prevent lenders from blocking
-        // loan receipt and forcing a default
-        IERC20(data.terms.payableCurrency).transfer(lender, returnAmount);
-        IERC721(data.terms.collateralAddress).transferFrom(address(this), borrower, data.terms.collateralId);
+        // Collect from borrower and redistribute collateral
+        IERC20(data.terms.payableCurrency).safeTransferFrom(payer, address(this), _amountFromPayer);
+        IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
+
+        // Not using safeTransfer to prevent lenders from blocking loan receipt
+        IERC20(data.terms.payableCurrency).transfer(lender, _amountToLender);
 
         emit LoanRepaid(loanId);
     }
@@ -210,8 +253,9 @@ contract LoanCore is
      *         notes will be burned and the loan will be marked as complete.
      *
      * @param loanId                              The ID of the loan to claim.
+     * @param _amountFromLender                   Any claiming fees to be collected from the lender.
      */
-    function claim(uint256 loanId)
+    function claim(uint256 loanId, uint256 _amountFromLender)
         external
         override
         whenNotPaused
@@ -219,7 +263,7 @@ contract LoanCore is
         nonReentrant
     {
         LoanLibrary.LoanData memory data = loans[loanId];
-        // ensure valid initial loan state when starting loan
+
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
 
         // First check if the call is being made after the due date.
@@ -236,6 +280,17 @@ contract LoanCore is
 
         // collateral redistribution
         IERC721(data.terms.collateralAddress).transferFrom(address(this), lender, data.terms.collateralId);
+
+        if (_amountFromLender > 0) {
+            (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
+                _getAffiliateSplit(_amountFromLender, data.affiliateCode);
+
+            // Assign fees for withdrawal
+            withdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
+            withdrawable[data.terms.payableCurrency][affiliate] += affiliateFee;
+
+            IERC20(data.terms.payableCurrency).transferFrom(lender, address(this), _amountFromLender);
+        }
 
         emit LoanClaimed(loanId);
     }
@@ -254,7 +309,7 @@ contract LoanCore is
      * @param _settledAmount        The amount LoanCore needs to withdraw to settle.
      * @param _amountToOldLender    The payment to the old lender (if lenders are changing).
      * @param _amountToLender       The payment to the lender (if same as old lender).
-     * @param _amountToBorrower     The payemnt to the borrower (in the case of leftover principal).
+     * @param _amountToBorrower     The payment to the borrower (in the case of leftover principal).
      *
      * @return newLoanId            The ID of the new loan.
      */
@@ -275,6 +330,20 @@ contract LoanCore is
         address oldLender = lenderNote.ownerOf(oldLoanId);
         IERC20 payableCurrency = IERC20(data.terms.payableCurrency);
 
+        if (_amountToOldLender + _amountToLender + _amountToBorrower > _settledAmount) {
+            revert LC_CannotSettle(_amountToOldLender + _amountToLender + _amountToBorrower, _settledAmount);
+        }
+
+        {
+            uint256 feesEarned = _settledAmount - _amountToOldLender - _amountToLender - _amountToBorrower;
+            (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
+                _getAffiliateSplit(feesEarned, data.affiliateCode);
+
+            // Assign fees for withdrawal
+            withdrawable[address(payableCurrency)][address(this)] += protocolFee;
+            withdrawable[address(payableCurrency)][affiliate] += affiliateFee;
+        }
+
         _burnLoanNotes(oldLoanId);
 
         // Set up new loan
@@ -284,13 +353,14 @@ contract LoanCore is
         loans[newLoanId] = LoanLibrary.LoanData({
             terms: terms,
             state: LoanLibrary.LoanState.Active,
+            affiliateCode: data.affiliateCode,
             startDate: uint160(block.timestamp)
         });
 
         // Distribute notes and principal
         _mintLoanNotes(newLoanId, borrower, lender);
 
-        IERC20(payableCurrency).safeTransferFrom(msg.sender, address(this), _settledAmount);
+        payableCurrency.safeTransferFrom(msg.sender, address(this), _settledAmount);
         _transferIfNonzero(payableCurrency, oldLender, _amountToOldLender);
         _transferIfNonzero(payableCurrency, lender, _amountToLender);
         _transferIfNonzero(payableCurrency, borrower, _amountToBorrower);
@@ -383,33 +453,75 @@ contract LoanCore is
         return usedNonces[user][nonce];
     }
 
-    // ======================================== ADMIN FUNCTIONS =========================================
+    // ========================================= FEE MANAGEMENT =========================================
 
     /**
-     * @notice Sets the fee controller to a new address. It must implement the
-     *         IFeeController interface. Can only be called by the contract owner.
+     * @notice Claim any withdrawable balance pending for the caller, as specified by token.
+     *         This may accumulate from either affiliate fee shares or borrower forced repayments.
      *
-     * @param _newController        The new fee controller contract.
+     * @param token                 The contract address of the token to claim tokens for.
+     * @param amount                The amount of tokens to claim.
+     * @param to                    The address to send the tokens to.
      */
-    function setFeeController(IFeeController _newController) external onlyRole(FEE_CLAIMER_ROLE) {
-        if (address(_newController) == address(0)) revert LC_ZeroAddress();
+    function withdraw(address token, uint256 amount, address to) external override nonReentrant {
+        if (amount == 0) revert LC_ZeroAmount();
 
-        feeController = _newController;
+        // any token balances remaining on this contract are fees owned by the protocol
+        uint256 available = withdrawable[token][msg.sender];
+        if (amount > available) revert LC_CannotWithdraw(amount, available);
 
-        emit SetFeeController(address(feeController));
+        withdrawable[token][msg.sender] -= amount;
+
+        IERC20(token).safeTransfer(msg.sender, amount);
+
+        emit FundsWithdrawn(token, msg.sender, to, amount);
     }
 
     /**
      * @notice Claim the protocol fees for the given token. Any token used as principal
      *         for a loan will have accumulated fees. Must be called by contract owner.
      *
-     * @param token                 The contract address of the token to claim fees for.
+     * @param token                     The contract address of the token to claim fees for.
+     * @param to                        The address to send the fees to.
      */
-    function claimFees(IERC20 token) external onlyRole(FEE_CLAIMER_ROLE) {
+    function withdrawProtocolFees(address token, address to) external override nonReentrant onlyRole(FEE_CLAIMER_ROLE) {
         // any token balances remaining on this contract are fees owned by the protocol
-        uint256 amount = token.balanceOf(address(this));
-        token.safeTransfer(msg.sender, amount);
-        emit FeesClaimed(address(token), msg.sender, amount);
+        uint256 amount = withdrawable[token][address(this)];
+        withdrawable[token][address(this)] = 0;
+
+        IERC20(token).safeTransfer(to, amount);
+
+        emit FundsWithdrawn(token, msg.sender, to, amount);
+    }
+
+    // ======================================== ADMIN FUNCTIONS =========================================
+
+    /**
+     * @notice Set the affiliate fee splits for the batch of affiliate codes. Codes and splits should
+     *         be matched index-wise. Can only be called by protocol admin.
+     *
+     * @param codes                     The affiliate code to set the split for.
+     * @param splits                    The splits to set for the given codes.
+     */
+    function setAffiliateSplits(
+        bytes32[] calldata codes,
+        AffiliateSplit[] calldata splits
+    ) external override onlyRole(AFFILIATE_MANAGER_ROLE) {
+        if (codes.length != splits.length) revert LC_ArrayLengthMismatch();
+
+        for (uint256 i = 0; i < codes.length; ++i) {
+            if (splits[i].splitBps > MAX_AFFILIATE_SPLIT) {
+                revert LC_InvalidSplit(splits[i].splitBps, MAX_AFFILIATE_SPLIT);
+            }
+
+            if (affiliateSplits[codes[i]].affiliate != address(0)) {
+                revert LC_AffiliateCodeAlreadySet(codes[i]);
+            }
+
+            affiliateSplits[codes[i]] = splits[i];
+
+            emit AffiliateSet(codes[i], splits[i].affiliate, splits[i].splitBps);
+        }
     }
 
     /**
@@ -433,15 +545,29 @@ contract LoanCore is
     // ============================================= HELPERS ============================================
 
     /**
-     * @dev Takes a principal value and returns the amount that will be distributed
-     *      to the borrower after protocol fees.
+     * @dev Lookup the submitted affiliateCode for a split value, and return the amount
+     *      going to protocol and the amount going to the affiliate, along with destination.
      *
-     * @param principal             The principal amount.
+     * @param amount                The amount to split.
+     * @param affiliateCode         The affiliate code to lookup.
      *
-     * @return principalLessFees    The amount after fees.
+     * @return protocolFee          The amount going to protocol.
+     * @return affiliateFee         The amount going to the affiliate.
+     * @return affiliate            The address of the affiliate.
      */
-    function _getPrincipalLessFees(uint256 principal) internal view returns (uint256) {
-        return principal - (principal * feeController.getOriginationFee()) / BASIS_POINTS_DENOMINATOR;
+    function _getAffiliateSplit(
+        uint256 amount,
+        bytes32 affiliateCode
+    ) internal view returns (uint256 protocolFee, uint256 affiliateFee, address affiliate) {
+        AffiliateSplit memory split = affiliateSplits[affiliateCode];
+
+        if (split.affiliate == address(0)) {
+            return (amount, 0, address(0));
+        }
+
+        affiliate = split.affiliate;
+        affiliateFee = amount * split.splitBps / BASIS_POINTS_DENOMINATOR;
+        protocolFee = amount - affiliateFee;
     }
 
     /**

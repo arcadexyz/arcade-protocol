@@ -15,7 +15,9 @@ import "./interfaces/IERC721Permit.sol";
 import "./interfaces/IAssetVault.sol";
 import "./interfaces/IVaultFactory.sol";
 import "./interfaces/ISignatureVerifier.sol";
+import "./interfaces/IFeeController.sol";
 
+import "./FeeLookups.sol";
 import "./InterestCalculator.sol";
 import "./verifiers/ItemsVerifier.sol";
 import {
@@ -56,8 +58,9 @@ import {
  * of both the collateral and loan principal.
  */
 contract OriginationController is
-    InterestCalculator,
     IOriginationController,
+    InterestCalculator,
+    FeeLookups,
     EIP712,
     ReentrancyGuard,
     AccessControlEnumerable
@@ -71,26 +74,27 @@ contract OriginationController is
     /// @notice The minimum principal amount allowed to start a loan.
     uint256 public constant MIN_LOAN_PRINCIPAL = 1_000_000;
 
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    bytes32 public constant WHITELIST_MANAGER_ROLE = keccak256("WHITELIST_MANAGER_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
+    bytes32 public constant WHITELIST_MANAGER_ROLE = keccak256("WHITELIST_MANAGER");
 
     /// @notice EIP712 type hash for bundle-based signatures.
     bytes32 private constant _TOKEN_ID_TYPEHASH =
         keccak256(
             // solhint-disable-next-line max-line-length
-            "LoanTerms(uint32 durationSecs,uint32 deadline,uint160 interestRate,uint256 principal,address collateralAddress,uint256 collateralId,address payableCurrency,uint160 nonce,uint8 side)"
+            "LoanTerms(uint32 durationSecs,uint32 deadline,uint160 proratedInterestRate,uint256 principal,address collateralAddress,uint256 collateralId,address payableCurrency,uint160 nonce,uint8 side)"
         );
 
     /// @notice EIP712 type hash for item-based signatures.
     bytes32 private constant _ITEMS_TYPEHASH =
         keccak256(
             // solhint-disable max-line-length
-            "LoanTermsWithItems(uint32 durationSecs,uint32 deadline,uint160 interestRate,uint256 principal,address collateralAddress,bytes32 itemsHash,address payableCurrency,uint160 nonce,uint8 side)"
+            "LoanTermsWithItems(uint32 durationSecs,uint32 deadline,uint160 proratedInterestRate,uint256 principal,address collateralAddress,bytes32 itemsHash,address payableCurrency,uint160 nonce,uint8 side)"
         );
 
     // =============== Contract References ===============
 
-    address public loanCore;
+    ILoanCore private immutable loanCore;
+    IFeeController private feeController;
 
     // ================= Approval State ==================
 
@@ -113,9 +117,11 @@ contract OriginationController is
      *      in loan core after deployment.
      *
      * @param _loanCore                     The address of the loan core logic of the protocol.
+     * @param _feeController                The address of the fee logic of the protocol.
      */
-    constructor(address _loanCore) EIP712("OriginationController", "3") {
+    constructor(address _loanCore, address _feeController) EIP712("OriginationController", "3") {
         if (_loanCore == address(0)) revert OC_ZeroAddress();
+        if (_feeController == address(0)) revert OC_ZeroAddress();
 
         _setupRole(ADMIN_ROLE, msg.sender);
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
@@ -123,7 +129,24 @@ contract OriginationController is
         _setupRole(WHITELIST_MANAGER_ROLE, msg.sender);
         _setRoleAdmin(WHITELIST_MANAGER_ROLE, ADMIN_ROLE);
 
-        loanCore = _loanCore;
+        loanCore = ILoanCore(_loanCore);
+        feeController = IFeeController(_feeController);
+    }
+
+    // ========================================== ADMIN UTILS ==========================================
+
+    /**
+     * @notice Sets the fee controller to a new address. It must implement the
+     *         IFeeController interface. Can only be called by the contract owner.
+     *
+     * @param _newController        The new fee controller contract.
+     */
+    function setFeeController(IFeeController _newController) external onlyRole(ADMIN_ROLE) {
+        if (address(_newController) == address(0)) revert OC_ZeroAddress();
+
+        feeController = _newController;
+
+        emit SetFeeController(address(feeController));
     }
 
     // ===================================== WHITELIST MANAGER UTILS =====================================
@@ -146,6 +169,8 @@ contract OriginationController is
             if (allowedCurrencies[_tokenAddress[i]]) revert OC_AlreadyAllowed(_tokenAddress[i]);
 
             allowedCurrencies[_tokenAddress[i]] = true;
+
+            // TODO: Add events
         }
     }
 
@@ -167,6 +192,8 @@ contract OriginationController is
             if (!allowedCurrencies[_tokenAddress[i]]) revert OC_DoesNotExist(_tokenAddress[i]);
 
             allowedCurrencies[_tokenAddress[i]] = false;
+
+            // TODO: Add events
         }
     }
 
@@ -188,6 +215,8 @@ contract OriginationController is
             if (allowedCollateral[_tokenAddress[i]]) revert OC_AlreadyAllowed(_tokenAddress[i]);
 
             allowedCollateral[_tokenAddress[i]] = true;
+
+            // TODO: Add events
         }
     }
 
@@ -228,6 +257,7 @@ contract OriginationController is
      * @param lender                        Address of the lender.
      * @param sig                           The loan terms signature, with v, r, s fields, and a nonce.
      * @param nonce                         The signature nonce.
+     * @param affiliateCode                 A referral code from a registered protocol affiliate.
      *
      * @return loanId                       The unique ID of the new loan.
      */
@@ -236,7 +266,8 @@ contract OriginationController is
         address borrower,
         address lender,
         Signature calldata sig,
-        uint160 nonce
+        uint160 nonce,
+        bytes32 affiliateCode
     ) public override returns (uint256 loanId) {
         _validateLoanTerms(loanTerms);
 
@@ -247,8 +278,8 @@ contract OriginationController is
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
 
-        ILoanCore(loanCore).consumeNonce(externalSigner, nonce);
-        loanId = _initialize(loanTerms, borrower, lender);
+        loanCore.consumeNonce(externalSigner, nonce);
+        loanId = _initialize(loanTerms, borrower, lender, affiliateCode);
     }
 
     /**
@@ -266,6 +297,7 @@ contract OriginationController is
      * @param sig                           The loan terms signature, with v, r, s fields, and a nonce.
      * @param nonce                         The signature nonce.
      * @param itemPredicates                The predicate rules for the items in the bundle.
+     * @param affiliateCode                 A referral code from a registered protocol affiliate.
      *
      * @return loanId                       The unique ID of the new loan.
      */
@@ -275,7 +307,8 @@ contract OriginationController is
         address lender,
         Signature calldata sig,
         uint160 nonce,
-        LoanLibrary.Predicate[] calldata itemPredicates
+        LoanLibrary.Predicate[] calldata itemPredicates,
+        bytes32 affiliateCode
     ) public override returns (uint256 loanId) {
         _validateLoanTerms(loanTerms);
 
@@ -307,8 +340,8 @@ contract OriginationController is
             }
         }
 
-        ILoanCore(loanCore).consumeNonce(externalSigner, nonce);
-        loanId = _initialize(loanTerms, borrower, lender);
+        loanCore.consumeNonce(externalSigner, nonce);
+        loanId = _initialize(loanTerms, borrower, lender, affiliateCode);
     }
 
     /**
@@ -325,6 +358,7 @@ contract OriginationController is
      * @param nonce                         The signature nonce for the loan terms signature.
      * @param collateralSig                 The collateral permit signature, with v, r, s fields.
      * @param permitDeadline                The last timestamp for which the signature is valid.
+     * @param affiliateCode                 A referral code from a registered protocol affiliate.
      *
      * @return loanId                       The unique ID of the new loan.
      */
@@ -335,11 +369,12 @@ contract OriginationController is
         Signature calldata sig,
         uint160 nonce,
         Signature calldata collateralSig,
-        uint256 permitDeadline
+        uint256 permitDeadline,
+        bytes32 affiliateCode
     ) external override returns (uint256 loanId) {
         IERC721Permit(loanTerms.collateralAddress).permit(
             borrower,
-            address(this),
+            address(loanCore),
             loanTerms.collateralId,
             permitDeadline,
             collateralSig.v,
@@ -347,7 +382,7 @@ contract OriginationController is
             collateralSig.s
         );
 
-        loanId = initializeLoan(loanTerms, borrower, lender, sig, nonce);
+        loanId = initializeLoan(loanTerms, borrower, lender, sig, nonce, affiliateCode);
     }
 
     /**
@@ -366,6 +401,7 @@ contract OriginationController is
      * @param collateralSig                 The collateral permit signature, with v, r, s fields.
      * @param permitDeadline                The last timestamp for which the signature is valid.
      * @param itemPredicates                The predicate rules for the items in the bundle.
+     * @param affiliateCode                 A referral code from a registered protocol affiliate.
      *
      * @return loanId                       The unique ID of the new loan.
      */
@@ -377,11 +413,12 @@ contract OriginationController is
         uint160 nonce,
         Signature calldata collateralSig,
         uint256 permitDeadline,
-        LoanLibrary.Predicate[] calldata itemPredicates
+        LoanLibrary.Predicate[] calldata itemPredicates,
+        bytes32 affiliateCode
     ) external override returns (uint256 loanId) {
         IERC721Permit(loanTerms.collateralAddress).permit(
             borrower,
-            address(this),
+            address(loanCore),
             loanTerms.collateralId,
             permitDeadline,
             collateralSig.v,
@@ -389,7 +426,7 @@ contract OriginationController is
             collateralSig.s
         );
 
-        loanId = initializeLoanWithItems(loanTerms, borrower, lender, sig, nonce, itemPredicates);
+        loanId = initializeLoanWithItems(loanTerms, borrower, lender, sig, nonce, itemPredicates, affiliateCode);
     }
 
     /**
@@ -416,10 +453,10 @@ contract OriginationController is
     ) public override returns (uint256 newLoanId) {
         _validateLoanTerms(loanTerms);
 
-        LoanLibrary.LoanData memory data = ILoanCore(loanCore).getLoan(oldLoanId);
+        LoanLibrary.LoanData memory data = loanCore.getLoan(oldLoanId);
         if (data.state != LoanLibrary.LoanState.Active) revert OC_InvalidState(data.state);
 
-        address borrower = IERC721(ILoanCore(loanCore).borrowerNote()).ownerOf(oldLoanId);
+        address borrower = IERC721(loanCore.borrowerNote()).ownerOf(oldLoanId);
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
@@ -429,7 +466,7 @@ contract OriginationController is
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
 
-        ILoanCore(loanCore).consumeNonce(externalSigner, nonce);
+        loanCore.consumeNonce(externalSigner, nonce);
 
         newLoanId = _rollover(oldLoanId, loanTerms, borrower, lender);
     }
@@ -460,10 +497,10 @@ contract OriginationController is
     ) public override returns (uint256 newLoanId) {
         _validateLoanTerms(loanTerms);
 
-        LoanLibrary.LoanData memory data = ILoanCore(loanCore).getLoan(oldLoanId);
+        LoanLibrary.LoanData memory data = loanCore.getLoan(oldLoanId);
         _validateRollover(data.terms, loanTerms);
 
-        address borrower = IERC721(ILoanCore(loanCore).borrowerNote()).ownerOf(oldLoanId);
+        address borrower = IERC721(loanCore.borrowerNote()).ownerOf(oldLoanId);
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
@@ -492,7 +529,7 @@ contract OriginationController is
             }
         }
 
-        ILoanCore(loanCore).consumeNonce(externalSigner, nonce);
+        loanCore.consumeNonce(externalSigner, nonce);
 
         newLoanId = _rollover(oldLoanId, loanTerms, borrower, lender);
     }
@@ -585,7 +622,7 @@ contract OriginationController is
                 _TOKEN_ID_TYPEHASH,
                 loanTerms.durationSecs,
                 loanTerms.deadline,
-                loanTerms.interestRate,
+                loanTerms.proratedInterestRate,
                 loanTerms.principal,
                 loanTerms.collateralAddress,
                 loanTerms.collateralId,
@@ -625,7 +662,7 @@ contract OriginationController is
                 _ITEMS_TYPEHASH,
                 loanTerms.durationSecs,
                 loanTerms.deadline,
-                loanTerms.interestRate,
+                loanTerms.proratedInterestRate,
                 loanTerms.principal,
                 loanTerms.collateralAddress,
                 itemsHash,
@@ -702,7 +739,8 @@ contract OriginationController is
 
         // interest rate must be greater than or equal to 0.01%
         // and less than 10,000% (1e6 basis points)
-        if (terms.interestRate < 1e18 || terms.interestRate > 1e24) revert OC_InterestRate(terms.interestRate);
+        if (terms.proratedInterestRate < 1e18 || terms.proratedInterestRate > 1e24) revert OC_InterestRate(terms.proratedInterestRate);
+
 
         // signature must not have already expired
         if (terms.deadline < block.timestamp) revert OC_SignatureIsExpired(terms.deadline);
@@ -789,23 +827,24 @@ contract OriginationController is
      * @param loanTerms                     The terms agreed by the lender and borrower.
      * @param borrower                      Address of the borrower.
      * @param lender                        Address of the lender.
+     * @param affiliateCode                 A referral code from a registered protocol affiliate.
      *
      * @return loanId                       The unique ID of the new loan.
      */
     function _initialize(
         LoanLibrary.LoanTerms calldata loanTerms,
         address borrower,
-        address lender
+        address lender,
+        bytes32 affiliateCode
     ) internal nonReentrant returns (uint256 loanId) {
-        // Take custody of funds
-        IERC20(loanTerms.payableCurrency).safeTransferFrom(lender, address(this), loanTerms.principal);
-        IERC20(loanTerms.payableCurrency).approve(loanCore, loanTerms.principal);
+        uint256 borrowerFee = (loanTerms.principal * feeController.get(FL_02)) / BASIS_POINTS_DENOMINATOR;
+        uint256 lenderFee = (loanTerms.principal * feeController.get(FL_03)) / BASIS_POINTS_DENOMINATOR;
 
-        IERC721(loanTerms.collateralAddress).transferFrom(borrower, address(this), loanTerms.collateralId);
-        IERC721(loanTerms.collateralAddress).approve(loanCore, loanTerms.collateralId);
+        // Determine settlement amounts based on fees
+        uint256 amountFromLender = loanTerms.principal + lenderFee;
+        uint256 amountToBorrower = loanTerms.principal - borrowerFee;
 
-        // Start loan
-        loanId = ILoanCore(loanCore).startLoan(lender, borrower, loanTerms);
+        loanId = loanCore.startLoan(lender, borrower, loanTerms, affiliateCode, amountFromLender, amountToBorrower);
     }
 
     /**
@@ -825,48 +864,43 @@ contract OriginationController is
         address borrower,
         address lender
     ) internal nonReentrant returns (uint256 loanId) {
-        LoanLibrary.LoanData memory oldLoanData = ILoanCore(loanCore).getLoan(oldLoanId);
+        LoanLibrary.LoanData memory oldLoanData = loanCore.getLoan(oldLoanId);
         LoanLibrary.LoanTerms memory oldTerms = oldLoanData.terms;
 
-        address oldLender = ILoanCore(loanCore).lenderNote().ownerOf(oldLoanId);
+        address oldLender = loanCore.lenderNote().ownerOf(oldLoanId);
         IERC20 payableCurrency = IERC20(oldTerms.payableCurrency);
-        uint256 rolloverFee = ILoanCore(loanCore).feeController().getRolloverFee();
 
         // Settle amounts
         RolloverAmounts memory amounts = _calculateRolloverAmounts(
-            oldLoanData,
+            oldTerms,
             newTerms,
             lender,
-            oldLender,
-            rolloverFee
+            oldLender
         );
 
         // Collect funds
         uint256 settledAmount;
         if (lender != oldLender) {
             // Take new principal from lender
-            // OriginationController should have collected
-            payableCurrency.safeTransferFrom(lender, address(this), newTerms.principal);
-            settledAmount += newTerms.principal;
+            payableCurrency.safeTransferFrom(lender, address(this), amounts.amountFromLender);
+            settledAmount += amounts.amountFromLender;
         }
 
         if (amounts.needFromBorrower > 0) {
             // Borrower must pay difference
-            // OriginationController should have collected
             payableCurrency.safeTransferFrom(borrower, address(this), amounts.needFromBorrower);
             settledAmount += amounts.needFromBorrower;
         } else if (amounts.leftoverPrincipal > 0 && lender == oldLender) {
             // Lender must pay difference
-            // OriginationController should have collected
             // Make sure to collect fee
             payableCurrency.safeTransferFrom(lender, address(this), amounts.leftoverPrincipal);
             settledAmount += amounts.leftoverPrincipal;
         }
 
         {
-            payableCurrency.approve(loanCore, settledAmount);
+            payableCurrency.approve(address(loanCore), settledAmount);
 
-            loanId = ILoanCore(loanCore).rollover(
+            loanId = loanCore.rollover(
                 oldLoanId,
                 borrower,
                 lender,
@@ -885,45 +919,54 @@ contract OriginationController is
      *      Determine the amount to either pay or withdraw from the borrower, and
      *      any payments to be sent to the old lender.
      *
-     * @param oldLoanData           The LoanData struct for the old loan.
+     * @param oldTerms              The terms struct for the old loan.
      * @param newTerms              The terms struct for the new loan.
      * @param lender                The lender for the new loan.
      * @param oldLender             The lender for the existing loan.
-     * @param rolloverFee           The protocol fee for rollovers.
      *
      * @return amounts              The net amounts owed to each party.
      */
     function _calculateRolloverAmounts(
-        LoanLibrary.LoanData memory oldLoanData,
+        LoanLibrary.LoanTerms memory oldTerms,
         LoanLibrary.LoanTerms calldata newTerms,
         address lender,
-        address oldLender,
-        uint256 rolloverFee
-    ) internal pure returns (RolloverAmounts memory amounts) {
-        LoanLibrary.LoanTerms memory oldTerms = oldLoanData.terms;
+        address oldLender
+    ) internal view returns (RolloverAmounts memory amounts) {
+        uint256 borrowerFeeBps = feeController.get(FL_04);
+        uint256 lenderFeeBps = feeController.get(FL_05);
 
-        uint256 repayAmount = getFullInterestAmount(oldTerms.principal, oldTerms.interestRate);
+        uint256 interest = getInterestAmount(oldTerms.principal, oldTerms.proratedInterestRate);
+        uint256 repayAmount = oldTerms.principal + interest;
 
-        amounts.fee = (newTerms.principal * rolloverFee) / BASIS_POINTS_DENOMINATOR;
-        uint256 borrowerWillGet = newTerms.principal - amounts.fee;
+        uint256 borrowerFee = (newTerms.principal * borrowerFeeBps) / BASIS_POINTS_DENOMINATOR;
+        uint256 borrowerOwedForNewLoan = newTerms.principal - borrowerFee;
+
+        uint256 lenderFee = (newTerms.principal * lenderFeeBps) / BASIS_POINTS_DENOMINATOR;
+        amounts.amountFromLender = newTerms.principal + lenderFee;
 
         // Settle amounts
-        if (repayAmount > borrowerWillGet) {
-            amounts.needFromBorrower = repayAmount - borrowerWillGet;
+        if (repayAmount > borrowerOwedForNewLoan) {
+            amounts.needFromBorrower = repayAmount - borrowerOwedForNewLoan;
         } else {
-            amounts.leftoverPrincipal = newTerms.principal - repayAmount;
-            amounts.amountToBorrower = amounts.leftoverPrincipal - amounts.fee;
+            // amount to collect from lender (either old or new)
+            amounts.leftoverPrincipal = amounts.amountFromLender - repayAmount;
+
+            // amount to send to borrower
+            amounts.amountToBorrower = borrowerOwedForNewLoan - repayAmount;
         }
 
         // Collect funds
         if (lender != oldLender) {
+            // old lender
             amounts.amountToOldLender = repayAmount;
+
+            // new lender
             amounts.amountToLender = 0;
         } else {
             amounts.amountToOldLender = 0;
 
-            if (amounts.needFromBorrower > 0 && repayAmount > newTerms.principal) {
-                amounts.amountToLender = repayAmount - newTerms.principal;
+            if (amounts.needFromBorrower > 0 && repayAmount > amounts.amountFromLender) {
+                amounts.amountToLender = repayAmount - amounts.amountFromLender;
             }
         }
     }

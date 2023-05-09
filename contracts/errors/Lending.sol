@@ -230,6 +230,9 @@ error IV_InvalidProjectId(uint256 projectId, uint256 nextProjectId);
 // ==================================== REPAYMENT CONTROLLER ======================================
 /// @notice All errors prefixed with RC_, to separate from other contracts in the protocol.
 
+/// @notice Zero address passed in where not allowed.
+error RC_ZeroAddress();
+
 /**
  * @notice Could not dereference loan from loan ID.
  *
@@ -272,6 +275,10 @@ error LC_ZeroAddress();
 /// @notice Borrower address is same as lender address.
 error LC_ReusedNote();
 
+/// @notice Zero amount passed in where not allowed.
+error LC_ZeroAmount();
+
+
 /**
  * @notice Check collateral is not already used in a active loan.
  *
@@ -279,6 +286,40 @@ error LC_ReusedNote();
  * @param collateralId                  ID of the collateral token.
  */
 error LC_CollateralInUse(address collateralAddress, uint256 collateralId);
+
+/**
+ * @notice The reported settlements are invalid, and LoanCore would lose tokens
+ *         attempting to perform the requested operations.
+ *
+ *
+ * @param payout                        Amount of tokens to be paid out.
+ * @param collected                     Amount of tokens to collect - should be fewer than payout.
+ */
+error LC_CannotSettle(uint256 payout, uint256 collected);
+
+/**
+ * @notice User attempted to withdraw a pending balance that was in excess
+ *         of what is available.
+ *
+ * @param amount                        Amount of tokens to be withdrawn.
+ * @param available                     Amount of tokens available to withdraw.
+ */
+error LC_CannotWithdraw(uint256 amount, uint256 available);
+
+/**
+ * @notice Two arrays were provided that must be of matching length, but were not.
+ *
+ */
+error LC_ArrayLengthMismatch();
+
+/**
+ * @notice A proposed affiliate split was submitted that is over the maximum.
+ *
+ * @param splitBps                     The proposed affiliate split.
+ * @param maxSplitBps                  The maximum allowed affiliate split.
+ *
+ */
+error LC_InvalidSplit(uint96 splitBps, uint96 maxSplitBps);
 
 /**
  * @notice Ensure valid loan state for loan lifceycle operations.
@@ -301,6 +342,14 @@ error LC_NotExpired(uint256 dueDate);
  * @param nonce                         Represents the number of transactions sent by address.
  */
 error LC_NonceUsed(address user, uint160 nonce);
+
+/**
+ * @notice Protocol attempted to set an affiliate code which already exists. Affiliate
+ *         codes are immutable.
+ *
+ * @param affiliateCode                 The affiliate code being set.
+ */
+error LC_AffiliateCodeAlreadySet(bytes32 affiliateCode);
 
 // ================================== Full Insterest Amount Calc ====================================
 /// @notice All errors prefixed with FIAC_, to separate from other contracts in the protocol.
@@ -350,4 +399,4 @@ error PN_ContractPaused();
 /**
  * @notice Caller attempted to set a fee which is larger than the global maximum.
  */
-error FC_FeeTooLarge();
+error FC_FeeTooLarge(bytes32 selector, uint256 fee, uint256 maxFee);

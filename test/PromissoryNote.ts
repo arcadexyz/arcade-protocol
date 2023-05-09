@@ -1,9 +1,8 @@
 import { expect } from "chai";
-import hre, { waffle } from "hardhat";
+import hre, { waffle, ethers } from "hardhat";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { BigNumber, BigNumberish } from "ethers";
-import { initializeBundle, startLoan } from "./utils/loans";
 import {
     OriginationController,
     MockERC20,
@@ -16,13 +15,14 @@ import {
     RepaymentController,
 } from "../typechain";
 import { deploy } from "./utils/contracts";
-import { LoanTerms, LoanState } from "./utils/types";
 import { fromRpcSig } from "ethereumjs-util";
 
 type Signer = SignerWithAddress;
 
-const ORIGINATOR_ROLE = "0x59abfac6520ec36a6556b2a4dd949cc40007459bcd5cd2507f1e5cc77b6bc97e";
-const REPAYER_ROLE = "0x9c60024347074fd9de2c1e36003080d22dbc76a41ef87444d21e361bcb39118e";
+import {
+    ORIGINATOR_ROLE,
+    REPAYER_ROLE
+} from "./utils/constants";
 
 interface TestContext {
     borrowerPromissoryNote: PromissoryNote;
@@ -39,110 +39,88 @@ interface TestContext {
     signers: Signer[];
 }
 
+// Context / Fixture
+const fixture = async (): Promise<TestContext> => {
+    const signers: Signer[] = await ethers.getSigners();
+
+    const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
+    const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
+    const feeController = <FeeController>await deploy("FeeController", signers[0], []);
+
+    const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address]);
+
+    const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
+
+
+    const borrowerNote = <PromissoryNote>(
+        await deploy("PromissoryNote", signers[0], ["Arcade.xyz BorrowerNote", "aBN"])
+    );
+    const lenderNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["Arcade.xyz LenderNote", "aLN"]);
+
+    const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [borrowerNote.address, lenderNote.address]);
+
+    // Grant correct permissions for promissory note
+    // Giving to user to call PromissoryNote functions directly
+    for (const note of [borrowerNote, lenderNote]) {
+        await note.connect(signers[0]).initialize(signers[0].address);
+    }
+
+    const originationController = <OriginationController>await deploy(
+        "OriginationController", signers[0], [loanCore.address, feeController.address]
+    )
+    await originationController.deployed();
+
+    const originator = signers[0];
+    const repayer = signers[0];
+
+    await loanCore.connect(signers[0]).grantRole(ORIGINATOR_ROLE, await originator.getAddress());
+    await loanCore.connect(signers[0]).grantRole(REPAYER_ROLE, await repayer.getAddress());
+
+    const repaymentController = <RepaymentController>(
+        await deploy("RepaymentController", signers[0], [loanCore.address, feeController.address])
+    );
+    await repaymentController.deployed();
+    const updateRepaymentControllerPermissions = await loanCore.grantRole(
+        REPAYER_ROLE,
+        repaymentController.address,
+    );
+    await updateRepaymentControllerPermissions.wait();
+
+    return {
+        borrowerPromissoryNote: borrowerNote,
+        lenderPromissoryNote: lenderNote,
+        loanCore,
+        repaymentController,
+        originationController,
+        vaultFactory,
+        mockERC20,
+        repayer,
+        originator,
+        user: signers[0],
+        other: signers[1],
+        signers: signers.slice(2),
+    };
+};
+
+// Mint Promissory Note
+const mintPromissoryNote = async (note: PromissoryNote, user: Signer): Promise<BigNumber> => {
+    const totalSupply = await note.totalSupply();
+    const transaction = await note.mint(await user.getAddress(), totalSupply);
+    const receipt = await transaction.wait();
+
+    if (receipt && receipt.events && receipt.events.length === 1 && receipt.events[0].args) {
+        return receipt.events[0].args.tokenId;
+    } else {
+        throw new Error("Unable to mint promissory note");
+    }
+};
+
 describe("PromissoryNote", () => {
-    // ========== HELPER FUNCTIONS ===========
-    // Create Loan Terms
-    const createLoanTerms = (
-        payableCurrency: string,
-        collateralAddress: string,
-        {
-            durationSecs = BigNumber.from(360000),
-            principal = hre.ethers.utils.parseEther("100"),
-            interestRate = hre.ethers.utils.parseEther("1"),
-            collateralId = 1,
-            deadline = 259200,
-        }: Partial<LoanTerms> = {},
-    ): LoanTerms => {
-        return {
-            durationSecs,
-            principal,
-            interestRate,
-            collateralId,
-            collateralAddress,
-            payableCurrency,
-            deadline,
-        };
-    };
-
-    // Context / Fixture
-    const fixture = async (): Promise<TestContext> => {
-        const signers: Signer[] = await hre.ethers.getSigners();
-
-        const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
-        const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
-        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address])
-
-        const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
-
-        const feeController = <FeeController>await deploy("FeeController", signers[0], []);
-
-        const borrowerNote = <PromissoryNote>(
-            await deploy("PromissoryNote", signers[0], ["Arcade.xyz BorrowerNote", "aBN"])
-        );
-        const lenderNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["Arcade.xyz LenderNote", "aLN"]);
-
-        const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [feeController.address, borrowerNote.address, lenderNote.address]);
-
-        // Grant correct permissions for promissory note
-        // Giving to user to call PromissoryNote functions directly
-        for (const note of [borrowerNote, lenderNote]) {
-            await note.connect(signers[0]).initialize(signers[0].address);
-        }
-
-        const originationController = <OriginationController>await deploy(
-            "OriginationController", signers[0], [loanCore.address]
-        )
-        await originationController.deployed();
-
-        const originator = signers[0];
-        const repayer = signers[0];
-
-        await loanCore.connect(signers[0]).grantRole(ORIGINATOR_ROLE, await originator.getAddress());
-        await loanCore.connect(signers[0]).grantRole(REPAYER_ROLE, await repayer.getAddress());
-
-        const repaymentController = <RepaymentController>(
-            await deploy("RepaymentController", signers[0], [loanCore.address])
-        );
-        await repaymentController.deployed();
-        const updateRepaymentControllerPermissions = await loanCore.grantRole(
-            REPAYER_ROLE,
-            repaymentController.address,
-        );
-        await updateRepaymentControllerPermissions.wait();
-
-        return {
-            borrowerPromissoryNote: borrowerNote,
-            lenderPromissoryNote: lenderNote,
-            loanCore,
-            repaymentController,
-            originationController,
-            vaultFactory,
-            mockERC20,
-            repayer,
-            originator,
-            user: signers[0],
-            other: signers[1],
-            signers: signers.slice(2),
-        };
-    };
-
-    // Mint Promissory Note
-    const mintPromissoryNote = async (note: PromissoryNote, user: Signer): Promise<BigNumber> => {
-        const totalSupply = await note.totalSupply();
-        const transaction = await note.mint(await user.getAddress(), totalSupply);
-        const receipt = await transaction.wait();
-
-        if (receipt && receipt.events && receipt.events.length === 1 && receipt.events[0].args) {
-            return receipt.events[0].args.tokenId;
-        } else {
-            throw new Error("Unable to mint promissory note");
-        }
-    };
 
     // ========== PROMISSORY NOTE TESTS ===========
     describe("constructor", () => {
         it("Creates a PromissoryNote", async () => {
-            const signers: Signer[] = await hre.ethers.getSigners();
+            const signers: Signer[] = await ethers.getSigners();
 
             const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN"]);
 
@@ -151,7 +129,7 @@ describe("PromissoryNote", () => {
 
         it("fails to initialize if not called by the deployer", async () => {
             const { loanCore } = await loadFixture(fixture);
-            const signers: Signer[] = await hre.ethers.getSigners();
+            const signers: Signer[] = await ethers.getSigners();
 
             const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN"]);
 
@@ -162,7 +140,7 @@ describe("PromissoryNote", () => {
 
         it("fails to initialize if already initialized", async () => {
             const { loanCore } = await loadFixture(fixture);
-            const signers: Signer[] = await hre.ethers.getSigners();
+            const signers: Signer[] = await ethers.getSigners();
 
             const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN"]);
 
@@ -213,7 +191,7 @@ describe("PromissoryNote", () => {
 
     describe("pause", () => {
         it("does not allow a non-admin to pause", async () => {
-            const signers: Signer[] = await hre.ethers.getSigners();
+            const signers: Signer[] = await ethers.getSigners();
 
             const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN"]);
 
@@ -225,7 +203,7 @@ describe("PromissoryNote", () => {
         });
 
         it("does not allow a non-admin to unpause", async () => {
-            const signers: Signer[] = await hre.ethers.getSigners();
+            const signers: Signer[] = await ethers.getSigners();
 
             const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN"]);
 
@@ -237,7 +215,7 @@ describe("PromissoryNote", () => {
         });
 
         it("allows an admin to pause", async () => {
-            const signers: Signer[] = await hre.ethers.getSigners();
+            const signers: Signer[] = await ethers.getSigners();
 
             const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN"]);
 
@@ -249,7 +227,7 @@ describe("PromissoryNote", () => {
         });
 
         it("allows an admin to unpause", async () => {
-            const signers: Signer[] = await hre.ethers.getSigners();
+            const signers: Signer[] = await ethers.getSigners();
 
             const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN"]);
 
@@ -265,7 +243,7 @@ describe("PromissoryNote", () => {
         });
 
         it("transfers revert on pause", async () => {
-            const signers: Signer[] = await hre.ethers.getSigners();
+            const signers: Signer[] = await ethers.getSigners();
 
             const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN"]);
 
@@ -310,7 +288,7 @@ describe("PromissoryNote", () => {
 
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const chainId = hre.network.config.chainId!;
-        const maxDeadline = hre.ethers.constants.MaxUint256;
+        const maxDeadline = ethers.constants.MaxUint256;
 
         const buildData = (
             chainId: number,
@@ -364,7 +342,7 @@ describe("PromissoryNote", () => {
 
         it("should accept owner signature", async () => {
             let approved = await promissoryNote.getApproved(promissoryNoteId);
-            expect(approved).to.equal(hre.ethers.constants.AddressZero);
+            expect(approved).to.equal(ethers.constants.AddressZero);
 
             await expect(
                 promissoryNote.permit(
@@ -390,7 +368,7 @@ describe("PromissoryNote", () => {
 
         it("rejects if given owner is not real owner", async () => {
             const approved = await promissoryNote.getApproved(promissoryNoteId);
-            expect(approved).to.equal(hre.ethers.constants.AddressZero);
+            expect(approved).to.equal(ethers.constants.AddressZero);
 
             await expect(
                 promissoryNote.permit(
@@ -407,7 +385,7 @@ describe("PromissoryNote", () => {
 
         it("rejects if promissoryNoteId is not valid", async () => {
             const approved = await promissoryNote.getApproved(promissoryNoteId);
-            expect(approved).to.equal(hre.ethers.constants.AddressZero);
+            expect(approved).to.equal(ethers.constants.AddressZero);
             const otherNoteId = await mintPromissoryNote(promissoryNote, user);
 
             await expect(
@@ -496,7 +474,7 @@ describe("PromissoryNote", () => {
             const { v, r, s } = fromRpcSig(signature);
 
             const approved = await promissoryNote.getApproved(promissoryNoteId);
-            expect(approved).to.equal(hre.ethers.constants.AddressZero);
+            expect(approved).to.equal(ethers.constants.AddressZero);
 
             await expect(
                 promissoryNote.permit(

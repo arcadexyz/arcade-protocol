@@ -24,7 +24,7 @@ export const approve = async (
     token: MockERC20,
     sender: Signer,
     toAddress: string,
-    amount: BigNumber,
+    amount: BigNumberish,
 ): Promise<void> => {
     const senderAddress = await sender.getAddress();
     const preApproval = await token.allowance(senderAddress, toAddress);
