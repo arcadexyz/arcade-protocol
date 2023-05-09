@@ -23,6 +23,7 @@ import { createLoanTermsSignature } from "./utils/eip712";
 import {
     ORIGINATOR_ROLE,
     REPAYER_ROLE,
+    AFFILIATE_MANAGER_ROLE
 } from "./utils/constants";
 
 interface TestContext {
@@ -117,6 +118,8 @@ const fixture = async (): Promise<TestContext> => {
         originationController.address,
     );
     await updateOriginationControllerPermissions.wait();
+
+    await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);
 
     return {
         loanCore,
@@ -475,7 +478,7 @@ describe("RepaymentController", () => {
         });
 
         it("100 ETH principal, 10% interest rate, 20% fee on interest, 50% affiliate fee split (only on repay)", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, admin, feeController } = ctx;
 
             const code = ethers.utils.id("FOO");
 
@@ -490,7 +493,7 @@ describe("RepaymentController", () => {
             );
 
             // Register affiliate
-            loanCore.setAffiliateSplits([code], [{ affiliate: borrower.address, splitBps: 50_00 }])
+            await loanCore.connect(admin).setAffiliateSplits([code], [{ affiliate: borrower.address, splitBps: 50_00 }])
 
             // total repayment amount
             const total = ethers.utils.parseEther("110");
@@ -650,7 +653,7 @@ describe("RepaymentController", () => {
         });
 
         it("100 ETH principal, 10% interest, borrower defaults and lender claims (5% fee, 10% affiliate split)", async () => {
-            const { lender, borrower, repaymentController, loanCore, vaultFactory, feeController, mockERC20 } = ctx;
+            const { lender, borrower, admin, repaymentController, loanCore, vaultFactory, feeController, mockERC20 } = ctx;
 
             // Wind to expiry
             await hre.network.provider.send("evm_increaseTime", [duration + 100]);
@@ -660,7 +663,7 @@ describe("RepaymentController", () => {
             await feeController.set(await feeController.FL_06(), 5_00);
 
             // Register affiliate
-            loanCore.setAffiliateSplits([affiliateCode], [{ affiliate: borrower.address, splitBps: 10_00 }])
+            await loanCore.connect(admin).setAffiliateSplits([affiliateCode], [{ affiliate: borrower.address, splitBps: 10_00 }])
 
             // Mint to lender
             const fee = ethers.utils.parseEther("5.5");

@@ -29,7 +29,8 @@ import { encodePredicates, encodeSignatureItems, initializeBundle } from "./util
 
 import {
     ORIGINATOR_ROLE,
-    ADMIN_ROLE
+    ADMIN_ROLE,
+    WHITELIST_MANAGER_ROLE
 } from "./utils/constants";
 
 type Signer = SignerWithAddress;
@@ -1647,6 +1648,7 @@ describe("OriginationController", () => {
         let ctx: TestContext;
         let verifier: ArcadeItemsVerifier;
 
+        // TODO: Tests for changing whitelist manager role
         beforeEach(async () => {
             ctx = await loadFixture(fixture);
             verifier = <ArcadeItemsVerifier>await deploy("ArcadeItemsVerifier", ctx.user, []);
@@ -2194,7 +2196,7 @@ describe("OriginationController", () => {
             const userAddress = await other.getAddress()
             await expect(originationController.connect(other).allowPayableCurrency([mockERC20.address]))
             .to.be.revertedWith(
-                `AccessControl: account ${userAddress.toLowerCase()} is missing role 0x2a3dab589bcc9747970dd85ac3f222668741ae51f2a1bbb8f8355be28dd8a868`
+                `AccessControl: account ${userAddress.toLowerCase()} is missing role ${WHITELIST_MANAGER_ROLE}`
             );
         });
 
@@ -2241,7 +2243,7 @@ describe("OriginationController", () => {
             const userAddress = await other.getAddress()
             await expect(originationController.connect(other).removePayableCurrency([mockERC20.address]))
             .to.be.revertedWith(
-                `AccessControl: account ${userAddress.toLowerCase()} is missing role 0x2a3dab589bcc9747970dd85ac3f222668741ae51f2a1bbb8f8355be28dd8a868`
+                `AccessControl: account ${userAddress.toLowerCase()} is missing role ${WHITELIST_MANAGER_ROLE}`
             );
         });
 
@@ -2256,7 +2258,7 @@ describe("OriginationController", () => {
             const userAddress = await other.getAddress()
             await expect(originationController.connect(other).allowPayableCurrency([mockERC721.address]))
             .to.be.revertedWith(
-                `AccessControl: account ${userAddress.toLowerCase()} is missing role 0x2a3dab589bcc9747970dd85ac3f222668741ae51f2a1bbb8f8355be28dd8a868`
+                `AccessControl: account ${userAddress.toLowerCase()} is missing role ${WHITELIST_MANAGER_ROLE}`
             );
         });
 
@@ -2281,7 +2283,7 @@ describe("OriginationController", () => {
             const userAddress = await other.getAddress()
             await expect(originationController.connect(other).removePayableCurrency([mockERC721.address]))
             .to.be.revertedWith(
-                `AccessControl: account ${userAddress.toLowerCase()} is missing role 0x2a3dab589bcc9747970dd85ac3f222668741ae51f2a1bbb8f8355be28dd8a868`
+                `AccessControl: account ${userAddress.toLowerCase()} is missing role ${WHITELIST_MANAGER_ROLE}`
             );
         });
 

@@ -85,7 +85,14 @@ contract LoanCore is
     mapping(bytes32 => bool) private collateralInUse;
     mapping(address => mapping(uint160 => bool)) public usedNonces;
 
+    // =================== Fee Management =====================
+
+    /// @dev affiliate code => affiliate split
+    ///      split contains payout address and a feeShare in bps
     mapping(bytes32 => AffiliateSplit) public affiliateSplits;
+
+    /// @dev token => user => amount withdrawable
+    ///      incremented by calling deposit
     mapping(address => mapping(address => uint256)) public withdrawable;
 
     // ========================================== CONSTRUCTOR ===========================================
@@ -109,6 +116,7 @@ contract LoanCore is
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
         _setRoleAdmin(ORIGINATOR_ROLE, ADMIN_ROLE);
         _setRoleAdmin(REPAYER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(FEE_CLAIMER_ROLE, ADMIN_ROLE);
         _setRoleAdmin(AFFILIATE_MANAGER_ROLE, ADMIN_ROLE);
 
         /// @dev Although using references for both promissory notes, these

@@ -25,8 +25,11 @@ import { LoanTerms, LoanData, ItemsPredicate, SignatureItem } from "./utils/type
 import { createLoanTermsSignature, createLoanItemsSignature } from "./utils/eip712";
 import { encodePredicates, encodeSignatureItems } from "./utils/loans";
 
-const ORIGINATOR_ROLE = "0x59abfac6520ec36a6556b2a4dd949cc40007459bcd5cd2507f1e5cc77b6bc97e";
-const REPAYER_ROLE = "0x9c60024347074fd9de2c1e36003080d22dbc76a41ef87444d21e361bcb39118e";
+import {
+    ORIGINATOR_ROLE,
+    REPAYER_ROLE,
+    AFFILIATE_MANAGER_ROLE
+} from "./utils/constants";
 
 interface TestContext {
     loanCore: LoanCore;
@@ -63,7 +66,7 @@ const fixture = async (): Promise<TestContext> => {
     const blockchainTime = new BlockchainTime();
     const currentTimestamp = await blockchainTime.secondsFromNow(0);
 
-    const signers: SignerWithAddress[] = await hre.ethers.getSigners();
+    const signers: SignerWithAddress[] = await ethers.getSigners();
     const [borrower, lender, admin, newLender] = signers;
 
     const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
@@ -126,6 +129,8 @@ const fixture = async (): Promise<TestContext> => {
     );
     await updateOriginationControllerPermissions.wait();
 
+    await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);
+
     const verifier = <ArcadeItemsVerifier>await deploy("ArcadeItemsVerifier", admin, []);
     await originationController.setAllowedVerifier(verifier.address, true);
 
@@ -157,8 +162,8 @@ const createLoanTerms = (
     collateralAddress: string,
     {
         durationSecs = BigNumber.from(3600000),
-        principal = hre.ethers.utils.parseEther("100"),
-        proratedInterestRate = hre.ethers.utils.parseEther("1"),
+        principal = ethers.utils.parseEther("100"),
+        proratedInterestRate = ethers.utils.parseEther("1"),
         collateralId = 1,
         deadline = 1754884800,
     }: Partial<LoanTerms> = {},
@@ -233,7 +238,7 @@ const initializeLoan = async (
     let loanId;
 
     if (receipt && receipt.events) {
-        const loanCreatedLog = new hre.ethers.utils.Interface([
+        const loanCreatedLog = new ethers.utils.Interface([
             "event LoanStarted(uint256 loanId, address lender, address borrower)",
         ]);
         const log = loanCreatedLog.parseLog(receipt.events[receipt.events.length - 1]);
@@ -1735,6 +1740,7 @@ describe("Rollovers", () => {
                 vaultFactory,
                 borrower,
                 lender,
+                admin,
                 newLender,
                 borrowerNote,
                 lenderNote,
@@ -1763,7 +1769,7 @@ describe("Rollovers", () => {
             await feeController.set(await feeController.FL_05(), 1_00);
 
             // Add a 20% affiliate split
-            loanCore.setAffiliateSplits([affiliateCode], [{ affiliate: borrower.address, splitBps: 20_00 }])
+            await loanCore.connect(admin).setAffiliateSplits([affiliateCode], [{ affiliate: borrower.address, splitBps: 20_00 }])
 
             // Figure out amounts owed
             // With same terms, borrower will have to pay interest plus 0.1%

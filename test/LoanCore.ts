@@ -18,12 +18,13 @@ import { LoanTerms, LoanState } from "./utils/types";
 import { deploy } from "./utils/contracts";
 import { startLoan } from "./utils/loans";
 import { ZERO_ADDRESS } from "./utils/erc20";
-import { Test } from "mocha";
 
 import {
     ORIGINATOR_ROLE,
     REPAYER_ROLE,
-    FEE_CLAIMER_ROLE as CLAIM_FEES_ROLE,
+    FEE_CLAIMER_ROLE,
+    AFFILIATE_MANAGER_ROLE,
+    ADMIN_ROLE
 } from "./utils/constants";
 
 interface TestContext {
@@ -131,8 +132,10 @@ describe("LoanCore", () => {
             await note.connect(admin).initialize(loanCore.address);
         }
 
-        await loanCore.connect(signers[0]).grantRole(ORIGINATOR_ROLE, await originator.getAddress());
-        await loanCore.connect(signers[0]).grantRole(REPAYER_ROLE, await repayer.getAddress());
+        await loanCore.connect(signers[0]).grantRole(FEE_CLAIMER_ROLE, signers[0].address);
+        await loanCore.connect(signers[0]).grantRole(AFFILIATE_MANAGER_ROLE, signers[0].address);
+        await loanCore.connect(signers[0]).grantRole(ORIGINATOR_ROLE, originator.address);
+        await loanCore.connect(signers[0]).grantRole(REPAYER_ROLE, repayer.address);
 
         const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
 
@@ -947,11 +950,12 @@ describe("LoanCore", () => {
             await expect(loanCore.connect(lender).withdrawProtocolFees(mockERC20.address, borrower.address)).to.be.revertedWith(
                 `AccessControl: account ${(
                     lender.address
-                ).toLowerCase()} is missing role ${CLAIM_FEES_ROLE}`,
+                ).toLowerCase()} is missing role ${FEE_CLAIMER_ROLE}`,
             );
         });
 
-        it("only fee claimer should be able to change fee claimer", async () => {
+        // TODO: Same test for affiliate manager role
+        it("only admin should be able to change fee claimer", async () => {
             const { vaultFactory, loanCore, mockERC20, terms, borrower, lender } = await setupLoan();
             const { collateralId, principal } = terms;
 
@@ -967,14 +971,14 @@ describe("LoanCore", () => {
 
             await startLoan(loanCore, borrower, lender.address, borrower.address, terms, principal, principal);
 
-            await loanCore.connect(borrower).grantRole(CLAIM_FEES_ROLE, lender.address);
-            await loanCore.connect(borrower).revokeRole(CLAIM_FEES_ROLE, borrower.address);
+            await loanCore.connect(borrower).grantRole(FEE_CLAIMER_ROLE, lender.address);
+            await loanCore.connect(borrower).revokeRole(FEE_CLAIMER_ROLE, borrower.address);
             await expect(
-                loanCore.connect(borrower).grantRole(CLAIM_FEES_ROLE, borrower.address),
+                loanCore.connect(lender).grantRole(FEE_CLAIMER_ROLE, borrower.address),
             ).to.be.revertedWith(
                 `AccessControl: account ${(
-                    borrower.address
-                ).toLowerCase()} is missing role ${CLAIM_FEES_ROLE}`,
+                    lender.address
+                ).toLowerCase()} is missing role ${ADMIN_ROLE}`,
             );
         });
     });
@@ -1223,6 +1227,7 @@ describe("LoanCore", () => {
                 fee = ethers.utils.parseEther("1");
 
                 // Set up an affilate code - 50% share
+                await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, borrower.address);
                 await loanCore.setAffiliateSplits([affiliateCode], [{ affiliate: borrower.address, splitBps: 50_00 }]);
 
                 const terms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId });

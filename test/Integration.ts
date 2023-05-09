@@ -21,10 +21,12 @@ import { deploy } from "./utils/contracts";
 import { approve, mint } from "./utils/erc20";
 import { LoanTerms, LoanData } from "./utils/types";
 import { createLoanTermsSignature } from "./utils/eip712";
+
 import {
     ORIGINATOR_ROLE,
     FEE_CLAIMER_ROLE,
     REPAYER_ROLE,
+    AFFILIATE_MANAGER_ROLE,
 } from "./utils/constants";
 
 interface TestContext {
@@ -560,8 +562,9 @@ describe("Integration", () => {
             await feeController.set(await feeController.FL_07(), 10_00);
 
             // Set affiliate share to 10% of fees for borrower
+            await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);
             const code = ethers.utils.id("BORROWER_A");
-            await loanCore.setAffiliateSplits([code], [{ affiliate: borrower.address, splitBps: 10_00 }]);
+            await loanCore.connect(admin).setAffiliateSplits([code], [{ affiliate: borrower.address, splitBps: 10_00 }]);
             const { loanId, loanTerms, bundleId } = await initializeLoan(context, 1, undefined, code);
 
             const grossInterest = loanTerms.principal.mul(loanTerms.proratedInterestRate).div(ethers.utils.parseEther("10000"));
