@@ -10,12 +10,12 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import "./InterestCalculator.sol";
 import "./interfaces/ICallDelegator.sol";
 import "./interfaces/IPromissoryNote.sol";
 import "./interfaces/IAssetVault.sol";
 import "./interfaces/ILoanCore.sol";
 
+import "./InterestCalculator.sol";
 import "./PromissoryNote.sol";
 import "./FeeLookups.sol";
 import "./vault/OwnableERC721.sol";
@@ -135,7 +135,7 @@ contract LoanCore is
      * @notice Start a loan, matching a set of terms, with a given
      *         lender and borrower. Collects collateral and distributes
      *         principal, along with collecting an origination fee for the
-     *         protocol. Can only be called by OriginationController.
+     *         protocol and/or affiliate. Can only be called by OriginationController.
      *
      * @param lender                The lender for the loan.
      * @param borrower              The borrower for the loan.
@@ -263,7 +263,7 @@ contract LoanCore is
         nonReentrant
     {
         LoanLibrary.LoanData memory data = loans[loanId];
-        // ensure valid initial loan state when starting loan
+
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
 
         // First check if the call is being made after the due date.
@@ -500,7 +500,7 @@ contract LoanCore is
      * @notice Set the affiliate fee splits for the batch of affiliate codes. Codes and splits should
      *         be matched index-wise. Can only be called by protocol admin.
      *
-     * @param codes                     The affiliate code  to set the split for.
+     * @param codes                     The affiliate code to set the split for.
      * @param splits                    The splits to set for the given codes.
      */
     function setAffiliateSplits(

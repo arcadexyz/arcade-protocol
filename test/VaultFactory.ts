@@ -188,7 +188,7 @@ describe("VaultFactory", () => {
             ).to.be.revertedWith("VF_InsufficientMintFee");
         });
 
-        it("mints and collects a fee", async () => {
+        it("mints and reserves a fee for later collection", async () => {
             const { user, factory } = ctx;
 
             const userBalanceBefore = await ethers.provider.getBalance(user.address);

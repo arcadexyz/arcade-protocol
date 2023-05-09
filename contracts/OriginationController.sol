@@ -58,9 +58,9 @@ import {
  * of both the collateral and loan principal.
  */
 contract OriginationController is
+    IOriginationController,
     InterestCalculator,
     FeeLookups,
-    IOriginationController,
     EIP712,
     ReentrancyGuard,
     AccessControlEnumerable
