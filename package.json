@@ -96,6 +96,6 @@
         "setup-roles": "ts-node scripts/utils/setup-roles.ts"
     },
     "dependencies": {
-        "base-64": "^1.0.0"
+        "base64-sol": "1.1.0"
     }
 }
