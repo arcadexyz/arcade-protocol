@@ -631,6 +631,8 @@ contract LoanCore is
      * @param loanId                The ID of the loan to repay.
      * @param _amountFromPayer      The amount of tokens to be collected from the repayer.
      * @param _amountToLender       The amount of tokens to be distributed to the lender (net after fees).
+     *
+     * @return data                 The loan data for the repay operation.
      */
     function _handleRepay(
         uint256 loanId,
@@ -638,7 +640,7 @@ contract LoanCore is
         uint256 _amountToLender
     ) internal returns (LoanLibrary.LoanData memory data) {
         data = loans[loanId];
-        // ensure valid initial loan state when starting loan
+        // ensure valid initial loan state when repaying loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
 
         // Check that we will not net lose tokens.

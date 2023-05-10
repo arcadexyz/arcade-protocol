@@ -250,9 +250,10 @@ error RC_InvalidState(LoanLibrary.LoanState state);
 /**
  * @notice Caller is not the owner of lender note.
  *
+ * @param lender                     The owner of the lender note.
  * @param caller                     Msg.sender of the function call.
  */
-error RC_OnlyLender(address caller);
+error RC_OnlyLender(address lender, address caller);
 
 /**
  * @notice Loan has not started yet.

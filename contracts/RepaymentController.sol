@@ -57,8 +57,8 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
 
     /**
      * @notice Repay an active loan, referenced by borrower note ID (equivalent to loan ID). The interest for a loan
-     *         is calculated, and the principal plus interest is withdrawn from the borrower.
-     *         Control is passed to LoanCore to complete repayment.
+     *         is calculated, and the principal plus interest is withdrawn from the caller.
+     *         Anyone can repay a loan. Control is passed to LoanCore to complete repayment.
      *
      * @param  loanId               The ID of the loan.
      */
@@ -71,7 +71,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
 
     /**
      * @notice Repay an active loan, referenced by borrower note ID (equivalent to loan ID). The interest for a loan
-     *         is calculated, and the principal plus interest is withdrawn from the borrower.
+     *         is calculated, and the principal plus interest is withdrawn from the caller. Anyone can repay a loan.
      *         Using forceRepay will not send funds to the lender: instead, those funds will be made
      *         available for withdrawal in LoanCore. Can be used in cases where a borrower has funds to repay
      *         but the lender is not able to receive those tokens (e.g. token blacklist).
@@ -98,7 +98,8 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
 
         // make sure that caller owns lender note
         // Implicitly checks if loan is active - if inactive, note will not exist
-        if (lenderNote.ownerOf(loanId) != msg.sender) revert RC_OnlyLender(msg.sender);
+        address lender = lenderNote.ownerOf(loanId);
+        if (lender != msg.sender) revert RC_OnlyLender(lender, msg.sender);
 
         LoanLibrary.LoanTerms memory terms = data.terms;
         uint256 interest = getInterestAmount(terms.principal, terms.proratedInterestRate);
@@ -112,7 +113,6 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     /**
      * @notice Redeem a lender note for a completed return in return for funds repaid in an earlier
      *         transaction via forceRepay. The lender note must be owned by the caller.
-
      *
      * @param loanId                    The ID of the lender note to redeem.
      */
@@ -120,8 +120,9 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
         (, uint256 amountOwed) = loanCore.getNoteReceipt(loanId);
 
-        if (data.state == LoanLibrary.LoanState.Active) revert RC_InvalidState(data.state);
-        if (lenderNote.ownerOf(loanId) != msg.sender) revert RC_OnlyLender(msg.sender);
+        if (data.state != LoanLibrary.LoanState.Repaid) revert RC_InvalidState(data.state);
+        address lender = lenderNote.ownerOf(loanId);
+        if (lender != msg.sender) revert RC_OnlyLender(lender, msg.sender);
 
         uint256 redeemFee = (amountOwed * feeController.get(FL_09)) / BASIS_POINTS_DENOMINATOR;
 
@@ -143,7 +144,6 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
 
         LoanLibrary.LoanTerms memory terms = data.terms;
 
-        // withdraw principal plus interest from borrower and send to loan core
         uint256 interest = getInterestAmount(terms.principal, terms.proratedInterestRate);
         if (terms.principal + interest == 0) revert RC_NoPaymentDue();
 
