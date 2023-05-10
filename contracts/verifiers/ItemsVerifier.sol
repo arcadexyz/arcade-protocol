@@ -78,13 +78,20 @@ contract ArcadeItemsVerifier is ISignatureVerifier {
      *         Verification for empty predicates array has been addressed in initializeLoanWithItems and
      *         rolloverLoanWithItems.
      *
-     * @param predicates                    The SignatureItem[] array of items, packed in bytes.
-     * @param vault                         The vault that should own the specified items.
+     * @param collateralAddress             The address of the loan's collateral.
+     * @param collateralId                  The tokenId of the loan's collateral.
+     * @param predicates                    The calldata needed for the verifier.
      *
      * @return verified                     Whether the bundle contains the specified items.
      */
     // solhint-disable-next-line code-complexity
-    function verifyPredicates(bytes calldata predicates, address vault) external view override returns (bool) {
+    function verifyPredicates(
+        address collateralAddress,
+        uint256 collateralId,
+        bytes calldata predicates
+    ) external view override returns (bool) {
+        address vault = IVaultFactory(collateralAddress).instanceAt(collateralId);
+
         // Unpack items
         SignatureItem[] memory items = abi.decode(predicates, (SignatureItem[]));
 

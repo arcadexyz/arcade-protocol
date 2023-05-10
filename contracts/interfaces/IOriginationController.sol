@@ -127,6 +127,14 @@ interface IOriginationController {
 
     // ============== Admin Operations ==============
 
+    function allowPayableCurrency(address[] memory _tokenAddress) external;
+
+    function removePayableCurrency(address[] memory _tokenAddress) external;
+
+    function allowCollateralAddress(address[] memory _tokenAddress) external;
+
+    function removeCollateralAddress(address[] memory _tokenAddress) external;
+
     function setAllowedVerifier(address verifier, bool isAllowed) external;
 
     function setAllowedVerifierBatch(address[] calldata verifiers, bool[] calldata isAllowed) external;

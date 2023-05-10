@@ -2,10 +2,12 @@
 
 pragma solidity ^0.8.11;
 
-import "../libraries/LoanLibrary.sol";
-
 interface ISignatureVerifier {
     // ============== Collateral Verification ==============
 
-    function verifyPredicates(bytes calldata predicates, address vault) external view returns (bool);
+    function verifyPredicates(
+        address collateralAddress,
+        uint256 collateralId,
+        bytes calldata predicates
+    ) external view returns (bool);
 }

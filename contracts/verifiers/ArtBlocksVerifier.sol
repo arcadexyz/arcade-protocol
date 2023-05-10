@@ -3,6 +3,7 @@
 pragma solidity ^0.8.11;
 
 import "../interfaces/ISignatureVerifier.sol";
+import "../interfaces/IVaultFactory.sol";
 import "../external/interfaces/IArtBlocks.sol";
 
 import { IV_NoAmount, IV_ItemMissingAddress, IV_InvalidProjectId } from "../errors/Lending.sol";
@@ -65,13 +66,19 @@ contract ArtBlocksVerifier is ISignatureVerifier {
      *         Verification for empty predicates array has been addressed in initializeLoanWithItems and
      *         rolloverLoanWithItems.
      *
+     * @param collateralAddress             The address of the loan's collateral.
+     * @param collateralId                  The tokenId of the loan's collateral.
      * @param predicates                    The SignatureItem[] array of items, packed in bytes.
-     * @param vault                         The vault that should own the specified items.
      *
      * @return verified                     Whether the bundle contains the specified items.
      */
     // solhint-disable-next-line code-complexity
-    function verifyPredicates(bytes calldata predicates, address vault) external view override returns (bool) {
+    function verifyPredicates(
+        address collateralAddress,
+        uint256 collateralId,
+        bytes calldata predicates
+    ) external view override returns (bool) {
+        address vault = IVaultFactory(collateralAddress).instanceAt(collateralId);
         // Unpack items
         SignatureItem[] memory items = abi.decode(predicates, (SignatureItem[]));
 

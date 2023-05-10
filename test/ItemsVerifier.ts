@@ -40,7 +40,7 @@ describe("ItemsVerifier", () => {
      * Sets up a test context, deploying new contracts and returning them for use in a test
      */
     const fixture = async (): Promise<TestContext> => {
-        const signers: Signer[] = await hre.ethers.getSigners();
+        const signers: Signer[] = await ethers.getSigners();
         const [deployer, user] = signers;
 
         const whitelist = <CallWhitelist>await deploy("CallWhitelist", deployer, []);
@@ -92,7 +92,7 @@ describe("ItemsVerifier", () => {
             ];
 
             // Will revert because 4 can't be parsed as an enum
-            await expect(verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress)).to.be.reverted;
+            await expect(verifier.verifyPredicates(vaultFactory.address, bundleId, encodeSignatureItems(signatureItems))).to.be.reverted;
         });
 
         it("fails if a signature item is missing an address", async () => {
@@ -116,7 +116,7 @@ describe("ItemsVerifier", () => {
 
             // Will revert because 4 can't be parsed as an enum
             await expect(
-                verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress),
+                verifier.verifyPredicates(vaultFactory.address, bundleId, encodeSignatureItems(signatureItems))
             ).to.be.revertedWith("IV_ItemMissingAddress");
         });
 
@@ -141,7 +141,7 @@ describe("ItemsVerifier", () => {
             ];
 
             await expect(
-                verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress),
+                verifier.verifyPredicates(vaultFactory.address, bundleId, encodeSignatureItems(signatureItems))
             ).to.be.revertedWith("IV_NoAmount");
         });
 
@@ -167,7 +167,7 @@ describe("ItemsVerifier", () => {
 
             // Will revert because 4 can't be parsed as an enum
             await expect(
-                verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress),
+                verifier.verifyPredicates(vaultFactory.address, bundleId, encodeSignatureItems(signatureItems))
             ).to.be.revertedWith("IV_InvalidWildcard");
         });
 
@@ -192,7 +192,7 @@ describe("ItemsVerifier", () => {
             ];
 
             await expect(
-                verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress),
+                verifier.verifyPredicates(vaultFactory.address, bundleId, encodeSignatureItems(signatureItems))
             ).to.be.revertedWith("IV_NoAmount");
         });
 
@@ -217,7 +217,7 @@ describe("ItemsVerifier", () => {
             ];
 
             await expect(
-                verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress),
+                verifier.verifyPredicates(vaultFactory.address, bundleId, encodeSignatureItems(signatureItems))
             ).to.be.revertedWith("IV_InvalidWildcard");
         });
 
@@ -249,9 +249,9 @@ describe("ItemsVerifier", () => {
             ];
 
             // First bundle should have item
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress)).to.be.true;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeSignatureItems(signatureItems))).to.be.true;
             // Second bundle should not
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress2)).to.be.false;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId2, encodeSignatureItems(signatureItems))).to.be.false;
         });
 
         it("verifies a specific ERC721 with a large token ID (oob for int256)", async () => {
@@ -284,9 +284,9 @@ describe("ItemsVerifier", () => {
             ];
 
             // First bundle should have item
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress)).to.be.true;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeSignatureItems(signatureItems))).to.be.true;
             // Second bundle should not
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress2)).to.be.false;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId2, encodeSignatureItems(signatureItems))).to.be.false;
         });
 
         it("verifies a specific ERC721 for any token id", async () => {
@@ -298,7 +298,6 @@ describe("ItemsVerifier", () => {
             const bundleId2 = await initializeBundle(vaultFactory, user);
             const bundleAddress2 = await vaultFactory.instanceAt(bundleId2);
             const bundleId3 = await initializeBundle(vaultFactory, user);
-            const bundleAddress3 = await vaultFactory.instanceAt(bundleId3);
 
             // Fund 2 bundles with different token IDs
             const tokenId = await mint721(mockERC721, user);
@@ -319,11 +318,11 @@ describe("ItemsVerifier", () => {
             ];
 
             // First and second bundle should have item
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress)).to.be.true;
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress2)).to.be.true;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeSignatureItems(signatureItems))).to.be.true;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId2, encodeSignatureItems(signatureItems))).to.be.true;
 
             // Third should not
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress3)).to.be.false;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId3, encodeSignatureItems(signatureItems))).to.be.false;
         });
 
         it("fails to verify if a minimum amount for an ERC721 wildcard is not met", async () => {
@@ -335,7 +334,6 @@ describe("ItemsVerifier", () => {
             const bundleId2 = await initializeBundle(vaultFactory, user);
             const bundleAddress2 = await vaultFactory.instanceAt(bundleId2);
             const bundleId3 = await initializeBundle(vaultFactory, user);
-            const bundleAddress3 = await vaultFactory.instanceAt(bundleId3);
 
             // Fund 2 bundles with different token IDs
             const tokenId = await mint721(mockERC721, user);
@@ -356,9 +354,9 @@ describe("ItemsVerifier", () => {
             ];
 
             // No bundles should have enough items - specified 4
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress)).to.be.false;
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress2)).to.be.false;
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress3)).to.be.false;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeSignatureItems(signatureItems))).to.be.false;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId2, encodeSignatureItems(signatureItems))).to.be.false;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId3, encodeSignatureItems(signatureItems))).to.be.false;
         });
 
         it("verifies a specific ERC721 for any token id with a minimum amount", async () => {
@@ -370,7 +368,6 @@ describe("ItemsVerifier", () => {
             const bundleId2 = await initializeBundle(vaultFactory, user);
             const bundleAddress2 = await vaultFactory.instanceAt(bundleId2);
             const bundleId3 = await initializeBundle(vaultFactory, user);
-            const bundleAddress3 = await vaultFactory.instanceAt(bundleId3);
 
             // Fund 2 bundles with different token IDs
             const tokenId = await mint721(mockERC721, user);
@@ -398,13 +395,13 @@ describe("ItemsVerifier", () => {
             ];
 
             // First bundle should have enough items (4)
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress)).to.be.true;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeSignatureItems(signatureItems))).to.be.true;
 
             // Second bundle should only have 1 item - not enough
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress2)).to.be.false;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId2, encodeSignatureItems(signatureItems))).to.be.false;
 
             // Third should not - has 0 items
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress3)).to.be.false;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId3, encodeSignatureItems(signatureItems))).to.be.false;
         });
 
         it("verifies a specific ERC1155 and token id with a minimum amount", async () => {
@@ -442,11 +439,11 @@ describe("ItemsVerifier", () => {
             ];
 
             // First bundle should have item
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress)).to.be.true;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeSignatureItems(signatureItems))).to.be.true;
             // Second bundle should not have enough
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress2)).to.be.false;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId2, encodeSignatureItems(signatureItems))).to.be.false;
             // Third bundle has wrong ID
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress3)).to.be.false;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId3, encodeSignatureItems(signatureItems))).to.be.false;
         });
 
         it("verifies a minimum ERC20 amount", async () => {
@@ -456,7 +453,6 @@ describe("ItemsVerifier", () => {
             const bundleId = await initializeBundle(vaultFactory, user);
             const bundleAddress = await vaultFactory.instanceAt(bundleId);
             const bundleId2 = await initializeBundle(vaultFactory, user);
-            const bundleAddress2 = await vaultFactory.instanceAt(bundleId2);
 
             // Fund a bundle with sufficient amount
             // Fund a bundle with not enough amount
@@ -476,9 +472,9 @@ describe("ItemsVerifier", () => {
             ];
 
             // First bundle should have item
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress)).to.be.true;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeSignatureItems(signatureItems))).to.be.true;
             // Second bundle should not have enough
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress2)).to.be.false;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId2, encodeSignatureItems(signatureItems))).to.be.false;
         });
 
         it("verifies a combination of multiple items", async () => {
@@ -491,7 +487,6 @@ describe("ItemsVerifier", () => {
             const bundleId = await initializeBundle(vaultFactory, user);
             const bundleAddress = await vaultFactory.instanceAt(bundleId);
             const bundleId2 = await initializeBundle(vaultFactory, user);
-            const bundleAddress2 = await vaultFactory.instanceAt(bundleId2);
 
             // Mint all tokens
             await mint20(mockERC20, user, BigNumber.from(1000));
@@ -591,8 +586,8 @@ describe("ItemsVerifier", () => {
                 },
             ];
 
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress)).to.be.true;
-            expect(await verifier.verifyPredicates(encodeSignatureItems(signatureItems), bundleAddress2)).to.be.false;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeSignatureItems(signatureItems))).to.be.true;
+            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId2, encodeSignatureItems(signatureItems))).to.be.false;
         });
     });
 });
