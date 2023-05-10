@@ -3,6 +3,7 @@ import hre, { waffle, ethers } from "hardhat";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { BigNumber, BigNumberish } from "ethers";
+
 import {
     OriginationController,
     MockERC20,
@@ -14,14 +15,17 @@ import {
     FeeController,
     RepaymentController,
 } from "../typechain";
+
 import { deploy } from "./utils/contracts";
+import { LoanTerms } from "./utils/types";
 import { fromRpcSig } from "ethereumjs-util";
 
 type Signer = SignerWithAddress;
 
 import {
     ORIGINATOR_ROLE,
-    REPAYER_ROLE
+    REPAYER_ROLE,
+    ADMIN_ROLE
 } from "./utils/constants";
 
 interface TestContext {
@@ -37,10 +41,12 @@ interface TestContext {
     user: Signer;
     other: Signer;
     signers: Signer[];
+    baseURI: string;
 }
 
 // Context / Fixture
 const fixture = async (): Promise<TestContext> => {
+    const baseURI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnBeats/`;
     const signers: Signer[] = await ethers.getSigners();
 
     const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
@@ -53,9 +59,11 @@ const fixture = async (): Promise<TestContext> => {
 
 
     const borrowerNote = <PromissoryNote>(
-        await deploy("PromissoryNote", signers[0], ["Arcade.xyz BorrowerNote", "aBN"])
+        await deploy("PromissoryNote", signers[0], ["Arcade.xyz BorrowerNote", "aBN", `${baseURI}`])
     );
-    const lenderNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["Arcade.xyz LenderNote", "aLN"]);
+    const lenderNote = <PromissoryNote>(
+        await deploy("PromissoryNote", signers[0], ["Arcade.xyz LenderNote", "aLN", `${baseURI}`])
+    );
 
     const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [borrowerNote.address, lenderNote.address]);
 
@@ -99,6 +107,7 @@ const fixture = async (): Promise<TestContext> => {
         user: signers[0],
         other: signers[1],
         signers: signers.slice(2),
+        baseURI
     };
 };
 
@@ -116,8 +125,6 @@ const mintPromissoryNote = async (note: PromissoryNote, user: Signer): Promise<B
 };
 
 describe("PromissoryNote", () => {
-
-    // ========== PROMISSORY NOTE TESTS ===========
     describe("constructor", () => {
         it("Creates a PromissoryNote", async () => {
             const signers: Signer[] = await ethers.getSigners();
@@ -198,7 +205,7 @@ describe("PromissoryNote", () => {
             await expect(PromissoryNote.connect(signers[0]).initialize(signers[0].address)).to.not.be.reverted;
 
             await expect(PromissoryNote.connect(signers[1]).setPaused(true)).to.be.revertedWith(
-                `AccessControl: account ${signers[1].address.toLowerCase()} is missing role 0xa49807205ce4d355092ef5a8a18f56e8913cf4a201fbe287825b095693c21775`,
+                `AccessControl: account ${signers[1].address.toLowerCase()} is missing role ${ADMIN_ROLE}`,
             );
         });
 
@@ -210,7 +217,7 @@ describe("PromissoryNote", () => {
             await expect(PromissoryNote.connect(signers[0]).initialize(signers[0].address)).to.not.be.reverted;
 
             await expect(PromissoryNote.connect(signers[1]).setPaused(false)).to.be.revertedWith(
-                `AccessControl: account ${signers[1].address.toLowerCase()} is missing role 0xa49807205ce4d355092ef5a8a18f56e8913cf4a201fbe287825b095693c21775`,
+                `AccessControl: account ${signers[1].address.toLowerCase()} is missing role ${ADMIN_ROLE}`,
             );
         });
 
@@ -487,6 +494,41 @@ describe("PromissoryNote", () => {
                     s,
                 ),
             ).to.be.revertedWith("ERC721P_DeadlineExpired");
+        });
+    });
+
+    describe("baseURI", () => {
+        it("sets a baseURI upon deployment", async () => {
+            const { lenderPromissoryNote: promissoryNote, baseURI } = await loadFixture(fixture);
+
+            expect(await promissoryNote.baseURI()).to.be.eq(baseURI);
+        });
+
+        it("sets the baseURI", async () => {
+            const { lenderPromissoryNote: promissoryNote, user, baseURI } = await loadFixture(fixture);
+            const newBaseURI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnArt/`;
+
+            expect(await promissoryNote.baseURI()).to.be.eq(baseURI);
+
+            await promissoryNote.connect(user).setBaseURI(newBaseURI);
+            expect(await promissoryNote.baseURI()).to.be.eq(newBaseURI);
+        });
+
+        it("reverts if setBaseURI is called by non manager", async () => {
+            const { lenderPromissoryNote: promissoryNote, other } = await loadFixture(fixture);
+            const newBaseURI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnArt/`;
+
+            const tx = promissoryNote.connect(other).setBaseURI(newBaseURI);
+            await expect(tx).to.be.revertedWith(
+                `AccessControl: account ${other.address.toLowerCase()} is missing role ${ADMIN_ROLE}`,
+            );
+        });
+
+        it("gets the tokenURI", async () => {
+            const { lenderPromissoryNote: promissoryNote, user, other, baseURI } = await loadFixture(fixture);
+
+            await promissoryNote.connect(user).mint(await other.getAddress(), 1);
+            expect(await promissoryNote.tokenURI(1)).to.be.eq(`${baseURI + 1}`);
         });
     });
 

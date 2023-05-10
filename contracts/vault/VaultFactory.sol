@@ -5,10 +5,10 @@ pragma solidity ^0.8.11;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "../interfaces/IAssetVault.sol";
 import "../interfaces/IVaultFactory.sol";
@@ -35,18 +35,30 @@ import { VF_ZeroAddress, VF_TokenIdOutOfBounds, VF_NoTransferWithdrawEnabled, VF
  * VaultFactory in order to determine their own contract owner. The VaultFactory contains
  * conveniences to allow switching between the address and uint256 formats.
  */
-contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, ERC721Enumerable, Ownable {
+contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC721Enumerable {
+    using Strings for uint256;
     // ============================================ STATE ==============================================
+
+    // =================== Constants =====================
+
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
+
+    bytes32 public constant FEE_CLAIMER_ROLE = keccak256("FEE_CLAIMER");
 
     /// @dev Lookup identifier for minting fee in fee controller
     bytes32 public constant FL_01 = keccak256("VAULT_MINT_FEE");
 
-    /// @dev The template contract for asset vaults.
+    // ================= State Variables ==================
+
+    /// @dev The template contract for asset vaults
     address public immutable template;
     /// @dev The CallWhitelist contract definining the calling restrictions for vaults.
     address public immutable whitelist;
     /// @dev The contract specifying minting fees, if non-zero
     IFeeController public immutable feeController;
+
+    /// @dev The baseURI for the minted vaults
+    string public baseURI;
 
     // ========================================== CONSTRUCTOR ===========================================
 
@@ -55,16 +67,26 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, ERC721Enumerable, 
      *
      * @param _template          The address of the template contract for vaults.
      * @param _whitelist         The address of the CallWhitelist contract.
+     * @param _baseURI           The value of the baseURI state variable.
      *
      */
     constructor(
         address _template,
         address _whitelist,
-        address _feeController
+        address _feeController,
+        string memory _baseURI
     ) ERC721("Asset Vault", "AV") ERC721Permit("Asset Vault") {
         if (_template == address(0)) revert VF_ZeroAddress();
         if (_whitelist == address(0)) revert VF_ZeroAddress();
         if (_feeController == address(0)) revert VF_ZeroAddress();
+
+        _setupRole(ADMIN_ROLE, msg.sender);
+        _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
+
+        _setupRole(FEE_CLAIMER_ROLE, msg.sender);
+        _setRoleAdmin(FEE_CLAIMER_ROLE, ADMIN_ROLE);
+
+        baseURI = _baseURI;
 
         template = _template;
         whitelist = _whitelist;
@@ -72,7 +94,6 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, ERC721Enumerable, 
     }
 
     // ========================================= VIEW FUNCTIONS =========================================
-
 
     /**
      * @notice Check if the given address is a vault instance created by this factory.
@@ -150,6 +171,29 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, ERC721Enumerable, 
     }
 
     /**
+     * @notice Getter of specific URI for a bundle token ID.
+     *
+     * @param tokenId               The ID of the bundle to get the URI for.
+     *
+     * @return                      The bundle ID's URI string.
+     */
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        _exists(tokenId);
+
+        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : "";
+    }
+
+    /**
+     * @notice An ADMIN_ROLE function for setting the string value of the base URI.
+     *
+     * @param newBaseURI              The new value of the base URI.
+     *
+     */
+    function setBaseURI(string memory newBaseURI) public onlyRole(ADMIN_ROLE) {
+        baseURI = newBaseURI;
+    }
+
+    /**
      * @dev Creates and initializes a minimal proxy vault instance,
      *      using the OpenZeppelin Clones library.
      *
@@ -162,9 +206,9 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, ERC721Enumerable, 
     }
 
     /**
-     * @notice Claim any accrued minting fees. Only callable by owner.
+     * @notice Claim any accrued minting fees. Only callable by FEE_CLAIMER_ROLE.
      */
-    function claimFees(address to) external onlyOwner {
+    function claimFees(address to) external onlyRole(FEE_CLAIMER_ROLE) {
         uint256 balance = address(this).balance;
         payable(to).transfer(balance);
 
@@ -202,7 +246,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, ERC721Enumerable, 
         public
         view
         virtual
-        override(ERC165, ERC721, ERC721Enumerable)
+        override(ERC165, ERC721, ERC721Enumerable, AccessControl)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
