@@ -530,7 +530,6 @@ contract OriginationController is
             loanCore.consumeNonce(externalSigner, nonce);
         }
 
-
         if (itemPredicates.length == 0) {
             revert OC_PredicatesArrayEmpty();
         }
