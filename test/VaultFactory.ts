@@ -8,6 +8,7 @@ import { fromRpcSig } from "ethereumjs-util";
 import { ZERO_ADDRESS } from "./utils/erc20";
 import { CallWhitelist, AssetVault, VaultFactory, FeeController } from "../typechain";
 import { deploy } from "./utils/contracts";
+import { ADMIN_ROLE, FEE_CLAIMER_ROLE } from "./utils/constants";
 
 type Signer = SignerWithAddress;
 
@@ -230,9 +231,9 @@ describe("VaultFactory", () => {
                 factory.initializeBundle(user.address, { value: MINT_FEE })
             ).to.emit(factory, "VaultCreated");
 
-            await expect(
-                factory.connect(other).claimFees(other.address)
-            ).to.be.revertedWith("Ownable: caller is not the owner");
+            await expect(factory.connect(other).claimFees(other.address)).to.be.revertedWith(
+                `AccessControl: account ${other.address.toLowerCase()} is missing role ${FEE_CLAIMER_ROLE}`,
+            );
         });
 
         it("collects the mint fee", async () => {
@@ -671,7 +672,7 @@ describe("VaultFactory", () => {
 
             const tx = factory.connect(other).setBaseURI(newBaseURI);
             await expect(tx).to.be.revertedWith(
-                `AccessControl: account ${other.address.toLowerCase()} is missing role 0xa49807205ce4d355092ef5a8a18f56e8913cf4a201fbe287825b095693c21775`,
+                `AccessControl: account ${other.address.toLowerCase()} is missing role ${ADMIN_ROLE}`,
             );
         });
 
@@ -681,7 +682,7 @@ describe("VaultFactory", () => {
             await createVault(factory, user);
             const tokenId = await factory.tokenOfOwnerByIndex(user.address, 0);
 
-            expect(await factory.bundleURI(tokenId.toString())).to.be.eq(`${baseURI + tokenId}`);
+            expect(await factory.tokenURI(tokenId.toString())).to.be.eq(`${baseURI + tokenId}`);
         });
     });
 });

@@ -36,26 +36,30 @@ import { VF_ZeroAddress, VF_TokenIdOutOfBounds, VF_NoTransferWithdrawEnabled, VF
  * VaultFactory in order to determine their own contract owner. The VaultFactory contains
  * conveniences to allow switching between the address and uint256 formats.
  */
-contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC721Enumerable, Ownable {
+contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC721Enumerable {
     using Strings for uint256;
     // ============================================ STATE ==============================================
+
+    // =================== Constants =====================
+
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
+
+    bytes32 public constant FEE_CLAIMER_ROLE = keccak256("FEE_CLAIMER");
 
     /// @dev Lookup identifier for minting fee in fee controller
     bytes32 public constant FL_01 = keccak256("VAULT_MINT_FEE");
 
-    /// @dev The template contract for asset vaults.
+    // ================= State Variables ==================
+
+    /// @dev The template contract for asset vaults
     address public immutable template;
     /// @dev The CallWhitelist contract definining the calling restrictions for vaults.
     address public immutable whitelist;
     /// @dev The contract specifying minting fees, if non-zero
     IFeeController public immutable feeController;
 
-    /// @dev The baseURI for the minted vaults.
+    /// @dev The baseURI for the minted vaults
     string public baseURI;
-
-    // =================== Constants =====================
-
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     // ========================================== CONSTRUCTOR ===========================================
 
@@ -79,6 +83,9 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
 
         _setupRole(ADMIN_ROLE, msg.sender);
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
+
+        _setupRole(FEE_CLAIMER_ROLE, msg.sender);
+        _setRoleAdmin(FEE_CLAIMER_ROLE, FEE_CLAIMER_ROLE);
 
         baseURI = _baseURI;
 
@@ -171,7 +178,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
      *
      * @return                      The bundle ID's URI string.
      */
-    function bundleURI(uint256 tokenId) public view returns (string memory) {
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _exists(tokenId);
 
         return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : "";
@@ -200,9 +207,9 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
     }
 
     /**
-     * @notice Claim any accrued minting fees. Only callable by owner.
+     * @notice Claim any accrued minting fees. Only callable by FEE_CLAIMER_ROLE.
      */
-    function claimFees(address to) external onlyOwner {
+    function claimFees(address to) external onlyRole(FEE_CLAIMER_ROLE) {
         uint256 balance = address(this).balance;
         payable(to).transfer(balance);
 

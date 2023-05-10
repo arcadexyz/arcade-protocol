@@ -24,7 +24,8 @@ type Signer = SignerWithAddress;
 
 import {
     ORIGINATOR_ROLE,
-    REPAYER_ROLE
+    REPAYER_ROLE,
+    ADMIN_ROLE
 } from "./utils/constants";
 
 interface TestContext {
@@ -204,7 +205,7 @@ describe("PromissoryNote", () => {
             await expect(PromissoryNote.connect(signers[0]).initialize(signers[0].address)).to.not.be.reverted;
 
             await expect(PromissoryNote.connect(signers[1]).setPaused(true)).to.be.revertedWith(
-                `AccessControl: account ${signers[1].address.toLowerCase()} is missing role 0xa49807205ce4d355092ef5a8a18f56e8913cf4a201fbe287825b095693c21775`,
+                `AccessControl: account ${signers[1].address.toLowerCase()} is missing role ${ADMIN_ROLE}`,
             );
         });
 
@@ -216,7 +217,7 @@ describe("PromissoryNote", () => {
             await expect(PromissoryNote.connect(signers[0]).initialize(signers[0].address)).to.not.be.reverted;
 
             await expect(PromissoryNote.connect(signers[1]).setPaused(false)).to.be.revertedWith(
-                `AccessControl: account ${signers[1].address.toLowerCase()} is missing role 0xa49807205ce4d355092ef5a8a18f56e8913cf4a201fbe287825b095693c21775`,
+                `AccessControl: account ${signers[1].address.toLowerCase()} is missing role ${ADMIN_ROLE}`,
             );
         });
 
@@ -519,7 +520,7 @@ describe("PromissoryNote", () => {
 
             const tx = promissoryNote.connect(other).setBaseURI(newBaseURI);
             await expect(tx).to.be.revertedWith(
-                `AccessControl: account ${other.address.toLowerCase()} is missing role 0xa49807205ce4d355092ef5a8a18f56e8913cf4a201fbe287825b095693c21775`,
+                `AccessControl: account ${other.address.toLowerCase()} is missing role ${ADMIN_ROLE}`,
             );
         });
 

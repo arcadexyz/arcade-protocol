@@ -53,21 +53,23 @@ contract PromissoryNote is
     IPromissoryNote
 {
     using Counters for Counters.Counter;
-   using Strings for uint256;
+    using Strings for uint256;
 
     // ============================================ STATE ==============================================
 
-    string public baseURI;
+    // =================== Constants =====================
+
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
+
+    // ================= State Variables ==================
 
     /// @dev Initially deployer, then account with burn/mint/pause roles (LoanCore).
     address public owner;
     bool private initialized;
 
+    string public baseURI;
+
     Counters.Counter private _tokenIdTracker;
-
-    // =================== Constants =====================
-
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     // ========================================= CONSTRUCTOR ===========================================
 
