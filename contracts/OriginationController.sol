@@ -312,18 +312,22 @@ contract OriginationController is
     ) public override returns (uint256 loanId) {
         _validateLoanTerms(loanTerms);
 
-        // Determine if signature needs to be on the borrow or lend side
-        Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
+        {
+            // Determine if signature needs to be on the borrow or lend side
+            Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
-        (bytes32 sighash, address externalSigner) = recoverItemsSignature(
-            loanTerms,
-            sig,
-            nonce,
-            neededSide,
-            keccak256(abi.encode(itemPredicates))
-        );
+            (bytes32 sighash, address externalSigner) = recoverItemsSignature(
+                loanTerms,
+                sig,
+                nonce,
+                neededSide,
+                keccak256(abi.encode(itemPredicates))
+            );
 
-        _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
+            _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
+
+            loanCore.consumeNonce(externalSigner, nonce);
+        }
 
         if (itemPredicates.length == 0) {
             revert OC_PredicatesArrayEmpty();
@@ -348,7 +352,6 @@ contract OriginationController is
             }
         }
 
-        loanCore.consumeNonce(externalSigner, nonce);
         loanId = _initialize(loanTerms, borrower, lender, affiliateCode);
     }
 
@@ -509,18 +512,24 @@ contract OriginationController is
         _validateRollover(data.terms, loanTerms);
 
         address borrower = IERC721(loanCore.borrowerNote()).ownerOf(oldLoanId);
-        // Determine if signature needs to be on the borrow or lend side
-        Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
-        (bytes32 sighash, address externalSigner) = recoverItemsSignature(
-            loanTerms,
-            sig,
-            nonce,
-            neededSide,
-            keccak256(abi.encode(itemPredicates))
-        );
+        {
+            // Determine if signature needs to be on the borrow or lend side
+            Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
-        _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
+            (bytes32 sighash, address externalSigner) = recoverItemsSignature(
+                loanTerms,
+                sig,
+                nonce,
+                neededSide,
+                keccak256(abi.encode(itemPredicates))
+            );
+
+            _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
+
+            loanCore.consumeNonce(externalSigner, nonce);
+        }
+
 
         if (itemPredicates.length == 0) {
             revert OC_PredicatesArrayEmpty();
@@ -544,9 +553,6 @@ contract OriginationController is
                 );
             }
         }
-
-        loanCore.consumeNonce(externalSigner, nonce);
-
         newLoanId = _rollover(oldLoanId, loanTerms, borrower, lender);
     }
 
