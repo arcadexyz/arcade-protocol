@@ -18,16 +18,23 @@ interface ILoanCore {
         uint96 splitBps;
     }
 
+    struct NoteReceipt {
+        address token;
+        uint256 amount;
+    }
+
     // ================ Events =================
 
     event LoanCreated(LoanLibrary.LoanTerms terms, uint256 loanId);
     event LoanStarted(uint256 loanId, address lender, address borrower);
     event LoanRepaid(uint256 loanId);
+    event ForceRepay(uint256 loanId);
     event LoanRolledOver(uint256 oldLoanId, uint256 newLoanId);
     event LoanClaimed(uint256 loanId);
     event NonceUsed(address indexed user, uint160 nonce);
 
     event FundsWithdrawn(address indexed token, address indexed caller, address indexed to, uint256 amount);
+    event NoteRedeemed(address indexed token, address indexed caller, address indexed to, uint256 tokenId, uint256 amount);
     event AffiliateSet(bytes32 indexed code, address indexed affiliate, uint96 splitBps);
 
     // ============== Lifecycle Operations ==============
@@ -48,9 +55,22 @@ interface ILoanCore {
         uint256 _amountToLender
     ) external;
 
+    function forceRepay(
+        uint256 loanId,
+        address payer,
+        uint256 _amountFromPayer,
+        uint256 _amountToLender
+    ) external;
+
     function claim(
         uint256 loanId,
         uint256 _amountFromLender
+    ) external;
+
+    function redeemNote(
+        uint256 loanId,
+        uint256 _amountDeducted,
+        address to
     ) external;
 
     function rollover(
@@ -78,13 +98,17 @@ interface ILoanCore {
 
     function withdrawProtocolFees(address token, address to) external;
 
+
     // ============== View Functions ==============
 
     function getLoan(uint256 loanId) external view returns (LoanLibrary.LoanData calldata loanData);
 
+    function getNoteReceipt(uint256 loanId) external view returns (address token, uint256 amount);
+
     function isNonceUsed(address user, uint160 nonce) external view returns (bool);
 
-    function borrowerNote() external returns (IPromissoryNote);
+    function borrowerNote() external view returns (IPromissoryNote);
 
-    function lenderNote() external returns (IPromissoryNote);
+    function lenderNote() external view returns (IPromissoryNote);
+
 }

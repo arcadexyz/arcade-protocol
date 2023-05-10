@@ -250,9 +250,10 @@ error RC_InvalidState(LoanLibrary.LoanState state);
 /**
  * @notice Caller is not the owner of lender note.
  *
+ * @param lender                     The owner of the lender note.
  * @param caller                     Msg.sender of the function call.
  */
-error RC_OnlyLender(address caller);
+error RC_OnlyLender(address lender, address caller);
 
 /**
  * @notice Loan has not started yet.
@@ -277,7 +278,6 @@ error LC_ReusedNote();
 
 /// @notice Zero amount passed in where not allowed.
 error LC_ZeroAmount();
-
 
 /**
  * @notice Check collateral is not already used in a active loan.
@@ -350,6 +350,21 @@ error LC_NonceUsed(address user, uint160 nonce);
  * @param affiliateCode                 The affiliate code being set.
  */
 error LC_AffiliateCodeAlreadySet(bytes32 affiliateCode);
+
+/**
+ * @notice Caller is not the owner of lender note.
+ *
+ * @param caller                     Msg.sender of the function call.
+ */
+error LC_OnlyLender(address caller);
+
+/**
+ * @notice Specified note token ID does not have a redeemable receipt.
+ *
+ * @param loanId                     The loanId being checked.
+ */
+error LC_NoReceipt(uint256 loanId);
+
 
 // ================================== Full Insterest Amount Calc ====================================
 /// @notice All errors prefixed with FIAC_, to separate from other contracts in the protocol.
