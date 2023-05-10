@@ -50,6 +50,12 @@ export const encodePredicates = (predicates: ItemsPredicate[]): string => {
     return ethers.utils.keccak256(coded);
 };
 
+export const encodeItemCheck = (addr: string, id: BigNumberish, anyIdAllowed = false): string => {
+    const types = ["address", "uint256", "bool"];
+
+    return ethers.utils.defaultAbiCoder.encode(types, [addr, id, anyIdAllowed]);
+}
+
 export const startLoan = async (
     loanCore: LoanCore,
     originator: SignerWithAddress,

@@ -10,6 +10,7 @@ import {
     MockERC721
 } from "../typechain";
 import { deploy } from "./utils/contracts";
+import { encodeItemCheck } from "./utils/loans";
 
 import { ZERO_ADDRESS } from "./utils/erc20";
 
@@ -19,12 +20,6 @@ interface TestContext {
     verifier: UnvaultedItemsVerifier;
     mockERC721: MockERC721;
     deployer: SignerWithAddress;
-}
-
-const encodePredicates = (addr: string, id: BigNumberish, anyIdAllowed = false) => {
-    const types = ["address", "uint256", "bool"];
-
-    return ethers.utils.defaultAbiCoder.encode(types, [addr, id, anyIdAllowed]);
 }
 
 describe("UnvaultedItemsVerifier", () => {
@@ -55,7 +50,7 @@ describe("UnvaultedItemsVerifier", () => {
                 verifier.verifyPredicates(
                     mockERC721.address,
                     100,
-                    encodePredicates(ZERO_ADDRESS, 100, false)
+                    encodeItemCheck(ZERO_ADDRESS, 100, false)
                 )
             ).to.be.revertedWith("IV_ItemMissingAddress");
         });
@@ -67,7 +62,7 @@ describe("UnvaultedItemsVerifier", () => {
                 await verifier.verifyPredicates(
                     mockERC721.address,
                     100,
-                    encodePredicates(mockERC721.address, 99, false)
+                    encodeItemCheck(mockERC721.address, 99, false)
                 )
             ).to.eq(false);
 
@@ -75,7 +70,7 @@ describe("UnvaultedItemsVerifier", () => {
                 await verifier.verifyPredicates(
                     mockERC721.address,
                     99,
-                    encodePredicates(mockERC721.address, 100, false)
+                    encodeItemCheck(mockERC721.address, 100, false)
                 )
             ).to.eq(false);
 
@@ -83,7 +78,7 @@ describe("UnvaultedItemsVerifier", () => {
                 await verifier.verifyPredicates(
                     mockERC721.address,
                     100,
-                    encodePredicates(mockERC721.address, 100, false)
+                    encodeItemCheck(mockERC721.address, 100, false)
                 )
             ).to.eq(true);
         });
@@ -97,7 +92,7 @@ describe("UnvaultedItemsVerifier", () => {
                 await verifier.verifyPredicates(
                     mockERC721.address,
                     100,
-                    encodePredicates(mockERC721.address, 100, true)
+                    encodeItemCheck(mockERC721.address, 100, true)
                 )
             ).to.eq(true);
 
@@ -105,7 +100,7 @@ describe("UnvaultedItemsVerifier", () => {
                 await verifier.verifyPredicates(
                     mockERC721.address,
                     100,
-                    encodePredicates(mockERC721.address, 0, true)
+                    encodeItemCheck(mockERC721.address, 0, true)
                 )
             ).to.eq(true);
 
@@ -113,7 +108,7 @@ describe("UnvaultedItemsVerifier", () => {
                 await verifier.verifyPredicates(
                     mockERC721.address,
                     777,
-                    encodePredicates(mockERC721.address, 0, true)
+                    encodeItemCheck(mockERC721.address, 0, true)
                 )
             ).to.eq(true);
 
@@ -121,7 +116,7 @@ describe("UnvaultedItemsVerifier", () => {
                 await verifier.verifyPredicates(
                     mockERC721.address,
                     100,
-                    encodePredicates(otherMockERC721.address, 0, true)
+                    encodeItemCheck(otherMockERC721.address, 0, true)
                 )
             ).to.eq(false);
 
@@ -129,7 +124,7 @@ describe("UnvaultedItemsVerifier", () => {
                 await verifier.verifyPredicates(
                     otherMockERC721.address,
                     100,
-                    encodePredicates(mockERC721.address, 0, true)
+                    encodeItemCheck(mockERC721.address, 0, true)
                 )
             ).to.eq(false);
         });

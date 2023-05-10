@@ -15,12 +15,16 @@ import {
     RepaymentController,
     LoanCore,
     MockERC20,
+    ArcadeItemsVerifier,
+    MockERC721
 } from "../typechain";
 import { BlockchainTime } from "./utils/time";
 import { deploy } from "./utils/contracts";
 import { approve, mint } from "./utils/erc20";
-import { LoanTerms, LoanData } from "./utils/types";
-import { createLoanTermsSignature } from "./utils/eip712";
+import { mint as mint721 } from "./utils/erc721";
+import { LoanTerms, LoanData, ItemsPredicate } from "./utils/types";
+import { createLoanItemsSignature, createLoanTermsSignature } from "./utils/eip712";
+import { encodeItemCheck, encodePredicates } from "./utils/loans";
 
 import {
     ORIGINATOR_ROLE,
@@ -32,6 +36,7 @@ import {
 interface TestContext {
     loanCore: LoanCore;
     mockERC20: MockERC20;
+    mockERC721: MockERC721;
     borrowerNote: PromissoryNote;
     lenderNote: PromissoryNote;
     vaultFactory: VaultFactory;
@@ -85,6 +90,7 @@ const fixture = async (): Promise<TestContext> => {
     await updateborrowerPermissions.wait();
 
     const mockERC20 = <MockERC20>await deploy("MockERC20", admin, ["Mock ERC20", "MOCK"]);
+    const mockERC721 = <MockERC721>await deploy("MockERC721", admin, ["Mock ERC721", "MOCK"]);
 
     const repaymentController = <RepaymentController>await deploy("RepaymentController", admin, [loanCore.address, feeController.address]);
     await repaymentController.deployed();
@@ -127,6 +133,7 @@ const fixture = async (): Promise<TestContext> => {
         repaymentController,
         originationController,
         mockERC20,
+        mockERC721,
         borrower,
         lender,
         admin,
@@ -667,6 +674,174 @@ describe("Integration", () => {
 
             // All fees withdrawn
             expect(await mockERC20.balanceOf(loanCore.address)).to.equal(0);
+        });
+
+        it("full loan cycle, with realistic fees and registered affiliate, on an unvaulted asset with a rollover", async () => {
+            const context = await loadFixture(fixture);
+            const { feeController, repaymentController, originationController, mockERC20, mockERC721, loanCore, borrower, lender, admin } = context;
+
+            const uvVerifier = <ArcadeItemsVerifier>await deploy("UnvaultedItemsVerifier", admin, []);
+            await originationController.setAllowedVerifier(uvVerifier.address, true);
+            await originationController.allowCollateralAddress([mockERC721.address]);
+
+            // Set a 50 bps lender fee on origination, a 3% borrower rollover
+            // fee, and a 10% fee on interest. Total fees earned should be
+            // 0.5 (on principal) + 1 (on interest) + 3 (on rollover) = 4.5 ETH
+            await feeController.set(await feeController.FL_03(), 50);
+            await feeController.set(await feeController.FL_07(), 10_00);
+            await feeController.set(await feeController.FL_04(), 3_00);
+
+            // Set affiliate share to 10% of fees for borrower
+            await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);
+            const code = ethers.utils.id("BORROWER_A");
+            await loanCore.connect(admin).setAffiliateSplits([code], [{ affiliate: borrower.address, splitBps: 10_00 }]);
+
+            const tokenId = await mint721(mockERC721, borrower);
+            await mockERC721.connect(borrower).approve(loanCore.address, tokenId);
+            const loanTerms = createLoanTerms(mockERC20.address, mockERC721.address, { collateralId: tokenId });
+
+            const lenderFeeBps = await feeController.get(await feeController.FL_03());
+            const lenderFee = loanTerms.principal.mul(lenderFeeBps).div(10_000);
+            const lenderWillSend = loanTerms.principal.add(lenderFee);
+
+            const predicates: ItemsPredicate[] = [
+                {
+                    verifier: uvVerifier.address,
+                    data: encodeItemCheck(mockERC721.address, 0, true),
+                }
+            ];
+
+            await mint(mockERC20, lender, lenderWillSend);
+
+            const sig = await createLoanItemsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                encodePredicates(predicates),
+                borrower,
+                "3",
+                "1",
+                "b",
+            );
+
+            await approve(mockERC20, lender, loanCore.address, lenderWillSend);
+
+            const tx = await originationController
+                .connect(lender)
+                .initializeLoanWithItems(
+                    loanTerms,
+                    borrower.address,
+                    lender.address,
+                    sig,
+                    1,
+                    predicates,
+                    code
+                );
+
+            const receipt = await tx.wait();
+
+            let loanId;
+
+            if (receipt && receipt.events) {
+                const loanCreatedLog = new ethers.utils.Interface([
+                    "event LoanStarted(uint256 loanId, address lender, address borrower)",
+                ]);
+                const log = loanCreatedLog.parseLog(receipt.events[receipt.events.length - 1]);
+                loanId = log.args.loanId;
+            } else {
+                throw new Error("Unable to initialize loan");
+            }
+
+            const rolloverPredicates: ItemsPredicate[] = [
+                {
+                    verifier: uvVerifier.address,
+                    data: encodeItemCheck(mockERC721.address, tokenId, false),
+                }
+            ];
+
+            const rolloverSig = await createLoanItemsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                encodePredicates(rolloverPredicates),
+                lender,
+                "3",
+                "2",
+                "l",
+            );
+
+            const grossInterest = loanTerms.principal.mul(loanTerms.proratedInterestRate).div(ethers.utils.parseEther("10000"));
+            const rolloverFee = loanTerms.principal.div(100).mul(3);
+            const repayAmount = loanTerms.principal.add(grossInterest);
+
+            await mint(mockERC20, borrower, grossInterest.add(rolloverFee));
+            await approve(mockERC20, borrower, originationController.address, grossInterest.add(rolloverFee));
+
+            const newLoanId = Number(loanId) + 1;
+
+            const borrowerBalanceBefore = await mockERC20.balanceOf(borrower.address);
+            const lenderBalanceBefore = await mockERC20.balanceOf(lender.address);
+            const ocBalanceBefore = await mockERC20.balanceOf(originationController.address);
+            const loanCoreBalanceBefore = await mockERC20.balanceOf(loanCore.address);
+
+            await expect(originationController.connect(borrower).rolloverLoanWithItems(
+                loanId,
+                loanTerms,
+                lender.address,
+                rolloverSig,
+                2,
+                rolloverPredicates
+            ))
+                .to.emit(loanCore, "LoanRepaid")
+                .withArgs(loanId)
+                .to.emit(loanCore, "LoanStarted")
+                .withArgs(newLoanId, lender.address, borrower.address)
+                .to.emit(loanCore, "LoanRolledOver")
+                .withArgs(loanId, newLoanId);
+
+            const borrowerBalanceAfter = await mockERC20.balanceOf(borrower.address);
+            const lenderBalanceAfter = await mockERC20.balanceOf(lender.address);
+            const ocBalanceAfter = await mockERC20.balanceOf(originationController.address);
+            const loanCoreBalanceAfter = await mockERC20.balanceOf(loanCore.address);
+
+            // Borrower pays 10 ETH interest + 3 ETH rollover fee
+            expect(borrowerBalanceBefore.sub(borrowerBalanceAfter)).to.eq(ethers.utils.parseUnits("13"));
+            // Lender collects interest
+            expect(lenderBalanceAfter.sub(lenderBalanceBefore)).to.eq(ethers.utils.parseUnits("10"));
+            // Nothing left in Origination Controller
+            expect(ocBalanceAfter.sub(ocBalanceBefore)).to.eq(0);
+            // LoanCore accumulates rollover fee
+            expect(loanCoreBalanceAfter.sub(loanCoreBalanceBefore)).to.eq(ethers.utils.parseUnits("3"));
+
+            // pre-repaid state
+            expect(await mockERC721.ownerOf(tokenId)).to.equal(loanCore.address);
+
+            await mint(mockERC20, borrower, repayAmount);
+            await approve(mockERC20, borrower, loanCore.address, repayAmount);
+
+            // Repay - loan was for same terms, so will earn
+            await expect(repaymentController.connect(borrower).repay(newLoanId))
+                .to.emit(loanCore, "LoanRepaid")
+                .withArgs(newLoanId)
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(borrower.address, loanCore.address, repayAmount)
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(loanCore.address, lender.address, ethers.utils.parseEther("109"));
+
+            // post-repaid state
+            expect(await mockERC721.ownerOf(tokenId)).to.equal(borrower.address);
+
+            // Withdraw fees for both protocol and affiliate
+            await expect(
+                loanCore.connect(borrower).withdraw(mockERC20.address, ethers.utils.parseEther("0.45"), borrower.address)
+            ).to.emit(loanCore, "FundsWithdrawn")
+                .withArgs(mockERC20.address, borrower.address, borrower.address, ethers.utils.parseEther("0.45"));
+
+            // Protocol admin gets 1.35 ETH - 1.5 total fees minus 10% affiliate share on fees
+            await expect(
+                loanCore.connect(admin).withdrawProtocolFees(mockERC20.address, admin.address)
+            ).to.emit(loanCore, "FundsWithdrawn")
+                .withArgs(mockERC20.address, admin.address, admin.address, ethers.utils.parseEther("4.05"));
         });
     })
 });

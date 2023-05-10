@@ -160,7 +160,7 @@ contract OriginationController is
      *
      * @param _tokenAddress               Array of token addresses to add.
      */
-    function allowPayableCurrency(address[] memory _tokenAddress) external onlyRole(WHITELIST_MANAGER_ROLE) {
+    function allowPayableCurrency(address[] memory _tokenAddress) external override onlyRole(WHITELIST_MANAGER_ROLE) {
         if (_tokenAddress.length == 0) revert OC_ZeroArrayElements();
         if (_tokenAddress.length > 50) revert OC_ArrayTooManyElements();
 
@@ -183,7 +183,7 @@ contract OriginationController is
      *
      * @param _tokenAddress               Array of token addresses to remove.
      */
-    function removePayableCurrency(address[] memory _tokenAddress) external onlyRole(WHITELIST_MANAGER_ROLE) {
+    function removePayableCurrency(address[] memory _tokenAddress) external override onlyRole(WHITELIST_MANAGER_ROLE) {
         if (_tokenAddress.length == 0) revert OC_ZeroArrayElements();
         if (_tokenAddress.length > 50) revert OC_ArrayTooManyElements();
 
@@ -206,7 +206,7 @@ contract OriginationController is
      *
      * @param _tokenAddress                Array of token addresses to add.
      */
-    function allowCollateralAddress(address[] memory _tokenAddress) external onlyRole(WHITELIST_MANAGER_ROLE) {
+    function allowCollateralAddress(address[] memory _tokenAddress) external override onlyRole(WHITELIST_MANAGER_ROLE) {
         if (_tokenAddress.length == 0) revert OC_ZeroArrayElements();
         if (_tokenAddress.length > 50) revert OC_ArrayTooManyElements();
 
@@ -229,7 +229,7 @@ contract OriginationController is
      *
      * @param _tokenAddress                Array of token addresses to remove.
      */
-    function removeCollateralAddress(address[] memory _tokenAddress) external onlyRole(WHITELIST_MANAGER_ROLE) {
+    function removeCollateralAddress(address[] memory _tokenAddress) external override onlyRole(WHITELIST_MANAGER_ROLE) {
         if (_tokenAddress.length == 0) revert OC_ZeroArrayElements();
         if (_tokenAddress.length > 50) revert OC_ArrayTooManyElements();
 
