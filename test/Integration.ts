@@ -842,6 +842,10 @@ describe("Integration", () => {
                 loanCore.connect(admin).withdrawProtocolFees(mockERC20.address, admin.address)
             ).to.emit(loanCore, "FundsWithdrawn")
                 .withArgs(mockERC20.address, admin.address, admin.address, ethers.utils.parseEther("4.05"));
+
+            expect(await loanCore.feesWithdrawable(mockERC20.address, borrower.address)).to.eq(0);
+            expect(await loanCore.feesWithdrawable(mockERC20.address, loanCore.address)).to.eq(0);
+            expect(await mockERC20.balanceOf(loanCore.address)).to.eq(0);
         });
     })
 });

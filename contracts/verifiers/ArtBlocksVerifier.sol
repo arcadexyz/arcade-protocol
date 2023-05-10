@@ -72,6 +72,7 @@ contract ArtBlocksVerifier is ISignatureVerifier {
      *
      * @return verified                     Whether the bundle contains the specified items.
      */
+    // solhint-disable-next-line code-complexity
     function verifyPredicates(
         address collateralAddress,
         uint256 collateralId,

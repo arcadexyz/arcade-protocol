@@ -164,7 +164,7 @@ contract OriginationController is
         if (_tokenAddress.length == 0) revert OC_ZeroArrayElements();
         if (_tokenAddress.length > 50) revert OC_ArrayTooManyElements();
 
-        for (uint256 i = 0; i < _tokenAddress.length; i++) {
+        for (uint256 i = 0; i < _tokenAddress.length; ++i) {
             if (_tokenAddress[i] == address(0)) revert OC_ZeroAddress();
             if (allowedCurrencies[_tokenAddress[i]]) revert OC_AlreadyAllowed(_tokenAddress[i]);
 
@@ -187,7 +187,7 @@ contract OriginationController is
         if (_tokenAddress.length == 0) revert OC_ZeroArrayElements();
         if (_tokenAddress.length > 50) revert OC_ArrayTooManyElements();
 
-        for (uint256 i = 0; i < _tokenAddress.length; i++) {
+        for (uint256 i = 0; i < _tokenAddress.length; ++i) {
             if (_tokenAddress[i] == address(0)) revert OC_ZeroAddress();
             if (!allowedCurrencies[_tokenAddress[i]]) revert OC_DoesNotExist(_tokenAddress[i]);
 
@@ -210,7 +210,7 @@ contract OriginationController is
         if (_tokenAddress.length == 0) revert OC_ZeroArrayElements();
         if (_tokenAddress.length > 50) revert OC_ArrayTooManyElements();
 
-        for (uint256 i = 0; i < _tokenAddress.length; i++) {
+        for (uint256 i = 0; i < _tokenAddress.length; ++i) {
             if (_tokenAddress[i] == address(0)) revert OC_ZeroAddress();
             if (allowedCollateral[_tokenAddress[i]]) revert OC_AlreadyAllowed(_tokenAddress[i]);
 
@@ -233,7 +233,7 @@ contract OriginationController is
         if (_tokenAddress.length == 0) revert OC_ZeroArrayElements();
         if (_tokenAddress.length > 50) revert OC_ArrayTooManyElements();
 
-        for (uint256 i = 0; i < _tokenAddress.length; i++) {
+        for (uint256 i = 0; i < _tokenAddress.length; ++i) {
             if (_tokenAddress[i] == address(0)) revert OC_ZeroAddress();
             if (!allowedCollateral[_tokenAddress[i]]) revert OC_DoesNotExist(_tokenAddress[i]);
 
@@ -333,7 +333,7 @@ contract OriginationController is
             revert OC_PredicatesArrayEmpty();
         }
 
-        for (uint256 i = 0; i < itemPredicates.length; i++) {
+        for (uint256 i = 0; i < itemPredicates.length; ++i) {
             // Verify items are held in the wrapper
             address verifier = itemPredicates[i].verifier;
             if (!isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
@@ -534,7 +534,7 @@ contract OriginationController is
             revert OC_PredicatesArrayEmpty();
         }
 
-        for (uint256 i = 0; i < itemPredicates.length; i++) {
+        for (uint256 i = 0; i < itemPredicates.length; ++i) {
             // Verify items are held in the wrapper
             address verifier = itemPredicates[i].verifier;
             if (!isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
@@ -727,7 +727,7 @@ contract OriginationController is
     function setAllowedVerifierBatch(address[] calldata verifiers, bool[] calldata isAllowed) external override {
         if (verifiers.length != isAllowed.length) revert OC_BatchLengthMismatch();
 
-        for (uint256 i = 0; i < verifiers.length; i++) {
+        for (uint256 i = 0; i < verifiers.length; ++i) {
             setAllowedVerifier(verifiers[i], isAllowed[i]);
         }
     }

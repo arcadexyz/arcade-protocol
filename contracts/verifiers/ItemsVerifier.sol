@@ -80,7 +80,7 @@ contract ArcadeItemsVerifier is ISignatureVerifier {
      *
      * @param collateralAddress             The address of the loan's collateral.
      * @param collateralId                  The tokenId of the loan's collateral.
-     * @param data                          The calldata needed for the verifier.
+     * @param predicates                    The calldata needed for the verifier.
      *
      * @return verified                     Whether the bundle contains the specified items.
      */
@@ -88,12 +88,12 @@ contract ArcadeItemsVerifier is ISignatureVerifier {
     function verifyPredicates(
         address collateralAddress,
         uint256 collateralId,
-        bytes calldata data
+        bytes calldata predicates
     ) external view override returns (bool) {
         address vault = IVaultFactory(collateralAddress).instanceAt(collateralId);
 
         // Unpack items
-        SignatureItem[] memory items = abi.decode(data, (SignatureItem[]));
+        SignatureItem[] memory items = abi.decode(predicates, (SignatureItem[]));
 
         for (uint256 i = 0; i < items.length; i++) {
             SignatureItem memory item = items[i];

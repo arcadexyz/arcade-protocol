@@ -39,17 +39,17 @@ contract UnvaultedItemsVerifier is ISignatureVerifier {
      *
      * @param collateralAddress             The address of the loan's collateral.
      * @param collateralId                  The tokenId of the loan's collateral.
-     * @param data                          The calldata needed for the verifier.
+     * @param predicates                    The calldata needed for the verifier.
      *
      * @return verified                     Whether the bundle contains the specified items.
      */
     function verifyPredicates(
         address collateralAddress,
         uint256 collateralId,
-        bytes calldata data
+        bytes calldata predicates
     ) external pure override returns (bool) {
         // Unpack items
-        (address token, uint256 tokenId, bool anyIdAllowed) = abi.decode(data, (address, uint256, bool));
+        (address token, uint256 tokenId, bool anyIdAllowed) = abi.decode(predicates, (address, uint256, bool));
 
         // No asset provided
         if (token == address(0)) revert IV_ItemMissingAddress();
