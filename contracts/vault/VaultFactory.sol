@@ -84,7 +84,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
 
         _setupRole(FEE_CLAIMER_ROLE, msg.sender);
-        _setRoleAdmin(FEE_CLAIMER_ROLE, FEE_CLAIMER_ROLE);
+        _setRoleAdmin(FEE_CLAIMER_ROLE, ADMIN_ROLE);
 
         baseURI = _baseURI;
 
