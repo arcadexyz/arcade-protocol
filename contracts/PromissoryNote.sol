@@ -8,7 +8,6 @@ import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import "base64-sol/base64.sol";
 
 import "./ERC721Permit.sol";
 import "./interfaces/ILoanCore.sol";
@@ -54,15 +53,10 @@ contract PromissoryNote is
     IPromissoryNote
 {
     using Counters for Counters.Counter;
-    using Strings for uint256;
+   using Strings for uint256;
 
     // ============================================ STATE ==============================================
 
-    // =================== Constants =====================
-
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-
-    // =================== Loan State =====================
     string public baseURI;
 
     /// @dev Initially deployer, then account with burn/mint/pause roles (LoanCore).
@@ -70,6 +64,10 @@ contract PromissoryNote is
     bool private initialized;
 
     Counters.Counter private _tokenIdTracker;
+
+    // =================== Constants =====================
+
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     // ========================================= CONSTRUCTOR ===========================================
 

@@ -10,7 +10,6 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import "base64-sol/base64.sol";
 
 import "../interfaces/IAssetVault.sol";
 import "../interfaces/IVaultFactory.sol";
