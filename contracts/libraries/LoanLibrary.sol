@@ -52,6 +52,8 @@ library LoanLibrary {
         uint256 collateralId;
         // The payable currency for the loan principal and interest.
         address payableCurrency;
+        // Affiliate code used to start the loan
+        bytes32 affiliateCode;
     }
 
     /**
@@ -81,6 +83,8 @@ library LoanLibrary {
         bytes items;
         // The payable currency for the loan principal and interest
         address payableCurrency;
+        // Affiliate code used to start the loan
+        bytes32 affiliateCode;
     }
 
     /**
@@ -102,8 +106,6 @@ library LoanLibrary {
         LoanState state;
         // Start date of the loan, using block.timestamp
         uint160 startDate;
-        // Affiliate code used to start the loan
-        bytes32 affiliateCode;
         /// @dev Full-slot variables
         // The raw terms of the loan
         LoanTerms terms;

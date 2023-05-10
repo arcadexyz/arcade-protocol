@@ -154,6 +154,7 @@ const createLoanTerms = (
         proratedInterestRate = ethers.utils.parseEther("1000"),
         collateralId = 1,
         deadline = 1754884800,
+        affiliateCode = ethers.constants.HashZero,
     }: Partial<LoanTerms> = {},
 ): LoanTerms => {
     return {
@@ -164,6 +165,7 @@ const createLoanTerms = (
         collateralId,
         payableCurrency,
         deadline,
+        affiliateCode
     };
 };
 
@@ -185,7 +187,7 @@ const initializeLoan = async (
 ): Promise<LoanDef> => {
     const { originationController, feeController, mockERC20, vaultFactory, loanCore, lender, borrower } = context;
     const bundleId = terms?.collateralId ?? (await createWnft(vaultFactory, borrower));
-    const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
+    const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId, affiliateCode });
     if (terms) Object.assign(loanTerms, terms);
 
     const lenderFeeBps = await feeController.get(await feeController.FL_03());
@@ -209,7 +211,7 @@ const initializeLoan = async (
 
     const tx = await originationController
         .connect(lender)
-        .initializeLoan(loanTerms, borrower.address, lender.address, sig, nonce, affiliateCode);
+        .initializeLoan(loanTerms, borrower.address, lender.address, sig, nonce);
     const receipt = await tx.wait();
 
     let loanId;
@@ -258,7 +260,7 @@ describe("Integration", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, loanCore.address, loanTerms.principal)
@@ -289,7 +291,7 @@ describe("Integration", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
             ).to.be.revertedWith("VF_NoTransferWithdrawEnabled");
         });
 
@@ -315,7 +317,7 @@ describe("Integration", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
             ).to.be.revertedWith("ERC721: operator query for nonexistent token");
         });
 
@@ -343,7 +345,7 @@ describe("Integration", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, ethers.constants.HashZero),
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
             ).to.be.revertedWith("OC_LoanDuration");
         });
     });
@@ -465,7 +467,7 @@ describe("Integration", () => {
             await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
             const tx = await originationController
                 .connect(lender)
-                .initializeLoan(loanTerms, borrower.address, lender.address, sig, nonce, ethers.constants.HashZero);
+                .initializeLoan(loanTerms, borrower.address, lender.address, sig, nonce);
             const receipt = await tx.wait();
 
             let loanId;

@@ -169,6 +169,7 @@ describe("LoanCore", () => {
             proratedInterestRate = ethers.utils.parseEther("1"),
             collateralId = 1,
             deadline = 259200,
+            affiliateCode = ethers.constants.HashZero
         }: Partial<LoanTerms> = {},
     ): LoanTerms => {
         return {
@@ -179,6 +180,7 @@ describe("LoanCore", () => {
             collateralId,
             payableCurrency,
             deadline,
+            affiliateCode
         };
     };
 
@@ -373,7 +375,6 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    ethers.constants.HashZero,
                     principal,
                     principal
                 )
@@ -388,7 +389,6 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    ethers.constants.HashZero,
                     terms.principal,
                     terms.principal,
                 )
@@ -417,7 +417,6 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                ethers.constants.HashZero,
                 terms.principal,
                 terms.principal
             );
@@ -427,7 +426,6 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    ethers.constants.HashZero,
                     terms.principal,
                     terms.principal
                 ),
@@ -470,7 +468,6 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    ethers.constants.HashZero,
                     principal,
                     principal
                 ),
@@ -511,7 +508,6 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    ethers.constants.HashZero,
                     principal,
                     principal
                 ),
@@ -526,7 +522,6 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    ethers.constants.HashZero,
                     terms.principal,
                     terms.principal
                 ),
@@ -548,7 +543,6 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    ethers.constants.HashZero,
                     principal,
                     principal
                 ),
@@ -574,7 +568,6 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    ethers.constants.HashZero,
                     principal,
                     principal
                 ),
@@ -597,7 +590,6 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    ethers.constants.HashZero,
                     principal,
                     principal
                 ),
@@ -1508,7 +1500,7 @@ describe("LoanCore", () => {
                 await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, borrower.address);
                 await loanCore.setAffiliateSplits([affiliateCode], [{ affiliate: borrower.address, splitBps: 50_00 }]);
 
-                const terms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId });
+                const terms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId, affiliateCode });
 
                 // run originator controller logic inline then invoke loanCore
                 // borrower is originator with originator role
@@ -1528,7 +1520,6 @@ describe("LoanCore", () => {
                     terms,
                     terms.principal.add(fee),
                     terms.principal,
-                    affiliateCode
                 );
 
                 return  { ...context, loanId, terms, borrower, lender };

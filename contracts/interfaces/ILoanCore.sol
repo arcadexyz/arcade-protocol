@@ -43,7 +43,6 @@ interface ILoanCore {
         address lender,
         address borrower,
         LoanLibrary.LoanTerms calldata terms,
-        bytes32 affiliateCode,
         uint256 _amountFromLender,
         uint256 _amountToBorrower
     ) external returns (uint256 loanId);

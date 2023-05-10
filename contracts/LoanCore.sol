@@ -145,7 +145,6 @@ contract LoanCore is
      * @param lender                The lender for the loan.
      * @param borrower              The borrower for the loan.
      * @param terms                 The terms of the loan.
-     * @param affiliateCode         A referral code from a registered protocol affiliate.
      * @param _amountFromLender     The amount of principal to be collected from the lender.
      * @param _amountToBorrower     The amount of principal to be distributed to the borrower (net after fees).
      *
@@ -155,7 +154,6 @@ contract LoanCore is
         address lender,
         address borrower,
         LoanLibrary.LoanTerms calldata terms,
-        bytes32 affiliateCode,
         uint256 _amountFromLender,
         uint256 _amountToBorrower
     ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 loanId) {
@@ -166,7 +164,8 @@ contract LoanCore is
         // Check that we will not net lose tokens.
         if (_amountToBorrower > _amountFromLender) revert LC_CannotSettle(_amountToBorrower, _amountFromLender);
         uint256 feesEarned = _amountFromLender - _amountToBorrower;
-        (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(feesEarned, affiliateCode);
+        (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
+            _getAffiliateSplit(feesEarned, terms.affiliateCode);
 
         // Assign fees for withdrawal
         feesWithdrawable[terms.payableCurrency][address(this)] += protocolFee;
@@ -180,7 +179,6 @@ contract LoanCore is
         loans[loanId] = LoanLibrary.LoanData({
             terms: terms,
             startDate: uint160(block.timestamp),
-            affiliateCode: affiliateCode,
             state: LoanLibrary.LoanState.Active
         });
 
@@ -307,7 +305,7 @@ contract LoanCore is
 
         if (_amountFromLender > 0) {
             (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
-                _getAffiliateSplit(_amountFromLender, data.affiliateCode);
+                _getAffiliateSplit(_amountFromLender, data.terms.affiliateCode);
 
             // Assign fees for withdrawal
             feesWithdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
@@ -401,8 +399,10 @@ contract LoanCore is
 
         {
             uint256 feesEarned = _settledAmount - _amountToOldLender - _amountToLender - _amountToBorrower;
+
+            // Make sure split goes to affiliate code from _new_ terms
             (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
-                _getAffiliateSplit(feesEarned, data.affiliateCode);
+                _getAffiliateSplit(feesEarned, terms.affiliateCode);
 
             // Assign fees for withdrawal
             feesWithdrawable[address(payableCurrency)][address(this)] += protocolFee;
@@ -418,7 +418,6 @@ contract LoanCore is
         loans[newLoanId] = LoanLibrary.LoanData({
             terms: terms,
             state: LoanLibrary.LoanState.Active,
-            affiliateCode: data.affiliateCode,
             startDate: uint160(block.timestamp)
         });
 

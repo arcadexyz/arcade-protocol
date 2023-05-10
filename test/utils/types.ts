@@ -1,4 +1,4 @@
-import { BigNumber, BigNumberish } from "ethers";
+import { BigNumber, BigNumberish, BytesLike } from "ethers";
 
 export enum LoanState {
     DUMMY = 0,
@@ -36,6 +36,7 @@ export interface LoanTerms {
     collateralId: BigNumberish;
     payableCurrency: string;
     deadline: BigNumberish;
+    affiliateCode: BytesLike;
 }
 
 export interface ItemsPayload {
@@ -45,6 +46,7 @@ export interface ItemsPayload {
     collateralAddress: string;
     itemsHash: string;
     payableCurrency: string;
+    affiliateCode: BytesLike;
     nonce: BigNumberish;
     side: 0 | 1;
     deadline: BigNumberish;

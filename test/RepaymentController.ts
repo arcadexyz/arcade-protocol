@@ -146,7 +146,8 @@ const createLoanTerms = (
     proratedInterestRate: BigNumberish,
     collateralAddress: string,
     deadline: BigNumberish,
-    { collateralId = 1 }: Partial<LoanTerms> = {},
+    collateralId: BigNumberish,
+    affiliateCode = ethers.constants.HashZero
 ): LoanTerms => {
     return {
         durationSecs,
@@ -156,6 +157,7 @@ const createLoanTerms = (
         collateralId,
         payableCurrency,
         deadline,
+        affiliateCode
     };
 };
 
@@ -184,7 +186,8 @@ const initializeLoan = async (
         interest,
         vaultFactory.address,
         deadline,
-        { collateralId: bundleId },
+        bundleId,
+        affiliateCode
     );
     await mint(mockERC20, lender, loanTerms.principal);
 
@@ -203,7 +206,7 @@ const initializeLoan = async (
 
     const tx = await originationController
         .connect(lender)
-        .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1, affiliateCode);
+        .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1);
     const receipt = await tx.wait();
 
     let loanId;
