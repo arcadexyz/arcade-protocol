@@ -45,10 +45,11 @@ error OC_InterestRate(uint256 interestRate);
  * @notice One of the predicates for item verification failed.
  *
  * @param verifier                      The address of the verifier contract.
+ * @param collateralAddress             The address of the collateral token.
+ * @param collateralId                  The token ID of the collateral.
  * @param data                          The verification data (to be parsed by verifier).
- * @param vault                         The user's vault subject to verification.
  */
-error OC_PredicateFailed(address verifier, bytes data, address vault);
+error OC_PredicateFailed(address verifier, address collateralAddress, uint256 collateralId, bytes data);
 
 /**
  * @notice The predicates array is empty.

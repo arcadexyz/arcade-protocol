@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import "../interfaces/ISignatureVerifier.sol";
+import "../interfaces/IVaultFactory.sol";
 import "../external/interfaces/IPunks.sol";
 
 import { IV_InvalidTokenId } from "../errors/Lending.sol";
@@ -47,13 +48,20 @@ contract PunksVerifier is ISignatureVerifier {
      *         Verification for empty predicates array has been addressed in initializeLoanWithItems and
      *         rolloverLoanWithItems.
      *
+     * @param collateralAddress             The address of the loan's collateral.
+     * @param collateralId                  The tokenId of the loan's collateral.
      * @param predicates                    The int256[] array of punk IDs to check for, packed in bytes.
-     * @param vault                         The vault that should own the specified items.
      *
      * @return verified                     Whether the bundle contains the specified items.
      */
     // solhint-disable-next-line code-complexity
-    function verifyPredicates(bytes calldata predicates, address vault) external view override returns (bool) {
+    function verifyPredicates(
+        address collateralAddress,
+        uint256 collateralId,
+        bytes calldata predicates
+    ) external view override returns (bool) {
+        address vault = IVaultFactory(collateralAddress).instanceAt(collateralId);
+
         // Unpack items
         int256[] memory tokenIds = abi.decode(predicates, (int256[]));
 

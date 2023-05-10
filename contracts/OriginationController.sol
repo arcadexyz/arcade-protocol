@@ -315,7 +315,6 @@ contract OriginationController is
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
-        address vault = IVaultFactory(loanTerms.collateralAddress).instanceAt(loanTerms.collateralId);
         (bytes32 sighash, address externalSigner) = recoverItemsSignature(
             loanTerms,
             sig,
@@ -335,8 +334,17 @@ contract OriginationController is
             address verifier = itemPredicates[i].verifier;
             if (!isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
 
-            if (!ISignatureVerifier(verifier).verifyPredicates(itemPredicates[i].data, vault)) {
-                revert OC_PredicateFailed(verifier, itemPredicates[i].data, vault);
+            if (!ISignatureVerifier(verifier).verifyPredicates(
+                loanTerms.collateralAddress,
+                loanTerms.collateralId,
+                itemPredicates[i].data
+            )) {
+                revert OC_PredicateFailed(
+                    verifier,
+                    loanTerms.collateralAddress,
+                    loanTerms.collateralId,
+                    itemPredicates[i].data
+                );
             }
         }
 
@@ -504,7 +512,6 @@ contract OriginationController is
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
-        address vault = IVaultFactory(loanTerms.collateralAddress).instanceAt(loanTerms.collateralId);
         (bytes32 sighash, address externalSigner) = recoverItemsSignature(
             loanTerms,
             sig,
@@ -524,8 +531,17 @@ contract OriginationController is
             address verifier = itemPredicates[i].verifier;
             if (!isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
 
-            if (!ISignatureVerifier(verifier).verifyPredicates(itemPredicates[i].data, vault)) {
-                revert OC_PredicateFailed(verifier, itemPredicates[i].data, vault);
+            if (!ISignatureVerifier(verifier).verifyPredicates(
+                loanTerms.collateralAddress,
+                loanTerms.collateralId,
+                itemPredicates[i].data
+            )) {
+                revert OC_PredicateFailed(
+                    verifier,
+                    loanTerms.collateralAddress,
+                    loanTerms.collateralId,
+                    itemPredicates[i].data
+                );
             }
         }
 

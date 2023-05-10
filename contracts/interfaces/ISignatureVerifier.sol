@@ -7,5 +7,9 @@ import "../libraries/LoanLibrary.sol";
 interface ISignatureVerifier {
     // ============== Collateral Verification ==============
 
-    function verifyPredicates(bytes calldata predicates, address vault) external view returns (bool);
+    function verifyPredicates(
+        address collateralAddress,
+        uint256 collateralId,
+        bytes calldata data
+    ) external view returns (bool);
 }
