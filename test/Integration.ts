@@ -109,15 +109,19 @@ const fixture = async (): Promise<TestContext> => {
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController
-    const whitelistCurrency = await originationController.allowPayableCurrency([mockERC20.address]);
-    await whitelistCurrency.wait();
+    await originationController.setAllowedPayableCurrencies([mockERC20.address], [true]);
     // verify the currency is whitelisted
     const isWhitelisted = await originationController.allowedCurrencies(mockERC20.address);
     expect(isWhitelisted).to.be.true;
-    // admin whitelists vaultFactory on OriginationController
-    const whitelistVaultFactory = await originationController.allowCollateralAddress([vaultFactory.address]);
-    await whitelistVaultFactory.wait();
+
+    // admin whitelists MockERC721 and vaultFactory on OriginationController
+    await originationController.setAllowedCollateralAddresses(
+        [mockERC721.address, vaultFactory.address],
+        [true, true]
+    );
     // verify the collateral is whitelisted
+    const isCollateralWhitelisted = await originationController.allowedCollateral(mockERC721.address);
+    expect(isCollateralWhitelisted).to.be.true;
     const isVaultFactoryWhitelisted = await originationController.allowedCollateral(vaultFactory.address);
     expect(isVaultFactoryWhitelisted).to.be.true;
 
@@ -686,8 +690,8 @@ describe("Integration", () => {
             const { feeController, repaymentController, originationController, mockERC20, mockERC721, loanCore, borrower, lender, admin } = context;
 
             const uvVerifier = <ArcadeItemsVerifier>await deploy("UnvaultedItemsVerifier", admin, []);
-            await originationController.setAllowedVerifier(uvVerifier.address, true);
-            await originationController.allowCollateralAddress([mockERC721.address]);
+            await originationController.setAllowedVerifiers([uvVerifier.address], [true]);
+            await originationController.setAllowedCollateralAddresses([mockERC721.address], [true]);
 
             // Set a 50 bps lender fee on origination, a 3% borrower rollover
             // fee, and a 10% fee on interest. Total fees earned should be
