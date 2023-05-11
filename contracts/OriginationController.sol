@@ -642,7 +642,7 @@ contract OriginationController is
         for (uint256 i = 0; i < tokens.length; ++i) {
             if (tokens[i] == address(0)) revert OC_ZeroAddress();
 
-            allowedCollateral[tokens[i]] = true;
+            allowedCollateral[tokens[i]] = isAllowed[i];
 
             emit SetAllowedCollateral(tokens[i], isAllowed[i]);
         }
