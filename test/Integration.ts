@@ -604,13 +604,13 @@ describe("Integration", () => {
             // Withdraw fees for both protocol and affiliate
             await expect(
                 loanCore.connect(borrower).withdraw(mockERC20.address, ethers.utils.parseEther("0.15"), borrower.address)
-            ).to.emit(loanCore, "FundsWithdrawn")
+            ).to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, borrower.address, borrower.address, ethers.utils.parseEther("0.15"));
 
             // Protocol admin gets 1.35 ETH - 1.5 total fees minus 10% affiliate share on fees
             await expect(
                 loanCore.connect(admin).withdrawProtocolFees(mockERC20.address, admin.address)
-            ).to.emit(loanCore, "FundsWithdrawn")
+            ).to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, admin.address, admin.address, ethers.utils.parseEther("1.35"));
 
             // All fees withdrawn
@@ -668,13 +668,13 @@ describe("Integration", () => {
             // Withdraw fees for both protocol and affiliate
             await expect(
                 loanCore.connect(borrower).withdraw(mockERC20.address, ethers.utils.parseEther("0.695"), borrower.address)
-            ).to.emit(loanCore, "FundsWithdrawn")
+            ).to.emit(loanCore, "FeesWithdrawn")
                .withArgs(mockERC20.address, borrower.address, borrower.address, ethers.utils.parseEther("0.695"));
 
             // Protocol admin gets 6.255 ETH - 6.95 total fees minus 10% affiliate share on fees
             await expect(
                 loanCore.connect(admin).withdrawProtocolFees(mockERC20.address, admin.address)
-            ).to.emit(loanCore, "FundsWithdrawn")
+            ).to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, admin.address, admin.address, ethers.utils.parseEther("6.255"));
 
             // All fees withdrawn
@@ -838,13 +838,13 @@ describe("Integration", () => {
             // Withdraw fees for both protocol and affiliate
             await expect(
                 loanCore.connect(borrower).withdraw(mockERC20.address, ethers.utils.parseEther("0.45"), borrower.address)
-            ).to.emit(loanCore, "FundsWithdrawn")
+            ).to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, borrower.address, borrower.address, ethers.utils.parseEther("0.45"));
 
             // Protocol admin gets 1.35 ETH - 1.5 total fees minus 10% affiliate share on fees
             await expect(
                 loanCore.connect(admin).withdrawProtocolFees(mockERC20.address, admin.address)
-            ).to.emit(loanCore, "FundsWithdrawn")
+            ).to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, admin.address, admin.address, ethers.utils.parseEther("4.05"));
 
             expect(await loanCore.feesWithdrawable(mockERC20.address, borrower.address)).to.eq(0);

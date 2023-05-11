@@ -1829,7 +1829,7 @@ describe("Rollovers", () => {
             expect(await loanCore.feesWithdrawable(mockERC20.address, borrower.address)).to.eq(ethers.utils.parseEther("0.44"));
 
             await expect(loanCore.connect(borrower).withdraw(mockERC20.address, ethers.utils.parseEther("0.44"), borrower.address))
-                .to.emit(loanCore, "FundsWithdrawn")
+                .to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, borrower.address, borrower.address, ethers.utils.parseEther("0.44"))
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(loanCore.address, borrower.address, ethers.utils.parseEther("0.44"));
@@ -1935,7 +1935,7 @@ describe("Rollovers", () => {
             expect(await loanCore.feesWithdrawable(mockERC20.address, lender.address)).to.eq(ethers.utils.parseEther("0.44"));
 
             await expect(loanCore.connect(lender).withdraw(mockERC20.address, ethers.utils.parseEther("0.44"), lender.address))
-                .to.emit(loanCore, "FundsWithdrawn")
+                .to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, lender.address, lender.address, ethers.utils.parseEther("0.44"))
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(loanCore.address, lender.address, ethers.utils.parseEther("0.44"));

@@ -24,9 +24,5 @@ abstract contract FeeLookups {
     bytes32 public constant FL_06 = keccak256("LENDER_DEFAULT_FEE");
     bytes32 public constant FL_07 = keccak256("LENDER_INTEREST_FEE");
     bytes32 public constant FL_08 = keccak256("LENDER_PRINCIPAL_FEE");
-    bytes32 public constant FL_09 = keccak256("LENDER_REDEEM_FEES");
-
-    /// @dev Lending plus fees: amount in bps, payable in loan token
-    bytes32 public constant FL_10 = keccak256("COLLATERAL_SALE_FEE");
-    bytes32 public constant FL_11 = keccak256("BNPL_FEE");
+    bytes32 public constant FL_09 = keccak256("LENDER_REDEEM_FEE");
 }

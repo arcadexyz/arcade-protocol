@@ -56,10 +56,6 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
         maxFees[FL_06] = 10_00;
         maxFees[FL_07] = 50_00;
         maxFees[FL_08] = 10_00;
-
-        /// @dev Lending plus fees - bps
-        maxFees[FL_09] = 10_00;
-        maxFees[FL_10] = 10_00;
     }
 
     // ======================================== GETTER/SETTER ==========================================

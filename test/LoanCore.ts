@@ -1158,7 +1158,7 @@ describe("LoanCore", () => {
                 .to.eq(repayAmount.div(10));
 
             await expect(loanCore.connect(borrower).withdrawProtocolFees(mockERC20.address, borrower.address))
-                .to.emit(loanCore, "FundsWithdrawn")
+                .to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, borrower.address, borrower.address, repayAmount.div(10));
         });
     });
@@ -1195,7 +1195,7 @@ describe("LoanCore", () => {
 
             expect(await mockERC20.balanceOf(loanCore.address)).to.equal(fee);
             await expect(loanCore.connect(borrower).withdrawProtocolFees(mockERC20.address, borrower.address))
-                .to.emit(loanCore, "FundsWithdrawn")
+                .to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, borrower.address, borrower.address, fee);
             expect(await mockERC20.balanceOf(loanCore.address)).to.equal(0);
         });
@@ -1559,7 +1559,7 @@ describe("LoanCore", () => {
                     .to.eq(fee.div(2));
 
                 await expect(loanCore.connect(borrower).withdraw(mockERC20.address, fee.div(2), borrower.address))
-                    .to.emit(loanCore, "FundsWithdrawn")
+                    .to.emit(loanCore, "FeesWithdrawn")
                     .withArgs(mockERC20.address, borrower.address, borrower.address, fee.div(2))
                     .to.emit(mockERC20, "Transfer")
                     .withArgs(loanCore.address, borrower.address, fee.div(2));
@@ -1572,7 +1572,7 @@ describe("LoanCore", () => {
                     .to.eq(fee.div(2));
 
                 await expect(loanCore.connect(borrower).withdraw(mockERC20.address, fee.div(2), borrower.address))
-                    .to.emit(loanCore, "FundsWithdrawn")
+                    .to.emit(loanCore, "FeesWithdrawn")
                     .withArgs(mockERC20.address, borrower.address, borrower.address, fee.div(2))
                     .to.emit(mockERC20, "Transfer")
                     .withArgs(loanCore.address, borrower.address, fee.div(2));
@@ -1585,7 +1585,7 @@ describe("LoanCore", () => {
                     .to.eq(fee.div(2));
 
                 await expect(loanCore.connect(borrower).withdraw(mockERC20.address, fee.div(2), borrower.address))
-                    .to.emit(loanCore, "FundsWithdrawn")
+                    .to.emit(loanCore, "FeesWithdrawn")
                     .withArgs(mockERC20.address, borrower.address, borrower.address, fee.div(2))
                     .to.emit(mockERC20, "Transfer")
                     .withArgs(loanCore.address, borrower.address, fee.div(2));
@@ -1604,7 +1604,7 @@ describe("LoanCore", () => {
                     .to.eq(fee.div(2));
 
                 await expect(loanCore.connect(borrower).withdraw(mockERC20.address, fee.div(8), borrower.address))
-                    .to.emit(loanCore, "FundsWithdrawn")
+                    .to.emit(loanCore, "FeesWithdrawn")
                     .withArgs(mockERC20.address, borrower.address, borrower.address, fee.div(8))
                     .to.emit(mockERC20, "Transfer")
                     .withArgs(loanCore.address, borrower.address, fee.div(8));
@@ -1616,7 +1616,7 @@ describe("LoanCore", () => {
                     .to.be.revertedWith("LC_CannotWithdraw");
 
                 await expect(loanCore.connect(borrower).withdraw(mockERC20.address, fee.div(8).mul(3), borrower.address))
-                    .to.emit(loanCore, "FundsWithdrawn")
+                    .to.emit(loanCore, "FeesWithdrawn")
                     .withArgs(mockERC20.address, borrower.address, borrower.address, fee.div(8).mul(3))
                     .to.emit(mockERC20, "Transfer")
                     .withArgs(loanCore.address, borrower.address, fee.div(8).mul(3));

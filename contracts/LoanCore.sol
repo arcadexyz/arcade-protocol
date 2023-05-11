@@ -551,7 +551,7 @@ contract LoanCore is
 
         IERC20(token).safeTransfer(msg.sender, amount);
 
-        emit FundsWithdrawn(token, msg.sender, to, amount);
+        emit FeesWithdrawn(token, msg.sender, to, amount);
     }
 
     /**
@@ -568,7 +568,7 @@ contract LoanCore is
 
         IERC20(token).safeTransfer(to, amount);
 
-        emit FundsWithdrawn(token, msg.sender, to, amount);
+        emit FeesWithdrawn(token, msg.sender, to, amount);
     }
 
     // ======================================== ADMIN FUNCTIONS =========================================
