@@ -12,7 +12,8 @@ import {
     MockERC20,
     MockERC721,
     MockERC1155,
-    FeeController
+    FeeController,
+    BaseURIDescriptor
 } from "../typechain";
 import { deploy } from "./utils/contracts";
 
@@ -21,6 +22,7 @@ import { mint as mint20 } from "./utils/erc20";
 import { mint as mint721, mintToAddress as mint721ToAddress } from "./utils/erc721";
 import { mint as mint1155 } from "./utils/erc1155";
 import { encodeSignatureItems, initializeBundle } from "./utils/loans";
+import { BASE_URI } from "./utils/constants";
 
 type Signer = SignerWithAddress;
 
@@ -51,7 +53,8 @@ describe("ItemsVerifier", () => {
 
         const vaultTemplate = <AssetVault>await deploy("AssetVault", deployer, []);
         const feeController = <FeeController>await deploy("FeeController", signers[0], []);
-        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address])
+        const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
+        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address]);
 
         return {
             verifier,

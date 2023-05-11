@@ -175,19 +175,6 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
     }
 
     /**
-     * @notice Getter of specific URI for a bundle token ID.
-     *
-     * @param tokenId               The ID of the bundle to get the URI for.
-     *
-     * @return                      The bundle ID's URI string.
-     */
-    function tokenURI(uint256 tokenId) public view override(IVaultFactory, ERC721) returns (string memory) {
-        _exists(tokenId);
-
-        return descriptor.tokenURI(address(this), tokenId);
-    }
-
-    /**
      * @dev Creates and initializes a minimal proxy vault instance,
      *      using the OpenZeppelin Clones library.
      *
@@ -210,6 +197,33 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
     }
 
     // ===================================== ERC721 UTILITIES ===========================================
+
+    /**
+     * @notice Getter of specific URI for a bundle token ID.
+     *
+     * @param tokenId               The ID of the bundle to get the URI for.
+     *
+     * @return                      The bundle ID's URI string.
+     */
+    function tokenURI(uint256 tokenId) public view override(INFTWithDescriptor, ERC721) returns (string memory) {
+        _exists(tokenId);
+
+        return descriptor.tokenURI(address(this), tokenId);
+    }
+
+    /**
+     * @notice Changes the descriptor contract for reporting tokenURI
+     *         resources. Can only be called by a resource manager.
+     *
+     * @param _descriptor           The new descriptor contract.
+     */
+    function setDescriptor(address _descriptor) external onlyRole(RESOURCE_MANAGER_ROLE) {
+        if (_descriptor == address(0)) revert VF_ZeroAddress();
+
+        descriptor = INFTDescriptor(_descriptor);
+
+        emit SetDescriptor(msg.sender, _descriptor);
+    }
 
     /**
      * @dev Hook that is called before any token transfer.

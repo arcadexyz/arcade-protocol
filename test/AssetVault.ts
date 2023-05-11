@@ -14,13 +14,14 @@ import {
     MockERC1155,
     CryptoPunksMarket,
     DelegationRegistry,
-    FeeController
+    FeeController,
+    BaseURIDescriptor
 } from "../typechain";
 import { mint } from "./utils/erc20";
 import { mintToAddress as mintERC721 } from "./utils/erc721";
 import { mint as mintERC1155 } from "./utils/erc1155";
 import { deploy } from "./utils/contracts";
-import { Test } from "mocha";
+import { BASE_URI } from "./utils/constants";
 
 type Signer = SignerWithAddress;
 
@@ -77,7 +78,8 @@ describe("AssetVault", () => {
 
         const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
         const feeController = <FeeController>await deploy("FeeController", signers[0], []);
-        const factory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address])
+        const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
+        const factory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address])
         const vault = await createVault(factory, signers[0]);
 
         const punks = <CryptoPunksMarket>await deploy("CryptoPunksMarket", signers[0], []);

@@ -16,7 +16,8 @@ import {
     LoanCore,
     MockERC20,
     ArcadeItemsVerifier,
-    MockERC721
+    MockERC721,
+    BaseURIDescriptor
 } from "../typechain";
 import { BlockchainTime } from "./utils/time";
 import { deploy } from "./utils/contracts";
@@ -31,6 +32,7 @@ import {
     FEE_CLAIMER_ROLE,
     REPAYER_ROLE,
     AFFILIATE_MANAGER_ROLE,
+    BASE_URI
 } from "./utils/constants";
 
 interface TestContext {
@@ -72,10 +74,11 @@ const fixture = async (): Promise<TestContext> => {
     const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
     const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
     const feeController = <FeeController>await deploy("FeeController", admin, []);
-    const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address]);
+    const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
+    const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address]);
 
-    const borrowerNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz BorrowerNote", "aBN"]);
-    const lenderNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz LenderNote", "aLN"]);
+    const borrowerNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz BorrowerNote", "aBN", descriptor.address]);
+    const lenderNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz LenderNote", "aLN", descriptor.address]);
 
     const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [borrowerNote.address, lenderNote.address]);
 

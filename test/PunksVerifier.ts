@@ -10,11 +10,13 @@ import {
     CallWhitelist,
     VaultFactory,
     CryptoPunksMarket,
-    FeeController
+    FeeController,
+    BaseURIDescriptor
 } from "../typechain";
 import { deploy } from "./utils/contracts";
 
 import { encodeInts, initializeBundle } from "./utils/loans";
+import { BASE_URI } from "./utils/constants";
 
 type Signer = SignerWithAddress;
 
@@ -41,8 +43,8 @@ describe("PunksVerifier", () => {
 
         const vaultTemplate = <AssetVault>await deploy("AssetVault", deployer, []);
         const feeController = <FeeController>await deploy("FeeController", signers[0], []);
-
-        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address])
+        const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
+        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address]);
 
         await punks.allInitialOwnersAssigned();
 

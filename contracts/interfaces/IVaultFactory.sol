@@ -2,7 +2,9 @@
 
 pragma solidity ^0.8.11;
 
-interface IVaultFactory {
+import "./INFTWithDescriptor.sol";
+
+interface IVaultFactory is INFTWithDescriptor {
     // ============= Events ==============
 
     event VaultCreated(address vault, address to);
@@ -21,8 +23,4 @@ interface IVaultFactory {
     // ================ Factory Operations ================
 
     function initializeBundle(address to) external payable returns (uint256);
-
-    // ================ Resource Metadata ================
-
-    function tokenURI(uint256 tokenId) external view returns (string memory);
 }

@@ -121,7 +121,7 @@ contract PromissoryNote is
         _setupRole(MINT_BURN_ROLE, loanCore);
 
         // Revoke admin role from msg.sender
-        revokeRole(ADMIN_ROLE, msg.sender);
+        renounceRole(ADMIN_ROLE, msg.sender);
 
         initialized = true;
     }
@@ -161,21 +161,6 @@ contract PromissoryNote is
         _burn(tokenId);
     }
 
-    /**
-     * @notice Pauses transfers on the note. This essentially blocks all loan lifecycle
-     *         operations, since all originations and transfers require transfers of
-     *         the note.
-     *
-     * @param paused                Whether the contract should be paused.
-     */
-    function setPaused(bool paused) external override onlyRole(ADMIN_ROLE) {
-        if (paused) {
-            _pause();
-        } else {
-            _unpause();
-        }
-    }
-
     // ===================================== ERC721 UTILITIES ============================================
 
     /**
@@ -185,10 +170,24 @@ contract PromissoryNote is
      *
      * @return                      The token ID's URI.
      */
-    function tokenURI(uint256 tokenId) public view override(IPromissoryNote, ERC721) returns (string memory) {
+    function tokenURI(uint256 tokenId) public view override(INFTWithDescriptor, ERC721) returns (string memory) {
         _exists(tokenId);
 
         return descriptor.tokenURI(address(this), tokenId);
+    }
+
+    /**
+     * @notice Changes the descriptor contract for reporting tokenURI
+     *         resources. Can only be called by a resource manager.
+     *
+     * @param _descriptor           The new descriptor contract.
+     */
+    function setDescriptor(address _descriptor) external onlyRole(RESOURCE_MANAGER_ROLE) {
+        if (_descriptor == address(0)) revert PN_ZeroAddress();
+
+        descriptor = INFTDescriptor(_descriptor);
+
+        emit SetDescriptor(msg.sender, _descriptor);
     }
 
     /**

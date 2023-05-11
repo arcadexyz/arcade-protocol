@@ -10,12 +10,14 @@ import {
     VaultFactory,
     GenArt721Core,
     ArtBlocksVerifier,
-    FeeController
+    FeeController,
+    BaseURIDescriptor
 } from "../typechain";
 import { deploy } from "./utils/contracts";
 
 import { encodeArtBlocksItems, initializeBundle } from "./utils/loans";
 import { ArtBlocksItem } from "./utils/types";
+import { BASE_URI } from "./utils/constants";
 
 type Signer = SignerWithAddress;
 
@@ -45,7 +47,8 @@ describe("ArtBlocksVerifier", () => {
 
         const vaultTemplate = <AssetVault>await deploy("AssetVault", deployer, []);
         const feeController = <FeeController>await deploy("FeeController", signers[0], []);
-        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address])
+        const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
+        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address])
 
         // Mint a few projects - will start with ID 3
         await artblocks.addProject("Project 1", user.address, price, false);
