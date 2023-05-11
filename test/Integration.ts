@@ -700,7 +700,7 @@ describe("Integration", () => {
 
             const tokenId = await mint721(mockERC721, borrower);
             await mockERC721.connect(borrower).approve(loanCore.address, tokenId);
-            const loanTerms = createLoanTerms(mockERC20.address, mockERC721.address, { collateralId: tokenId });
+            const loanTerms = createLoanTerms(mockERC20.address, mockERC721.address, { collateralId: tokenId, affiliateCode: code });
 
             const lenderFeeBps = await feeController.get(await feeController.FL_03());
             const lenderFee = loanTerms.principal.mul(lenderFeeBps).div(10_000);
@@ -736,8 +736,7 @@ describe("Integration", () => {
                     lender.address,
                     sig,
                     1,
-                    predicates,
-                    code
+                    predicates
                 );
 
             const receipt = await tx.wait();

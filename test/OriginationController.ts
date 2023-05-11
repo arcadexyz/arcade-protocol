@@ -1434,8 +1434,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        predicates,
-                        ethers.constants.HashZero
+                        predicates
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -1481,8 +1480,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        predicates,
-                        ethers.constants.HashZero
+                        predicates
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -1528,8 +1526,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        predicates,
-                        ethers.constants.HashZero
+                        predicates
                     ),
             )
                 .to.be.revertedWith("OC_PredicateFailed");
@@ -1574,8 +1571,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        predicates,
-                        ethers.constants.HashZero
+                        predicates
                     ),
             )
                 .to.be.revertedWith("OC_PredicateFailed");

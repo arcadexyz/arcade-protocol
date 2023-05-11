@@ -339,7 +339,7 @@ contract LoanCore is
         amount -= _amountDeducted;
 
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
-            _getAffiliateSplit(_amountDeducted, loans[loanId].affiliateCode);
+            _getAffiliateSplit(_amountDeducted, loans[loanId].terms.affiliateCode);
 
         // Assign fees for withdrawal
         feesWithdrawable[token][address(this)] += protocolFee;
@@ -645,7 +645,7 @@ contract LoanCore is
         // Check that we will not net lose tokens.
         if (_amountToLender > _amountFromPayer) revert LC_CannotSettle(_amountToLender, _amountFromPayer);
         uint256 feesEarned = _amountFromPayer - _amountToLender;
-        (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(feesEarned, data.affiliateCode);
+        (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(feesEarned, data.terms.affiliateCode);
 
         // Assign fees for withdrawal
         feesWithdrawable[data.terms.payableCurrency][address(this)] += protocolFee;

@@ -1931,7 +1931,7 @@ describe("Rollovers", () => {
             expect(await loanCore.canCallOn(borrower.address, bundleId.toString())).to.eq(true);
 
             // Check affiliate split and withdraw
-            expect(await loanCore.withdrawable(mockERC20.address, lender.address)).to.eq(ethers.utils.parseEther("0.44"));
+            expect(await loanCore.feesWithdrawable(mockERC20.address, lender.address)).to.eq(ethers.utils.parseEther("0.44"));
 
             await expect(loanCore.connect(lender).withdraw(mockERC20.address, ethers.utils.parseEther("0.44"), lender.address))
                 .to.emit(loanCore, "FundsWithdrawn")
