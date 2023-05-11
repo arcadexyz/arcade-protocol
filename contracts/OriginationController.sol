@@ -94,7 +94,7 @@ contract OriginationController is
     // =============== Contract References ===============
 
     ILoanCore private immutable loanCore;
-    IFeeController private feeController;
+    IFeeController private immutable feeController;
 
     // ================= Approval State ==================
 
@@ -131,114 +131,6 @@ contract OriginationController is
 
         loanCore = ILoanCore(_loanCore);
         feeController = IFeeController(_feeController);
-    }
-
-    // ========================================== ADMIN UTILS ==========================================
-
-    /**
-     * @notice Sets the fee controller to a new address. It must implement the
-     *         IFeeController interface. Can only be called by the contract owner.
-     *
-     * @param _newController        The new fee controller contract.
-     */
-    function setFeeController(IFeeController _newController) external onlyRole(ADMIN_ROLE) {
-        if (address(_newController) == address(0)) revert OC_ZeroAddress();
-
-        feeController = _newController;
-
-        emit SetFeeController(address(feeController));
-    }
-
-    // ===================================== WHITELIST MANAGER UTILS =====================================
-
-    /**
-     * @notice Adds an array of payable currencies to the allowed currencies mapping.
-     *
-     * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
-     *      addresses is the zero address or already allowed. The array of addresses passed to this
-     *      function is limited to 50 elements.
-     *
-     * @param _tokenAddress               Array of token addresses to add.
-     */
-    function allowPayableCurrency(address[] memory _tokenAddress) external override onlyRole(WHITELIST_MANAGER_ROLE) {
-        if (_tokenAddress.length == 0) revert OC_ZeroArrayElements();
-        if (_tokenAddress.length > 50) revert OC_ArrayTooManyElements();
-
-        for (uint256 i = 0; i < _tokenAddress.length; ++i) {
-            if (_tokenAddress[i] == address(0)) revert OC_ZeroAddress();
-            if (allowedCurrencies[_tokenAddress[i]]) revert OC_AlreadyAllowed(_tokenAddress[i]);
-
-            allowedCurrencies[_tokenAddress[i]] = true;
-
-            // TODO: Add events
-        }
-    }
-
-    /**
-     * @notice Removes an array of payable currencies from the allowed currencies mapping.
-     *
-     * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
-     *      addresses is the zero address or is not already approved. The array of addresses passed to this
-     *      function is limited to 50 elements.
-     *
-     * @param _tokenAddress               Array of token addresses to remove.
-     */
-    function removePayableCurrency(address[] memory _tokenAddress) external override onlyRole(WHITELIST_MANAGER_ROLE) {
-        if (_tokenAddress.length == 0) revert OC_ZeroArrayElements();
-        if (_tokenAddress.length > 50) revert OC_ArrayTooManyElements();
-
-        for (uint256 i = 0; i < _tokenAddress.length; ++i) {
-            if (_tokenAddress[i] == address(0)) revert OC_ZeroAddress();
-            if (!allowedCurrencies[_tokenAddress[i]]) revert OC_DoesNotExist(_tokenAddress[i]);
-
-            allowedCurrencies[_tokenAddress[i]] = false;
-
-            // TODO: Add events
-        }
-    }
-
-    /**
-     * @notice Adds an array collateral tokens to the allowed collateral mapping.
-     *
-     * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
-     *      addresses is the zero address or is not already approved. The array of addresses passed to this
-     *      function is limited to 50 elements.
-     *
-     * @param _tokenAddress                Array of token addresses to add.
-     */
-    function allowCollateralAddress(address[] memory _tokenAddress) external override onlyRole(WHITELIST_MANAGER_ROLE) {
-        if (_tokenAddress.length == 0) revert OC_ZeroArrayElements();
-        if (_tokenAddress.length > 50) revert OC_ArrayTooManyElements();
-
-        for (uint256 i = 0; i < _tokenAddress.length; ++i) {
-            if (_tokenAddress[i] == address(0)) revert OC_ZeroAddress();
-            if (allowedCollateral[_tokenAddress[i]]) revert OC_AlreadyAllowed(_tokenAddress[i]);
-
-            allowedCollateral[_tokenAddress[i]] = true;
-
-            // TODO: Add events
-        }
-    }
-
-    /**
-     * @notice Removes an array of collateral tokens from the allowed collateral mapping.
-     *
-     * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
-     *      addresses is the zero address or is not already approved. The array of addresses passed to this
-     *      function is limited to 50 elements.
-     *
-     * @param _tokenAddress                Array of token addresses to remove.
-     */
-    function removeCollateralAddress(address[] memory _tokenAddress) external override onlyRole(WHITELIST_MANAGER_ROLE) {
-        if (_tokenAddress.length == 0) revert OC_ZeroArrayElements();
-        if (_tokenAddress.length > 50) revert OC_ArrayTooManyElements();
-
-        for (uint256 i = 0; i < _tokenAddress.length; ++i) {
-            if (_tokenAddress[i] == address(0)) revert OC_ZeroAddress();
-            if (!allowedCollateral[_tokenAddress[i]]) revert OC_DoesNotExist(_tokenAddress[i]);
-
-            allowedCollateral[_tokenAddress[i]] = false;
-        }
     }
 
     // ==================================== ORIGINATION OPERATIONS ======================================
@@ -691,24 +583,80 @@ contract OriginationController is
         signer = ECDSA.recover(sighash, sig.v, sig.r, sig.s);
     }
 
-    // ==================================== VERIFICATION WHITELIST ======================================
+    // ===================================== WHITELIST MANAGER UTILS =====================================
 
     /**
-     * @notice Manage whitelist for contracts that are allowed to act as a predicate verifier.
-     *         Prevents counterparties from abusing misleading/obscure verification logic.
-     *         The contract owner should take extra care in whitelisting third-party verification contracts:
-     *         for instance, an upgradeable third-party verifier controlled by a borrower could be maliciously
-     *         upgraded to approve an empty bundle.
+     * @notice Adds an array of payable currencies to the allowed currencies mapping.
      *
-     * @param verifier              The specified verifier contract, should implement ISignatureVerifier.
-     * @param isAllowed             Whether the specified contract should be allowed.
+     * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
+     *      addresses is the zero address. The array of addresses passed to this
+     *      function is limited to 50 elements.
+     *
+     * @param tokens                     Array of token addresses to add.
+     * @param isAllowed                  Whether the token is allowed or not.
      */
-    function setAllowedVerifier(address verifier, bool isAllowed) public override onlyRole(ADMIN_ROLE) {
-        if (verifier == address(0)) revert OC_ZeroAddress();
+    function setAllowedPayableCurrencies(
+        address[] calldata tokens,
+        bool[] calldata isAllowed
+    ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
+        if (tokens.length == 0) revert OC_ZeroArrayElements();
+        if (tokens.length > 50) revert OC_ArrayTooManyElements();
 
-        allowedVerifiers[verifier] = isAllowed;
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            if (tokens[i] == address(0)) revert OC_ZeroAddress();
 
-        emit SetAllowedVerifier(verifier, isAllowed);
+            allowedCurrencies[tokens[i]] = isAllowed[i];
+
+            emit SetAllowedCurrency(tokens[i], isAllowed[i]);
+        }
+    }
+
+    /**
+     * @notice Return whether the address can be used as a loan funding currency.
+     *
+     * @param verifier             The verifier contract to query.
+     *
+     * @return isAllowed          Whether the contract is verified.
+     */
+    function isAllowedCurrency(address verifier) public view override returns (bool) {
+        return allowedCurrencies[verifier];
+    }
+
+    /**
+     * @notice Adds an array collateral tokens to the allowed collateral mapping.
+     *
+     * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
+     *      addresses is the zero address. The array of addresses passed to this
+     *      function is limited to 50 elements.
+     *
+     * @param tokens                     Array of token addresses to add.
+     * @param isAllowed                  Whether the token is allowed or not.
+     */
+    function setAllowedCollateralAddresses(
+        address[] calldata tokens,
+        bool[] calldata isAllowed
+    ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
+        if (tokens.length == 0) revert OC_ZeroArrayElements();
+        if (tokens.length > 50) revert OC_ArrayTooManyElements();
+
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            if (tokens[i] == address(0)) revert OC_ZeroAddress();
+
+            allowedCollateral[tokens[i]] = true;
+
+            emit SetAllowedCollateral(tokens[i], isAllowed[i]);
+        }
+    }
+
+    /**
+     * @notice Return whether the address can be used as collateral.
+     *
+     * @param token                The token to query.
+     *
+     * @return isAllowed           Whether the token can be used as collateral.
+     */
+    function isAllowedCollateral(address token) public view override returns (bool) {
+        return allowedCollateral[token];
     }
 
     /**
@@ -718,11 +666,18 @@ contract OriginationController is
      * @param verifiers             The list of specified verifier contracts, should implement ISignatureVerifier.
      * @param isAllowed             Whether the specified contracts should be allowed, respectively.
      */
-    function setAllowedVerifierBatch(address[] calldata verifiers, bool[] calldata isAllowed) external override {
+    function setAllowedVerifiers(
+        address[] calldata verifiers,
+        bool[] calldata isAllowed
+    ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
         if (verifiers.length != isAllowed.length) revert OC_BatchLengthMismatch();
 
         for (uint256 i = 0; i < verifiers.length; ++i) {
-            setAllowedVerifier(verifiers[i], isAllowed[i]);
+            if (verifiers[i] == address(0)) revert OC_ZeroAddress();
+
+            allowedVerifiers[verifiers[i]] = isAllowed[i];
+
+            emit SetAllowedVerifier(verifiers[i], isAllowed[i]);
         }
     }
 

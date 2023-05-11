@@ -31,6 +31,8 @@ interface IOriginationController {
 
     event Approval(address indexed owner, address indexed signer, bool isApproved);
     event SetAllowedVerifier(address indexed verifier, bool isAllowed);
+    event SetAllowedCurrency(address indexed currency, bool isAllowed);
+    event SetAllowedCollateral(address indexed collateral, bool isAllowed);
     event SetFeeController(address feeController);
 
     // ============== Origination Operations ==============
@@ -123,17 +125,15 @@ interface IOriginationController {
 
     // ============== Admin Operations ==============
 
-    function allowPayableCurrency(address[] memory _tokenAddress) external;
+    function setAllowedPayableCurrencies(address[] memory _tokenAddress, bool[] calldata isAllowed) external;
 
-    function removePayableCurrency(address[] memory _tokenAddress) external;
+    function setAllowedCollateralAddresses(address[] memory _tokenAddress, bool[] calldata isAllowed) external;
 
-    function allowCollateralAddress(address[] memory _tokenAddress) external;
+    function setAllowedVerifiers(address[] calldata verifiers, bool[] calldata isAllowed) external;
 
-    function removeCollateralAddress(address[] memory _tokenAddress) external;
+    function isAllowedCurrency(address token) external view returns (bool);
 
-    function setAllowedVerifier(address verifier, bool isAllowed) external;
-
-    function setAllowedVerifierBatch(address[] calldata verifiers, bool[] calldata isAllowed) external;
+    function isAllowedCollateral(address token) external view returns (bool);
 
     function isAllowedVerifier(address verifier) external view returns (bool);
 }
