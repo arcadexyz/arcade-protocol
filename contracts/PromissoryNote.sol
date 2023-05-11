@@ -4,20 +4,21 @@ pragma solidity ^0.8.11;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-import "./ERC721Permit.sol";
+import "./nft/ERC721Permit.sol";
+import "./nft/BaseURIDescriptor.sol";
 import "./interfaces/ILoanCore.sol";
 import "./interfaces/IPromissoryNote.sol";
 
 import {
+    PN_ZeroAddress,
     PN_MintingRole,
     PN_BurningRole,
     PN_ContractPaused,
-    PN_CannotInitialize,
     PN_AlreadyInitialized
 } from "./errors/Lending.sol";
 
@@ -46,28 +47,30 @@ import {
  */
 contract PromissoryNote is
     Context,
-    AccessControlEnumerable,
+    AccessControl,
     ERC721Enumerable,
     ERC721Pausable,
     ERC721Permit,
     IPromissoryNote
 {
     using Counters for Counters.Counter;
-    using Strings for uint256;
+
 
     // ============================================ STATE ==============================================
 
     // =================== Constants =====================
 
+    /// @dev After loanCore initialization, admin role is permanently revoked.
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
+    bytes32 public constant MINT_BURN_ROLE = keccak256("MINT/BURN");
+    bytes32 public constant RESOURCE_MANAGER_ROLE = keccak256("RESOURCE_MANAGER");
 
     // ================= State Variables ==================
 
-    /// @dev Initially deployer, then account with burn/mint/pause roles (LoanCore).
-    address public owner;
-    bool private initialized;
+    /// @dev Contract for returning tokenURI resources.
+    INFTDescriptor public descriptor;
 
-    string public baseURI;
+    bool private initialized;
 
     Counters.Counter private _tokenIdTracker;
 
@@ -80,36 +83,46 @@ contract PromissoryNote is
      *
      * @param name                  The name of the token (see ERC721).
      * @param symbol                The symbol of the token (see ERC721).
-     * @param _baseURI              The value of the baseURI state variable.
+     * @param _descriptor           The resource descriptor contract.
      */
     constructor(
         string memory name,
         string memory symbol,
-        string memory _baseURI
+        address _descriptor
     ) ERC721(name, symbol) ERC721Permit(name) {
+        if (_descriptor == address(0)) revert PN_ZeroAddress();
+
+        descriptor = INFTDescriptor(_descriptor);
+
+        // Do not set role admin for admin role.
+        _setupRole(ADMIN_ROLE, msg.sender);
+
+        // Allow admin to set mint/burn role, which they will do
+        // during initialize. After initialize, admin role is
+        // permanently revoked, so mint/burn role becomes immutable.
+        _setRoleAdmin(MINT_BURN_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(RESOURCE_MANAGER_ROLE, ADMIN_ROLE);
+
         // We don't want token IDs of 0
         _tokenIdTracker.increment();
-
-        baseURI = _baseURI;
-
-        owner = msg.sender;
     }
 
     /**
-     * @notice Grants owner access to the specified address, which should be an
-     *         instance of LoanCore. Once admin role is set, it is immutable,
+     * @notice Grants mint/burn access to the specified address, which should be an
+     *         instance of LoanCore. Once role is set, it is immutable,
      *         and cannot be set again.
      *
      * @param loanCore              The address of the admin.
      */
-    function initialize(address loanCore) external {
+    function initialize(address loanCore) external onlyRole(ADMIN_ROLE) {
         if (initialized) revert PN_AlreadyInitialized();
-        if (msg.sender != owner) revert PN_CannotInitialize();
 
-        _setupRole(ADMIN_ROLE, loanCore);
-        _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
+        // Grant mint/burn role to loanCore
+        _setupRole(MINT_BURN_ROLE, loanCore);
 
-        owner = loanCore;
+        // Revoke admin role from msg.sender
+        revokeRole(ADMIN_ROLE, msg.sender);
+
         initialized = true;
     }
 
@@ -128,33 +141,10 @@ contract PromissoryNote is
      * @return tokenId              The newly minted token ID.
      */
     function mint(address to, uint256 loanId) external override returns (uint256) {
-        if (!hasRole(ADMIN_ROLE, msg.sender)) revert PN_MintingRole(msg.sender);
+        if (!hasRole(MINT_BURN_ROLE, msg.sender)) revert PN_MintingRole(msg.sender);
         _mint(to, loanId);
 
         return loanId;
-    }
-
-    /**
-     * @notice Getter of specific URI for an ERC721 token ID.
-     *
-     * @param tokenId               The ID of the token to get the URI for.
-     *
-     * @return                      The token ID's URI.
-     */
-    function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        _exists(tokenId);
-
-        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : "";
-    }
-
-    /**
-     * @notice An ADMIN_ROLE function for setting the string value of the base URI.
-     *
-     * @param newBaseURI              The new value of the base URI.
-     *
-     */
-    function setBaseURI(string memory newBaseURI) public onlyRole(ADMIN_ROLE) {
-        baseURI = newBaseURI;
     }
 
     /**
@@ -167,7 +157,7 @@ contract PromissoryNote is
      * @param tokenId               The ID of the token to burn, should match a loan.
      */
     function burn(uint256 tokenId) external override {
-        if (!hasRole(ADMIN_ROLE, msg.sender)) revert PN_BurningRole(msg.sender);
+        if (!hasRole(MINT_BURN_ROLE, msg.sender)) revert PN_BurningRole(msg.sender);
         _burn(tokenId);
     }
 
@@ -189,13 +179,26 @@ contract PromissoryNote is
     // ===================================== ERC721 UTILITIES ============================================
 
     /**
+     * @notice Getter of specific URI for an ERC721 token ID.
+     *
+     * @param tokenId               The ID of the token to get the URI for.
+     *
+     * @return                      The token ID's URI.
+     */
+    function tokenURI(uint256 tokenId) public view override(IPromissoryNote, ERC721) returns (string memory) {
+        _exists(tokenId);
+
+        return descriptor.tokenURI(address(this), tokenId);
+    }
+
+    /**
      * @dev See {IERC165-supportsInterface}.
      */
     function supportsInterface(bytes4 interfaceId)
         public
         view
         virtual
-        override(AccessControlEnumerable, ERC721, ERC721Enumerable, IERC165)
+        override(AccessControl, ERC721, ERC721Enumerable, IERC165)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);

@@ -13,7 +13,8 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "../interfaces/IAssetVault.sol";
 import "../interfaces/IVaultFactory.sol";
 import "../interfaces/IFeeController.sol";
-import "../ERC721Permit.sol";
+import "../interfaces/INFTDescriptor.sol";
+import "../nft/ERC721Permit.sol";
 
 import { VF_ZeroAddress, VF_TokenIdOutOfBounds, VF_NoTransferWithdrawEnabled, VF_InsufficientMintFee } from "../errors/Vault.sol";
 
@@ -42,8 +43,8 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
     // =================== Constants =====================
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
-
     bytes32 public constant FEE_CLAIMER_ROLE = keccak256("FEE_CLAIMER");
+    bytes32 public constant RESOURCE_MANAGER_ROLE = keccak256("RESOURCE_MANAGER");
 
     /// @dev Lookup identifier for minting fee in fee controller
     bytes32 public constant FL_01 = keccak256("VAULT_MINT_FEE");
@@ -57,8 +58,8 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
     /// @dev The contract specifying minting fees, if non-zero
     IFeeController public immutable feeController;
 
-    /// @dev The baseURI for the minted vaults
-    string public baseURI;
+    /// @dev Contract for returning tokenURI resources.
+    INFTDescriptor public descriptor;
 
     // ========================================== CONSTRUCTOR ===========================================
 
@@ -67,18 +68,25 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
      *
      * @param _template          The address of the template contract for vaults.
      * @param _whitelist         The address of the CallWhitelist contract.
-     * @param _baseURI           The value of the baseURI state variable.
+     * @param _feeController     The contract reporting fees for vault minting.
+     * @param _descriptor        The resource descriptor contract.
      *
      */
     constructor(
         address _template,
         address _whitelist,
         address _feeController,
-        string memory _baseURI
+        address _descriptor
     ) ERC721("Asset Vault", "AV") ERC721Permit("Asset Vault") {
         if (_template == address(0)) revert VF_ZeroAddress();
         if (_whitelist == address(0)) revert VF_ZeroAddress();
         if (_feeController == address(0)) revert VF_ZeroAddress();
+        if (_descriptor == address(0)) revert VF_ZeroAddress();
+
+        template = _template;
+        whitelist = _whitelist;
+        descriptor = INFTDescriptor(_descriptor);
+        feeController = IFeeController(_feeController);
 
         _setupRole(ADMIN_ROLE, msg.sender);
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
@@ -86,11 +94,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
         _setupRole(FEE_CLAIMER_ROLE, msg.sender);
         _setRoleAdmin(FEE_CLAIMER_ROLE, ADMIN_ROLE);
 
-        baseURI = _baseURI;
-
-        template = _template;
-        whitelist = _whitelist;
-        feeController = IFeeController(_feeController);
+        _setRoleAdmin(RESOURCE_MANAGER_ROLE, ADMIN_ROLE);
     }
 
     // ========================================= VIEW FUNCTIONS =========================================
@@ -177,20 +181,10 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
      *
      * @return                      The bundle ID's URI string.
      */
-    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+    function tokenURI(uint256 tokenId) public view override(IVaultFactory, ERC721) returns (string memory) {
         _exists(tokenId);
 
-        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : "";
-    }
-
-    /**
-     * @notice An ADMIN_ROLE function for setting the string value of the base URI.
-     *
-     * @param newBaseURI              The new value of the base URI.
-     *
-     */
-    function setBaseURI(string memory newBaseURI) public onlyRole(ADMIN_ROLE) {
-        baseURI = newBaseURI;
+        return descriptor.tokenURI(address(this), tokenId);
     }
 
     /**

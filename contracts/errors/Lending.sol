@@ -381,9 +381,9 @@ error FIAC_InterestRate(uint256 interestRate);
 /// @notice All errors prefixed with PN_, to separate from other contracts in the protocol.
 
 /**
- * @notice Deployer is allowed to initialize roles. Caller is not deployer.
+ * @notice Zero address provided as argument.
  */
-error PN_CannotInitialize();
+error PN_ZeroAddress();
 
 /**
  * @notice Roles have been initialized.

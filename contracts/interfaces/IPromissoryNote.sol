@@ -16,4 +16,8 @@ interface IPromissoryNote is IERC721Enumerable {
     // ============== Initializer ==============
 
     function initialize(address loanCore) external;
+
+    // ================ Resource Metadata ================
+
+    function tokenURI(uint256 tokenId) external view returns (string memory);
 }

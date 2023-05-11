@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./interfaces/IFeeController.sol";
-import "./FeeLookups.sol";
+import "./libraries/FeeLookups.sol";
 
 import { FC_FeeTooLarge } from "./errors/Lending.sol";
 

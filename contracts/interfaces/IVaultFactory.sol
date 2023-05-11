@@ -21,4 +21,8 @@ interface IVaultFactory {
     // ================ Factory Operations ================
 
     function initializeBundle(address to) external payable returns (uint256);
+
+    // ================ Resource Metadata ================
+
+    function tokenURI(uint256 tokenId) external view returns (string memory);
 }
