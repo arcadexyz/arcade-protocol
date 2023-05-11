@@ -190,6 +190,8 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
      * @notice Claim any accrued minting fees. Only callable by FEE_CLAIMER_ROLE.
      */
     function claimFees(address to) external onlyRole(FEE_CLAIMER_ROLE) {
+        if (to == address(0)) revert VF_ZeroAddress();
+
         uint256 balance = address(this).balance;
         payable(to).transfer(balance);
 

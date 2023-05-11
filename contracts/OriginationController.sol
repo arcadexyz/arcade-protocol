@@ -475,7 +475,7 @@ contract OriginationController is
      * @param sig                           A struct containing the signature data (for checking EIP-1271).
      * @param sighash                       The hash of the signature payload (used for EIP-1271 check).
      *
-     * @return isApprovedForContract        Whether the signer is either the grantor themselves, or approved.
+     * @return bool                         Whether the signer is either the grantor themselves, or approved.
      */
     function isApprovedForContract(
         address target,

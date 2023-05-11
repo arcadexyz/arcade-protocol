@@ -93,6 +93,7 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
      */
     function initialize(address _whitelist) external override initializer {
         if (withdrawEnabled || ownershipToken != address(0)) revert AV_AlreadyInitialized(ownershipToken);
+        if (_whitelist == address(0)) revert AV_ZeroAddress();
         // set ownership to inherit from the factory who deployed us
         // The factory should have a tokenId == uint256(address(this))
         // whose owner has ownership control over this contract
@@ -290,7 +291,7 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         }
 
         // Do approval
-        IERC20(token).approve(spender, amount);
+        IERC20(token).safeApprove(spender, amount);
 
         emit Approve(msg.sender, token, spender, amount);
     }
