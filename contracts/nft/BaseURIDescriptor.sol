@@ -30,6 +30,7 @@ contract BaseURIDescriptor is INFTDescriptor, Ownable {
      * @param _baseURI              The value of the baseURI state variable.
      */
     constructor(string memory _baseURI) {
+        // Empty baseURI is allowed
         baseURI = _baseURI;
     }
 
@@ -53,5 +54,7 @@ contract BaseURIDescriptor is INFTDescriptor, Ownable {
      */
     function setBaseURI(string memory newBaseURI) external onlyOwner {
         baseURI = newBaseURI;
+
+        emit SetBaseURI(msg.sender, newBaseURI);
     }
 }
