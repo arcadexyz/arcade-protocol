@@ -40,8 +40,7 @@ interface IOriginationController {
         address borrower,
         address lender,
         Signature calldata sig,
-        uint160 nonce,
-        bytes32 affiliateCode
+        uint160 nonce
     ) external returns (uint256 loanId);
 
     function initializeLoanWithItems(
@@ -50,8 +49,7 @@ interface IOriginationController {
         address lender,
         Signature calldata sig,
         uint160 nonce,
-        LoanLibrary.Predicate[] calldata itemPredicates,
-        bytes32 affiliateCode
+        LoanLibrary.Predicate[] calldata itemPredicates
     ) external returns (uint256 loanId);
 
     function initializeLoanWithCollateralPermit(
@@ -61,8 +59,7 @@ interface IOriginationController {
         Signature calldata sig,
         uint160 nonce,
         Signature calldata collateralSig,
-        uint256 permitDeadline,
-        bytes32 affiliateCode
+        uint256 permitDeadline
     ) external returns (uint256 loanId);
 
     function initializeLoanWithCollateralPermitAndItems(
@@ -73,8 +70,7 @@ interface IOriginationController {
         uint160 nonce,
         Signature calldata collateralSig,
         uint256 permitDeadline,
-        LoanLibrary.Predicate[] calldata itemPredicates,
-        bytes32 affiliateCode
+        LoanLibrary.Predicate[] calldata itemPredicates
     ) external returns (uint256 loanId);
 
     function rolloverLoan(

@@ -81,14 +81,14 @@ contract OriginationController is
     bytes32 private constant _TOKEN_ID_TYPEHASH =
         keccak256(
             // solhint-disable-next-line max-line-length
-            "LoanTerms(uint32 durationSecs,uint32 deadline,uint160 proratedInterestRate,uint256 principal,address collateralAddress,uint256 collateralId,address payableCurrency,uint160 nonce,uint8 side)"
+            "LoanTerms(uint32 durationSecs,uint32 deadline,uint160 proratedInterestRate,uint256 principal,address collateralAddress,uint256 collateralId,address payableCurrency,bytes32 affiliateCode,uint160 nonce,uint8 side)"
         );
 
     /// @notice EIP712 type hash for item-based signatures.
     bytes32 private constant _ITEMS_TYPEHASH =
         keccak256(
             // solhint-disable max-line-length
-            "LoanTermsWithItems(uint32 durationSecs,uint32 deadline,uint160 proratedInterestRate,uint256 principal,address collateralAddress,bytes32 itemsHash,address payableCurrency,uint160 nonce,uint8 side)"
+            "LoanTermsWithItems(uint32 durationSecs,uint32 deadline,uint160 proratedInterestRate,uint256 principal,address collateralAddress,bytes32 itemsHash,address payableCurrency,bytes32 affiliateCode,uint160 nonce,uint8 side)"
         );
 
     // =============== Contract References ===============
@@ -257,7 +257,6 @@ contract OriginationController is
      * @param lender                        Address of the lender.
      * @param sig                           The loan terms signature, with v, r, s fields, and a nonce.
      * @param nonce                         The signature nonce.
-     * @param affiliateCode                 A referral code from a registered protocol affiliate.
      *
      * @return loanId                       The unique ID of the new loan.
      */
@@ -266,8 +265,7 @@ contract OriginationController is
         address borrower,
         address lender,
         Signature calldata sig,
-        uint160 nonce,
-        bytes32 affiliateCode
+        uint160 nonce
     ) public override returns (uint256 loanId) {
         _validateLoanTerms(loanTerms);
 
@@ -279,7 +277,7 @@ contract OriginationController is
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
 
         loanCore.consumeNonce(externalSigner, nonce);
-        loanId = _initialize(loanTerms, borrower, lender, affiliateCode);
+        loanId = _initialize(loanTerms, borrower, lender);
     }
 
     /**
@@ -297,7 +295,6 @@ contract OriginationController is
      * @param sig                           The loan terms signature, with v, r, s fields, and a nonce.
      * @param nonce                         The signature nonce.
      * @param itemPredicates                The predicate rules for the items in the bundle.
-     * @param affiliateCode                 A referral code from a registered protocol affiliate.
      *
      * @return loanId                       The unique ID of the new loan.
      */
@@ -307,8 +304,7 @@ contract OriginationController is
         address lender,
         Signature calldata sig,
         uint160 nonce,
-        LoanLibrary.Predicate[] calldata itemPredicates,
-        bytes32 affiliateCode
+        LoanLibrary.Predicate[] calldata itemPredicates
     ) public override returns (uint256 loanId) {
         _validateLoanTerms(loanTerms);
 
@@ -352,7 +348,7 @@ contract OriginationController is
             }
         }
 
-        loanId = _initialize(loanTerms, borrower, lender, affiliateCode);
+        loanId = _initialize(loanTerms, borrower, lender);
     }
 
     /**
@@ -369,7 +365,6 @@ contract OriginationController is
      * @param nonce                         The signature nonce for the loan terms signature.
      * @param collateralSig                 The collateral permit signature, with v, r, s fields.
      * @param permitDeadline                The last timestamp for which the signature is valid.
-     * @param affiliateCode                 A referral code from a registered protocol affiliate.
      *
      * @return loanId                       The unique ID of the new loan.
      */
@@ -380,8 +375,7 @@ contract OriginationController is
         Signature calldata sig,
         uint160 nonce,
         Signature calldata collateralSig,
-        uint256 permitDeadline,
-        bytes32 affiliateCode
+        uint256 permitDeadline
     ) external override returns (uint256 loanId) {
         IERC721Permit(loanTerms.collateralAddress).permit(
             borrower,
@@ -393,7 +387,7 @@ contract OriginationController is
             collateralSig.s
         );
 
-        loanId = initializeLoan(loanTerms, borrower, lender, sig, nonce, affiliateCode);
+        loanId = initializeLoan(loanTerms, borrower, lender, sig, nonce);
     }
 
     /**
@@ -412,7 +406,6 @@ contract OriginationController is
      * @param collateralSig                 The collateral permit signature, with v, r, s fields.
      * @param permitDeadline                The last timestamp for which the signature is valid.
      * @param itemPredicates                The predicate rules for the items in the bundle.
-     * @param affiliateCode                 A referral code from a registered protocol affiliate.
      *
      * @return loanId                       The unique ID of the new loan.
      */
@@ -424,8 +417,7 @@ contract OriginationController is
         uint160 nonce,
         Signature calldata collateralSig,
         uint256 permitDeadline,
-        LoanLibrary.Predicate[] calldata itemPredicates,
-        bytes32 affiliateCode
+        LoanLibrary.Predicate[] calldata itemPredicates
     ) external override returns (uint256 loanId) {
         IERC721Permit(loanTerms.collateralAddress).permit(
             borrower,
@@ -437,7 +429,7 @@ contract OriginationController is
             collateralSig.s
         );
 
-        loanId = initializeLoanWithItems(loanTerms, borrower, lender, sig, nonce, itemPredicates, affiliateCode);
+        loanId = initializeLoanWithItems(loanTerms, borrower, lender, sig, nonce, itemPredicates);
     }
 
     /**
@@ -648,6 +640,7 @@ contract OriginationController is
                 loanTerms.collateralAddress,
                 loanTerms.collateralId,
                 loanTerms.payableCurrency,
+                loanTerms.affiliateCode,
                 nonce,
                 uint8(side)
             )
@@ -688,6 +681,7 @@ contract OriginationController is
                 loanTerms.collateralAddress,
                 itemsHash,
                 loanTerms.payableCurrency,
+                loanTerms.affiliateCode,
                 nonce,
                 uint8(side)
             )
@@ -848,15 +842,13 @@ contract OriginationController is
      * @param loanTerms                     The terms agreed by the lender and borrower.
      * @param borrower                      Address of the borrower.
      * @param lender                        Address of the lender.
-     * @param affiliateCode                 A referral code from a registered protocol affiliate.
      *
      * @return loanId                       The unique ID of the new loan.
      */
     function _initialize(
         LoanLibrary.LoanTerms calldata loanTerms,
         address borrower,
-        address lender,
-        bytes32 affiliateCode
+        address lender
     ) internal nonReentrant returns (uint256 loanId) {
         uint256 borrowerFee = (loanTerms.principal * feeController.get(FL_02)) / BASIS_POINTS_DENOMINATOR;
         uint256 lenderFee = (loanTerms.principal * feeController.get(FL_03)) / BASIS_POINTS_DENOMINATOR;
@@ -865,7 +857,7 @@ contract OriginationController is
         uint256 amountFromLender = loanTerms.principal + lenderFee;
         uint256 amountToBorrower = loanTerms.principal - borrowerFee;
 
-        loanId = loanCore.startLoan(lender, borrower, loanTerms, affiliateCode, amountFromLender, amountToBorrower);
+        loanId = loanCore.startLoan(lender, borrower, loanTerms, amountFromLender, amountToBorrower);
     }
 
     /**
