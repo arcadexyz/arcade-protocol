@@ -2,13 +2,14 @@
 
 pragma solidity ^0.8.11;
 
-import "./interfaces/IERC721Permit.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-import { ERC721P_DeadlineExpired, ERC721P_NotTokenOwner, ERC721P_InvalidSignature } from "./errors/LendingUtils.sol";
+import "../interfaces/IERC721Permit.sol";
+
+import { ERC721P_DeadlineExpired, ERC721P_NotTokenOwner, ERC721P_InvalidSignature } from "../errors/LendingUtils.sol";
 
 /**
  * @title ERC721Permit

@@ -14,6 +14,7 @@ import {
     AssetVault,
     FeeController,
     RepaymentController,
+    BaseURIDescriptor
 } from "../typechain";
 
 import { deploy } from "./utils/contracts";
@@ -25,7 +26,8 @@ type Signer = SignerWithAddress;
 import {
     ORIGINATOR_ROLE,
     REPAYER_ROLE,
-    ADMIN_ROLE
+    ADMIN_ROLE,
+    BASE_URI
 } from "./utils/constants";
 
 interface TestContext {
@@ -41,28 +43,26 @@ interface TestContext {
     user: Signer;
     other: Signer;
     signers: Signer[];
-    baseURI: string;
 }
 
 // Context / Fixture
 const fixture = async (): Promise<TestContext> => {
-    const baseURI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnBeats/`;
     const signers: Signer[] = await ethers.getSigners();
 
     const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
     const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
     const feeController = <FeeController>await deploy("FeeController", signers[0], []);
-
-    const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address]);
+    const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
+    const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address]);
 
     const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
 
 
     const borrowerNote = <PromissoryNote>(
-        await deploy("PromissoryNote", signers[0], ["Arcade.xyz BorrowerNote", "aBN", `${baseURI}`])
+        await deploy("PromissoryNote", signers[0], ["Arcade.xyz BorrowerNote", "aBN", descriptor.address])
     );
     const lenderNote = <PromissoryNote>(
-        await deploy("PromissoryNote", signers[0], ["Arcade.xyz LenderNote", "aLN", `${baseURI}`])
+        await deploy("PromissoryNote", signers[0], ["Arcade.xyz LenderNote", "aLN", descriptor.address])
     );
 
     const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [borrowerNote.address, lenderNote.address]);
@@ -106,8 +106,7 @@ const fixture = async (): Promise<TestContext> => {
         originator,
         user: signers[0],
         other: signers[1],
-        signers: signers.slice(2),
-        baseURI
+        signers: signers.slice(2)
     };
 };
 
@@ -128,8 +127,9 @@ describe("PromissoryNote", () => {
     describe("constructor", () => {
         it("Creates a PromissoryNote", async () => {
             const signers: Signer[] = await ethers.getSigners();
+            const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
 
-            const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN"]);
+            const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN", descriptor.address]);
 
             expect(PromissoryNote).exist;
         });
@@ -137,25 +137,27 @@ describe("PromissoryNote", () => {
         it("fails to initialize if not called by the deployer", async () => {
             const { loanCore } = await loadFixture(fixture);
             const signers: Signer[] = await ethers.getSigners();
+            const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
 
-            const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN"]);
+            const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN", descriptor.address]);
 
             await expect(PromissoryNote.connect(signers[1]).initialize(loanCore.address)).to.be.revertedWith(
-                "PN_CannotInitialize",
+                "AccessControl",
             );
         });
 
         it("fails to initialize if already initialized", async () => {
             const { loanCore } = await loadFixture(fixture);
             const signers: Signer[] = await ethers.getSigners();
+            const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
 
-            const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN"]);
+            const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN", descriptor.address]);
 
             await expect(PromissoryNote.connect(signers[0]).initialize(loanCore.address)).to.not.be.reverted;
 
             // Try to call again
             await expect(PromissoryNote.connect(signers[0]).initialize(loanCore.address)).to.be.revertedWith(
-                "PN_AlreadyInitialized",
+                "AccessControl",
             );
         });
     });
@@ -193,89 +195,6 @@ describe("PromissoryNote", () => {
 
             const promissoryNoteId = await mintPromissoryNote(promissoryNote, user);
             await expect(promissoryNote.connect(user).burn(promissoryNoteId)).to.not.be.reverted;
-        });
-    });
-
-    describe("pause", () => {
-        it("does not allow a non-admin to pause", async () => {
-            const signers: Signer[] = await ethers.getSigners();
-
-            const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN"]);
-
-            await expect(PromissoryNote.connect(signers[0]).initialize(signers[0].address)).to.not.be.reverted;
-
-            await expect(PromissoryNote.connect(signers[1]).setPaused(true)).to.be.revertedWith(
-                `AccessControl: account ${signers[1].address.toLowerCase()} is missing role ${ADMIN_ROLE}`,
-            );
-        });
-
-        it("does not allow a non-admin to unpause", async () => {
-            const signers: Signer[] = await ethers.getSigners();
-
-            const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN"]);
-
-            await expect(PromissoryNote.connect(signers[0]).initialize(signers[0].address)).to.not.be.reverted;
-
-            await expect(PromissoryNote.connect(signers[1]).setPaused(false)).to.be.revertedWith(
-                `AccessControl: account ${signers[1].address.toLowerCase()} is missing role ${ADMIN_ROLE}`,
-            );
-        });
-
-        it("allows an admin to pause", async () => {
-            const signers: Signer[] = await ethers.getSigners();
-
-            const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN"]);
-
-            await expect(PromissoryNote.connect(signers[0]).initialize(signers[0].address)).to.not.be.reverted;
-
-            await expect(PromissoryNote.connect(signers[0]).setPaused(true))
-                .to.emit(PromissoryNote, "Paused")
-                .withArgs(signers[0].address);
-        });
-
-        it("allows an admin to unpause", async () => {
-            const signers: Signer[] = await ethers.getSigners();
-
-            const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN"]);
-
-            await expect(PromissoryNote.connect(signers[0]).initialize(signers[0].address)).to.not.be.reverted;
-
-            await expect(PromissoryNote.connect(signers[0]).setPaused(true))
-                .to.emit(PromissoryNote, "Paused")
-                .withArgs(signers[0].address);
-
-            await expect(PromissoryNote.connect(signers[0]).setPaused(false))
-                .to.emit(PromissoryNote, "Unpaused")
-                .withArgs(signers[0].address);
-        });
-
-        it("transfers revert on pause", async () => {
-            const signers: Signer[] = await ethers.getSigners();
-
-            const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN"]);
-
-            // Mint to first signer
-            await expect(PromissoryNote.connect(signers[0]).initialize(signers[0].address)).to.not.be.reverted;
-
-            await PromissoryNote.mint(signers[0].address, 1);
-
-            // Pause
-            await expect(PromissoryNote.connect(signers[0]).setPaused(true))
-                .to.emit(PromissoryNote, "Paused")
-                .withArgs(signers[0].address);
-
-            // Try to transfer, should fail
-            await expect(
-                PromissoryNote.connect(signers[0]).transferFrom(signers[0].address, signers[1].address, 1),
-            ).to.be.revertedWith("PN_ContractPaused");
-
-            await expect(PromissoryNote.connect(signers[0]).setPaused(false))
-                .to.emit(PromissoryNote, "Unpaused")
-                .withArgs(signers[0].address);
-
-            // After unpause, should transfer successfully
-            await expect(PromissoryNote.connect(signers[0]).transferFrom(signers[0].address, signers[1].address, 1)).to
-                .not.be.reverted;
         });
     });
 
@@ -497,38 +416,12 @@ describe("PromissoryNote", () => {
         });
     });
 
-    describe("baseURI", () => {
-        it("sets a baseURI upon deployment", async () => {
-            const { lenderPromissoryNote: promissoryNote, baseURI } = await loadFixture(fixture);
-
-            expect(await promissoryNote.baseURI()).to.be.eq(baseURI);
-        });
-
-        it("sets the baseURI", async () => {
-            const { lenderPromissoryNote: promissoryNote, user, baseURI } = await loadFixture(fixture);
-            const newBaseURI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnArt/`;
-
-            expect(await promissoryNote.baseURI()).to.be.eq(baseURI);
-
-            await promissoryNote.connect(user).setBaseURI(newBaseURI);
-            expect(await promissoryNote.baseURI()).to.be.eq(newBaseURI);
-        });
-
-        it("reverts if setBaseURI is called by non manager", async () => {
-            const { lenderPromissoryNote: promissoryNote, other } = await loadFixture(fixture);
-            const newBaseURI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnArt/`;
-
-            const tx = promissoryNote.connect(other).setBaseURI(newBaseURI);
-            await expect(tx).to.be.revertedWith(
-                `AccessControl: account ${other.address.toLowerCase()} is missing role ${ADMIN_ROLE}`,
-            );
-        });
-
+    describe("tokenURI", () => {
         it("gets the tokenURI", async () => {
-            const { lenderPromissoryNote: promissoryNote, user, other, baseURI } = await loadFixture(fixture);
+            const { lenderPromissoryNote: promissoryNote, user, other } = await loadFixture(fixture);
 
             await promissoryNote.connect(user).mint(await other.getAddress(), 1);
-            expect(await promissoryNote.tokenURI(1)).to.be.eq(`${baseURI + 1}`);
+            expect(await promissoryNote.tokenURI(1)).to.be.eq(`${BASE_URI}1`);
         });
     });
 

@@ -21,7 +21,8 @@ import {
     FeeController,
     ERC1271LenderMock,
     UnvaultedItemsVerifier,
-    CollectionWideOfferVerifier
+    CollectionWideOfferVerifier,
+    BaseURIDescriptor
 } from "../typechain";
 import { approve, mint, ZERO_ADDRESS } from "./utils/erc20";
 import { mint as mint721 } from "./utils/erc721";
@@ -32,7 +33,8 @@ import { encodePredicates, encodeSignatureItems, encodeItemCheck, initializeBund
 import {
     ORIGINATOR_ROLE,
     ADMIN_ROLE,
-    WHITELIST_MANAGER_ROLE
+    WHITELIST_MANAGER_ROLE,
+    BASE_URI
 } from "./utils/constants";
 
 type Signer = SignerWithAddress;
@@ -80,9 +82,10 @@ const fixture = async (): Promise<TestContext> => {
     const [deployer] = signers;
 
     const feeController = <FeeController>await deploy("FeeController", signers[0], []);
+    const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
 
-    const borrowerNote = <PromissoryNote>await deploy("PromissoryNote", deployer, ["Arcade.xyz BorrowerNote", "aBN"]);
-    const lenderNote = <PromissoryNote>await deploy("PromissoryNote", deployer, ["Arcade.xyz LenderNote", "aLN"]);
+    const borrowerNote = <PromissoryNote>await deploy("PromissoryNote", deployer, ["Arcade.xyz BorrowerNote", "aBN", descriptor.address]);
+    const lenderNote = <PromissoryNote>await deploy("PromissoryNote", deployer, ["Arcade.xyz LenderNote", "aLN", descriptor.address]);
 
     const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [borrowerNote.address, lenderNote.address]);
 
@@ -93,7 +96,7 @@ const fixture = async (): Promise<TestContext> => {
 
     const whitelist = <CallWhitelist>await deploy("CallWhitelist", deployer, []);
     const vaultTemplate = <AssetVault>await deploy("AssetVault", deployer, []);
-    const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address])
+    const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address])
 
     const vault = await createVault(vaultFactory, signers[0]);
 

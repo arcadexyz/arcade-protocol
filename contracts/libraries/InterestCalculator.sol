@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.11;
 
-import { FIAC_InterestRate } from "./errors/Lending.sol";
+import { FIAC_InterestRate } from "../errors/Lending.sol";
 
 /**
  * @title InterestCalculator

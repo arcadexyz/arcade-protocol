@@ -5,13 +5,14 @@ pragma solidity ^0.8.11;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "./InterestCalculator.sol";
-import "./FeeLookups.sol";
-import "./libraries/LoanLibrary.sol";
 import "./interfaces/IPromissoryNote.sol";
 import "./interfaces/ILoanCore.sol";
 import "./interfaces/IFeeController.sol";
 import "./interfaces/IRepaymentController.sol";
+
+import "./libraries/InterestCalculator.sol";
+import "./libraries/FeeLookups.sol";
+import "./libraries/LoanLibrary.sol";
 
 import { RC_CannotDereference, RC_InvalidState, RC_OnlyLender, RC_NoPaymentDue, RC_BeforeStartDate, RC_ZeroAddress } from "./errors/Lending.sol";
 

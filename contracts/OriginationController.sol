@@ -17,8 +17,8 @@ import "./interfaces/IVaultFactory.sol";
 import "./interfaces/ISignatureVerifier.sol";
 import "./interfaces/IFeeController.sol";
 
-import "./FeeLookups.sol";
-import "./InterestCalculator.sol";
+import "./libraries/InterestCalculator.sol";
+import "./libraries/FeeLookups.sol";
 import "./verifiers/ItemsVerifier.sol";
 import {
     OC_ZeroAddress,

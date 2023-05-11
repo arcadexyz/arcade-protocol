@@ -2,7 +2,9 @@
 
 pragma solidity ^0.8.11;
 
-interface IVaultFactory {
+import "./INFTWithDescriptor.sol";
+
+interface IVaultFactory is INFTWithDescriptor {
     // ============= Events ==============
 
     event VaultCreated(address vault, address to);

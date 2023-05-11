@@ -16,6 +16,7 @@ import {
     LoanCore,
     MockERC20,
     MockERC721,
+    BaseURIDescriptor
 } from "../typechain";
 import { BlockchainTime } from "./utils/time";
 import { mint as mint721 } from "./utils/erc721";
@@ -28,7 +29,8 @@ import { encodePredicates, encodeSignatureItems } from "./utils/loans";
 import {
     ORIGINATOR_ROLE,
     REPAYER_ROLE,
-    AFFILIATE_MANAGER_ROLE
+    AFFILIATE_MANAGER_ROLE,
+    BASE_URI
 } from "./utils/constants";
 
 interface TestContext {
@@ -57,8 +59,6 @@ interface LoanDef {
     loanData: LoanData;
 }
 
-const blockchainTime = new BlockchainTime();
-
 /**
  * Sets up a test context, deploying new contracts and returning them for use in a test
  */
@@ -72,13 +72,14 @@ const fixture = async (): Promise<TestContext> => {
     const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
     const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
     const feeController = <FeeController>await deploy("FeeController", admin, []);
-    const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address]);
+    const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
+    const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address]);
 
     await feeController.set(await feeController.FL_02(), 50);
     await feeController.set(await feeController.FL_04(), 10);
 
-    const borrowerNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz BorrowerNote", "aBN"]);
-    const lenderNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz LenderNote", "aLN"]);
+    const borrowerNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz BorrowerNote", "aBN", descriptor.address]);
+    const lenderNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz LenderNote", "aLN", descriptor.address]);
 
     const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [borrowerNote.address, lenderNote.address]);
 

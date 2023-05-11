@@ -15,9 +15,9 @@ import "./interfaces/IPromissoryNote.sol";
 import "./interfaces/IAssetVault.sol";
 import "./interfaces/ILoanCore.sol";
 
-import "./InterestCalculator.sol";
 import "./PromissoryNote.sol";
-import "./FeeLookups.sol";
+import "./libraries/InterestCalculator.sol";
+import "./libraries/FeeLookups.sol";
 import "./vault/OwnableERC721.sol";
 import {
     LC_ZeroAddress,

@@ -6,9 +6,9 @@ import { BigNumber, BigNumberish } from "ethers";
 import { fromRpcSig } from "ethereumjs-util";
 
 import { ZERO_ADDRESS } from "./utils/erc20";
-import { CallWhitelist, AssetVault, VaultFactory, FeeController } from "../typechain";
+import { CallWhitelist, AssetVault, VaultFactory, FeeController, BaseURIDescriptor } from "../typechain";
 import { deploy } from "./utils/contracts";
-import { ADMIN_ROLE, FEE_CLAIMER_ROLE } from "./utils/constants";
+import { ADMIN_ROLE, FEE_CLAIMER_ROLE, BASE_URI } from "./utils/constants";
 
 type Signer = SignerWithAddress;
 
@@ -16,11 +16,11 @@ interface TestContext {
     factory: VaultFactory;
     vaultTemplate: AssetVault;
     whitelist: CallWhitelist;
+    descriptor: BaseURIDescriptor;
     feeController: FeeController;
     user: Signer;
     other: Signer;
     signers: Signer[];
-    baseURI: string;
 }
 
 describe("VaultFactory", () => {
@@ -28,15 +28,14 @@ describe("VaultFactory", () => {
      * Sets up a test context, deploying new contracts and returning them for use in a test
      */
     const fixture = async (): Promise<TestContext> => {
-        const baseURI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnBeats/`;
-
         const signers: Signer[] = await hre.ethers.getSigners();
         const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
         const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
+        const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
         const feeController = <FeeController>await deploy("FeeController", signers[0], []);
 
         const factory = <VaultFactory>(
-            await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, `${baseURI}`])
+            await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address])
         );
 
         return {
@@ -44,10 +43,10 @@ describe("VaultFactory", () => {
             whitelist,
             feeController,
             vaultTemplate,
+            descriptor,
             user: signers[0],
             other: signers[1],
-            signers: signers.slice(2),
-            baseURI
+            signers: signers.slice(2)
         };
     };
 
@@ -72,11 +71,11 @@ describe("VaultFactory", () => {
     };
 
     it("should fail to initialize if passed an invalid template", async () => {
-        const { whitelist, feeController, baseURI } = await loadFixture(fixture);
+        const { whitelist, feeController, descriptor } = await loadFixture(fixture);
 
         const VaultFactory = await hre.ethers.getContractFactory("VaultFactory");
         await expect(
-            VaultFactory.deploy(ZERO_ADDRESS, whitelist.address, feeController.address, baseURI)
+            VaultFactory.deploy(ZERO_ADDRESS, whitelist.address, feeController.address, descriptor.address)
         ).to.be.revertedWith("VF_ZeroAddress");
     });
 
@@ -86,11 +85,11 @@ describe("VaultFactory", () => {
     });
 
     it("should fail to initialize if passed an invalid whitelist", async () => {
-        const { vaultTemplate, feeController, baseURI } = await loadFixture(fixture);
+        const { vaultTemplate, feeController, descriptor } = await loadFixture(fixture);
 
         const VaultFactory = await hre.ethers.getContractFactory("VaultFactory");
         await expect(
-            VaultFactory.deploy(vaultTemplate.address, ZERO_ADDRESS, feeController.address, baseURI),
+            VaultFactory.deploy(vaultTemplate.address, ZERO_ADDRESS, feeController.address, descriptor.address)
         ).to.be.revertedWith("VF_ZeroAddress");
     });
 
@@ -100,11 +99,11 @@ describe("VaultFactory", () => {
     });
 
     it("should fail to initialize if passed an invalid fee controller", async () => {
-        const { vaultTemplate, whitelist, baseURI } = await loadFixture(fixture);
+        const { vaultTemplate, whitelist, descriptor } = await loadFixture(fixture);
 
         const VaultFactory = await hre.ethers.getContractFactory("VaultFactory");
         await expect(
-            VaultFactory.deploy(vaultTemplate.address, whitelist.address, ZERO_ADDRESS, baseURI),
+            VaultFactory.deploy(vaultTemplate.address, whitelist.address, ZERO_ADDRESS, descriptor.address)
         ).to.be.revertedWith("VF_ZeroAddress");
     });
 
@@ -649,40 +648,13 @@ describe("VaultFactory", () => {
             });
         });
 
-        it("sets a baseURI upon deployment", async () => {
-            const { factory, baseURI, user } = await loadFixture(fixture);
-
-            await createVault(factory, user);
-            expect(await factory.baseURI()).to.be.eq(baseURI);
-        });
-
-        it("admin sets the baseURI", async () => {
-            const { factory, baseURI, user } = await loadFixture(fixture);
-            const newBaseURI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnArt/`;
-
-            expect(await factory.baseURI()).to.be.eq(baseURI);
-
-            await factory.connect(user).setBaseURI(newBaseURI);
-            expect(await factory.baseURI()).to.be.eq(newBaseURI);
-        });
-
-        it("reverts if setBaseURI is called by non admin", async () => {
-            const { factory, other } = await loadFixture(fixture);
-            const newBaseURI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnArt/`;
-
-            const tx = factory.connect(other).setBaseURI(newBaseURI);
-            await expect(tx).to.be.revertedWith(
-                `AccessControl: account ${other.address.toLowerCase()} is missing role ${ADMIN_ROLE}`,
-            );
-        });
-
         it("gets the tokenURI", async () => {
-            const { factory, baseURI, user } = await loadFixture(fixture);
+            const { factory, user } = await loadFixture(fixture);
 
             await createVault(factory, user);
             const tokenId = await factory.tokenOfOwnerByIndex(user.address, 0);
 
-            expect(await factory.tokenURI(tokenId.toString())).to.be.eq(`${baseURI + tokenId}`);
+            expect(await factory.tokenURI(tokenId.toString())).to.be.eq(`${BASE_URI}${tokenId}`);
         });
     });
 });
