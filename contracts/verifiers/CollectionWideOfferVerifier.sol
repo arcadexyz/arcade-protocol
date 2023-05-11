@@ -14,28 +14,25 @@ import "../libraries/LoanLibrary.sol";
 import { IV_NoAmount, IV_InvalidWildcard, IV_ItemMissingAddress, IV_InvalidCollateralType } from "../errors/Lending.sol";
 
 /**
- * @title UnvaultedItemsVerifier
+ * @title CollectionWideOfferVerifier
  * @author Non-Fungible Technologies, Inc.
  *
- * This contract can be used for verifying a signature-encoded set
- * of requirements for the loan's collateral, expressed as a predicate encoded in calldata.
+ * This contract can be used for verifying a collection-wide offer for
+ * an ERC721, and is agnostic in that it can verify both vaulted
+ * and unbundled collateral. This is a common use case for many lenders,
+ * who do not care whether the collateral is vauled.
  *
- * The calldata parameter should be parsed for the following fields:
- *      - asset (contract address of the asset)
- *      - tokenId (token ID of the asset, if applicable)
- *      - anyIdAllowed (whether a wildcard is supported - see below)
- *
- * The above fields also include the requirement that the collateral be ERC721.
- * If anyIdAllowed is true, then any token ID can be passed - the field will be ignored.
+ * Predicates for this verify are _always_ wildcards: the caller's
+ * predicate payload is a NFT address only, and the verifier will
+ * check for _any_ balance of that asset.
  */
-contract UnvaultedItemsVerifier is ISignatureVerifier {
+contract CollectionWideOfferVerifier is ISignatureVerifier {
     // ==================================== COLLATERAL VERIFICATION =====================================
 
     /**
      * @notice Verify that the items specified by the predicate calldata match the loan terms
-     *         based on reported collateral address and ID. In this case, we only need to compare
-     *         parameters against each other - the protocol is enforcing that the specific collateral
-     *         in this function's calldata will be custodied.
+     *         based on reported collateral address and ID, or that the collateral address
+     *         is a vault factory and the vault contains the specified item.
      *
      * @param collateralAddress             The address of the loan's collateral.
      * @param collateralId                  The tokenId of the loan's collateral.
@@ -51,20 +48,14 @@ contract UnvaultedItemsVerifier is ISignatureVerifier {
         // Unpack items
         (address token) = abi.decode(data, (address));
 
+        // Unvaulted case - collateral will be escrowed directly
         if (collateralAddress == token) return true;
 
-        // Could break because fn does not exist on collateral address
-        // Could be FOOLED by a malicious collateral address that implements
-        // its own version of isInstance
-
+        // Do vault check
         address vaultAddress = address(uint160(collateralId));
 
-        // Case 1: It _is_ a VF, returns an honest answer
-        // Case 2: It _is_ not a VF, reverts with weird error code (function selector does not exist)
-        // Case 3: Malicious contract, returns true
         if (!IVaultFactory(collateralAddress).isInstance(vaultAddress)) return false;
 
-        // Do vault check
         return IERC721(token).balanceOf(vaultAddress) > 0;
     }
 }

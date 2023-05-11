@@ -20,7 +20,8 @@ import {
     ArcadeItemsVerifier,
     FeeController,
     ERC1271LenderMock,
-    UnvaultedItemsVerifier
+    UnvaultedItemsVerifier,
+    CollectionWideOfferVerifier
 } from "../typechain";
 import { approve, mint, ZERO_ADDRESS } from "./utils/erc20";
 import { mint as mint721 } from "./utils/erc721";
@@ -83,7 +84,6 @@ const fixture = async (): Promise<TestContext> => {
     const borrowerNote = <PromissoryNote>await deploy("PromissoryNote", deployer, ["Arcade.xyz BorrowerNote", "aBN"]);
     const lenderNote = <PromissoryNote>await deploy("PromissoryNote", deployer, ["Arcade.xyz LenderNote", "aLN"]);
 
-    const LoanCore = await ethers.getContractFactory("LoanCore");
     const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [borrowerNote.address, lenderNote.address]);
 
     // Grant correct permissions for promissory note
@@ -799,6 +799,7 @@ describe("OriginationController", () => {
         let ctx: TestContext;
         let verifier: ArcadeItemsVerifier;
         let uvVerifier: UnvaultedItemsVerifier;
+        let cwoVerifier: CollectionWideOfferVerifier;
 
         beforeEach(async () => {
             ctx = await loadFixture(fixture);
@@ -806,9 +807,11 @@ describe("OriginationController", () => {
 
             verifier = <ArcadeItemsVerifier>await deploy("ArcadeItemsVerifier", user, []);
             uvVerifier = <ArcadeItemsVerifier>await deploy("UnvaultedItemsVerifier", user, []);
+            cwoVerifier = <ArcadeItemsVerifier>await deploy("CollectionWideOfferVerifier", user, []);
 
             await originationController.connect(user).setAllowedVerifier(verifier.address, true);
             await originationController.connect(user).setAllowedVerifier(uvVerifier.address, true);
+            await originationController.connect(user).setAllowedVerifier(cwoVerifier.address, true);
         });
 
         it("Reverts if the collateralAddress does not fit the vault factory interface", async () => {
@@ -1575,6 +1578,99 @@ describe("OriginationController", () => {
                     ),
             )
                 .to.be.revertedWith("OC_PredicateFailed");
+        });
+
+        it("initializes an unvaulted loan with a CWO signature", async () => {
+            const { loanCore, originationController, mockERC20, mockERC721, user: lender, other: borrower } = ctx;
+
+            const tokenId = await mint721(mockERC721, borrower);
+
+            await mockERC721.connect(borrower).approve(loanCore.address, tokenId);
+
+            const loanTerms = createLoanTerms(mockERC20.address, mockERC721.address, { collateralId: tokenId });
+
+            const predicates: ItemsPredicate[] = [
+                {
+                    verifier: cwoVerifier.address,
+                    data: ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address])
+                }
+            ];
+
+            await mint(mockERC20, lender, loanTerms.principal);
+
+            const sig = await createLoanItemsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                encodePredicates(predicates),
+                borrower,
+                "3",
+                "1",
+                "b",
+            );
+
+            await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
+            await expect(
+                originationController
+                    .connect(lender)
+                    .initializeLoanWithItems(
+                        loanTerms,
+                        borrower.address,
+                        lender.address,
+                        sig,
+                        1,
+                        predicates
+                    ),
+            )
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(lender.address, loanCore.address, loanTerms.principal);
+        });
+
+        it("initializes a vaulted loan with the same CWO signature", async () => {
+            const { loanCore, vaultFactory, originationController, mockERC20, mockERC721, user: lender, other: borrower } = ctx;
+
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            const tokenId = await mint721(mockERC721, borrower);
+            await mockERC721.connect(borrower).transferFrom(borrower.address, bundleAddress, tokenId);
+
+            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
+            const predicates: ItemsPredicate[] = [
+                {
+                    verifier: cwoVerifier.address,
+                    data: ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address])
+                }
+            ];
+
+            await mint(mockERC20, lender, loanTerms.principal);
+
+            const sig = await createLoanItemsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                encodePredicates(predicates),
+                borrower,
+                "3",
+                "1",
+                "b",
+            );
+
+            await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
+            await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+            await expect(
+                originationController
+                    .connect(lender)
+                    .initializeLoanWithItems(
+                        loanTerms,
+                        borrower.address,
+                        lender.address,
+                        sig,
+                        1,
+                        predicates
+                    ),
+            )
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(lender.address, loanCore.address, loanTerms.principal);
         });
 
         it("Initializes a loan with permit and items", async () => {
