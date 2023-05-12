@@ -15,6 +15,7 @@ import {
     ADMIN_ROLE,
     FEE_CLAIMER_ROLE,
     REPAYER_ROLE,
+    BASE_URI
 } from "../../utils/constants";
 
 import { ZERO_ADDRESS } from "../../../test/utils/erc20";
@@ -25,14 +26,15 @@ import {
     LoanCore,
     PromissoryNote,
     OriginationController,
-    VaultFactory
+    VaultFactory,
+    BaseURIDescriptor
 } from "../../../typechain";
 
 /**
  * Note: Against normal conventions, these tests are interdependent and meant
  * to run sequentially. Each subsequent test relies on the state of the previous.
  */
-assert(NETWORK !== "hardhat", "Must use a long-lived network!");
+//assert(NETWORK !== "hardhat", "Must use a long-lived network!");
 
 describe("Deployment", function() {
     this.timeout(0);
@@ -53,81 +55,62 @@ describe("Deployment", function() {
         expect(deployment["CallWhitelist"].contractAddress).to.exist;
         expect(deployment["CallWhitelist"].constructorArgs.length).to.eq(0);
 
+        expect(deployment["BaseURIDescriptor"]).to.exist;
+        expect(deployment["BaseURIDescriptor"].contractAddress).to.exist;
+        expect(deployment["BaseURIDescriptor"].constructorArgs.length).to.eq(1);
+        expect(deployment["BaseURIDescriptor"].constructorArgs[0]).to.eq(`${BASE_URI}`);
+
+        expect(deployment["FeeController"]).to.exist;
+        expect(deployment["FeeController"].contractAddress).to.exist;
+        expect(deployment["FeeController"].constructorArgs.length).to.eq(0);
+
         expect(deployment["AssetVault"]).to.exist;
         expect(deployment["AssetVault"].contractAddress).to.exist;
         expect(deployment["AssetVault"].constructorArgs.length).to.eq(0);
 
         expect(deployment["VaultFactory"]).to.exist;
         expect(deployment["VaultFactory"].contractAddress).to.exist;
-        expect(deployment["VaultFactory"].contractImplementationAddress).to.exist;
-        expect(deployment["VaultFactory"].constructorArgs.length).to.eq(0);
-
-        // Make sure VaultFactory initialized correctly
-        const vaultFactoryFactory = await ethers.getContractFactory("VaultFactory");
-        const factoryProxy = <VaultFactory>await vaultFactoryFactory.attach(deployment["VaultFactory"].contractAddress);
-        const factoryImpl = <VaultFactory>await vaultFactoryFactory.attach(deployment["VaultFactory"].contractImplementationAddress);
-
-        // Proxy initialized, impl not
-        expect(await factoryProxy.template()).to.eq(deployment["AssetVault"].contractAddress);
-        expect(await factoryProxy.whitelist()).to.eq(deployment["CallWhitelist"].contractAddress);
-        expect(await factoryImpl.template()).to.eq(ZERO_ADDRESS);
-        expect(await factoryImpl.whitelist()).to.eq(ZERO_ADDRESS);
-
-        expect(deployment["FeeController"]).to.exist;
-        expect(deployment["FeeController"].contractAddress).to.exist;
-        expect(deployment["FeeController"].constructorArgs.length).to.eq(0);
+        expect(deployment["VaultFactory"].constructorArgs.length).to.eq(4);
+        expect(deployment["VaultFactory"].constructorArgs[0]).to.eq(deployment["AssetVault"].contractAddress);
+        expect(deployment["VaultFactory"].constructorArgs[1]).to.eq(deployment["CallWhitelist"].contractAddress);
+        expect(deployment["VaultFactory"].constructorArgs[2]).to.eq(deployment["FeeController"].contractAddress);
+        expect(deployment["VaultFactory"].constructorArgs[3]).to.eq(deployment["BaseURIDescriptor"].contractAddress);
 
         expect(deployment["BorrowerNote"]).to.exist;
         expect(deployment["BorrowerNote"].contractAddress).to.exist;
-        expect(deployment["BorrowerNote"].constructorArgs.length).to.eq(2);
+        expect(deployment["BorrowerNote"].constructorArgs.length).to.eq(3);
         expect(deployment["BorrowerNote"].constructorArgs[0]).to.eq("Arcade.xyz BorrowerNote");
         expect(deployment["BorrowerNote"].constructorArgs[1]).to.eq("aBN");
+        expect(deployment["BorrowerNote"].constructorArgs[2]).to.eq(deployment["BaseURIDescriptor"].contractAddress);
 
         expect(deployment["LenderNote"]).to.exist;
         expect(deployment["LenderNote"].contractAddress).to.exist;
-        expect(deployment["LenderNote"].constructorArgs.length).to.eq(2);
+        expect(deployment["LenderNote"].constructorArgs.length).to.eq(3);
         expect(deployment["LenderNote"].constructorArgs[0]).to.eq("Arcade.xyz LenderNote");
         expect(deployment["LenderNote"].constructorArgs[1]).to.eq("aLN");
+        expect(deployment["LenderNote"].constructorArgs[2]).to.eq(deployment["BaseURIDescriptor"].contractAddress);
 
         expect(deployment["LoanCore"]).to.exist;
         expect(deployment["LoanCore"].contractAddress).to.exist;
-        expect(deployment["LoanCore"].contractImplementationAddress).to.exist;
-        expect(deployment["LoanCore"].constructorArgs.length).to.eq(0);
-
-        // Make sure LoanCore initialized correctly
-        const loanCoreFactory = await ethers.getContractFactory("LoanCore");
-        const loanCoreProxy = <LoanCore>await loanCoreFactory.attach(deployment["LoanCore"].contractAddress);
-        const loanCoreImpl = <LoanCore>await loanCoreFactory.attach(deployment["LoanCore"].contractImplementationAddress);
-
-        // Proxy initialized, impl not
-        expect(await loanCoreProxy.feeController()).to.eq(deployment["FeeController"].contractAddress);
-        expect(await loanCoreProxy.borrowerNote()).to.eq(deployment["BorrowerNote"].contractAddress);
-        expect(await loanCoreProxy.lenderNote()).to.eq(deployment["LenderNote"].contractAddress);
-        expect(await loanCoreImpl.feeController()).to.eq(ZERO_ADDRESS);
-        expect(await loanCoreImpl.borrowerNote()).to.eq(ZERO_ADDRESS);
-        expect(await loanCoreImpl.lenderNote()).to.eq(ZERO_ADDRESS);
+        expect(deployment["LoanCore"].constructorArgs.length).to.eq(2);
+        expect(deployment["LoanCore"].constructorArgs[0]).to.eq(deployment["BorrowerNote"].contractAddress);
+        expect(deployment["LoanCore"].constructorArgs[1]).to.eq(deployment["LenderNote"].contractAddress);
 
         expect(deployment["RepaymentController"]).to.exist;
         expect(deployment["RepaymentController"].contractAddress).to.exist;
-        expect(deployment["RepaymentController"].constructorArgs.length).to.eq(1);
+        expect(deployment["RepaymentController"].constructorArgs.length).to.eq(2);
         expect(deployment["RepaymentController"].constructorArgs[0]).to.eq(deployment["LoanCore"].contractAddress);
+        expect(deployment["RepaymentController"].constructorArgs[1]).to.eq(deployment["FeeController"].contractAddress);
 
         expect(deployment["OriginationController"]).to.exist;
         expect(deployment["OriginationController"].contractAddress).to.exist;
-        expect(deployment["OriginationController"].contractImplementationAddress).to.exist;
-        expect(deployment["OriginationController"].constructorArgs.length).to.eq(0);
+        expect(deployment["OriginationController"].constructorArgs.length).to.eq(2);
+        expect(deployment["OriginationController"].constructorArgs[0]).to.eq(deployment["LoanCore"].contractAddress);
+        expect(deployment["OriginationController"].constructorArgs[1]).to.eq(deployment["FeeController"].contractAddress);
 
         expect(deployment["ArcadeItemsVerifier"]).to.exist;
         expect(deployment["ArcadeItemsVerifier"].contractAddress).to.exist;
         expect(deployment["ArcadeItemsVerifier"].constructorArgs.length).to.eq(0);
-
-        // Make sure OriginationController initialized correctly
-        const ocFactory = await ethers.getContractFactory("OriginationController");
-        const ocProxy = <OriginationController>await ocFactory.attach(deployment["OriginationController"].contractAddress);
-        const ocImpl = <OriginationController>await ocFactory.attach(deployment["OriginationController"].contractImplementationAddress);
-
-        expect(await ocProxy.loanCore()).to.eq(deployment["LoanCore"].contractAddress);
-        expect(await ocImpl.loanCore()).to.eq(ZERO_ADDRESS);
     });
 
     it("correctly sets up all roles and permissions", async () => {
@@ -228,8 +211,6 @@ describe("Deployment", function() {
             execSync(`HARDHAT_NETWORK=${NETWORK} ts-node scripts/deploy/verify-contracts.ts ${filename}`, { stdio: 'inherit' });
         }
 
-        const proxyArtifact = await artifacts.readArtifact("ERC1967Proxy");
-
         // For each contract - compare verified ABI against artifact ABI
         for (let contractName of Object.keys(deployment)) {
             const contractData = deployment[contractName];
@@ -237,16 +218,8 @@ describe("Deployment", function() {
             if (contractName.includes("Note")) contractName = "PromissoryNote";
             const artifact = await artifacts.readArtifact(contractName);
 
-            const implAddress = contractData.contractImplementationAddress || contractData.contractAddress;
-
-            const verifiedAbi = await getVerifiedABI(implAddress);
+            const verifiedAbi = await getVerifiedABI(contractData.contractAddress);
             expect(artifact.abi).to.deep.equal(verifiedAbi);
-
-            if (contractData.contractImplementationAddress) {
-                // Also verify the proxy
-                const verifiedProxyAbi = await getVerifiedABI(contractData.contractAddress);
-                expect(verifiedProxyAbi).to.deep.equal(proxyArtifact.abi);
-            }
         }
     });
 

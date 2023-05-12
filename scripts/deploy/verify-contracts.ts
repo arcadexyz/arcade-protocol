@@ -4,20 +4,18 @@ import { BigNumberish } from "ethers";
 
 import { ContractData } from "./write-json";
 
-import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../utils/bootstrap-tools";
+import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../../test/utils/constants";
 
 async function verifyArtifacts(
     contractName: string,
     contractAddress: string,
-    contractImplementationAddress: string | undefined,
     constructorArgs: BigNumberish[],
 ) {
     console.log(`${contractName}: ${contractAddress}`);
     console.log(SUBSECTION_SEPARATOR);
 
-    const address = contractImplementationAddress || contractAddress;
+    const address = contractAddress;
 
-    // TODO: Verify proxy?
     try {
         await hre.run("verify:verify", {
             address,
@@ -51,7 +49,6 @@ export async function main(): Promise<void> {
         await verifyArtifacts(
             property,
             dataFromJson.contractAddress,
-            dataFromJson.contractImplementationAddress,
             dataFromJson.constructorArgs,
         );
     }
