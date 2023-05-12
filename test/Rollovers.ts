@@ -183,7 +183,7 @@ const createLoanTerms = (
 };
 
 const initializeBundle = async (vaultFactory: VaultFactory, user: SignerWithAddress): Promise<BigNumber> => {
-    const tx = await vaultFactory.connect(user).initializeBundle(await user.getAddress());
+    const tx = await vaultFactory.connect(user).initializeBundle(user.address);
     const receipt = await tx.wait();
 
     if (receipt && receipt.events) {

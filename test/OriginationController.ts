@@ -58,7 +58,7 @@ interface TestContext {
  * Creates a vault instance using the vault factory
  */
 const createVault = async (factory: VaultFactory, user: Signer): Promise<AssetVault> => {
-    const tx = await factory.connect(user).initializeBundle(await user.getAddress());
+    const tx = await factory.connect(user).initializeBundle(user.address);
     const receipt = await tx.wait();
 
     let vault: AssetVault | undefined;
@@ -708,7 +708,7 @@ describe("OriginationController", () => {
 
                 // invalid signature because tokenId is something random here
                 const permitData = {
-                    owner: await user.getAddress(),
+                    owner: user.address,
                     spender: originationController.address,
                     tokenId: 1234,
                     nonce: 0,
@@ -765,7 +765,7 @@ describe("OriginationController", () => {
 
                 // invalid signature because tokenId is something random here
                 const permitData = {
-                    owner: await user.getAddress(),
+                    owner: user.address,
                     spender: originationController.address,
                     tokenId: 1234,
                     nonce: 0,
