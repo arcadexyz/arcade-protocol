@@ -17,9 +17,7 @@ import "./interfaces/IPromissoryNote.sol";
 import {
     PN_ZeroAddress,
     PN_MintingRole,
-    PN_BurningRole,
-    PN_AlreadyInitialized,
-    PN_ZeroAddress
+    PN_BurningRole
 } from "./errors/Lending.sol";
 
 /**
@@ -116,7 +114,6 @@ contract PromissoryNote is
      * @param loanCore              The address of the admin.
      */
     function initialize(address loanCore) external onlyRole(ADMIN_ROLE) {
-        if (initialized) revert PN_AlreadyInitialized();
         if (loanCore == address(0)) revert PN_ZeroAddress();
 
         // Grant mint/burn role to loanCore

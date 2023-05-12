@@ -297,9 +297,6 @@ contract LoanCore is
 
         _burnLoanNotes(loanId);
 
-        // collateral redistribution
-        IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), lender, data.terms.collateralId);
-
         if (_amountFromLender > 0) {
             (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
                 _getAffiliateSplit(_amountFromLender, data.terms.affiliateCode);
