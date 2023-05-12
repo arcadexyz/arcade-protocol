@@ -115,7 +115,7 @@ const fixture = async (): Promise<TestContext> => {
 // Mint Promissory Note
 const mintPromissoryNote = async (note: PromissoryNote, user: Signer): Promise<BigNumber> => {
     const totalSupply = await note.totalSupply();
-    const transaction = await note.mint(await user.address, totalSupply);
+    const transaction = await note.mint(user.address, totalSupply);
     const receipt = await transaction.wait();
 
     if (receipt && receipt.events && receipt.events.length === 1 && receipt.events[0].args) {
@@ -172,7 +172,7 @@ describe("PromissoryNote", () => {
     describe("mint", () => {
         it("Reverts if sender is not an assigned minter", async () => {
             const { lenderPromissoryNote: promissoryNote, user, other } = await loadFixture(fixture);
-            const transaction = promissoryNote.connect(other).mint(await user.address, 1);
+            const transaction = promissoryNote.connect(other).mint(user.address, 1);
             await expect(transaction).to.be.revertedWith("PN_MintingRole");
         });
 
@@ -263,7 +263,7 @@ describe("PromissoryNote", () => {
                 promissoryNote.address,
                 await promissoryNote.name(),
                 "1",
-                await user.address,
+                user.address,
                 other.address,
                 promissoryNoteId,
                 0,
@@ -279,7 +279,7 @@ describe("PromissoryNote", () => {
 
             await expect(
                 promissoryNote.permit(
-                    await user.address,
+                    user.address,
                     other.address,
                     promissoryNoteId,
                     maxDeadline,
@@ -289,12 +289,12 @@ describe("PromissoryNote", () => {
                 ),
             )
                 .to.emit(promissoryNote, "Approval")
-                .withArgs(await user.address, other.address, promissoryNoteId);
+                .withArgs(user.address, other.address, promissoryNoteId);
 
             approved = await promissoryNote.getApproved(promissoryNoteId);
             expect(approved).to.equal(other.address);
             //check nonce was incremented to one
-            expect(await promissoryNote.nonces(await user.address)).to.equal(1);
+            expect(await promissoryNote.nonces(user.address)).to.equal(1);
             //test coverage checking domain separator
             expect(await promissoryNote.DOMAIN_SEPARATOR());
         });
@@ -337,7 +337,7 @@ describe("PromissoryNote", () => {
         it("rejects reused signature", async () => {
             await expect(
                 promissoryNote.permit(
-                    await user.address,
+                    user.address,
                     other.address,
                     promissoryNoteId,
                     maxDeadline,
@@ -347,11 +347,11 @@ describe("PromissoryNote", () => {
                 ),
             )
                 .to.emit(promissoryNote, "Approval")
-                .withArgs(await user.address, other.address, promissoryNoteId);
+                .withArgs(user.address, other.address, promissoryNoteId);
 
             await expect(
                 promissoryNote.permit(
-                    await user.address,
+                    user.address,
                     other.address,
                     promissoryNoteId,
                     maxDeadline,
@@ -368,7 +368,7 @@ describe("PromissoryNote", () => {
                 promissoryNote.address,
                 await promissoryNote.name(),
                 "1",
-                await user.address,
+                user.address,
                 other.address,
                 promissoryNoteId,
                 0,
@@ -379,7 +379,7 @@ describe("PromissoryNote", () => {
 
             await expect(
                 promissoryNote.permit(
-                    await user.address,
+                    user.address,
                     other.address,
                     promissoryNoteId,
                     maxDeadline,
@@ -396,7 +396,7 @@ describe("PromissoryNote", () => {
                 promissoryNote.address,
                 await promissoryNote.name(),
                 "1",
-                await user.address,
+                user.address,
                 other.address,
                 promissoryNoteId,
                 0,
@@ -411,7 +411,7 @@ describe("PromissoryNote", () => {
 
             await expect(
                 promissoryNote.permit(
-                    await user.address,
+                    user.address,
                     other.address,
                     promissoryNoteId,
                     "1234",

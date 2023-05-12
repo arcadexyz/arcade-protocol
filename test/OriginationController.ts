@@ -2068,6 +2068,20 @@ describe("OriginationController", () => {
             expect(await originationController.isAllowedVerifier(verifier.address)).to.be.false;
             expect(await originationController.isAllowedVerifier(verifier2.address)).to.be.true;
         });
+
+        it("only admin should be able to change whitelist manager", async () => {
+            const { originationController, user, other } = ctx;
+
+            await originationController.connect(user).grantRole(WHITELIST_MANAGER_ROLE, other.address);
+            await originationController.connect(user).revokeRole(WHITELIST_MANAGER_ROLE, user.address);
+            await expect(
+                originationController.connect(other).grantRole(WHITELIST_MANAGER_ROLE, other.address),
+            ).to.be.revertedWith(
+                `AccessControl: account ${(
+                    other.address
+                ).toLowerCase()} is missing role ${ADMIN_ROLE}`,
+            );
+        });
     });
 
     describe("approvals", () => {

@@ -645,8 +645,7 @@ describe("LoanCore", () => {
         });
     });
 
-    describe("Repay Loan", function () {
-
+    describe("Repay Loan", () => {
         const setupLoan = async (context?: TestContext): Promise<RepayLoanState> => {
             context = <TestContext>(context || (await loadFixture(fixture)));
 
@@ -810,7 +809,7 @@ describe("LoanCore", () => {
         });
     });
 
-    describe("ForceRepay Loan", function () {
+    describe("ForceRepay Loan", () => {
         const setupLoan = async (context?: TestContext): Promise<RepayLoanState> => {
             context = <TestContext>(context || (await loadFixture(fixture)));
 
@@ -987,7 +986,7 @@ describe("LoanCore", () => {
         });
     });
 
-    describe("Claim loan", async function () {
+    describe("Claim loan", () => {
         const setupLoan = async (context?: TestContext): Promise<RepayLoanState> => {
             context = <TestContext>(context || (await loadFixture(fixture)));
 
@@ -1122,7 +1121,7 @@ describe("LoanCore", () => {
         });
     });
 
-    describe("Redeem note", async () => {
+    describe("Redeem note", () => {
         const setupLoan = async (context?: TestContext): Promise<RepayLoanState> => {
             context = <TestContext>(context || (await loadFixture(fixture)));
 
@@ -1237,7 +1236,7 @@ describe("LoanCore", () => {
         });
     });
 
-    describe("Claim fees", async () => {
+    describe("Claim fees", () => {
         const setupLoan = async (context?: TestContext): Promise<StartLoanState> => {
             context = <TestContext>(context || (await loadFixture(fixture)));
 
@@ -1300,7 +1299,6 @@ describe("LoanCore", () => {
             );
         });
 
-        // TODO: Same test for affiliate manager role
         it("only admin should be able to change fee claimer", async () => {
             const { vaultFactory, loanCore, mockERC20, terms, borrower, lender } = await setupLoan();
             const { collateralId, principal } = terms;
@@ -1327,9 +1325,108 @@ describe("LoanCore", () => {
                 ).toLowerCase()} is missing role ${ADMIN_ROLE}`,
             );
         });
+
+        it("only admin should be able to change fee claimer", async () => {
+            const { vaultFactory, loanCore, mockERC20, terms, borrower, lender } = await setupLoan();
+            const { collateralId, principal } = terms;
+
+            // run originator controller logic inline then invoke loanCore
+            // borrower is originator with originator role
+            await vaultFactory
+                .connect(borrower)
+                .transferFrom(borrower.address, borrower.address, collateralId);
+            await vaultFactory.connect(borrower).approve(loanCore.address, collateralId);
+
+            await mockERC20.connect(lender).mint(lender.address, principal);
+            await mockERC20.connect(lender).approve(loanCore.address, principal);
+
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, principal, principal);
+
+            await loanCore.connect(borrower).grantRole(FEE_CLAIMER_ROLE, lender.address);
+            await loanCore.connect(borrower).revokeRole(FEE_CLAIMER_ROLE, borrower.address);
+            await expect(
+                loanCore.connect(lender).grantRole(FEE_CLAIMER_ROLE, borrower.address),
+            ).to.be.revertedWith(
+                `AccessControl: account ${(
+                    lender.address
+                ).toLowerCase()} is missing role ${ADMIN_ROLE}`,
+            );
+        });
+
+        it("only admin should be able to change affiliate manager", async () => {
+            const { vaultFactory, loanCore, mockERC20, terms, borrower, lender } = await setupLoan();
+            const { collateralId, principal } = terms;
+
+            // run originator controller logic inline then invoke loanCore
+            // borrower is originator with originator role
+            await vaultFactory
+                .connect(borrower)
+                .transferFrom(borrower.address, borrower.address, collateralId);
+            await vaultFactory.connect(borrower).approve(loanCore.address, collateralId);
+
+            await mockERC20.connect(lender).mint(lender.address, principal);
+            await mockERC20.connect(lender).approve(loanCore.address, principal);
+
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, principal, principal);
+
+            await loanCore.connect(borrower).grantRole(AFFILIATE_MANAGER_ROLE, lender.address);
+            await loanCore.connect(borrower).revokeRole(AFFILIATE_MANAGER_ROLE, borrower.address);
+            await expect(
+                loanCore.connect(lender).grantRole(AFFILIATE_MANAGER_ROLE, borrower.address),
+            ).to.be.revertedWith(
+                `AccessControl: account ${(
+                    lender.address
+                ).toLowerCase()} is missing role ${ADMIN_ROLE}`,
+            );
+        });
     });
 
-    describe("canCallOn", function () {
+    describe("Rollovers", () => {
+        const setupLoan = async (context?: TestContext): Promise<RepayLoanState> => {
+            context = <TestContext>(context || (await loadFixture(fixture)));
+
+            const { vaultFactory, mockERC20, loanCore, user: borrower, other: lender } = context;
+            const collateralId = await initializeBundle(vaultFactory, borrower);
+
+            const terms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId });
+
+            // run originator controller logic inline then invoke loanCore
+            // borrower is originator with originator role
+            await vaultFactory
+                .connect(borrower)
+                .transferFrom(borrower.address, borrower.address, collateralId);
+            await vaultFactory.connect(borrower).approve(loanCore.address, collateralId);
+
+            await mockERC20.connect(lender).mint(lender.address, terms.principal);
+            await mockERC20.connect(lender).approve(loanCore.address, terms.principal);
+
+            const loanId = await startLoan(
+                loanCore,
+                borrower,
+                lender.address,
+                borrower.address,
+                terms,
+                terms.principal,
+                terms.principal
+            );
+
+            return { ...context, loanId, terms, borrower, lender };
+        };
+
+        it("should successfully roll over loan");
+        it("rejects calls from non-originator");
+        it("should update originator address and work with new one");
+        it("rollover should fail if the loan does not exist");
+        it("rollover should fail if the loan is not active");
+        it("rollover should fail if the loan is already repaid");
+        it("rollover should fail if the loan is already claimed");
+        it("rollover should fail if the borrower cannot cover debt");
+        it("rollover should fail if the borrower cannot cover debt in full");
+        it("rollover should fail if the borrower cannot cover interest in full");
+        it("rollover should fail if asked to pay out more than received");;
+    });
+
+    describe("canCallOn", () => {
         const setupLoan = async (): Promise<RepayLoanState> => {
             const context = await loadFixture(fixture);
 

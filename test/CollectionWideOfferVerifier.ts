@@ -79,6 +79,20 @@ describe("CollectionWideOfferVerifier", () => {
             ).to.be.revertedWith("function selector was not recognized and there's no fallback function");
         });
 
+        it("reverts if the collateral address is the vault factory but the ID does not represent a vault", async () => {
+            const { verifier, vaultFactory, mockERC721, deployer } = ctx;
+            const bundleId = await initializeBundle(vaultFactory, deployer);
+            await mockERC721.mint(await vaultFactory.instanceAt(bundleId));
+
+            expect(
+                await verifier.verifyPredicates(
+                    vaultFactory.address,
+                    1010101010101, // diff bundle that has not been registered
+                    ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address])
+                )
+            ).to.eq(false);
+        });
+
         it("returns false if the vault does not hold the token", async () => {
             const { verifier, mockERC721, vaultFactory, deployer } = ctx;
 
