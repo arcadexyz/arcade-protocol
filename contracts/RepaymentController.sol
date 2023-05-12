@@ -36,6 +36,8 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     IPromissoryNote private immutable lenderNote;
     IFeeController private immutable feeController;
 
+    // ========================================= CONSTRUCTOR ============================================
+
     /**
      * @notice Creates a new repayment controller contract.
      *
@@ -130,6 +132,8 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         loanCore.redeemNote(loanId, redeemFee, to);
     }
 
+    // =========================================== HELPERS ==============================================
+
     /**
      * @dev Shared logic to perform validation and calculations for repay and forceRepay.
      *
@@ -146,9 +150,10 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         LoanLibrary.LoanTerms memory terms = data.terms;
 
         uint256 interest = getInterestAmount(terms.principal, terms.proratedInterestRate);
-        if (terms.principal + interest == 0) revert RC_NoPaymentDue();
 
         // Account for fees to determine amount to lender
+        // We know, for an active loan, that both interest and principal are > 0,
+        // since they are checked on origination and loan terms cannot change
         uint256 interestFee = (interest * feeController.get(FL_07)) / BASIS_POINTS_DENOMINATOR;
         uint256 principalFee = (terms.principal * feeController.get(FL_08)) / BASIS_POINTS_DENOMINATOR;
 

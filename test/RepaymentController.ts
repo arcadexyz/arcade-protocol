@@ -17,7 +17,7 @@ import {
 import { BlockchainTime } from "./utils/time";
 import { BigNumber, BigNumberish } from "ethers";
 import { deploy } from "./utils/contracts";
-import { approve, mint } from "./utils/erc20";
+import { approve, mint, ZERO_ADDRESS } from "./utils/erc20";
 import { LoanTerms, LoanData } from "./utils/types";
 import { createLoanTermsSignature } from "./utils/eip712";
 
@@ -236,6 +236,32 @@ describe("RepaymentController", () => {
 
     beforeEach(async () => {
         ctx = await loadFixture(fixture);
+    });
+
+    describe("constructor", () => {
+        it("Reverts if loanCore address is not provided", async () => {
+            const { feeController } = ctx;
+
+            const RepaymentController = await ethers.getContractFactory("RepaymentController");
+            await expect(RepaymentController.deploy(ZERO_ADDRESS, feeController.address)).to.be.revertedWith("RC_ZeroAddress");
+        });
+
+        it("Reverts if feeController address is not provided", async () => {
+            const { loanCore } = ctx;
+
+            const RepaymentController = await ethers.getContractFactory("RepaymentController");
+            await expect(RepaymentController.deploy(loanCore.address, ZERO_ADDRESS)).to.be.revertedWith("RC_ZeroAddress");
+        });
+
+        it("Instantiates the RepaymentController", async () => {
+            const { loanCore, feeController } = ctx;
+
+            const RepaymentController = await ethers.getContractFactory("RepaymentController");
+            const repaymentController = await RepaymentController.deploy(loanCore.address, feeController.address);
+            await repaymentController.deployed();
+
+            expect(repaymentController.address).to.not.be.undefined;
+        });
     });
 
     describe("Repayment", () => {

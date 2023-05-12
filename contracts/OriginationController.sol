@@ -711,7 +711,6 @@ contract OriginationController is
         // and less than 10,000% (1e6 basis points)
         if (terms.proratedInterestRate < 1e18 || terms.proratedInterestRate > 1e24) revert OC_InterestRate(terms.proratedInterestRate);
 
-
         // signature must not have already expired
         if (terms.deadline < block.timestamp) revert OC_SignatureIsExpired(terms.deadline);
 

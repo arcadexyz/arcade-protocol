@@ -281,7 +281,6 @@ describe("Rollovers", () => {
     });
 
     describe("Rollover Loan", () => {
-
         it("should not allow a rollover if the collateral doesn't match", async () => {
             const { originationController, vaultFactory, borrower, lender } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
