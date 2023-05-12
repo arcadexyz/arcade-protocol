@@ -114,8 +114,6 @@ contract PromissoryNote is
      * @param loanCore              The address of the admin.
      */
     function initialize(address loanCore) external onlyRole(ADMIN_ROLE) {
-        if (loanCore == address(0)) revert PN_ZeroAddress();
-
         // Grant mint/burn role to loanCore
         _setupRole(MINT_BURN_ROLE, loanCore);
 
