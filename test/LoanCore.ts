@@ -59,6 +59,8 @@ interface RepayLoanState extends TestContext {
     lender: SignerWithAddress;
 }
 
+const blockchainTime = new BlockchainTime();
+
 /**
  * Sets up a test asset vault for the user passed as an arg
  */
@@ -1413,17 +1415,248 @@ describe("LoanCore", () => {
             return { ...context, loanId, terms, borrower, lender };
         };
 
-        it("should successfully roll over loan");
-        it("rejects calls from non-originator");
-        it("should update originator address and work with new one");
-        it("rollover should fail if the loan does not exist");
-        it("rollover should fail if the loan is not active");
-        it("rollover should fail if the loan is already repaid");
-        it("rollover should fail if the loan is already claimed");
-        it("rollover should fail if the borrower cannot cover debt");
-        it("rollover should fail if the borrower cannot cover debt in full");
-        it("rollover should fail if the borrower cannot cover interest in full");
-        it("rollover should fail if asked to pay out more than received");;
+        it("should successfully roll over loan", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms } = await setupLoan();
+            const repayAmount = terms.principal.add(terms.proratedInterestRate);
+
+            // Figure out amounts owed
+            // With same terms, borrower will have to pay interest plus 0.1%
+            // 10% interest on 100, plus 0.1% eq 11.1
+
+            await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
+            await mockERC20.connect(borrower).approve(loanCore.address, ethers.utils.parseEther("12"));
+
+            await mockERC20
+                .connect(borrower)
+                .mint(borrower.address, repayAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
+
+            const newLoanId = BigNumber.from(loanId).add(1);
+
+            await expect(
+                loanCore.connect(borrower).rollover(
+                    loanId,
+                    borrower.address,
+                    lender.address,
+                    terms,
+                    repayAmount,
+                    0,
+                    0,
+                    repayAmount
+                )
+            ).to.emit(loanCore, "LoanRepaid").withArgs(loanId)
+                .to.emit(loanCore, "LoanStarted").withArgs(newLoanId, lender.address, borrower.address)
+                .to.emit(loanCore, "LoanRolledOver").withArgs(loanId, newLoanId);
+        });
+
+        it("rejects calls from non-originator", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms } = await setupLoan();
+            const repayAmount = terms.principal.add(terms.proratedInterestRate);
+
+            // Figure out amounts owed
+            // With same terms, borrower will have to pay interest plus 0.1%
+            // 10% interest on 100, plus 0.1% eq 11.1
+
+            await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
+            await mockERC20.connect(borrower).approve(loanCore.address, ethers.utils.parseEther("12"));
+
+            await mockERC20
+                .connect(borrower)
+                .mint(borrower.address, repayAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
+
+            await expect(
+                loanCore.connect(lender).rollover(
+                    loanId,
+                    borrower.address,
+                    lender.address,
+                    terms,
+                    repayAmount,
+                    0,
+                    0,
+                    repayAmount
+                )
+            ).to.be.revertedWith("AccessControl");
+        });
+
+        it("should update originator address and work with new one, collecting funds from originator", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms } = await setupLoan();
+            const repayAmount = terms.principal.add(terms.proratedInterestRate);
+
+            // Figure out amounts owed
+            // With same terms, borrower will have to pay interest plus 0.1%
+            // 10% interest on 100, plus 0.1% eq 11.1
+
+            await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
+            await mockERC20.connect(borrower).approve(loanCore.address, ethers.utils.parseEther("12"));
+
+            await mockERC20
+                .connect(borrower)
+                .mint(lender.address, repayAmount);
+            await mockERC20.connect(lender).approve(loanCore.address, repayAmount);
+
+            await loanCore.grantRole(ORIGINATOR_ROLE, lender.address);
+
+            const newLoanId = BigNumber.from(loanId).add(1);
+
+            await expect(
+                loanCore.connect(lender).rollover(
+                    loanId,
+                    borrower.address,
+                    lender.address,
+                    terms,
+                    repayAmount,
+                    0,
+                    0,
+                    repayAmount
+                )
+            ).to.emit(loanCore, "LoanRepaid").withArgs(loanId)
+                .to.emit(loanCore, "LoanStarted").withArgs(newLoanId, lender.address, borrower.address)
+                .to.emit(loanCore, "LoanRolledOver").withArgs(loanId, newLoanId);
+        });
+
+        it("rollover should fail if the loan is not active", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms } = await setupLoan();
+            const repayAmount = terms.principal.add(terms.proratedInterestRate);
+
+            // Figure out amounts owed
+            // With same terms, borrower will have to pay interest plus 0.1%
+            // 10% interest on 100, plus 0.1% eq 11.1
+
+            await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
+            await mockERC20.connect(borrower).approve(loanCore.address, ethers.utils.parseEther("12"));
+
+            await mockERC20
+                .connect(borrower)
+                .mint(borrower.address, repayAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
+
+            const wrongLoanId = BigNumber.from(loanId).add(1);
+
+            await expect(
+                loanCore.connect(borrower).rollover(
+                    wrongLoanId,
+                    borrower.address,
+                    lender.address,
+                    terms,
+                    repayAmount,
+                    0,
+                    0,
+                    repayAmount
+                )
+            ).to.be.revertedWith("LC_InvalidState");
+        });
+
+        it("rollover should fail if the loan is already repaid", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms } = await setupLoan();
+            const repayAmount = terms.principal.add(terms.proratedInterestRate);
+
+            // Figure out amounts owed
+            // With same terms, borrower will have to pay interest plus 0.1%
+            // 10% interest on 100, plus 0.1% eq 11.1
+
+            await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
+            await mockERC20.connect(borrower).approve(loanCore.address, ethers.utils.parseEther("12"));
+
+            await mockERC20
+                .connect(borrower)
+                .mint(borrower.address, repayAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
+
+            await expect(loanCore.connect(borrower).repay(loanId, borrower.address, repayAmount, repayAmount)).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
+
+            await expect(
+                loanCore.connect(borrower).rollover(
+                    loanId,
+                    borrower.address,
+                    lender.address,
+                    terms,
+                    repayAmount,
+                    0,
+                    0,
+                    repayAmount
+                )
+            ).to.be.revertedWith("LC_InvalidState");
+        });
+
+        it("rollover should fail if the loan is already claimed", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms } = await setupLoan();
+            const repayAmount = terms.principal.add(terms.proratedInterestRate);
+
+            // Figure out amounts owed
+            // With same terms, borrower will have to pay interest plus 0.1%
+            // 10% interest on 100, plus 0.1% eq 11.1
+
+            await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
+            await mockERC20.connect(borrower).approve(loanCore.address, ethers.utils.parseEther("12"));
+
+            await mockERC20
+                .connect(borrower)
+                .mint(borrower.address, repayAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
+
+            await blockchainTime.increaseTime(360001);
+
+            await expect(loanCore.connect(borrower).claim(loanId, 0))
+                .to.emit(loanCore, "LoanClaimed")
+                .withArgs(loanId);
+
+            await expect(
+                loanCore.connect(borrower).rollover(
+                    loanId,
+                    borrower.address,
+                    lender.address,
+                    terms,
+                    repayAmount,
+                    0,
+                    0,
+                    repayAmount
+                )
+            ).to.be.revertedWith("LC_InvalidState");
+        });
+
+        it("rollover should fail if the originator does not approve settled amount", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms } = await setupLoan();
+            const repayAmount = terms.principal.add(terms.proratedInterestRate);
+
+            // Mint enough for repayment, but do not approve
+            await mockERC20.mint(borrower.address, repayAmount);
+
+            await expect(
+                loanCore.connect(borrower).rollover(
+                    loanId,
+                    borrower.address,
+                    lender.address,
+                    terms,
+                    repayAmount,
+                    0,
+                    repayAmount,
+                    0
+                )
+            ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
+        });
+
+        it("rollover should fail if asked to pay out more than received", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms } = await setupLoan();
+            const repayAmount = terms.principal.add(terms.proratedInterestRate);
+
+            // Mint enough for repayment, but do not approve
+            await mockERC20.mint(borrower.address, repayAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
+
+            await expect(
+                loanCore.connect(borrower).rollover(
+                    loanId,
+                    borrower.address,
+                    lender.address,
+                    terms,
+                    repayAmount,
+                    0,
+                    repayAmount,
+                    repayAmount
+                )
+            ).to.be.revertedWith("LC_CannotSettle");
+        });
     });
 
     describe("canCallOn", () => {

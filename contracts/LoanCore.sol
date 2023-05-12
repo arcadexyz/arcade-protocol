@@ -388,6 +388,10 @@ contract LoanCore is
     ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 newLoanId) {
         // Repay loan
         LoanLibrary.LoanData storage data = loans[oldLoanId];
+
+        // ensure valid initial loan state when repaying loan
+        if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
+
         data.state = LoanLibrary.LoanState.Repaid;
 
         address oldLender = lenderNote.ownerOf(oldLoanId);
