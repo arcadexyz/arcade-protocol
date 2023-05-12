@@ -62,8 +62,8 @@ interface RepayLoanState extends TestContext {
 /**
  * Sets up a test asset vault for the user passed as an arg
  */
-const initializeBundle = async (vaultFactory: VaultFactory, user: Signer): Promise<BigNumber> => {
-    const tx = await vaultFactory.connect(user).initializeBundle(await user.getAddress());
+const initializeBundle = async (vaultFactory: VaultFactory, user: SignerWithAddress): Promise<BigNumber> => {
+    const tx = await vaultFactory.connect(user).initializeBundle(user.address);
     const receipt = await tx.wait();
 
     if (receipt && receipt.events) {
@@ -78,8 +78,8 @@ const initializeBundle = async (vaultFactory: VaultFactory, user: Signer): Promi
     }
 };
 
-const createVault = async (factory: VaultFactory, to: Signer): Promise<AssetVault> => {
-    const tx = await factory.initializeBundle(await to.getAddress());
+const createVault = async (factory: VaultFactory, to: SignerWithAddress): Promise<AssetVault> => {
+    const tx = await factory.initializeBundle(to.address);
     const receipt = await tx.wait();
 
     let vault: AssetVault | undefined;
@@ -696,7 +696,7 @@ describe("LoanCore", () => {
             await mockERC20.connect(borrower).mint(loanCore.address, repayAmount);
 
             await expect(loanCore.connect(other).repay(loanId, borrower.address, repayAmount, repayAmount)).to.be.revertedWith(
-                `AccessControl: account ${(await other.getAddress()).toLowerCase()} is missing role ${REPAYER_ROLE}`,
+                `AccessControl: account ${(other.address).toLowerCase()} is missing role ${REPAYER_ROLE}`,
             );
         });
 
@@ -709,7 +709,7 @@ describe("LoanCore", () => {
                 .mint(borrower.address, repayAmount);
 
             await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
-            await loanCore.grantRole(REPAYER_ROLE, await other.getAddress());
+            await loanCore.grantRole(REPAYER_ROLE, other.address);
 
             await expect(loanCore.connect(other).repay(loanId, borrower.address, repayAmount, repayAmount)).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
         });
@@ -871,7 +871,7 @@ describe("LoanCore", () => {
             await mockERC20.connect(borrower).mint(loanCore.address, repayAmount);
 
             await expect(loanCore.connect(other).forceRepay(loanId, borrower.address, repayAmount, repayAmount)).to.be.revertedWith(
-                `AccessControl: account ${(await other.getAddress()).toLowerCase()} is missing role ${REPAYER_ROLE}`,
+                `AccessControl: account ${(other.address).toLowerCase()} is missing role ${REPAYER_ROLE}`,
             );
         });
 
@@ -884,7 +884,7 @@ describe("LoanCore", () => {
                 .mint(borrower.address, repayAmount);
 
             await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
-            await loanCore.grantRole(REPAYER_ROLE, await other.getAddress());
+            await loanCore.grantRole(REPAYER_ROLE, other.address);
 
             await expect(loanCore.connect(other).forceRepay(loanId, borrower.address, repayAmount, repayAmount)).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
         });
@@ -1038,7 +1038,7 @@ describe("LoanCore", () => {
             await blockchainTime.increaseTime(360001);
 
             await expect(loanCore.connect(other).claim(loanId, 0)).to.be.revertedWith(
-                `AccessControl: account ${(await other.getAddress()).toLowerCase()} is missing role ${REPAYER_ROLE}`,
+                `AccessControl: account ${(other.address).toLowerCase()} is missing role ${REPAYER_ROLE}`,
             );
         });
 
@@ -1493,9 +1493,9 @@ describe("LoanCore", () => {
 
         it("does not let a nonce be consumed by a non-originator", async () => {
             const { loanCore, other, user } = context;
-            await expect(loanCore.connect(other).consumeNonce(await user.getAddress(), 10)).to.be.revertedWith(
+            await expect(loanCore.connect(other).consumeNonce(user.address, 10)).to.be.revertedWith(
                 `AccessControl: account ${await (
-                    await other.getAddress()
+                    other.address
                 ).toLocaleLowerCase()} is missing role ${ORIGINATOR_ROLE}`,
             );
         });

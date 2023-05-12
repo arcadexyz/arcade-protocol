@@ -1,3 +1,4 @@
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { Signer, BigNumber } from "ethers";
 import { MockERC1155 } from "../../typechain";
@@ -7,8 +8,8 @@ export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 /**
  * Mint tokens for `to`
  */
-export const mint = async (token: MockERC1155, to: Signer, amount: BigNumber): Promise<string> => {
-    const address = await to.getAddress();
+export const mint = async (token: MockERC1155, to: SignerWithAddress, amount: BigNumber): Promise<string> => {
+    const address = to.address;
     return mintToAddress(token, address, amount);
 };
 
@@ -29,8 +30,8 @@ export const mintToAddress = async (token: MockERC1155, to: string, amount: BigN
 /**
  * approve `amount` tokens for `to` from `from`
  */
-export const approve = async (token: MockERC1155, sender: Signer, toAddress: string): Promise<void> => {
-    const senderAddress = await sender.getAddress();
+export const approve = async (token: MockERC1155, sender: SignerWithAddress, toAddress: string): Promise<void> => {
+    const senderAddress = sender.address;
 
     await expect(token.connect(sender).setApprovalForAll(toAddress, true))
         .to.emit(token, "ApprovalForAll")

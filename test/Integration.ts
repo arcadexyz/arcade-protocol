@@ -177,7 +177,7 @@ const createLoanTerms = (
 };
 
 const createWnft = async (vaultFactory: VaultFactory, user: SignerWithAddress) => {
-    const tx = await vaultFactory.initializeBundle(await user.getAddress());
+    const tx = await vaultFactory.initializeBundle(user.address);
     const receipt = await tx.wait();
     if (receipt && receipt.events && receipt.events.length === 2 && receipt.events[1].args) {
         return receipt.events[1].args.vault;

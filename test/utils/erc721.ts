@@ -1,3 +1,4 @@
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { Signer, BigNumber } from "ethers";
 import { MockERC721 } from "../../typechain/MockERC721";
@@ -7,9 +8,8 @@ export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 /**
  * Mint a token for `to`
  */
-export const mint = async (token: MockERC721, to: Signer): Promise<BigNumber> => {
-    const address = await to.getAddress();
-    return mintToAddress(token, address);
+export const mint = async (token: MockERC721, to: SignerWithAddress): Promise<BigNumber> => {
+    return mintToAddress(token, to.address);
 };
 
 /**
@@ -31,11 +31,11 @@ export const mintToAddress = async (token: MockERC721, to: string): Promise<BigN
  */
 export const approve = async (
     token: MockERC721,
-    sender: Signer,
+    sender: SignerWithAddress,
     toAddress: string,
     tokenId: BigNumber,
 ): Promise<void> => {
-    const senderAddress = await sender.getAddress();
+    const senderAddress = sender.address;
     expect(await token.getApproved(tokenId)).to.not.equal(toAddress);
 
     await expect(token.connect(sender).approve(toAddress, tokenId))
