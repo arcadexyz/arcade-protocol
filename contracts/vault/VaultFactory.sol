@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-pragma solidity ^0.8.11;
+pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
@@ -254,7 +254,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
         public
         view
         virtual
-        override(ERC165, ERC721, ERC721Enumerable, AccessControl)
+        override(IERC165, ERC165, ERC721, ERC721Enumerable, AccessControl)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);

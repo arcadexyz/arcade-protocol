@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.11;
+pragma solidity 0.8.18;
 
 import "../interfaces/ISignatureVerifier.sol";
 import "../interfaces/IVaultFactory.sol";
