@@ -700,7 +700,7 @@ contract OriginationController is
      * @param terms                  The terms of the loan.
      */
     // solhint-disable-next-line code-complexity
-    function _validateLoanTerms(LoanLibrary.LoanTerms memory terms) internal view {
+    function _validateLoanTerms(LoanLibrary.LoanTerms memory terms) internal virtual view {
         // principal must be greater than or equal to the MIN_LOAN_PRINCIPAL constant
         if (terms.principal < MIN_LOAN_PRINCIPAL) revert OC_PrincipalTooLow(terms.principal);
 

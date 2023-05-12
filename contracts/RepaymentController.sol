@@ -68,7 +68,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     function repay(uint256 loanId) external override {
         (uint256 amountFromBorrower, uint256 amountToLender) = _prepareRepay(loanId);
 
-        // call repay function in loan core
+        // call repay function in loan core -  msg.sender will pay the amountFromBorrower
         loanCore.repay(loanId, msg.sender, amountFromBorrower, amountToLender);
     }
 
@@ -84,7 +84,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     function forceRepay(uint256 loanId) external override {
         (uint256 amountFromBorrower, uint256 amountToLender) = _prepareRepay(loanId);
 
-        // call forceRepay function in loan core
+        // call repay function in loan core -  msg.sender will pay the amountFromBorrower
         loanCore.forceRepay(loanId, msg.sender, amountFromBorrower, amountToLender);
     }
 
@@ -151,9 +151,6 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
 
         uint256 interest = getInterestAmount(terms.principal, terms.proratedInterestRate);
 
-        // Account for fees to determine amount to lender
-        // We know, for an active loan, that both interest and principal are > 0,
-        // since they are checked on origination and loan terms cannot change
         uint256 interestFee = (interest * feeController.get(FL_07)) / BASIS_POINTS_DENOMINATOR;
         uint256 principalFee = (terms.principal * feeController.get(FL_08)) / BASIS_POINTS_DENOMINATOR;
 

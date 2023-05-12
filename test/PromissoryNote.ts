@@ -26,9 +26,11 @@ type Signer = SignerWithAddress;
 import {
     ORIGINATOR_ROLE,
     REPAYER_ROLE,
-    ADMIN_ROLE,
-    BASE_URI
+    BASE_URI,
+    RESOURCE_MANAGER_ROLE
 } from "./utils/constants";
+import { ZERO_ADDRESS } from "./utils/erc20";
+import { Test } from "mocha";
 
 interface TestContext {
     borrowerPromissoryNote: PromissoryNote;
@@ -125,13 +127,18 @@ const mintPromissoryNote = async (note: PromissoryNote, user: Signer): Promise<B
 
 describe("PromissoryNote", () => {
     describe("constructor", () => {
+        it("Reverts if descriptor address not provided", async () => {
+            const RepaymentController = await ethers.getContractFactory("PromissoryNote");
+            await expect(RepaymentController.deploy("PromissoryNote", "BN", ZERO_ADDRESS)).to.be.revertedWith("PN_ZeroAddress");
+        });
+
         it("Creates a PromissoryNote", async () => {
             const signers: Signer[] = await ethers.getSigners();
             const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
 
-            const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN", descriptor.address]);
+            const promissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN", descriptor.address]);
 
-            expect(PromissoryNote).exist;
+            expect(promissoryNote).to.exist;
         });
 
         it("fails to initialize if not called by the deployer", async () => {
@@ -139,9 +146,9 @@ describe("PromissoryNote", () => {
             const signers: Signer[] = await ethers.getSigners();
             const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
 
-            const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN", descriptor.address]);
+            const promissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN", descriptor.address]);
 
-            await expect(PromissoryNote.connect(signers[1]).initialize(loanCore.address)).to.be.revertedWith(
+            await expect(promissoryNote.connect(signers[1]).initialize(loanCore.address)).to.be.revertedWith(
                 "AccessControl",
             );
         });
@@ -151,12 +158,12 @@ describe("PromissoryNote", () => {
             const signers: Signer[] = await ethers.getSigners();
             const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
 
-            const PromissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN", descriptor.address]);
+            const promissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN", descriptor.address]);
 
-            await expect(PromissoryNote.connect(signers[0]).initialize(loanCore.address)).to.not.be.reverted;
+            await expect(promissoryNote.connect(signers[0]).initialize(loanCore.address)).to.not.be.reverted;
 
             // Try to call again
-            await expect(PromissoryNote.connect(signers[0]).initialize(loanCore.address)).to.be.revertedWith(
+            await expect(promissoryNote.connect(signers[0]).initialize(loanCore.address)).to.be.revertedWith(
                 "AccessControl",
             );
         });
@@ -416,12 +423,56 @@ describe("PromissoryNote", () => {
         });
     });
 
-    describe("tokenURI", () => {
+    describe("Resource management", () => {
+        let ctx: TestContext;
+        let newDescriptor: BaseURIDescriptor;
+        // const otherBaseURI = "https://example.com/";
+        const otherBaseURI = BASE_URI;
+
+        beforeEach(async () => {
+            ctx = await loadFixture(fixture);
+            const [deployer] = await ethers.getSigners()
+
+            newDescriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", deployer, [otherBaseURI]);
+            await newDescriptor.deployed();
+
+            expect(await newDescriptor.baseURI()).to.be.eq(otherBaseURI);
+        })
+
         it("gets the tokenURI", async () => {
-            const { lenderPromissoryNote: promissoryNote, user, other } = await loadFixture(fixture);
+            const { lenderPromissoryNote: promissoryNote, user, other } = ctx;
 
             await promissoryNote.connect(user).mint(await other.getAddress(), 1);
             expect(await promissoryNote.tokenURI(1)).to.be.eq(`${BASE_URI}1`);
+        });
+
+        it("reverts if non-admin tries to change the descriptor", async () => {
+            const { lenderPromissoryNote: promissoryNote, other } = ctx;
+
+            await expect(promissoryNote.connect(other).setDescriptor(newDescriptor.address))
+                .to.be.revertedWith("AccessControl");
+        });
+
+        it("reverts if descriptor is set to 0 address", async () => {
+            const { lenderPromissoryNote: promissoryNote, other } = ctx;
+            await promissoryNote.grantRole(RESOURCE_MANAGER_ROLE, other.address);
+
+            await expect(promissoryNote.connect(other).setDescriptor(ZERO_ADDRESS))
+                .to.be.revertedWith("PN_ZeroAddress");
+        });
+
+        it("changes the descriptor", async () => {
+            const { lenderPromissoryNote: promissoryNote, other } = ctx;
+            await promissoryNote.grantRole(RESOURCE_MANAGER_ROLE, other.address);
+
+            expect(await newDescriptor.baseURI()).to.be.eq(otherBaseURI);
+
+            await expect(promissoryNote.connect(other).setDescriptor(newDescriptor.address))
+                .to.emit(promissoryNote, "SetDescriptor")
+                .withArgs(other.address, newDescriptor.address);
+
+            expect(await newDescriptor.baseURI()).to.be.eq(otherBaseURI);
+            expect(await promissoryNote.tokenURI(1)).to.be.eq(`${otherBaseURI}1`);
         });
     });
 

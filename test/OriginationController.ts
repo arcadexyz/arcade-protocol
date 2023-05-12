@@ -343,6 +343,64 @@ describe("OriginationController", () => {
             ).to.be.revertedWith("OC_PrincipalTooLow");
         });
 
+        it("Reverts if interest rate too low", async () => {
+            const { loanCore, originationController, mockERC20, vaultFactory, user: lender, other: borrower } = ctx;
+
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, {
+                collateralId: bundleId,
+                proratedInterestRate: ethers.utils.parseEther("0.1") // 1/10th bps
+            });
+            await mint(mockERC20, lender, loanTerms.principal);
+
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                borrower,
+                "3",
+                1,
+                "b",
+            );
+
+            await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+            // no approval of principal token
+            await expect(
+                originationController
+                    .connect(lender)
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+            ).to.be.revertedWith("OC_InterestRate");
+        });
+
+        it("Reverts if interest rate too high", async () => {
+            const { loanCore, originationController, mockERC20, vaultFactory, user: lender, other: borrower } = ctx;
+
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, {
+                collateralId: bundleId,
+                proratedInterestRate: ethers.utils.parseEther("10000000") // 100,000%, 1e6 bps
+            });
+            await mint(mockERC20, lender, loanTerms.principal);
+
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                borrower,
+                "3",
+                1,
+                "b",
+            );
+
+            await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+            // no approval of principal token
+            await expect(
+                originationController
+                    .connect(lender)
+                    .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
+            ).to.be.revertedWith("OC_InterestRate");
+        });
+
         it("Reverts if approving own loan", async () => {
             const { loanCore, originationController, mockERC20, vaultFactory, user: lender, other: borrower } = ctx;
 

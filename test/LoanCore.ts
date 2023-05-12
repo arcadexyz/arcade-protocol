@@ -59,133 +59,133 @@ interface RepayLoanState extends TestContext {
     lender: SignerWithAddress;
 }
 
+/**
+ * Sets up a test asset vault for the user passed as an arg
+ */
+const initializeBundle = async (user: Signer): Promise<BigNumber> => {
+    const { vaultFactory } = await loadFixture(fixture);
+    const tx = await vaultFactory.connect(user).initializeBundle(await user.getAddress());
+    const receipt = await tx.wait();
+
+    if (receipt && receipt.events) {
+        for (const event of receipt.events) {
+            if (event.event && event.event === "VaultCreated" && event.args && event.args.vault) {
+                return event.args.vault;
+            }
+        }
+        throw new Error("Unable to initialize bundle");
+    } else {
+        throw new Error("Unable to initialize bundle");
+    }
+};
+
+const createVault = async (factory: VaultFactory, to: Signer): Promise<AssetVault> => {
+    const tx = await factory.initializeBundle(await to.getAddress());
+    const receipt = await tx.wait();
+
+    let vault: AssetVault | undefined;
+    if (receipt && receipt.events) {
+        for (const event of receipt.events) {
+            if (event.args && event.args.vault) {
+                vault = <AssetVault>await ethers.getContractAt("AssetVault", event.args.vault);
+            }
+        }
+    } else {
+        throw new Error("Unable to create new vault");
+    }
+    if (!vault) {
+        throw new Error("Unable to create new vault");
+    }
+    return vault;
+};
+
+/**
+ * Sets up a test context, deploying new contracts and returning them for use in a test
+ */
+const fixture = async (): Promise<TestContext> => {
+    const blockchainTime = new BlockchainTime();
+    const currentTimestamp = await blockchainTime.secondsFromNow(0);
+    const signers: SignerWithAddress[] = await ethers.getSigners();
+    const [borrower, lender, admin] = signers;
+
+    const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
+    const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
+    const feeController = <FeeController>await deploy("FeeController", signers[0], []);
+    const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
+    const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address]);
+
+    const mockBorrowerNote = <PromissoryNote>(
+        await deploy("PromissoryNote", admin, ["Arcade.xyz BorrowerNote", "aBN", descriptor.address])
+    );
+    const mockLenderNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz LenderNote", "aLN", descriptor.address]);
+
+    const originator = signers[0];
+    const repayer = signers[0];
+
+    const loanCore = <LoanCore>await deploy(
+        "LoanCore",
+        signers[0],
+        [mockBorrowerNote.address, mockLenderNote.address]
+    );
+
+    // Grant correct permissions for promissory note
+    for (const note of [mockBorrowerNote, mockLenderNote]) {
+        await note.connect(admin).initialize(loanCore.address);
+    }
+
+    await loanCore.connect(signers[0]).grantRole(FEE_CLAIMER_ROLE, signers[0].address);
+    await loanCore.connect(signers[0]).grantRole(AFFILIATE_MANAGER_ROLE, signers[0].address);
+    await loanCore.connect(signers[0]).grantRole(ORIGINATOR_ROLE, originator.address);
+    await loanCore.connect(signers[0]).grantRole(REPAYER_ROLE, repayer.address);
+
+    const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
+
+    return {
+        loanCore,
+        feeController,
+        mockBorrowerNote,
+        mockLenderNote,
+        vaultFactory,
+        mockERC20,
+        borrower,
+        lender,
+        admin,
+        user: signers[0],
+        other: signers[1],
+        signers: signers.slice(2),
+        currentTimestamp,
+        blockchainTime,
+    };
+};
+
+/**
+ * Create a legacy loan type object using the given parameters, or defaults
+ */
+const createLoanTerms = (
+    payableCurrency: string,
+    collateralAddress: string,
+    {
+        durationSecs = BigNumber.from(360000),
+        principal = ethers.utils.parseEther("100"),
+        proratedInterestRate = ethers.utils.parseEther("1"),
+        collateralId = 1,
+        deadline = 259200,
+        affiliateCode = ethers.constants.HashZero
+    }: Partial<LoanTerms> = {},
+): LoanTerms => {
+    return {
+        durationSecs,
+        principal,
+        proratedInterestRate,
+        collateralAddress,
+        collateralId,
+        payableCurrency,
+        deadline,
+        affiliateCode
+    };
+};
+
 describe("LoanCore", () => {
-    /**
-     * Sets up a test asset vault for the user passed as an arg
-     */
-    const initializeBundle = async (user: Signer): Promise<BigNumber> => {
-        const { vaultFactory } = await loadFixture(fixture);
-        const tx = await vaultFactory.connect(user).initializeBundle(await user.getAddress());
-        const receipt = await tx.wait();
-
-        if (receipt && receipt.events) {
-            for (const event of receipt.events) {
-                if (event.event && event.event === "VaultCreated" && event.args && event.args.vault) {
-                    return event.args.vault;
-                }
-            }
-            throw new Error("Unable to initialize bundle");
-        } else {
-            throw new Error("Unable to initialize bundle");
-        }
-    };
-
-    const createVault = async (factory: VaultFactory, to: Signer): Promise<AssetVault> => {
-        const tx = await factory.initializeBundle(await to.getAddress());
-        const receipt = await tx.wait();
-
-        let vault: AssetVault | undefined;
-        if (receipt && receipt.events) {
-            for (const event of receipt.events) {
-                if (event.args && event.args.vault) {
-                    vault = <AssetVault>await ethers.getContractAt("AssetVault", event.args.vault);
-                }
-            }
-        } else {
-            throw new Error("Unable to create new vault");
-        }
-        if (!vault) {
-            throw new Error("Unable to create new vault");
-        }
-        return vault;
-    };
-
-    /**
-     * Sets up a test context, deploying new contracts and returning them for use in a test
-     */
-    const fixture = async (): Promise<TestContext> => {
-        const blockchainTime = new BlockchainTime();
-        const currentTimestamp = await blockchainTime.secondsFromNow(0);
-        const signers: SignerWithAddress[] = await ethers.getSigners();
-        const [borrower, lender, admin] = signers;
-
-        const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
-        const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
-        const feeController = <FeeController>await deploy("FeeController", signers[0], []);
-        const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
-        const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address]);
-
-        const mockBorrowerNote = <PromissoryNote>(
-            await deploy("PromissoryNote", admin, ["Arcade.xyz BorrowerNote", "aBN", descriptor.address])
-        );
-        const mockLenderNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz LenderNote", "aLN", descriptor.address]);
-
-        const originator = signers[0];
-        const repayer = signers[0];
-
-        const loanCore = <LoanCore>await deploy(
-            "LoanCore",
-            signers[0],
-            [mockBorrowerNote.address, mockLenderNote.address]
-        );
-
-        // Grant correct permissions for promissory note
-        for (const note of [mockBorrowerNote, mockLenderNote]) {
-            await note.connect(admin).initialize(loanCore.address);
-        }
-
-        await loanCore.connect(signers[0]).grantRole(FEE_CLAIMER_ROLE, signers[0].address);
-        await loanCore.connect(signers[0]).grantRole(AFFILIATE_MANAGER_ROLE, signers[0].address);
-        await loanCore.connect(signers[0]).grantRole(ORIGINATOR_ROLE, originator.address);
-        await loanCore.connect(signers[0]).grantRole(REPAYER_ROLE, repayer.address);
-
-        const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
-
-        return {
-            loanCore,
-            feeController,
-            mockBorrowerNote,
-            mockLenderNote,
-            vaultFactory,
-            mockERC20,
-            borrower,
-            lender,
-            admin,
-            user: signers[0],
-            other: signers[1],
-            signers: signers.slice(2),
-            currentTimestamp,
-            blockchainTime,
-        };
-    };
-
-    /**
-     * Create a legacy loan type object using the given parameters, or defaults
-     */
-    const createLoanTerms = (
-        payableCurrency: string,
-        collateralAddress: string,
-        {
-            durationSecs = BigNumber.from(360000),
-            principal = ethers.utils.parseEther("100"),
-            proratedInterestRate = ethers.utils.parseEther("1"),
-            collateralId = 1,
-            deadline = 259200,
-            affiliateCode = ethers.constants.HashZero
-        }: Partial<LoanTerms> = {},
-    ): LoanTerms => {
-        return {
-            durationSecs,
-            principal,
-            proratedInterestRate,
-            collateralAddress,
-            collateralId,
-            payableCurrency,
-            deadline,
-            affiliateCode
-        };
-    };
-
     describe("Deployment", () => {
         it("should not allow initialization with an invalid borrower note", async () => {
             const { mockLenderNote } = await loadFixture(fixture);
@@ -203,6 +203,15 @@ describe("LoanCore", () => {
             await expect(
                 LoanCoreFactory.deploy(mockBorrowerNote.address, ZERO_ADDRESS)
             ).to.be.revertedWith("LC_ZeroAddress");
+        });
+
+        it("should not allow initialization using the same note twice", async () => {
+            const { mockBorrowerNote } = await loadFixture(fixture);
+            const LoanCoreFactory = await ethers.getContractFactory("LoanCore");
+
+            await expect(
+                LoanCoreFactory.deploy(mockBorrowerNote.address, mockBorrowerNote.address)
+            ).to.be.revertedWith("LC_ReusedNote");
         });
     });
 
@@ -343,6 +352,44 @@ describe("LoanCore", () => {
             await mockERC20.connect(lender).approve(loanCore.address, principal);
 
             await startLoan(loanCore, borrower, lender.address, borrower.address, terms, principal, principal);
+        });
+
+        it("should fail to start a loan where a higher principal is paid than received", async () => {
+            const context = await loadFixture(fixture);
+            const { vaultFactory, loanCore, mockERC20 } = context;
+            let { terms, borrower, lender } = await setupLoan(context);
+            let { collateralId, principal } = terms;
+
+            // run originator controller logic inline then invoke loanCore
+            // borrower is originator with originator role
+            await vaultFactory
+                .connect(borrower)
+                .transferFrom(borrower.address, borrower.address, collateralId);
+            await vaultFactory.connect(borrower).approve(loanCore.address, collateralId);
+
+            await mockERC20.connect(lender).mint(lender.address, principal);
+            await mockERC20.connect(lender).approve(loanCore.address, principal);
+
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, principal, principal);
+
+            ({ terms, borrower, lender } = await setupLoan(context));
+            ({ collateralId, principal } = terms);
+
+            await vaultFactory
+                .connect(borrower)
+                .transferFrom(borrower.address, borrower.address, collateralId);
+            await vaultFactory.connect(borrower).approve(loanCore.address, collateralId);
+
+            // fails because the full input from the first loan was factored into the stored contract balance
+            await expect(
+                loanCore.connect(borrower).startLoan(
+                    lender.address,
+                    borrower.address,
+                    terms,
+                    principal,
+                    principal.add(1e18) // borrower receives extra principal
+                )
+            ).to.be.revertedWith("LC_CannotSettle");
         });
 
         it("should fail to start two loans where principal for both is paid at once", async () => {

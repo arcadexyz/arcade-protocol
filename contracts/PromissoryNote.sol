@@ -17,9 +17,7 @@ import "./interfaces/IPromissoryNote.sol";
 import {
     PN_ZeroAddress,
     PN_MintingRole,
-    PN_BurningRole,
-    PN_ContractPaused,
-    PN_AlreadyInitialized
+    PN_BurningRole
 } from "./errors/Lending.sol";
 
 /**
@@ -49,7 +47,6 @@ contract PromissoryNote is
     Context,
     AccessControl,
     ERC721Enumerable,
-    ERC721Pausable,
     ERC721Permit,
     IPromissoryNote
 {
@@ -94,14 +91,16 @@ contract PromissoryNote is
 
         descriptor = INFTDescriptor(_descriptor);
 
-        // Do not set role admin for admin role.
         _setupRole(ADMIN_ROLE, msg.sender);
+        _setupRole(RESOURCE_MANAGER_ROLE, msg.sender);
 
         // Allow admin to set mint/burn role, which they will do
         // during initialize. After initialize, admin role is
-        // permanently revoked, so mint/burn role becomes immutable.
+        // permanently revoked, so mint/burn role becomes immutable
+        // and initialize cannot be called again.
+        // Do not set role admin for admin role.
         _setRoleAdmin(MINT_BURN_ROLE, ADMIN_ROLE);
-        _setRoleAdmin(RESOURCE_MANAGER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(RESOURCE_MANAGER_ROLE, RESOURCE_MANAGER_ROLE);
 
         // We don't want token IDs of 0
         _tokenIdTracker.increment();
@@ -115,8 +114,6 @@ contract PromissoryNote is
      * @param loanCore              The address of the admin.
      */
     function initialize(address loanCore) external onlyRole(ADMIN_ROLE) {
-        if (initialized) revert PN_AlreadyInitialized();
-
         // Grant mint/burn role to loanCore
         _setupRole(MINT_BURN_ROLE, loanCore);
 
@@ -217,9 +214,7 @@ contract PromissoryNote is
         address from,
         address to,
         uint256 tokenId
-    ) internal virtual override(ERC721, ERC721Enumerable, ERC721Pausable) {
-        if (paused()) revert PN_ContractPaused();
-
+    ) internal virtual override(ERC721, ERC721Enumerable) {
         super._beforeTokenTransfer(from, to, tokenId);
     }
 }

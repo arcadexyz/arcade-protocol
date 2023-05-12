@@ -12,7 +12,8 @@ import {
     CallWhitelist,
     VaultFactory,
     FeeController,
-    BaseURIDescriptor
+    BaseURIDescriptor,
+    MockNoValidationOC
 } from "../typechain";
 import { BlockchainTime } from "./utils/time";
 import { BigNumber, BigNumberish } from "ethers";
@@ -265,6 +266,135 @@ describe("RepaymentController", () => {
     });
 
     describe("Repayment", () => {
+        it("reverts if called for an invalid loanId", async () => {
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = ctx;
+
+            const { loanId, bundleId } = await initializeLoan(
+                ctx,
+                mockERC20.address,
+                BigNumber.from(86400), // durationSecs
+                ethers.utils.parseEther("100"), // principal
+                ethers.utils.parseEther("1000"), // interest
+                1754884800, // deadline
+            );
+
+            // total repayment amount
+            const total = ethers.utils.parseEther("110");
+            const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
+            // mint borrower exactly enough to repay loan
+            await mint(mockERC20, borrower, repayAdditionalAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, total);
+
+            expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            const invalidId = BigNumber.from(loanId).mul(10);
+            await expect(
+                repaymentController.connect(borrower).repay(invalidId)
+            ).to.be.revertedWith("RC_CannotDereference");
+        });
+
+        it("reverts if called for an non-active loan", async () => {
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = ctx;
+
+            const { loanId, bundleId } = await initializeLoan(
+                ctx,
+                mockERC20.address,
+                BigNumber.from(86400), // durationSecs
+                ethers.utils.parseEther("100"), // principal
+                ethers.utils.parseEther("1000"), // interest
+                1754884800, // deadline
+            );
+
+            // total repayment amount
+            const total = ethers.utils.parseEther("110");
+            const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
+            // mint borrower exactly enough to repay loan
+            await mint(mockERC20, borrower, repayAdditionalAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, total);
+
+            expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            await expect(
+                repaymentController.connect(borrower).repay(loanId)
+            ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
+
+            expect(await mockERC20.balanceOf(borrower.address)).to.eq(0);
+
+            await expect(
+                repaymentController.connect(borrower).repay(loanId)
+            ).to.be.revertedWith("RC_InvalidState");
+        });
+
+        it("repays a loan with 0 amount due", async () => {
+            const { repaymentController, feeController, vaultFactory, mockERC20, loanCore, borrower, lender, admin } = ctx;
+
+            // Set up a new origination controller, that does not validate loan terms
+            const mockOC = <MockNoValidationOC>await deploy("MockNoValidationOC", admin, [loanCore.address, feeController.address]);
+            await mockOC.setAllowedPayableCurrencies([mockERC20.address], [true]);
+            await mockOC.setAllowedCollateralAddresses([vaultFactory.address], [true]);
+
+            await loanCore.grantRole(
+                ORIGINATOR_ROLE,
+                mockOC.address,
+            );
+
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+
+            const loanTerms = createLoanTerms(
+                mockERC20.address,
+                86400,
+                0, // 0 principal
+                ethers.utils.parseEther("1000"),
+                vaultFactory.address,
+                1754884800,
+                bundleId,
+                ethers.constants.HashZero
+            );
+
+            const sig = await createLoanTermsSignature(
+                mockOC.address,
+                "OriginationController",
+                loanTerms,
+                borrower,
+                "3",
+                1,
+                "b",
+            );
+
+            const tx = await mockOC
+                .connect(lender)
+                .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1);
+            const receipt = await tx.wait();
+
+            let loanId;
+
+            if (receipt && receipt.events) {
+                const loanCreatedLog = new ethers.utils.Interface([
+                    "event LoanStarted(uint256 loanId, address lender, address borrower)",
+                ]);
+                const log = loanCreatedLog.parseLog(receipt.events[receipt.events.length - 1]);
+                loanId = log.args.loanId;
+            } else {
+                throw new Error("Unable to initialize loan");
+            }
+
+            expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            const lenderBalanceBefore = await mockERC20.balanceOf(lender.address);
+
+            await expect(
+                repaymentController.connect(borrower).repay(loanId)
+            ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
+
+            const lenderBalanceAfter = await mockERC20.balanceOf(lender.address);
+
+            expect(await mockERC20.balanceOf(borrower.address)).to.eq(0);
+            expect(await mockERC20.balanceOf(loanCore.address)).to.eq(0);
+            expect(lenderBalanceAfter.sub(lenderBalanceBefore)).to.eq(0);
+        });
+
+
         it("Repay interest and principal. 100 ETH principal, 10% interest rate.", async () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = ctx;
 
@@ -276,6 +406,7 @@ describe("RepaymentController", () => {
                 ethers.utils.parseEther("1000"), // interest
                 1754884800, // deadline
             );
+
             // total repayment amount
             const total = ethers.utils.parseEther("110");
             const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));

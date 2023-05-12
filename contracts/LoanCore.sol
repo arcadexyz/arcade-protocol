@@ -74,8 +74,8 @@ contract LoanCore is
 
     // =============== Contract References ================
 
-    IPromissoryNote public override borrowerNote;
-    IPromissoryNote public override lenderNote;
+    IPromissoryNote public immutable override borrowerNote;
+    IPromissoryNote public immutable override lenderNote;
 
     // =================== Loan State =====================
 
@@ -191,8 +191,8 @@ contract LoanCore is
         IERC721(terms.collateralAddress).transferFrom(borrower, address(this), terms.collateralId);
 
         // Collect principal from lender and send net (minus fees) amount to borrower
-        IERC20(terms.payableCurrency).transferFrom(lender, address(this), _amountFromLender);
-        IERC20(terms.payableCurrency).safeTransfer(borrower, _amountToBorrower);
+        _collectIfNonzero(IERC20(terms.payableCurrency), lender, _amountFromLender);
+        _transferIfNonzero(IERC20(terms.payableCurrency), borrower, _amountToBorrower);
 
         emit LoanStarted(loanId, lender, borrower);
     }
@@ -222,12 +222,12 @@ contract LoanCore is
         address borrower = borrowerNote.ownerOf(loanId);
         _burnLoanNotes(loanId);
 
-        // Collect from borrower and redistribute collateral
-        IERC20(data.terms.payableCurrency).safeTransferFrom(payer, address(this), _amountFromPayer);
-        IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
-
         // Send collected principal + interest, less fees, to lender
-        IERC20(data.terms.payableCurrency).safeTransfer(lender, _amountToLender);
+        _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, _amountFromPayer);
+        _transferIfNonzero(IERC20(data.terms.payableCurrency), lender, _amountToLender);
+
+        // Redistribute collateral
+        IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
 
         emit LoanRepaid(loanId);
     }
@@ -257,12 +257,12 @@ contract LoanCore is
         address borrower = borrowerNote.ownerOf(loanId);
         borrowerNote.burn(loanId);
 
-        // Collect from borrower and redistribute collateral
-        IERC20(data.terms.payableCurrency).safeTransferFrom(payer, address(this), _amountFromPayer);
-        IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
-
         // Do not send collected principal, but make it available for withdrawal by a holder of the lender note
         noteReceipts[loanId] = NoteReceipt(data.terms.payableCurrency, _amountToLender);
+
+        // Collect from borrower and redistribute collateral
+        _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, _amountFromPayer);
+        IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
 
         emit LoanRepaid(loanId);
         emit ForceRepay(loanId);
@@ -301,7 +301,7 @@ contract LoanCore is
         _burnLoanNotes(loanId);
 
         // collateral redistribution
-        IERC721(data.terms.collateralAddress).transferFrom(address(this), lender, data.terms.collateralId);
+        IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), lender, data.terms.collateralId);
 
         if (_amountFromLender > 0) {
             (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
@@ -311,7 +311,7 @@ contract LoanCore is
             feesWithdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
             feesWithdrawable[data.terms.payableCurrency][affiliate] += affiliateFee;
 
-            IERC20(data.terms.payableCurrency).transferFrom(lender, address(this), _amountFromLender);
+            _collectIfNonzero(IERC20(data.terms.payableCurrency), lender, _amountFromLender);
         }
 
         emit LoanClaimed(loanId);
@@ -352,8 +352,8 @@ contract LoanCore is
         address lender = lenderNote.ownerOf(loanId);
         lenderNote.burn(loanId);
 
-        // transfer the held tokens to the lender
-        IERC20(token).safeTransfer(to, amount);
+        // transfer the held tokens to the lender-specified address
+        _transferIfNonzero(IERC20(token), to, amount);
 
         emit NoteRedeemed(token, lender, to, loanId, amount);
     }
@@ -424,7 +424,7 @@ contract LoanCore is
         // Distribute notes and principal
         _mintLoanNotes(newLoanId, borrower, lender);
 
-        payableCurrency.safeTransferFrom(msg.sender, address(this), _settledAmount);
+        _collectIfNonzero(payableCurrency, msg.sender, _settledAmount);
         _transferIfNonzero(payableCurrency, oldLender, _amountToOldLender);
         _transferIfNonzero(payableCurrency, lender, _amountToLender);
         _transferIfNonzero(payableCurrency, borrower, _amountToBorrower);
@@ -549,7 +549,7 @@ contract LoanCore is
 
         feesWithdrawable[token][msg.sender] -= amount;
 
-        IERC20(token).safeTransfer(msg.sender, amount);
+        _transferIfNonzero(IERC20(token), to, amount);
 
         emit FeesWithdrawn(token, msg.sender, to, amount);
     }
@@ -566,7 +566,7 @@ contract LoanCore is
         uint256 amount = feesWithdrawable[token][address(this)];
         feesWithdrawable[token][address(this)] = 0;
 
-        IERC20(token).safeTransfer(to, amount);
+        _transferIfNonzero(IERC20(token), to, amount);
 
         emit FeesWithdrawn(token, msg.sender, to, amount);
     }
@@ -739,5 +739,20 @@ contract LoanCore is
         uint256 amount
     ) internal {
         if (amount > 0) token.safeTransfer(to, amount);
+    }
+
+    /**
+     * @dev Perform an ERC20 transferFrom, if the specified amount is nonzero - else no-op.
+     *
+     * @param token                 The token to transfer.
+     * @param from                  The address sending the tokens.
+     * @param amount                The amount of tokens to transfer.
+     */
+    function _collectIfNonzero(
+        IERC20 token,
+        address from,
+        uint256 amount
+    ) internal {
+        if (amount > 0) token.safeTransferFrom(from, address(this), amount);
     }
 }
