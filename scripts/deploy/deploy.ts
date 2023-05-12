@@ -1,7 +1,8 @@
-import hre, { ethers } from "hardhat";
+import { ethers } from "hardhat";
 
 import { writeJson } from "./write-json";
-import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../utils/bootstrap-tools";
+
+import { BASE_URI, SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../../test/utils/constants";
 
 import {
     AssetVault,
@@ -13,6 +14,7 @@ import {
     CallWhitelist,
     ArcadeItemsVerifier,
     VaultFactory,
+    BaseURIDescriptor,
 } from "../../typechain";
 
 export interface DeployedResources {
@@ -25,7 +27,8 @@ export interface DeployedResources {
     originationController: OriginationController;
     whitelist: CallWhitelist;
     vaultFactory: VaultFactory;
-    verifier: ArcadeItemsVerifier
+    verifier: ArcadeItemsVerifier;
+    baseURIDescriptor: BaseURIDescriptor;
 }
 
 export async function main(): Promise<DeployedResources> {
@@ -44,23 +47,12 @@ export async function main(): Promise<DeployedResources> {
     console.log("CallWhitelist deployed to:", whitelistAddress);
     console.log(SUBSECTION_SEPARATOR);
 
-    const AssetVaultFactory = await ethers.getContractFactory("AssetVault");
-    const assetVault = <AssetVault>await AssetVaultFactory.deploy();
-    await assetVault.deployed();
+    const BaseURIDescriptorFactory = await ethers.getContractFactory("BaseURIDescriptor");
+    const baseURIDescriptor = <BaseURIDescriptor>await BaseURIDescriptorFactory.deploy(`${BASE_URI}`);
+    await baseURIDescriptor.deployed();
 
-    const assetVaultAddress = assetVault.address;
-    console.log("AssetVault deployed to:", assetVaultAddress);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const VaultFactoryFactory = await ethers.getContractFactory("VaultFactory");
-    const vaultFactory = <VaultFactory>await VaultFactoryFactory.deploy(
-        assetVault.address,
-        whitelist.address
-    );
-    await vaultFactory.deployed();
-
-    const vaultFactoryProxyAddress = vaultFactory.address;
-    console.log("VaultFactory proxy deployed to:", vaultFactoryProxyAddress);
+    const baseURIDescriptorAddress = baseURIDescriptor.address;
+    console.log("BaseURIDescriptor deployed to:", baseURIDescriptorAddress);
     console.log(SUBSECTION_SEPARATOR);
 
     const FeeControllerFactory = await ethers.getContractFactory("FeeController");
@@ -71,10 +63,35 @@ export async function main(): Promise<DeployedResources> {
     console.log("FeeController deployed to: ", feeControllerAddress);
     console.log(SUBSECTION_SEPARATOR);
 
+    const AssetVaultFactory = await ethers.getContractFactory("AssetVault");
+    const assetVault = <AssetVault>await AssetVaultFactory.deploy();
+    await assetVault.deployed();
+
+    const assetVaultAddress = assetVault.address;
+    console.log("AssetVault deployed to:", assetVaultAddress);
+    console.log(SUBSECTION_SEPARATOR);
+
+    const VaultFactoryFactory = await ethers.getContractFactory("VaultFactory");
+    const vaultFactory = <VaultFactory>(
+        await VaultFactoryFactory.deploy(
+            assetVault.address,
+            whitelist.address,
+            feeController.address,
+            baseURIDescriptor.address,
+        )
+    );
+    await vaultFactory.deployed();
+
+    const vaultFactoryAddress = vaultFactory.address;
+    console.log("VaultFactory proxy deployed to:", vaultFactoryAddress);
+    console.log(SUBSECTION_SEPARATOR);
+
     const bNoteName = "Arcade.xyz BorrowerNote";
     const bNoteSymbol = "aBN";
     const PromissoryNoteFactory = await ethers.getContractFactory("PromissoryNote");
-    const borrowerNote = <PromissoryNote>await PromissoryNoteFactory.deploy(bNoteName, bNoteSymbol);
+    const borrowerNote = <PromissoryNote>(
+        await PromissoryNoteFactory.deploy(bNoteName, bNoteSymbol, baseURIDescriptor.address)
+    );
     await borrowerNote.deployed();
 
     const borrowerNoteAddress = borrowerNote.address;
@@ -82,7 +99,9 @@ export async function main(): Promise<DeployedResources> {
 
     const lNoteName = "Arcade.xyz LenderNote";
     const lNoteSymbol = "aLN";
-    const lenderNote = <PromissoryNote>await PromissoryNoteFactory.deploy(lNoteName, lNoteSymbol);
+    const lenderNote = <PromissoryNote>(
+        await PromissoryNoteFactory.deploy(lNoteName, lNoteSymbol, baseURIDescriptor.address)
+    );
     await lenderNote.deployed();
 
     const lenderNoteAddress = lenderNote.address;
@@ -91,20 +110,18 @@ export async function main(): Promise<DeployedResources> {
 
     const LoanCoreFactory = await ethers.getContractFactory("LoanCore");
     const loanCore = <LoanCore>await LoanCoreFactory.deploy(
-        feeController.address,
         borrowerNote.address,
         lenderNote.address
     );
-
     await loanCore.deployed();
 
-    const loanCoreProxyAddress = loanCore.address;
-    console.log("LoanCore proxy deployed to:", loanCoreProxyAddress);
+    const loanCoreAddress = loanCore.address;
+    console.log("LoanCore proxy deployed to:", loanCoreAddress);
     console.log(SUBSECTION_SEPARATOR);
 
     const RepaymentControllerFactory = await ethers.getContractFactory("RepaymentController");
     const repaymentController = <RepaymentController>(
-        await RepaymentControllerFactory.deploy(loanCore.address)
+        await RepaymentControllerFactory.deploy(loanCore.address, feeController.address)
     );
     await repaymentController.deployed();
 
@@ -115,12 +132,13 @@ export async function main(): Promise<DeployedResources> {
 
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationController");
     const originationController = <OriginationController>await OriginationControllerFactory.deploy(
-        loanCore.address
+        loanCore.address,
+        feeController.address
     );
     await originationController.deployed();
 
-    const originationContProxyAddress = originationController.address;
-    console.log("OriginationController proxy deployed to:", originationContProxyAddress);
+    const originationContAddress = originationController.address;
+    console.log("OriginationController deployed to:", originationContAddress);
 
     console.log(SUBSECTION_SEPARATOR);
 
@@ -136,20 +154,22 @@ export async function main(): Promise<DeployedResources> {
     console.log("Writing to deployments json file...");
 
     await writeJson(
-        assetVaultAddress,
+        whitelistAddress,
+        baseURIDescriptorAddress,
         feeControllerAddress,
+        assetVaultAddress,
+        vaultFactoryAddress,
         borrowerNoteAddress,
         lenderNoteAddress,
+        loanCoreAddress,
         repaymentContAddress,
-        whitelistAddress,
-        vaultFactoryProxyAddress,
-        loanCoreProxyAddress,
-        originationContProxyAddress,
+        originationContAddress,
         verifierAddress,
         bNoteName,
         bNoteSymbol,
         lNoteName,
         lNoteSymbol,
+        BASE_URI
     );
 
     console.log(SECTION_SEPARATOR);
@@ -164,7 +184,8 @@ export async function main(): Promise<DeployedResources> {
         originationController,
         whitelist,
         vaultFactory,
-        verifier
+        verifier,
+        baseURIDescriptor,
     };
 }
 

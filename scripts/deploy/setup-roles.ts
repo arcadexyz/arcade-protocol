@@ -3,7 +3,7 @@ import hre, { ethers } from "hardhat";
 import { Contract } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-import { SUBSECTION_SEPARATOR, SECTION_SEPARATOR } from "../utils/bootstrap-tools";
+import { SUBSECTION_SEPARATOR, SECTION_SEPARATOR } from "../../test/utils/constants";
 
 import {
     ORIGINATOR_ROLE,

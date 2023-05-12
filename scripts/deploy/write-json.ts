@@ -13,20 +13,22 @@ export interface DeploymentData {
 }
 
 export async function writeJson(
-    assetVaultAddress: string,
+    whitelistAddress: string,
+    baseURIDescriptorAddress: string,
     feeControllerAddress: string,
+    assetVaultAddress: string,
+    vaultFactoryAddress: string,
     borrowerNoteAddress: string,
     lenderNoteAddress: string,
-    repaymentContAddress: string,
-    whitelistAddress: string,
-    vaultFactoryAddress: string,
     loanCoreAddress: string,
+    repaymentContAddress: string,
     originationContAddress: string,
     verifierAddress: string,
     bNoteName: string,
     bNoteSymbol: string,
     lNoteName: string,
     lNoteSymbol: string,
+    BASE_URI: string,
 ): Promise<void> {
     const timestamp = Math.floor(new Date().getTime() / 1000);
     const networkName = hre.network.name;
@@ -40,96 +42,123 @@ export async function writeJson(
     if (!fs.existsSync(networkFolderPath)) fs.mkdirSync(networkFolderPath);
 
     const contractInfo = await createInfo(
-        assetVaultAddress,
+        whitelistAddress,
+        baseURIDescriptorAddress,
         feeControllerAddress,
+        assetVaultAddress,
+        vaultFactoryAddress,
         borrowerNoteAddress,
         lenderNoteAddress,
-        repaymentContAddress,
-        whitelistAddress,
-        vaultFactoryAddress,
         loanCoreAddress,
+        repaymentContAddress,
         originationContAddress,
         verifierAddress,
         bNoteName,
         bNoteSymbol,
         lNoteName,
         lNoteSymbol,
+        BASE_URI
     );
 
-    fs.writeFileSync(
-        path.join(networkFolderPath, jsonFile),
-        JSON.stringify(contractInfo, undefined, 2)
-    );
+    fs.writeFileSync(path.join(networkFolderPath, jsonFile), JSON.stringify(contractInfo, undefined, 2));
 
     console.log("Contract info written to: ", path.join(networkFolderPath, jsonFile));
 }
 
 export async function createInfo(
-    assetVaultAddress: string,
+    whitelistAddress: string,
+    baseURIDescriptorAddress: string,
     feeControllerAddress: string,
+    assetVaultAddress: string,
+    vaultFactoryAddress: string,
     borrowerNoteAddress: string,
     lenderNoteAddress: string,
-    repaymentContAddress: string,
-    whitelistAddress: string,
-    vaultFactoryAddress: string,
     loanCoreAddress: string,
+    repaymentContAddress: string,
     originationContAddress: string,
     verifierAddress: string,
     bNoteName: string,
     bNoteSymbol: string,
     lNoteName: string,
     lNoteSymbol: string,
+    BASE_URI: string,
 ): Promise<DeploymentData> {
     const contractInfo: DeploymentData = {};
 
     contractInfo["CallWhitelist"] = {
         contractAddress: whitelistAddress,
-        constructorArgs: []
+        constructorArgs: [],
     };
 
-    contractInfo["AssetVault"] = {
-        contractAddress: assetVaultAddress,
-        constructorArgs: []
-    };
-
-    contractInfo["VaultFactory"] = {
-        contractAddress: vaultFactoryAddress,
-        constructorArgs: []
+    contractInfo["BaseURIDescriptor"] = {
+        contractAddress: baseURIDescriptorAddress,
+        constructorArgs: [BASE_URI],
     };
 
     contractInfo["FeeController"] = {
         contractAddress: feeControllerAddress,
-        constructorArgs: []
+        constructorArgs: [],
+    };
+
+    contractInfo["AssetVault"] = {
+        contractAddress: assetVaultAddress,
+        constructorArgs: [],
+    };
+
+    contractInfo["VaultFactory"] = {
+        contractAddress: vaultFactoryAddress,
+        constructorArgs: [
+            assetVaultAddress,
+            whitelistAddress,
+            feeControllerAddress,
+            BASE_URI
+        ],
     };
 
     contractInfo["BorrowerNote"] = {
         contractAddress: borrowerNoteAddress,
-        constructorArgs: [bNoteName, bNoteSymbol]
+        constructorArgs: [
+            bNoteName,
+            bNoteSymbol,
+            BASE_URI],
     };
 
     contractInfo["LenderNote"] = {
         contractAddress: lenderNoteAddress,
-        constructorArgs: [lNoteName, lNoteSymbol]
+        constructorArgs: [
+            lNoteName,
+            lNoteSymbol,
+            BASE_URI
+        ],
     };
 
     contractInfo["LoanCore"] = {
         contractAddress: loanCoreAddress,
-        constructorArgs: [],
+        constructorArgs: [
+            borrowerNoteAddress,
+            lenderNoteAddress
+        ],
     };
 
     contractInfo["RepaymentController"] = {
         contractAddress: repaymentContAddress,
-        constructorArgs: [loanCoreAddress]
+        constructorArgs: [
+            loanCoreAddress,
+            feeControllerAddress
+        ],
     };
 
     contractInfo["OriginationController"] = {
         contractAddress: originationContAddress,
-        constructorArgs: []
+        constructorArgs: [
+            loanCoreAddress,
+            feeControllerAddress
+        ],
     };
 
     contractInfo["ArcadeItemsVerifier"] = {
         contractAddress: verifierAddress,
-        constructorArgs: []
+        constructorArgs: [],
     };
 
     return contractInfo;

@@ -8,4 +8,6 @@ export const AFFILIATE_MANAGER_ROLE = ethers.utils.id("AFFILIATE_MANAGER");
 export const WHITELIST_MANAGER_ROLE = ethers.utils.id("WHITELIST_MANAGER");
 export const RESOURCE_MANAGER_ROLE = ethers.utils.id("RESOURCE_MANAGER");
 export const BASE_URI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnBeats/`;
+export const SECTION_SEPARATOR = "\n" + "=".repeat(80) + "\n";
+export const SUBSECTION_SEPARATOR = "-".repeat(10);
 

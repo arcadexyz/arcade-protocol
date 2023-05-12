@@ -1,5 +1,5 @@
-import hre, { ethers } from "hardhat";
-import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../utils/bootstrap-tools";
+import { ethers } from "hardhat";
+import { SECTION_SEPARATOR } from "../../test/utils/constants";
 
 import {
     CryptoPunksMarket
