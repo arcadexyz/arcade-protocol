@@ -46,7 +46,7 @@ describe("AssetVault", () => {
      * Creates a vault instance using the vault factory
      */
     const createVault = async (factory: VaultFactory, user: Signer): Promise<AssetVault> => {
-        const tx = await factory.connect(user).initializeBundle(await user.getAddress());
+        const tx = await factory.connect(user).initializeBundle(user.address);
         const receipt = await tx.wait();
 
         let vault: AssetVault | undefined;
@@ -184,7 +184,7 @@ describe("AssetVault", () => {
                 const { vault, mockERC721, user } = await loadFixture(fixture);
 
                 const tokenId = await mintERC721(mockERC721, user.address);
-                await mockERC721.transferFrom(await user.getAddress(), vault.address, tokenId);
+                await mockERC721.transferFrom(user.address, vault.address, tokenId);
 
                 expect(await mockERC721.ownerOf(tokenId)).to.equal(vault.address);
             });
@@ -194,7 +194,7 @@ describe("AssetVault", () => {
 
                 for (let i = 0; i < 10; i++) {
                     const tokenId = await mintERC721(mockERC721, user.address);
-                    await mockERC721.transferFrom(await user.getAddress(), vault.address, tokenId);
+                    await mockERC721.transferFrom(user.address, vault.address, tokenId);
 
                     expect(await mockERC721.ownerOf(tokenId)).to.equal(vault.address);
                 }
@@ -206,7 +206,7 @@ describe("AssetVault", () => {
                 for (let i = 0; i < 10; i++) {
                     const mockERC721 = <MockERC721>await deploy("MockERC721", user, ["Mock ERC721", "MOCK" + i]);
                     const tokenId = await mintERC721(mockERC721, user.address);
-                    await mockERC721.transferFrom(await user.getAddress(), vault.address, tokenId);
+                    await mockERC721.transferFrom(user.address, vault.address, tokenId);
 
                     expect(await mockERC721.ownerOf(tokenId)).to.equal(vault.address);
                 }
@@ -219,7 +219,7 @@ describe("AssetVault", () => {
                 const amount = BigNumber.from("1");
 
                 const tokenId = await mintERC1155(mockERC1155, user, amount);
-                await mockERC1155.safeTransferFrom(await user.getAddress(), vault.address, tokenId, amount, "0x");
+                await mockERC1155.safeTransferFrom(user.address, vault.address, tokenId, amount, "0x");
 
                 expect(await mockERC1155.balanceOf(vault.address, tokenId)).to.equal(amount);
             });
@@ -229,7 +229,7 @@ describe("AssetVault", () => {
                 const amount = hre.ethers.utils.parseEther("10");
 
                 const tokenId = await mintERC1155(mockERC1155, user, amount);
-                await mockERC1155.safeTransferFrom(await user.getAddress(), vault.address, tokenId, amount, "0x");
+                await mockERC1155.safeTransferFrom(user.address, vault.address, tokenId, amount, "0x");
 
                 expect(await mockERC1155.balanceOf(vault.address, tokenId)).to.equal(amount);
             });
@@ -240,7 +240,7 @@ describe("AssetVault", () => {
 
                 for (let i = 0; i < 10; i++) {
                     const tokenId = await mintERC1155(mockERC1155, user, amount);
-                    await mockERC1155.safeTransferFrom(await user.getAddress(), vault.address, tokenId, amount, "0x");
+                    await mockERC1155.safeTransferFrom(user.address, vault.address, tokenId, amount, "0x");
 
                     expect(await mockERC1155.balanceOf(vault.address, tokenId)).to.equal(amount);
                 }
@@ -254,7 +254,7 @@ describe("AssetVault", () => {
                     const mockERC1155 = <MockERC1155>await deploy("MockERC1155", user, []);
 
                     const tokenId = await mintERC1155(mockERC1155, user, amount);
-                    await mockERC1155.safeTransferFrom(await user.getAddress(), vault.address, tokenId, amount, "0x");
+                    await mockERC1155.safeTransferFrom(user.address, vault.address, tokenId, amount, "0x");
 
                     expect(await mockERC1155.balanceOf(vault.address, tokenId)).to.equal(amount);
                 }
@@ -299,7 +299,7 @@ describe("AssetVault", () => {
             expect(await vault.withdrawEnabled()).to.equal(false);
             await expect(vault.enableWithdraw())
                 .to.emit(vault, "WithdrawEnabled")
-                .withArgs(await user.getAddress());
+                .withArgs(user.address);
 
             expect(await vault.withdrawEnabled()).to.equal(true);
         });
@@ -319,18 +319,18 @@ describe("AssetVault", () => {
 
             const selector = mockERC20.interface.getSighash("mint");
             const mintData = await mockERC20.populateTransaction.mint(
-                await user.getAddress(),
+                user.address,
                 ethers.utils.parseEther("1"),
             );
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
 
             await whitelist.add(mockERC20.address, selector);
 
-            const startingBalance = await mockERC20.balanceOf(await user.getAddress());
+            const startingBalance = await mockERC20.balanceOf(user.address);
             await expect(vault.connect(user).call(mockERC20.address, mintData.data))
                 .to.emit(vault, "Call")
-                .withArgs(await user.getAddress(), mockERC20.address, mintData.data);
-            const endingBalance = await mockERC20.balanceOf(await user.getAddress());
+                .withArgs(user.address, mockERC20.address, mintData.data);
+            const endingBalance = await mockERC20.balanceOf(user.address);
             expect(endingBalance.sub(startingBalance)).to.equal(ethers.utils.parseEther("1"));
         });
 
@@ -342,20 +342,20 @@ describe("AssetVault", () => {
 
             const selector = mockERC20.interface.getSighash("mint");
             const mintData = await mockERC20.populateTransaction.mint(
-                await user.getAddress(),
+                user.address,
                 ethers.utils.parseEther("1"),
             );
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
 
             // transfer the NFT to the call delegator (like using it as loan collateral)
-            await nft.transferFrom(await user.getAddress(), mockCallDelegator.address, vault.address);
+            await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
             await whitelist.add(mockERC20.address, selector);
 
-            const startingBalance = await mockERC20.balanceOf(await user.getAddress());
+            const startingBalance = await mockERC20.balanceOf(user.address);
             await expect(vault.connect(user).call(mockERC20.address, mintData.data))
                 .to.emit(vault, "Call")
-                .withArgs(await user.getAddress(), mockERC20.address, mintData.data);
-            const endingBalance = await mockERC20.balanceOf(await user.getAddress());
+                .withArgs(user.address, mockERC20.address, mintData.data);
+            const endingBalance = await mockERC20.balanceOf(user.address);
             expect(endingBalance.sub(startingBalance)).to.equal(ethers.utils.parseEther("1"));
         });
 
@@ -367,7 +367,7 @@ describe("AssetVault", () => {
 
             const selector = mockERC20.interface.getSighash("mint");
             const mintData = await mockERC20.populateTransaction.mint(
-                await user.getAddress(),
+                user.address,
                 ethers.utils.parseEther("1"),
             );
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
@@ -390,13 +390,13 @@ describe("AssetVault", () => {
 
             const selector = mockERC20.interface.getSighash("mint");
             const mintData = await mockERC20.populateTransaction.mint(
-                await user.getAddress(),
+                user.address,
                 ethers.utils.parseEther("1"),
             );
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
 
             // transfer the NFT to the call delegator (like using it as loan collateral)
-            await nft.transferFrom(await user.getAddress(), mockCallDelegator.address, vault.address);
+            await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
             await whitelist.add(mockERC20.address, selector);
 
             await expect(vault.connect(user).call(mockERC20.address, mintData.data)).to.be.revertedWith(
@@ -413,17 +413,17 @@ describe("AssetVault", () => {
             const selector = mockERC20.interface.getSighash("mint(address,uint256)");
 
             const mintData = await mockERC20.populateTransaction.mint(
-                await user.getAddress(),
+                user.address,
                 ethers.utils.parseEther("1"),
             );
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
 
             // transfer the vault NFT to the call delegator (like using it as loan collateral)
-            await nft.transferFrom(await user.getAddress(), mockCallDelegator.address, vault.address);
+            await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
 
-            await whitelist.add(await user.getAddress(), selector);
+            await whitelist.add(user.address, selector);
 
-            await expect(vault.connect(user).call(await user.getAddress(), mintData.data)).to.be.revertedWith(
+            await expect(vault.connect(user).call(user.address, mintData.data)).to.be.revertedWith(
                 "Address: call to non-contract",
             );
         });
@@ -433,13 +433,13 @@ describe("AssetVault", () => {
 
             const selector = mockERC20.interface.getSighash("mint");
             const mintData = await mockERC20.populateTransaction.mint(
-                await user.getAddress(),
+                user.address,
                 ethers.utils.parseEther("1"),
             );
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
 
             // transfer the NFT to the call delegator (like using it as loan collateral)
-            await nft.transferFrom(await user.getAddress(), mockERC20.address, vault.address);
+            await nft.transferFrom(user.address, mockERC20.address, vault.address);
             await whitelist.add(mockERC20.address, selector);
 
             await expect(vault.connect(user).call(mockERC20.address, mintData.data)).to.be.revertedWith(
@@ -451,7 +451,7 @@ describe("AssetVault", () => {
             const { vault, mockERC20, user } = await loadFixture(fixture);
 
             const mintData = await mockERC20.populateTransaction.mint(
-                await user.getAddress(),
+                user.address,
                 ethers.utils.parseEther("1"),
             );
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
@@ -468,12 +468,12 @@ describe("AssetVault", () => {
             await mockCallDelegator.connect(other).setCanCall(true);
 
             const mintData = await mockERC20.populateTransaction.mint(
-                await user.getAddress(),
+                user.address,
                 ethers.utils.parseEther("1"),
             );
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
 
-            await nft.transferFrom(await user.getAddress(), mockCallDelegator.address, vault.address);
+            await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
 
             await expect(vault.connect(user).call(mockERC20.address, mintData.data)).to.be.revertedWith(
                 "AV_NonWhitelistedCall",
@@ -484,7 +484,7 @@ describe("AssetVault", () => {
             const { vault, mockERC20, user } = await loadFixture(fixture);
 
             const transferData = await mockERC20.populateTransaction.transfer(
-                await user.getAddress(),
+                user.address,
                 ethers.utils.parseEther("1"),
             );
             if (!transferData || !transferData.data) throw new Error("Populate transaction failed");
@@ -499,7 +499,7 @@ describe("AssetVault", () => {
 
             const selector = mockERC20.interface.getSighash("transfer");
             const transferData = await mockERC20.populateTransaction.transfer(
-                await user.getAddress(),
+                user.address,
                 ethers.utils.parseEther("1"),
             );
             if (!transferData || !transferData.data) throw new Error("Populate transaction failed");
@@ -515,7 +515,7 @@ describe("AssetVault", () => {
             const { whitelist, vault, mockERC721, user } = await loadFixture(fixture);
 
             const selector = mockERC721.interface.getSighash("burn");
-            const mintData = await mockERC721.populateTransaction.mint(await user.getAddress());
+            const mintData = await mockERC721.populateTransaction.mint(user.address);
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
 
             await whitelist.add(mockERC721.address, selector);
@@ -530,7 +530,7 @@ describe("AssetVault", () => {
 
             const selector = mockERC20.interface.getSighash("mint");
             const mintData = await mockERC1155.populateTransaction.mint(
-                await user.getAddress(),
+                user.address,
                 ethers.utils.parseEther("1"),
             );
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
@@ -628,7 +628,7 @@ describe("AssetVault", () => {
             await mockCallDelegator.connect(other).setCanCall(false);
 
             // transfer the NFT to the call delegator (like using it as loan collateral)
-            await nft.transferFrom(await user.getAddress(), mockERC20.address, vault.address);
+            await nft.transferFrom(user.address, mockERC20.address, vault.address);
 
             await whitelist.setApproval(mockERC20.address, other.address, true);
 
@@ -767,7 +767,7 @@ describe("AssetVault", () => {
             const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
             await mockCallDelegator.connect(other).setCanCall(false);
 
-            await nft.transferFrom(await user.getAddress(), mockERC20.address, vault.address);
+            await nft.transferFrom(user.address, mockERC20.address, vault.address);
 
             await whitelist.setDelegationApproval(mockERC20.address, true);
 
@@ -896,7 +896,7 @@ describe("AssetVault", () => {
             await mockCallDelegator.connect(other).setCanCall(false);
 
             // transfer the NFT to the call delegator (like using it as loan collateral)
-            await nft.transferFrom(await user.getAddress(), mockERC721.address, vault.address);
+            await nft.transferFrom(user.address, mockERC721.address, vault.address);
 
             await whitelist.setDelegationApproval(mockERC721.address, true);
             const tokenId = await mintERC721(mockERC721, vault.address);
@@ -1061,11 +1061,11 @@ describe("AssetVault", () => {
                 await deposit(mockERC20, vault, amount, user);
 
                 await vault.connect(user).enableWithdraw();
-                await expect(vault.connect(user).withdrawERC20(mockERC20.address, await user.getAddress()))
+                await expect(vault.connect(user).withdrawERC20(mockERC20.address, user.address))
                     .to.emit(vault, "WithdrawERC20")
-                    .withArgs(await user.getAddress(), mockERC20.address, await user.getAddress(), amount)
+                    .withArgs(user.address, mockERC20.address, user.address, amount)
                     .to.emit(mockERC20, "Transfer")
-                    .withArgs(vault.address, await user.getAddress(), amount);
+                    .withArgs(vault.address, user.address, amount);
             });
 
             it("should withdraw single deposit from a bundle after transfer", async () => {
@@ -1073,19 +1073,19 @@ describe("AssetVault", () => {
                 const amount = hre.ethers.utils.parseUnits("50", 18);
                 await deposit(mockERC20, vault, amount, user);
                 await nft["safeTransferFrom(address,address,uint256)"](
-                    await user.getAddress(),
-                    await other.getAddress(),
+                    user.address,
+                    other.address,
                     bundleId,
                 );
 
                 await expect(vault.connect(other).enableWithdraw())
                     .to.emit(vault, "WithdrawEnabled")
-                    .withArgs(await other.getAddress());
-                await expect(vault.connect(other).withdrawERC20(mockERC20.address, await other.getAddress()))
+                    .withArgs(other.address);
+                await expect(vault.connect(other).withdrawERC20(mockERC20.address, other.address))
                     .to.emit(vault, "WithdrawERC20")
-                    .withArgs(await other.getAddress(), mockERC20.address, await other.getAddress(), amount)
+                    .withArgs(other.address, mockERC20.address, other.address, amount)
                     .to.emit(mockERC20, "Transfer")
-                    .withArgs(bundleId, await other.getAddress(), amount);
+                    .withArgs(bundleId, other.address, amount);
             });
 
             it("should withdraw multiple deposits of the same token from a bundle", async () => {
@@ -1097,11 +1097,11 @@ describe("AssetVault", () => {
                 const total = amount.add(secondAmount);
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawERC20(mockERC20.address, await user.getAddress()))
+                await expect(vault.connect(user).withdrawERC20(mockERC20.address, user.address))
                     .to.emit(vault, "WithdrawERC20")
-                    .withArgs(await user.getAddress(), mockERC20.address, await user.getAddress(), total)
+                    .withArgs(user.address, mockERC20.address, user.address, total)
                     .to.emit(mockERC20, "Transfer")
-                    .withArgs(vault.address, await user.getAddress(), total);
+                    .withArgs(vault.address, user.address, total);
             });
 
             it("should withdraw deposits of multiple tokens from a bundle", async () => {
@@ -1117,11 +1117,11 @@ describe("AssetVault", () => {
 
                 await vault.enableWithdraw();
                 for (const token of tokens) {
-                    await expect(vault.connect(user).withdrawERC20(token.address, await user.getAddress()))
+                    await expect(vault.connect(user).withdrawERC20(token.address, user.address))
                         .to.emit(vault, "WithdrawERC20")
-                        .withArgs(await user.getAddress(), token.address, await user.getAddress(), amount)
+                        .withArgs(user.address, token.address, user.address, amount)
                         .to.emit(token, "Transfer")
-                        .withArgs(vault.address, await user.getAddress(), amount);
+                        .withArgs(vault.address, user.address, amount);
                 }
             });
 
@@ -1131,7 +1131,7 @@ describe("AssetVault", () => {
                 await deposit(mockERC20, vault, amount, user);
 
                 await expect(
-                    vault.connect(user).withdrawERC20(mockERC20.address, await user.getAddress()),
+                    vault.connect(user).withdrawERC20(mockERC20.address, user.address),
                 ).to.be.revertedWith("AV_WithdrawsDisabled");
             });
 
@@ -1142,7 +1142,7 @@ describe("AssetVault", () => {
 
                 await vault.enableWithdraw();
                 await expect(
-                    vault.connect(other).withdrawERC20(mockERC20.address, await user.getAddress()),
+                    vault.connect(other).withdrawERC20(mockERC20.address, user.address),
                 ).to.be.revertedWith("OERC721_CallerNotOwner");
             });
 
@@ -1152,16 +1152,16 @@ describe("AssetVault", () => {
                 await deposit(mockERC20, vault, amount, user);
 
                 await expect(
-                    vault.connect(other).withdrawERC20(mockERC20.address, await user.getAddress()),
+                    vault.connect(other).withdrawERC20(mockERC20.address, user.address),
                 ).to.be.revertedWith("OERC721_CallerNotOwner");
             });
 
             it("should fail when non-owner calls with approval", async () => {
                 const { nft, vault, mockERC20, user, other } = await loadFixture(fixture);
 
-                await nft.connect(user).approve(await other.getAddress(), vault.address);
+                await nft.connect(user).approve(other.address, vault.address);
                 await expect(
-                    vault.connect(other).withdrawERC20(mockERC20.address, await user.getAddress()),
+                    vault.connect(other).withdrawERC20(mockERC20.address, user.address),
                 ).to.be.revertedWith("OERC721_CallerNotOwner");
             });
         });
@@ -1173,7 +1173,7 @@ describe("AssetVault", () => {
             const deposit = async (token: MockERC721, vault: AssetVault, user: Signer) => {
                 const tokenId = await mintERC721(token, user.address);
                 await token["safeTransferFrom(address,address,uint256)"](
-                    await user.getAddress(),
+                    user.address,
                     vault.address,
                     tokenId,
                 );
@@ -1185,18 +1185,18 @@ describe("AssetVault", () => {
                 const tokenId = await deposit(mockERC721, vault, user);
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawERC721(mockERC721.address, tokenId, await user.getAddress()))
+                await expect(vault.connect(user).withdrawERC721(mockERC721.address, tokenId, user.address))
                     .to.emit(vault, "WithdrawERC721")
-                    .withArgs(await user.getAddress(), mockERC721.address, await user.getAddress(), tokenId)
+                    .withArgs(user.address, mockERC721.address, user.address, tokenId)
                     .to.emit(mockERC721, "Transfer")
-                    .withArgs(vault.address, await user.getAddress(), tokenId);
+                    .withArgs(vault.address, user.address, tokenId);
             });
 
             it("should withdraw a CryptoPunk from a vault", async () => {
                 const { vault, punks, user } = await loadFixture(fixture);
                 const punkIndex = 1234;
                 // claim ownership of punk
-                await punks.setInitialOwner(await user.getAddress(), punkIndex);
+                await punks.setInitialOwner(user.address, punkIndex);
                 await punks.allInitialOwnersAssigned();
                 // "approve" the punk to the vault
                 await punks.offerPunkForSaleToAddress(punkIndex, 0, vault.address);
@@ -1204,11 +1204,11 @@ describe("AssetVault", () => {
                 await punks.transferPunk(vault.address, punkIndex);
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawPunk(punks.address, punkIndex, await user.getAddress()))
+                await expect(vault.connect(user).withdrawPunk(punks.address, punkIndex, user.address))
                     .to.emit(punks, "Transfer")
-                    .withArgs(vault.address, await user.getAddress(), 1)
+                    .withArgs(vault.address, user.address, 1)
                     .to.emit(punks, "PunkTransfer")
-                    .withArgs(vault.address, await user.getAddress(), punkIndex);
+                    .withArgs(vault.address, user.address, punkIndex);
             });
 
             it("should throw when already withdrawn", async () => {
@@ -1216,14 +1216,14 @@ describe("AssetVault", () => {
                 const tokenId = await deposit(mockERC721, vault, user);
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawERC721(mockERC721.address, tokenId, await user.getAddress()))
+                await expect(vault.connect(user).withdrawERC721(mockERC721.address, tokenId, user.address))
                     .to.emit(vault, "WithdrawERC721")
-                    .withArgs(await user.getAddress(), mockERC721.address, await user.getAddress(), tokenId)
+                    .withArgs(user.address, mockERC721.address, user.address, tokenId)
                     .to.emit(mockERC721, "Transfer")
-                    .withArgs(vault.address, await user.getAddress(), tokenId);
+                    .withArgs(vault.address, user.address, tokenId);
 
                 await expect(
-                    vault.connect(user).withdrawERC721(mockERC721.address, tokenId, await user.getAddress()),
+                    vault.connect(user).withdrawERC721(mockERC721.address, tokenId, user.address),
                 ).to.be.revertedWith("ERC721: transfer caller is not owner nor approved");
             });
 
@@ -1233,7 +1233,7 @@ describe("AssetVault", () => {
 
                 await vault.enableWithdraw();
                 await expect(
-                    vault.connect(other).withdrawERC721(mockERC721.address, tokenId, await user.getAddress()),
+                    vault.connect(other).withdrawERC721(mockERC721.address, tokenId, user.address),
                 ).to.be.revertedWith("OERC721_CallerNotOwner");
             });
 
@@ -1242,7 +1242,7 @@ describe("AssetVault", () => {
                 const tokenId = await deposit(mockERC721, vault, user);
 
                 await expect(
-                    vault.connect(user).withdrawERC721(mockERC721.address, tokenId, await user.getAddress()),
+                    vault.connect(user).withdrawERC721(mockERC721.address, tokenId, user.address),
                 ).to.be.revertedWith("AV_WithdrawsDisabled");
             });
         });
@@ -1253,7 +1253,7 @@ describe("AssetVault", () => {
              */
             const deposit = async (token: MockERC1155, vault: AssetVault, user: Signer, amount: BigNumber) => {
                 const tokenId = await mintERC1155(token, user, amount);
-                await token.safeTransferFrom(await user.getAddress(), vault.address, tokenId, amount, "0x");
+                await token.safeTransferFrom(user.address, vault.address, tokenId, amount, "0x");
                 return tokenId;
             };
 
@@ -1263,11 +1263,11 @@ describe("AssetVault", () => {
                 const tokenId = await deposit(mockERC1155, vault, user, amount);
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawERC1155(mockERC1155.address, tokenId, await user.getAddress()))
+                await expect(vault.connect(user).withdrawERC1155(mockERC1155.address, tokenId, user.address))
                     .to.emit(vault, "WithdrawERC1155")
-                    .withArgs(await user.getAddress(), mockERC1155.address, await user.getAddress(), tokenId, amount)
+                    .withArgs(user.address, mockERC1155.address, user.address, tokenId, amount)
                     .to.emit(mockERC1155, "TransferSingle")
-                    .withArgs(vault.address, vault.address, await user.getAddress(), tokenId, amount);
+                    .withArgs(vault.address, vault.address, user.address, tokenId, amount);
             });
 
             it("should withdraw fungible deposit from a bundle", async () => {
@@ -1276,11 +1276,11 @@ describe("AssetVault", () => {
                 const tokenId = await deposit(mockERC1155, vault, user, amount);
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawERC1155(mockERC1155.address, tokenId, await user.getAddress()))
+                await expect(vault.connect(user).withdrawERC1155(mockERC1155.address, tokenId, user.address))
                     .to.emit(vault, "WithdrawERC1155")
-                    .withArgs(await user.getAddress(), mockERC1155.address, await user.getAddress(), tokenId, amount)
+                    .withArgs(user.address, mockERC1155.address, user.address, tokenId, amount)
                     .to.emit(mockERC1155, "TransferSingle")
-                    .withArgs(vault.address, vault.address, await user.getAddress(), tokenId, amount);
+                    .withArgs(vault.address, vault.address, user.address, tokenId, amount);
             });
 
             it("should fail to withdraw when withdraws disabled", async () => {
@@ -1289,7 +1289,7 @@ describe("AssetVault", () => {
                 const tokenId = await deposit(mockERC1155, vault, user, amount);
 
                 await expect(
-                    vault.connect(user).withdrawERC1155(mockERC1155.address, tokenId, await user.getAddress()),
+                    vault.connect(user).withdrawERC1155(mockERC1155.address, tokenId, user.address),
                 ).to.be.revertedWith("AV_WithdrawsDisabled");
             });
 
@@ -1300,7 +1300,7 @@ describe("AssetVault", () => {
 
                 await vault.enableWithdraw();
                 await expect(
-                    vault.connect(other).withdrawERC1155(mockERC1155.address, tokenId, await other.getAddress()),
+                    vault.connect(other).withdrawERC1155(mockERC1155.address, tokenId, other.address),
                 ).to.be.revertedWith("OERC721_CallerNotOwner");
             });
         });
@@ -1308,14 +1308,14 @@ describe("AssetVault", () => {
         describe("Withdraw batch", () => {
             const depositERC1155 = async (token: MockERC1155, vault: AssetVault, user: Signer, amount: BigNumber) => {
                 const tokenId = await mintERC1155(token, user, amount);
-                await token.safeTransferFrom(await user.getAddress(), vault.address, tokenId, amount, "0x");
+                await token.safeTransferFrom(user.address, vault.address, tokenId, amount, "0x");
                 return tokenId;
             };
 
             const depositERC721 = async (token: MockERC721, vault: AssetVault, user: Signer) => {
                 const tokenId = await mintERC721(token, user.address);
                 await token["safeTransferFrom(address,address,uint256)"](
-                    await user.getAddress(),
+                    user.address,
                     vault.address,
                     tokenId,
                 );
@@ -1345,14 +1345,14 @@ describe("AssetVault", () => {
                 tokenAddresses.push(mockERC1155.address);
                 tokenIds.push(tokenId1155);
 
-                const userERC721BalanceBefore = await mockERC721.balanceOf(await user.getAddress());
-                const userERC1155BalanceBefore = await mockERC1155.balanceOf(await user.getAddress(), tokenId1155);
+                const userERC721BalanceBefore = await mockERC721.balanceOf(user.address);
+                const userERC1155BalanceBefore = await mockERC1155.balanceOf(user.address, tokenId1155);
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, await user.getAddress()))
+                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address))
 
-                const userERC721BalanceAfter = await mockERC721.balanceOf(await user.getAddress());
-                const userERC1155BalanceAfter = await mockERC1155.balanceOf(await user.getAddress(), tokenId1155);
+                const userERC721BalanceAfter = await mockERC721.balanceOf(user.address);
+                const userERC1155BalanceAfter = await mockERC1155.balanceOf(user.address, tokenId1155);
 
                 expect(userERC721BalanceAfter).to.equal(userERC721BalanceBefore.add(24));
                 expect(userERC1155BalanceAfter).to.equal(userERC1155BalanceBefore.add(100));
@@ -1369,12 +1369,12 @@ describe("AssetVault", () => {
                 tokenTypes.push(0);
                 tokenIds.push(tokenId);
 
-                const userERC721BalanceBefore = await mockERC721.balanceOf(await user.getAddress());
+                const userERC721BalanceBefore = await mockERC721.balanceOf(user.address);
 
                 await vault.enableWithdraw();
-                await vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, await user.getAddress())
+                await vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address)
 
-                const userERC721BalanceAfter = await mockERC721.balanceOf(await user.getAddress());
+                const userERC721BalanceAfter = await mockERC721.balanceOf(user.address);
 
                 expect(userERC721BalanceAfter).to.equal(userERC721BalanceBefore.add(1));
             });
@@ -1391,12 +1391,12 @@ describe("AssetVault", () => {
                 tokenTypes.push(1);
                 tokenIds.push(tokenId);
 
-                const userERC1155BalanceBefore = await mockERC1155.balanceOf(await user.getAddress(), tokenId);
+                const userERC1155BalanceBefore = await mockERC1155.balanceOf(user.address, tokenId);
 
                 await vault.enableWithdraw();
-                await vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, await user.getAddress())
+                await vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address)
 
-                const userERC1155BalanceAfter = await mockERC1155.balanceOf(await user.getAddress(), tokenId);
+                const userERC1155BalanceAfter = await mockERC1155.balanceOf(user.address, tokenId);
 
                 expect(userERC1155BalanceAfter).to.equal(userERC1155BalanceBefore.add(100));
             });
@@ -1418,7 +1418,7 @@ describe("AssetVault", () => {
                 }
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, await user.getAddress()))
+                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address))
                     .to.be.revertedWith("AV_TooManyItems(26)");
             });
 
@@ -1441,7 +1441,7 @@ describe("AssetVault", () => {
                 tokenIds.pop();
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, await user.getAddress()))
+                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address))
                     .to.be.revertedWith(`AV_LengthMismatch("tokenId")`);
             });
 
@@ -1464,7 +1464,7 @@ describe("AssetVault", () => {
                 tokenTypes.pop();
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, await user.getAddress()))
+                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address))
                     .to.be.revertedWith(`AV_LengthMismatch("tokenType")`);
             });
 
@@ -1484,7 +1484,7 @@ describe("AssetVault", () => {
 
                 await vault.enableWithdraw();
                 await expect(
-                    vault.connect(user).withdrawBatch([ethers.constants.AddressZero], [tokenId], [0], await user.getAddress())
+                    vault.connect(user).withdrawBatch([ethers.constants.AddressZero], [tokenId], [0], user.address)
                 ).to.be.revertedWith("AV_ZeroAddress");
             });
 
@@ -1494,7 +1494,7 @@ describe("AssetVault", () => {
 
                 await vault.enableWithdraw();
                 await expect(
-                    vault.connect(user).withdrawBatch([mockERC721.address], [tokenId], [2], await user.getAddress())
+                    vault.connect(user).withdrawBatch([mockERC721.address], [tokenId], [2], user.address)
                 ).to.be.reverted;
             });
 
@@ -1503,7 +1503,7 @@ describe("AssetVault", () => {
                 const tokenId = await depositERC721(mockERC721, vault, user);
 
                 await expect(
-                    vault.connect(user).withdrawBatch([mockERC721.address], [tokenId], [0], await user.getAddress()),
+                    vault.connect(user).withdrawBatch([mockERC721.address], [tokenId], [0], user.address),
                 ).to.be.revertedWith("AV_WithdrawsDisabled");
             });
 
@@ -1513,7 +1513,7 @@ describe("AssetVault", () => {
 
                 await vault.enableWithdraw();
                 await expect(
-                    vault.connect(other).withdrawBatch([mockERC721.address], [tokenId], [0], await other.getAddress()),
+                    vault.connect(other).withdrawBatch([mockERC721.address], [tokenId], [0], other.address),
                 ).to.be.revertedWith("OERC721_CallerNotOwner");
             });
         });
@@ -1530,15 +1530,15 @@ describe("AssetVault", () => {
                 const { vault, user } = await loadFixture(fixture);
                 const amount = hre.ethers.utils.parseEther("123");
                 await deposit(vault, user, amount);
-                const startingBalance = await vault.provider.getBalance(await user.getAddress());
+                const startingBalance = await vault.provider.getBalance(user.address);
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawETH(await user.getAddress()))
+                await expect(vault.connect(user).withdrawETH(user.address))
                     .to.emit(vault, "WithdrawETH")
-                    .withArgs(await user.getAddress(), await user.getAddress(), amount);
+                    .withArgs(user.address, user.address, amount);
 
                 const threshold = hre.ethers.utils.parseEther("0.01"); // for txn fee
-                const endingBalance = await vault.provider.getBalance(await user.getAddress());
+                const endingBalance = await vault.provider.getBalance(user.address);
                 expect(endingBalance.sub(startingBalance).gt(amount.sub(threshold))).to.be.true;
             });
 
@@ -1547,7 +1547,7 @@ describe("AssetVault", () => {
                 const amount = hre.ethers.utils.parseEther("123");
                 await deposit(vault, user, amount);
 
-                await expect(vault.connect(user).withdrawETH(await user.getAddress())).to.be.revertedWith(
+                await expect(vault.connect(user).withdrawETH(user.address)).to.be.revertedWith(
                     "AV_WithdrawsDisabled",
                 );
             });
@@ -1557,7 +1557,7 @@ describe("AssetVault", () => {
                 const amount = hre.ethers.utils.parseEther("9");
                 await deposit(vault, user, amount);
 
-                await expect(vault.connect(other).withdrawETH(await other.getAddress())).to.be.revertedWith(
+                await expect(vault.connect(other).withdrawETH(other.address)).to.be.revertedWith(
                     "OERC721_CallerNotOwner",
                 );
             });

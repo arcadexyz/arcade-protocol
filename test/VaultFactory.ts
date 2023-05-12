@@ -8,7 +8,7 @@ import { fromRpcSig } from "ethereumjs-util";
 import { ZERO_ADDRESS } from "./utils/erc20";
 import { CallWhitelist, AssetVault, VaultFactory, FeeController, BaseURIDescriptor } from "../typechain";
 import { deploy } from "./utils/contracts";
-import { ADMIN_ROLE, FEE_CLAIMER_ROLE, BASE_URI } from "./utils/constants";
+import { ADMIN_ROLE, FEE_CLAIMER_ROLE, BASE_URI, RESOURCE_MANAGER_ROLE } from "./utils/constants";
 
 type Signer = SignerWithAddress;
 
@@ -51,7 +51,7 @@ describe("VaultFactory", () => {
     };
 
     const createVault = async (factory: VaultFactory, to: Signer): Promise<AssetVault> => {
-        const tx = await factory.initializeBundle(await to.getAddress());
+        const tx = await factory.initializeBundle(to.address);
         const receipt = await tx.wait();
 
         let vault: AssetVault | undefined;
@@ -93,6 +93,15 @@ describe("VaultFactory", () => {
         ).to.be.revertedWith("VF_ZeroAddress");
     });
 
+    it("should fail to initialize if passed an invalid descriptor", async () => {
+        const { vaultTemplate, whitelist, feeController } = await loadFixture(fixture);
+
+        const VaultFactory = await hre.ethers.getContractFactory("VaultFactory");
+        await expect(
+            VaultFactory.deploy(vaultTemplate.address, whitelist.address, feeController.address, ZERO_ADDRESS)
+        ).to.be.revertedWith("VF_ZeroAddress");
+    });
+
     it("should return whitelist address", async () => {
         const { factory, whitelist } = await loadFixture(fixture);
         expect(await factory.whitelist()).to.equal(whitelist.address);
@@ -116,7 +125,7 @@ describe("VaultFactory", () => {
         it("Should return false for non-instance address", async () => {
             const { factory, user } = await loadFixture(fixture);
 
-            expect(await factory.isInstance(await user.getAddress())).to.be.false;
+            expect(await factory.isInstance(user.address)).to.be.false;
         });
 
         it("Should return true for instance address", async () => {
@@ -139,13 +148,13 @@ describe("VaultFactory", () => {
 
             expect(await factory.instanceCount()).to.equal(0);
 
-            await factory.initializeBundle(await user.getAddress());
+            await factory.initializeBundle(user.address);
             expect(await factory.instanceCount()).to.equal(1);
 
-            await factory.initializeBundle(await user.getAddress());
+            await factory.initializeBundle(user.address);
             expect(await factory.instanceCount()).to.equal(2);
 
-            await factory.initializeBundle(await user.getAddress());
+            await factory.initializeBundle(user.address);
             expect(await factory.instanceCount()).to.equal(3);
         });
     });
@@ -299,8 +308,8 @@ describe("VaultFactory", () => {
                 factory.address,
                 await factory.name(),
                 "1",
-                await user.getAddress(),
-                await other.getAddress(),
+                user.address,
+                other.address,
                 vault.address,
                 0,
             );
@@ -312,16 +321,16 @@ describe("VaultFactory", () => {
             expect(approved).to.equal(hre.ethers.constants.AddressZero);
 
             await expect(
-                factory.permit(await user.getAddress(), await other.getAddress(), bundleId, maxDeadline, v, r, s),
+                factory.permit(user.address, other.address, bundleId, maxDeadline, v, r, s),
             )
                 .to.emit(factory, "Approval")
-                .withArgs(await user.getAddress(), await other.getAddress(), bundleId);
+                .withArgs(user.address, other.address, bundleId);
 
             approved = await factory.getApproved(bundleId);
-            expect(approved).to.equal(await other.getAddress());
+            expect(approved).to.equal(other.address);
 
             //check nonce was incremented to one
-            expect(await factory.nonces(await user.getAddress())).to.equal(1);
+            expect(await factory.nonces(user.address)).to.equal(1);
             //test coverage checking domain separator
             expect(await factory.DOMAIN_SEPARATOR());
         });
@@ -335,8 +344,8 @@ describe("VaultFactory", () => {
                 factory.address,
                 await factory.name(),
                 "1",
-                await user.getAddress(),
-                await other.getAddress(),
+                user.address,
+                other.address,
                 bundleId,
                 0,
             );
@@ -348,7 +357,7 @@ describe("VaultFactory", () => {
             expect(approved).to.equal(hre.ethers.constants.AddressZero);
 
             await expect(
-                factory.permit(await other.getAddress(), await other.getAddress(), bundleId, maxDeadline, v, r, s),
+                factory.permit(other.address, other.address, bundleId, maxDeadline, v, r, s),
             ).to.be.revertedWith("ERC721P_NotTokenOwner");
         });
 
@@ -362,8 +371,8 @@ describe("VaultFactory", () => {
                 factory.address,
                 await factory.name(),
                 "1",
-                await user.getAddress(),
-                await other.getAddress(),
+                user.address,
+                other.address,
                 bundleId,
                 0,
             );
@@ -372,7 +381,7 @@ describe("VaultFactory", () => {
             const { v, r, s } = fromRpcSig(signature);
 
             await expect(
-                factory.permit(await other.getAddress(), await other.getAddress(), bundleId, maxDeadline, v, r, s),
+                factory.permit(other.address, other.address, bundleId, maxDeadline, v, r, s),
             ).to.be.revertedWith("ERC721: owner query for nonexistent token");
         });
 
@@ -385,8 +394,8 @@ describe("VaultFactory", () => {
                 factory.address,
                 await factory.name(),
                 "1",
-                await user.getAddress(),
-                await other.getAddress(),
+                user.address,
+                other.address,
                 bundleId,
                 0,
             );
@@ -395,13 +404,13 @@ describe("VaultFactory", () => {
             const { v, r, s } = fromRpcSig(signature);
 
             await expect(
-                factory.permit(await user.getAddress(), await other.getAddress(), bundleId, maxDeadline, v, r, s),
+                factory.permit(user.address, other.address, bundleId, maxDeadline, v, r, s),
             )
                 .to.emit(factory, "Approval")
-                .withArgs(await user.getAddress(), await other.getAddress(), bundleId);
+                .withArgs(user.address, other.address, bundleId);
 
             await expect(
-                factory.permit(await user.getAddress(), await other.getAddress(), bundleId, maxDeadline, v, r, s),
+                factory.permit(user.address, other.address, bundleId, maxDeadline, v, r, s),
             ).to.be.revertedWith("ERC721P_InvalidSignature");
         });
 
@@ -414,8 +423,8 @@ describe("VaultFactory", () => {
                 factory.address,
                 await factory.name(),
                 "1",
-                await user.getAddress(),
-                await other.getAddress(),
+                user.address,
+                other.address,
                 bundleId,
                 0,
             );
@@ -424,7 +433,7 @@ describe("VaultFactory", () => {
             const { v, r, s } = fromRpcSig(signature);
 
             await expect(
-                factory.permit(await user.getAddress(), await other.getAddress(), bundleId, maxDeadline, v, r, s),
+                factory.permit(user.address, other.address, bundleId, maxDeadline, v, r, s),
             ).to.be.revertedWith("ERC721P_InvalidSignature");
         });
 
@@ -437,8 +446,8 @@ describe("VaultFactory", () => {
                 factory.address,
                 await factory.name(),
                 "1",
-                await user.getAddress(),
-                await other.getAddress(),
+                user.address,
+                other.address,
                 bundleId,
                 0, // nonce
                 BigNumber.from("1234"), // deadline
@@ -451,7 +460,7 @@ describe("VaultFactory", () => {
             expect(approved).to.equal(hre.ethers.constants.AddressZero);
 
             await expect(
-                factory.permit(await user.getAddress(), await other.getAddress(), bundleId, "1234", v, r, s),
+                factory.permit(user.address, other.address, bundleId, "1234", v, r, s),
             ).to.be.revertedWith("ERC721P_DeadlineExpired");
         });
     });
@@ -484,13 +493,13 @@ describe("VaultFactory", () => {
                     it("returns the amount of tokens owned by the given address", async function () {
                         await createVault(token, user);
                         await createVault(token, user);
-                        expect(await token.balanceOf(await user.getAddress())).to.equal(BigNumber.from("2"));
+                        expect(await token.balanceOf(user.address)).to.equal(BigNumber.from("2"));
                     });
                 });
 
                 context("when the given address does not own any tokens", function () {
                     it("returns 0", async function () {
-                        expect(await token.balanceOf(await other.getAddress())).to.equal(BigNumber.from("0"));
+                        expect(await token.balanceOf(other.address)).to.equal(BigNumber.from("0"));
                     });
                 });
 
@@ -507,7 +516,7 @@ describe("VaultFactory", () => {
                 context("when the given token ID was tracked by this token", function () {
                     it("returns the owner of the given token ID", async function () {
                         const tokenId = await initializeBundle(token, user);
-                        expect(await token.ownerOf(tokenId)).to.be.equal(await user.getAddress());
+                        expect(await token.ownerOf(tokenId)).to.be.equal(user.address);
                     });
                 });
 
@@ -529,35 +538,35 @@ describe("VaultFactory", () => {
                         caller: Signer,
                         tokenId: BigNumberish,
                     ) => {
-                        const preSenderBalance = await token.balanceOf(await from.getAddress());
-                        const preRecipientBalance = await token.balanceOf(await to.getAddress());
+                        const preSenderBalance = await token.balanceOf(from.address);
+                        const preRecipientBalance = await token.balanceOf(to.address);
                         await expect(
-                            token.connect(caller).transferFrom(await from.getAddress(), await to.getAddress(), tokenId),
+                            token.connect(caller).transferFrom(from.address, to.address, tokenId),
                         )
                             .to.emit(token, "Transfer")
-                            .withArgs(await from.getAddress(), await to.getAddress(), tokenId)
+                            .withArgs(from.address, to.address, tokenId)
                             .to.emit(token, "Approval")
-                            .withArgs(await from.getAddress(), ZERO_ADDRESS, tokenId);
+                            .withArgs(from.address, ZERO_ADDRESS, tokenId);
 
-                        expect(await token.ownerOf(tokenId)).to.equal(await to.getAddress());
+                        expect(await token.ownerOf(tokenId)).to.equal(to.address);
                         expect(await token.getApproved(tokenId)).to.equal(ZERO_ADDRESS);
-                        const postSenderBalance = await token.balanceOf(await from.getAddress());
-                        const postRecipientBalance = await token.balanceOf(await to.getAddress());
+                        const postSenderBalance = await token.balanceOf(from.address);
+                        const postRecipientBalance = await token.balanceOf(to.address);
                         expect(postSenderBalance).to.equal(preSenderBalance.sub(1));
                         expect(postRecipientBalance).to.equal(preRecipientBalance.add(1));
 
                         if (postSenderBalance.gt(0)) {
-                            expect(await token.tokenOfOwnerByIndex(await from.getAddress(), 0)).to.not.equal(tokenId);
+                            expect(await token.tokenOfOwnerByIndex(from.address, 0)).to.not.equal(tokenId);
                         } else {
-                            await expect(token.tokenOfOwnerByIndex(await from.getAddress(), 0)).to.be.revertedWith(
+                            await expect(token.tokenOfOwnerByIndex(from.address, 0)).to.be.revertedWith(
                                 "ERC721Enumerable: owner index out of bounds",
                             );
                         }
 
                         if (postRecipientBalance.gt(0)) {
-                            expect(await token.tokenOfOwnerByIndex(await to.getAddress(), 0)).to.equal(tokenId);
+                            expect(await token.tokenOfOwnerByIndex(to.address, 0)).to.equal(tokenId);
                         } else {
-                            await expect(token.tokenOfOwnerByIndex(await to.getAddress(), 0)).to.be.revertedWith(
+                            await expect(token.tokenOfOwnerByIndex(to.address, 0)).to.be.revertedWith(
                                 "ERC721Enumerable: owner index out of bounds",
                             );
                         }
@@ -571,14 +580,14 @@ describe("VaultFactory", () => {
                     it("succeeds when called by approved user", async () => {
                         const approved = signers[0];
                         const tokenId = await initializeBundle(token, user);
-                        await token.connect(user).approve(await approved.getAddress(), tokenId);
+                        await token.connect(user).approve(approved.address, tokenId);
                         await testTransfer(token, user, other, approved, tokenId);
                     });
 
                     it("succeeds when called by an operator", async () => {
                         const operator = signers[1];
                         const tokenId = await initializeBundle(token, user);
-                        await token.connect(user).setApprovalForAll(await operator.getAddress(), true);
+                        await token.connect(user).setApprovalForAll(operator.address, true);
                         await testTransfer(token, user, other, operator, tokenId);
                     });
 
@@ -590,16 +599,16 @@ describe("VaultFactory", () => {
                             await expect(
                                 token
                                     .connect(user)
-                                    .transferFrom(await user.getAddress(), await user.getAddress(), tokenId),
+                                    .transferFrom(user.address, user.address, tokenId),
                             )
                                 .to.emit(token, "Transfer")
-                                .withArgs(await user.getAddress(), await user.getAddress(), tokenId)
+                                .withArgs(user.address, user.address, tokenId)
                                 .to.emit(token, "Approval")
-                                .withArgs(await user.getAddress(), ZERO_ADDRESS, tokenId);
+                                .withArgs(user.address, ZERO_ADDRESS, tokenId);
                         });
 
                         it("keeps ownership of the token", async function () {
-                            expect(await token.ownerOf(tokenId)).to.equal(await user.getAddress());
+                            expect(await token.ownerOf(tokenId)).to.equal(user.address);
                         });
 
                         it("clears the approval for the token ID", async function () {
@@ -607,7 +616,7 @@ describe("VaultFactory", () => {
                         });
 
                         it("keeps the owner balance", async function () {
-                            expect(await token.balanceOf(await user.getAddress())).to.equal(BigNumber.from("1"));
+                            expect(await token.balanceOf(user.address)).to.equal(BigNumber.from("1"));
                         });
                     });
 
@@ -616,7 +625,7 @@ describe("VaultFactory", () => {
                         await expect(
                             token
                                 .connect(user)
-                                .transferFrom(await other.getAddress(), await other.getAddress(), tokenId),
+                                .transferFrom(other.address, other.address, tokenId),
                         ).to.be.revertedWith("ERC721: transfer of token that is not own");
                     });
 
@@ -625,7 +634,7 @@ describe("VaultFactory", () => {
                         await expect(
                             token
                                 .connect(other)
-                                .transferFrom(await user.getAddress(), await other.getAddress(), tokenId),
+                                .transferFrom(user.address, other.address, tokenId),
                         ).to.be.revertedWith("ERC721: transfer caller is not owner nor approved");
                     });
 
@@ -634,17 +643,72 @@ describe("VaultFactory", () => {
                         await expect(
                             token
                                 .connect(user)
-                                .transferFrom(await user.getAddress(), await other.getAddress(), nonexistentTokenId),
+                                .transferFrom(user.address, other.address, nonexistentTokenId),
                         ).to.be.revertedWith("ERC721: operator query for nonexistent token");
                     });
 
                     it("fails when the recipient is the zero address", async () => {
                         const tokenId = await initializeBundle(token, user);
                         await expect(
-                            token.connect(user).transferFrom(await user.getAddress(), ZERO_ADDRESS, tokenId),
+                            token.connect(user).transferFrom(user.address, ZERO_ADDRESS, tokenId),
                         ).to.be.revertedWith("zero");
                     });
                 });
+            });
+        });
+
+        describe("Resource management", () => {
+            let ctx: TestContext;
+            let newDescriptor: BaseURIDescriptor;
+            // const otherBaseURI = "https://example.com/";
+            const otherBaseURI = BASE_URI;
+
+            beforeEach(async () => {
+                ctx = await loadFixture(fixture);
+                const [deployer] = await ethers.getSigners()
+
+                newDescriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", deployer, [otherBaseURI]);
+                await newDescriptor.deployed();
+
+                expect(await newDescriptor.baseURI()).to.be.eq(otherBaseURI);
+            })
+
+            it("gets the tokenURI", async () => {
+                const { factory, user } = ctx;
+
+                await createVault(factory, user);
+                const tokenId = await factory.tokenOfOwnerByIndex(user.address, 0);
+
+                expect(await factory.tokenURI(tokenId.toString())).to.be.eq(`${BASE_URI}${tokenId}`);
+            });
+
+            it("reverts if non-admin tries to change the descriptor", async () => {
+                const { factory, other } = ctx;
+
+                await expect(factory.connect(other).setDescriptor(newDescriptor.address))
+                    .to.be.revertedWith("AccessControl");
+            });
+
+            it("reverts if descriptor is set to 0 address", async () => {
+                const { factory, other } = ctx;
+                await factory.grantRole(RESOURCE_MANAGER_ROLE, other.address);
+
+                await expect(factory.connect(other).setDescriptor(ZERO_ADDRESS))
+                    .to.be.revertedWith("VF_ZeroAddress");
+            });
+
+            it("changes the descriptor", async () => {
+                const { factory, other } = ctx;
+                await factory.grantRole(RESOURCE_MANAGER_ROLE, other.address);
+
+                expect(await newDescriptor.baseURI()).to.be.eq(otherBaseURI);
+
+                await expect(factory.connect(other).setDescriptor(newDescriptor.address))
+                    .to.emit(factory, "SetDescriptor")
+                    .withArgs(other.address, newDescriptor.address);
+
+                expect(await newDescriptor.baseURI()).to.be.eq(otherBaseURI);
+                expect(await factory.tokenURI(1)).to.be.eq(`${otherBaseURI}1`);
             });
         });
 

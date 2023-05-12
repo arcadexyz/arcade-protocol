@@ -386,11 +386,6 @@ error FIAC_InterestRate(uint256 interestRate);
 error PN_ZeroAddress();
 
 /**
- * @notice Roles have been initialized.
- */
-error PN_AlreadyInitialized();
-
-/**
  * @notice Caller of mint function must have the MINTER_ROLE in AccessControl.
  *
  * @param caller                        Address of the function caller.
@@ -403,11 +398,6 @@ error PN_MintingRole(address caller);
  * @param caller                        Address of the function caller.
  */
 error PN_BurningRole(address caller);
-
-/**
- * @notice No token transfers while contract is in paused state.
- */
-error PN_ContractPaused();
 
 // ==================================== Fee Controller ======================================
 /// @notice All errors prefixed with FC_, to separate from other contracts in the protocol.

@@ -51,7 +51,7 @@ describe("CallWhitelist", () => {
                 const selector = mockERC20.interface.getSighash("mint");
                 await expect(whitelist.connect(user).add(mockERC20.address, selector))
                     .to.emit(whitelist, "CallAdded")
-                    .withArgs(await user.getAddress(), mockERC20.address, selector);
+                    .withArgs(user.address, mockERC20.address, selector);
             });
 
             it("should fail from non-owner", async () => {
@@ -67,21 +67,21 @@ describe("CallWhitelist", () => {
                 const { whitelist, mockERC20, user, other } = await loadFixture(fixture);
 
                 const selector = mockERC20.interface.getSighash("mint");
-                await expect(whitelist.connect(user).transferOwnership(await other.getAddress()))
+                await expect(whitelist.connect(user).transferOwnership(other.address))
                     .to.emit(whitelist, "OwnershipTransferred")
-                    .withArgs(await user.getAddress(), await other.getAddress());
+                    .withArgs(user.address, other.address);
                 await expect(whitelist.connect(other).add(mockERC20.address, selector))
                     .to.emit(whitelist, "CallAdded")
-                    .withArgs(await other.getAddress(), mockERC20.address, selector);
+                    .withArgs(other.address, mockERC20.address, selector);
             });
 
             it("should fail from old address after ownership transferred", async () => {
                 const { whitelist, mockERC20, user, other } = await loadFixture(fixture);
 
                 const selector = mockERC20.interface.getSighash("mint");
-                await expect(whitelist.connect(user).transferOwnership(await other.getAddress()))
+                await expect(whitelist.connect(user).transferOwnership(other.address))
                     .to.emit(whitelist, "OwnershipTransferred")
-                    .withArgs(await user.getAddress(), await other.getAddress());
+                    .withArgs(user.address, other.address);
                 await expect(whitelist.connect(user).add(mockERC20.address, selector)).to.be.revertedWith(
                     "Ownable: caller is not the owner",
                 );
@@ -95,10 +95,10 @@ describe("CallWhitelist", () => {
                 const selector = mockERC20.interface.getSighash("mint");
                 await expect(whitelist.connect(user).add(mockERC20.address, selector))
                     .to.emit(whitelist, "CallAdded")
-                    .withArgs(await user.getAddress(), mockERC20.address, selector);
+                    .withArgs(user.address, mockERC20.address, selector);
                 await expect(whitelist.connect(user).remove(mockERC20.address, selector))
                     .to.emit(whitelist, "CallRemoved")
-                    .withArgs(await user.getAddress(), mockERC20.address, selector);
+                    .withArgs(user.address, mockERC20.address, selector);
             });
 
             it("should fail from non-owner", async () => {
@@ -107,7 +107,7 @@ describe("CallWhitelist", () => {
                 const selector = mockERC20.interface.getSighash("mint");
                 await expect(whitelist.connect(user).add(mockERC20.address, selector))
                     .to.emit(whitelist, "CallAdded")
-                    .withArgs(await user.getAddress(), mockERC20.address, selector);
+                    .withArgs(user.address, mockERC20.address, selector);
                 await expect(whitelist.connect(other).remove(mockERC20.address, selector)).to.be.revertedWith(
                     "Ownable: caller is not the owner",
                 );
@@ -117,27 +117,27 @@ describe("CallWhitelist", () => {
                 const { whitelist, mockERC20, user, other } = await loadFixture(fixture);
 
                 const selector = mockERC20.interface.getSighash("mint");
-                await expect(whitelist.connect(user).transferOwnership(await other.getAddress()))
+                await expect(whitelist.connect(user).transferOwnership(other.address))
                     .to.emit(whitelist, "OwnershipTransferred")
-                    .withArgs(await user.getAddress(), await other.getAddress());
+                    .withArgs(user.address, other.address);
                 await expect(whitelist.connect(other).add(mockERC20.address, selector))
                     .to.emit(whitelist, "CallAdded")
-                    .withArgs(await other.getAddress(), mockERC20.address, selector);
+                    .withArgs(other.address, mockERC20.address, selector);
                 await expect(whitelist.connect(other).remove(mockERC20.address, selector))
                     .to.emit(whitelist, "CallRemoved")
-                    .withArgs(await other.getAddress(), mockERC20.address, selector);
+                    .withArgs(other.address, mockERC20.address, selector);
             });
 
             it("should fail from old address after ownership transferred", async () => {
                 const { whitelist, mockERC20, user, other } = await loadFixture(fixture);
 
                 const selector = mockERC20.interface.getSighash("mint");
-                await expect(whitelist.connect(user).transferOwnership(await other.getAddress()))
+                await expect(whitelist.connect(user).transferOwnership(other.address))
                     .to.emit(whitelist, "OwnershipTransferred")
-                    .withArgs(await user.getAddress(), await other.getAddress());
+                    .withArgs(user.address, other.address);
                 await expect(whitelist.connect(other).add(mockERC20.address, selector))
                     .to.emit(whitelist, "CallAdded")
-                    .withArgs(await other.getAddress(), mockERC20.address, selector);
+                    .withArgs(other.address, mockERC20.address, selector);
                 await expect(whitelist.connect(user).remove(mockERC20.address, selector)).to.be.revertedWith(
                     "Ownable: caller is not the owner",
                 );

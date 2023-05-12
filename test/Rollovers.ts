@@ -108,20 +108,20 @@ const fixture = async (): Promise<TestContext> => {
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController
-    const whitelistCurrency = await originationController.allowPayableCurrency([mockERC20.address]);
-    await whitelistCurrency.wait();
+    await originationController.setAllowedPayableCurrencies([mockERC20.address], [true]);
     // verify the currency is whitelisted
     const isWhitelisted = await originationController.allowedCurrencies(mockERC20.address);
     expect(isWhitelisted).to.be.true;
+
     // admin whitelists MockERC721 and vaultFactory on OriginationController
-    const whitelistCollateral = await originationController.allowCollateralAddress([mockERC721.address]);
-    await whitelistCollateral.wait();
-    const whitelistVaultFactory = await originationController.allowCollateralAddress([vaultFactory.address]);
-    await whitelistVaultFactory.wait();
+    await originationController.setAllowedCollateralAddresses(
+        [mockERC721.address, vaultFactory.address],
+        [true, true]
+    );
     // verify the collateral is whitelisted
-    const isCollateralWhitelisted = await originationController.allowedCollateral(mockERC721.address);
+    const isCollateralWhitelisted = await originationController.isAllowedCollateral(mockERC721.address);
     expect(isCollateralWhitelisted).to.be.true;
-    const isVaultFactoryWhitelisted = await originationController.allowedCollateral(vaultFactory.address);
+    const isVaultFactoryWhitelisted = await originationController.isAllowedCollateral(vaultFactory.address);
     expect(isVaultFactoryWhitelisted).to.be.true;
 
     const updateOriginationControllerPermissions = await loanCore.grantRole(
@@ -133,7 +133,7 @@ const fixture = async (): Promise<TestContext> => {
     await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);
 
     const verifier = <ArcadeItemsVerifier>await deploy("ArcadeItemsVerifier", admin, []);
-    await originationController.setAllowedVerifier(verifier.address, true);
+    await originationController.setAllowedVerifiers([verifier.address], [true]);
 
     return {
         loanCore,
@@ -183,7 +183,7 @@ const createLoanTerms = (
 };
 
 const initializeBundle = async (vaultFactory: VaultFactory, user: SignerWithAddress): Promise<BigNumber> => {
-    const tx = await vaultFactory.connect(user).initializeBundle(await user.getAddress());
+    const tx = await vaultFactory.connect(user).initializeBundle(user.address);
     const receipt = await tx.wait();
 
     if (receipt && receipt.events) {
@@ -281,7 +281,6 @@ describe("Rollovers", () => {
     });
 
     describe("Rollover Loan", () => {
-
         it("should not allow a rollover if the collateral doesn't match", async () => {
             const { originationController, vaultFactory, borrower, lender } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
@@ -313,9 +312,7 @@ describe("Rollovers", () => {
             const { loanId, loanTerms } = loan;
 
             const otherERC20 = <MockERC20>await deploy("MockERC20", admin, ["Mock ERC20", "MOCK"]);
-
-            const whitelistCurrency = await originationController.allowPayableCurrency([otherERC20.address]);
-            await whitelistCurrency.wait();
+            await originationController.setAllowedPayableCurrencies([otherERC20.address], [true]);
 
             // create new terms for rollover and sign them
             const newTerms = createLoanTerms(
@@ -704,6 +701,156 @@ describe("Rollovers", () => {
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
             expect(await loanCore.canCallOn(borrower.address, bundleId.toString())).to.eq(true);
         });
+
+        it("rollover with items signature reverts if the required predicates array is empty", async () => {
+            const {
+                originationController,
+                mockERC20,
+                mockERC721,
+                vaultFactory,
+                borrower,
+                newLender
+            } = ctx;
+            const { loanId, loanTerms, bundleId } = loan;
+
+            const collateralId = await mint721(mockERC721, borrower);
+            await mockERC721.connect(borrower).transferFrom(borrower.address, bundleId.toString(), collateralId);
+
+            // create new terms for rollover and sign them
+            const newTerms = createLoanTerms(mockERC20.address, vaultFactory.address, loanTerms);
+            const predicates: ItemsPredicate[] = [];
+
+            const sig = await createLoanItemsSignature(
+                originationController.address,
+                "OriginationController",
+                newTerms,
+                encodePredicates(predicates),
+                newLender,
+                "3",
+                "2",
+                "l",
+            );
+
+            await expect(
+                originationController
+                    .connect(borrower)
+                    .rolloverLoanWithItems(loanId, newTerms, newLender.address, sig, 2, predicates),
+            )
+                .to.be.revertedWith("OC_PredicatesArrayEmpty");
+        });
+
+        it("rollover with items signature reverts if the verifier is not approved", async () => {
+            const {
+                originationController,
+                mockERC20,
+                mockERC721,
+                vaultFactory,
+                borrower,
+                newLender,
+                verifier
+            } = ctx;
+            const { loanId, loanTerms, bundleId } = loan;
+
+            const collateralId = await mint721(mockERC721, borrower);
+            await mockERC721.connect(borrower).transferFrom(borrower.address, bundleId.toString(), collateralId);
+
+            // Remove verifier approval
+            await originationController.setAllowedVerifiers([verifier.address], [false]);
+
+            // create new terms for rollover and sign them
+            const newTerms = createLoanTerms(mockERC20.address, vaultFactory.address, loanTerms);
+
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 0,
+                    asset: mockERC721.address,
+                    tokenId: collateralId,
+                    amount: 1,
+                    anyIdAllowed: false
+                },
+            ];
+
+            const predicates: ItemsPredicate[] = [
+                {
+                    verifier: verifier.address,
+                    data: encodeSignatureItems(signatureItems),
+                },
+            ];
+
+            const sig = await createLoanItemsSignature(
+                originationController.address,
+                "OriginationController",
+                newTerms,
+                encodePredicates(predicates),
+                newLender,
+                "3",
+                "2",
+                "l",
+            );
+
+            await expect(
+                originationController
+                    .connect(borrower)
+                    .rolloverLoanWithItems(loanId, newTerms, newLender.address, sig, 2, predicates),
+            )
+                .to.be.revertedWith("OC_InvalidVerifier");
+        });
+
+        it("rollover with items signature reverts if the predicate fails", async () => {
+            const {
+                originationController,
+                mockERC20,
+                mockERC721,
+                vaultFactory,
+                borrower,
+                newLender,
+                verifier
+            } = ctx;
+            const { loanId, loanTerms, bundleId } = loan;
+
+            const collateralId = await mint721(mockERC721, borrower);
+            const collateralId2 = await mint721(mockERC721, borrower);
+            await mockERC721.connect(borrower).transferFrom(borrower.address, bundleId.toString(), collateralId);
+
+            // create new terms for rollover and sign them
+            const newTerms = createLoanTerms(mockERC20.address, vaultFactory.address, loanTerms);
+
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 0,
+                    asset: mockERC721.address,
+                    tokenId: collateralId2, // look for the other, non-vaulted collateral
+                    amount: 1,
+                    anyIdAllowed: false
+                },
+            ];
+
+            const predicates: ItemsPredicate[] = [
+                {
+                    verifier: verifier.address,
+                    data: encodeSignatureItems(signatureItems),
+                },
+            ];
+
+            const sig = await createLoanItemsSignature(
+                originationController.address,
+                "OriginationController",
+                newTerms,
+                encodePredicates(predicates),
+                newLender,
+                "3",
+                "2",
+                "l",
+            );
+
+            await expect(
+                originationController
+                    .connect(borrower)
+                    .rolloverLoanWithItems(loanId, newTerms, newLender.address, sig, 2, predicates),
+            )
+                .to.be.revertedWith("OC_PredicateFailed");
+        });
+
 
         it("should roll over to a different lender using an items signature", async () => {
             const {
@@ -1829,7 +1976,7 @@ describe("Rollovers", () => {
             expect(await loanCore.feesWithdrawable(mockERC20.address, borrower.address)).to.eq(ethers.utils.parseEther("0.44"));
 
             await expect(loanCore.connect(borrower).withdraw(mockERC20.address, ethers.utils.parseEther("0.44"), borrower.address))
-                .to.emit(loanCore, "FundsWithdrawn")
+                .to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, borrower.address, borrower.address, ethers.utils.parseEther("0.44"))
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(loanCore.address, borrower.address, ethers.utils.parseEther("0.44"));
@@ -1935,7 +2082,7 @@ describe("Rollovers", () => {
             expect(await loanCore.feesWithdrawable(mockERC20.address, lender.address)).to.eq(ethers.utils.parseEther("0.44"));
 
             await expect(loanCore.connect(lender).withdraw(mockERC20.address, ethers.utils.parseEther("0.44"), lender.address))
-                .to.emit(loanCore, "FundsWithdrawn")
+                .to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, lender.address, lender.address, ethers.utils.parseEther("0.44"))
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(loanCore.address, lender.address, ethers.utils.parseEther("0.44"));

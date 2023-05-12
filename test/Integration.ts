@@ -109,15 +109,19 @@ const fixture = async (): Promise<TestContext> => {
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController
-    const whitelistCurrency = await originationController.allowPayableCurrency([mockERC20.address]);
-    await whitelistCurrency.wait();
+    await originationController.setAllowedPayableCurrencies([mockERC20.address], [true]);
     // verify the currency is whitelisted
     const isWhitelisted = await originationController.allowedCurrencies(mockERC20.address);
     expect(isWhitelisted).to.be.true;
-    // admin whitelists vaultFactory on OriginationController
-    const whitelistVaultFactory = await originationController.allowCollateralAddress([vaultFactory.address]);
-    await whitelistVaultFactory.wait();
+
+    // admin whitelists MockERC721 and vaultFactory on OriginationController
+    await originationController.setAllowedCollateralAddresses(
+        [mockERC721.address, vaultFactory.address],
+        [true, true]
+    );
     // verify the collateral is whitelisted
+    const isCollateralWhitelisted = await originationController.allowedCollateral(mockERC721.address);
+    expect(isCollateralWhitelisted).to.be.true;
     const isVaultFactoryWhitelisted = await originationController.allowedCollateral(vaultFactory.address);
     expect(isVaultFactoryWhitelisted).to.be.true;
 
@@ -173,7 +177,7 @@ const createLoanTerms = (
 };
 
 const createWnft = async (vaultFactory: VaultFactory, user: SignerWithAddress) => {
-    const tx = await vaultFactory.initializeBundle(await user.getAddress());
+    const tx = await vaultFactory.initializeBundle(user.address);
     const receipt = await tx.wait();
     if (receipt && receipt.events && receipt.events.length === 2 && receipt.events[1].args) {
         return receipt.events[1].args.vault;
@@ -604,13 +608,13 @@ describe("Integration", () => {
             // Withdraw fees for both protocol and affiliate
             await expect(
                 loanCore.connect(borrower).withdraw(mockERC20.address, ethers.utils.parseEther("0.15"), borrower.address)
-            ).to.emit(loanCore, "FundsWithdrawn")
+            ).to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, borrower.address, borrower.address, ethers.utils.parseEther("0.15"));
 
             // Protocol admin gets 1.35 ETH - 1.5 total fees minus 10% affiliate share on fees
             await expect(
                 loanCore.connect(admin).withdrawProtocolFees(mockERC20.address, admin.address)
-            ).to.emit(loanCore, "FundsWithdrawn")
+            ).to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, admin.address, admin.address, ethers.utils.parseEther("1.35"));
 
             // All fees withdrawn
@@ -668,13 +672,13 @@ describe("Integration", () => {
             // Withdraw fees for both protocol and affiliate
             await expect(
                 loanCore.connect(borrower).withdraw(mockERC20.address, ethers.utils.parseEther("0.695"), borrower.address)
-            ).to.emit(loanCore, "FundsWithdrawn")
+            ).to.emit(loanCore, "FeesWithdrawn")
                .withArgs(mockERC20.address, borrower.address, borrower.address, ethers.utils.parseEther("0.695"));
 
             // Protocol admin gets 6.255 ETH - 6.95 total fees minus 10% affiliate share on fees
             await expect(
                 loanCore.connect(admin).withdrawProtocolFees(mockERC20.address, admin.address)
-            ).to.emit(loanCore, "FundsWithdrawn")
+            ).to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, admin.address, admin.address, ethers.utils.parseEther("6.255"));
 
             // All fees withdrawn
@@ -686,8 +690,8 @@ describe("Integration", () => {
             const { feeController, repaymentController, originationController, mockERC20, mockERC721, loanCore, borrower, lender, admin } = context;
 
             const uvVerifier = <ArcadeItemsVerifier>await deploy("UnvaultedItemsVerifier", admin, []);
-            await originationController.setAllowedVerifier(uvVerifier.address, true);
-            await originationController.allowCollateralAddress([mockERC721.address]);
+            await originationController.setAllowedVerifiers([uvVerifier.address], [true]);
+            await originationController.setAllowedCollateralAddresses([mockERC721.address], [true]);
 
             // Set a 50 bps lender fee on origination, a 3% borrower rollover
             // fee, and a 10% fee on interest. Total fees earned should be
@@ -838,13 +842,13 @@ describe("Integration", () => {
             // Withdraw fees for both protocol and affiliate
             await expect(
                 loanCore.connect(borrower).withdraw(mockERC20.address, ethers.utils.parseEther("0.45"), borrower.address)
-            ).to.emit(loanCore, "FundsWithdrawn")
+            ).to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, borrower.address, borrower.address, ethers.utils.parseEther("0.45"));
 
             // Protocol admin gets 1.35 ETH - 1.5 total fees minus 10% affiliate share on fees
             await expect(
                 loanCore.connect(admin).withdrawProtocolFees(mockERC20.address, admin.address)
-            ).to.emit(loanCore, "FundsWithdrawn")
+            ).to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, admin.address, admin.address, ethers.utils.parseEther("4.05"));
 
             expect(await loanCore.feesWithdrawable(mockERC20.address, borrower.address)).to.eq(0);

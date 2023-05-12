@@ -33,7 +33,7 @@ interface ILoanCore {
     event LoanClaimed(uint256 loanId);
     event NonceUsed(address indexed user, uint160 nonce);
 
-    event FundsWithdrawn(address indexed token, address indexed caller, address indexed to, uint256 amount);
+    event FeesWithdrawn(address indexed token, address indexed caller, address indexed to, uint256 amount);
     event NoteRedeemed(address indexed token, address indexed caller, address indexed to, uint256 tokenId, uint256 amount);
     event AffiliateSet(bytes32 indexed code, address indexed affiliate, uint96 splitBps);
 
