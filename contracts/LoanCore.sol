@@ -109,10 +109,7 @@ contract LoanCore is
      * @param _borrowerNote       The address of the PromissoryNote contract representing borrower obligation.
      * @param _lenderNote         The address of the PromissoryNote contract representing lender obligation.
      */
-    constructor(
-        IPromissoryNote _borrowerNote,
-        IPromissoryNote _lenderNote
-    ) AccessControl() Pausable() {
+    constructor(IPromissoryNote _borrowerNote, IPromissoryNote _lenderNote) {
         if (address(_borrowerNote) == address(0)) revert LC_ZeroAddress();
         if (address(_lenderNote) == address(0)) revert LC_ZeroAddress();
         if (address(_borrowerNote) == address(_lenderNote)) revert LC_ReusedNote();
@@ -300,9 +297,6 @@ contract LoanCore is
 
         _burnLoanNotes(loanId);
 
-        // collateral redistribution
-        IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), lender, data.terms.collateralId);
-
         if (_amountFromLender > 0) {
             (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
                 _getAffiliateSplit(_amountFromLender, data.terms.affiliateCode);
@@ -313,6 +307,9 @@ contract LoanCore is
 
             _collectIfNonzero(IERC20(data.terms.payableCurrency), lender, _amountFromLender);
         }
+
+        // collateral redistribution
+        IERC721(data.terms.collateralAddress).transferFrom(address(this), lender, data.terms.collateralId);
 
         emit LoanClaimed(loanId);
     }
@@ -413,8 +410,6 @@ contract LoanCore is
             feesWithdrawable[address(payableCurrency)][affiliate] += affiliateFee;
         }
 
-        _burnLoanNotes(oldLoanId);
-
         // Set up new loan
         newLoanId = loanIdTracker.current();
         loanIdTracker.increment();
@@ -424,6 +419,9 @@ contract LoanCore is
             state: LoanLibrary.LoanState.Active,
             startDate: uint160(block.timestamp)
         });
+
+        // Burn old notes
+        _burnLoanNotes(oldLoanId);
 
         // Distribute notes and principal
         _mintLoanNotes(newLoanId, borrower, lender);
@@ -649,7 +647,8 @@ contract LoanCore is
         // Check that we will not net lose tokens.
         if (_amountToLender > _amountFromPayer) revert LC_CannotSettle(_amountToLender, _amountFromPayer);
         uint256 feesEarned = _amountFromPayer - _amountToLender;
-        (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(feesEarned, data.terms.affiliateCode);
+        (uint256 protocolFee, uint256 affiliateFee, address affiliate) = 
+            _getAffiliateSplit(feesEarned, data.terms.affiliateCode);
 
         // Assign fees for withdrawal
         feesWithdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
@@ -702,7 +701,7 @@ contract LoanCore is
         emit NonceUsed(user, nonce);
     }
 
-    /*
+    /**
      * @dev Mint a borrower and lender note together - easier to make sure
      *      they are synchronized.
      *

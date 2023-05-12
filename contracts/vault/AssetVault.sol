@@ -290,7 +290,7 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         }
 
         // Do approval
-        IERC20(token).approve(spender, amount);
+        IERC20(token).safeApprove(spender, amount);
 
         emit Approve(msg.sender, token, spender, amount);
     }

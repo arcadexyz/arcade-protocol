@@ -11,7 +11,12 @@ import "../interfaces/IAssetVault.sol";
 import "../interfaces/ISignatureVerifier.sol";
 import "../libraries/LoanLibrary.sol";
 
-import { IV_NoAmount, IV_InvalidWildcard, IV_ItemMissingAddress, IV_InvalidCollateralType } from "../errors/Lending.sol";
+import {
+    IV_NoAmount,
+    IV_InvalidWildcard,
+    IV_ItemMissingAddress,
+    IV_InvalidCollateralType
+} from "../errors/Lending.sol";
 
 /**
  * @title ArcadeItemsVerifier
