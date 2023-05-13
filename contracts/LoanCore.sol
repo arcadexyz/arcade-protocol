@@ -26,13 +26,12 @@ import {
     LC_CannotWithdraw,
     LC_ZeroAmount,
     LC_ArrayLengthMismatch,
-    LC_InvalidSplit,
+    LC_OverMaxSplit,
     LC_CollateralInUse,
     LC_InvalidState,
     LC_NotExpired,
     LC_NonceUsed,
     LC_AffiliateCodeAlreadySet,
-    LC_OnlyLender,
     LC_NoReceipt
 } from "./errors/Lending.sol";
 
@@ -589,16 +588,13 @@ contract LoanCore is
         if (codes.length != splits.length) revert LC_ArrayLengthMismatch();
 
         for (uint256 i = 0; i < codes.length; ++i) {
-            if (splits[i].splitBps > MAX_AFFILIATE_SPLIT) {
-                revert LC_InvalidSplit(splits[i].splitBps, MAX_AFFILIATE_SPLIT);
-            }
+            if (splits[i].splitBps > MAX_AFFILIATE_SPLIT)
+                revert LC_OverMaxSplit(splits[i].splitBps, MAX_AFFILIATE_SPLIT);
 
-            if (affiliateSplits[codes[i]].affiliate != address(0)) {
+            if (affiliateSplits[codes[i]].affiliate != address(0))
                 revert LC_AffiliateCodeAlreadySet(codes[i]);
-            }
 
             affiliateSplits[codes[i]] = splits[i];
-
             emit AffiliateSet(codes[i], splits[i].affiliate, splits[i].splitBps);
         }
     }
@@ -647,7 +643,7 @@ contract LoanCore is
         // Check that we will not net lose tokens.
         if (_amountToLender > _amountFromPayer) revert LC_CannotSettle(_amountToLender, _amountFromPayer);
         uint256 feesEarned = _amountFromPayer - _amountToLender;
-        (uint256 protocolFee, uint256 affiliateFee, address affiliate) = 
+        (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
             _getAffiliateSplit(feesEarned, data.terms.affiliateCode);
 
         // Assign fees for withdrawal

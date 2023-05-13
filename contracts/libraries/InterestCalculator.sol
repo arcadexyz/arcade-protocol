@@ -2,8 +2,6 @@
 
 pragma solidity 0.8.18;
 
-import { FIAC_InterestRate } from "../errors/Lending.sol";
-
 /**
  * @title InterestCalculator
  * @author Non-Fungible Technologies, Inc.

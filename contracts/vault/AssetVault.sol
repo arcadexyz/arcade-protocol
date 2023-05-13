@@ -23,7 +23,7 @@ import {
     AV_WithdrawsDisabled,
     AV_WithdrawsEnabled,
     AV_AlreadyInitialized,
-    AV_CallDisallowed,
+    AV_MissingAuthorization,
     AV_NonWhitelistedCall,
     AV_NonWhitelistedApproval,
     AV_TooManyItems,
@@ -397,7 +397,7 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
      */
     modifier onlyAllowedCallers() {
         if (msg.sender != owner() && !ICallDelegator(owner()).canCallOn(msg.sender, address(this))) {
-            revert AV_CallDisallowed(msg.sender);
+            revert AV_MissingAuthorization(msg.sender);
         }
 
         _;

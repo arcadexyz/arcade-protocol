@@ -33,11 +33,11 @@ error AV_WithdrawsEnabled();
 error AV_AlreadyInitialized(address ownershipToken);
 
 /**
- * @notice Call disallowed.
+ * @notice CanCallOn authorizatino returned false.
  *
  * @param caller                             Msg.sender of the function call.
  */
-error AV_CallDisallowed(address caller);
+error AV_MissingAuthorization(address caller);
 
 /**
  * @notice Call disallowed.

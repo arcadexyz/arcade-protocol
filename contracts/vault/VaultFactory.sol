@@ -16,7 +16,12 @@ import "../interfaces/IFeeController.sol";
 import "../interfaces/INFTDescriptor.sol";
 import "../nft/ERC721Permit.sol";
 
-import { VF_ZeroAddress, VF_TokenIdOutOfBounds, VF_NoTransferWithdrawEnabled, VF_InsufficientMintFee } from "../errors/Vault.sol";
+import {
+    VF_ZeroAddress,
+    VF_TokenIdOutOfBounds,
+    VF_NoTransferWithdrawEnabled,
+    VF_InsufficientMintFee
+} from "../errors/Vault.sol";
 
 /**
  * @title VaultFactory

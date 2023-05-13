@@ -2031,8 +2031,36 @@ describe("OriginationController", () => {
                 originationController
                     .connect(other)
                     .setAllowedVerifiers([verifier.address, verifier2.address], [true, true]),
-            ).to.be.revertedWith(`AccessControl`);
+            ).to.be.revertedWith("AccessControl");
         });
+
+        it("reverts if a batch update has zero elements", async () => {
+            const { user, originationController } = ctx;
+
+            await expect(
+                originationController
+                    .connect(user)
+                    .setAllowedVerifiers([], []),
+            ).to.be.revertedWith("OC_ZeroArrayElements");
+        });
+
+        it("reverts if a batch update has too many elements", async () => {
+            const { user, originationController } = ctx;
+
+            const addresses: string[] = [];
+            const bools: boolean[] = [];
+            for (let i = 0; i < 51; i++) {
+                addresses.push(verifier.address);
+                bools.push(true);
+            }
+
+            await expect(
+                originationController
+                    .connect(user)
+                    .setAllowedVerifiers(addresses, bools),
+            ).to.be.revertedWith("OC_ArrayTooManyElements");
+        });
+
 
         it("reverts if a batch update's arguments have mismatched length", async () => {
             const { user, originationController } = ctx;
@@ -2550,6 +2578,18 @@ describe("OriginationController", () => {
                 .to.be.revertedWith("OC_ArrayTooManyElements");
         });
 
+        it("Reverts when the currency whitelist batch update's arguments have mismatched length", async () => {
+            const { originationController, user: admin, mockERC20 } = ctx;
+
+            const addresses: string[] = [];
+            const bools: boolean[] = [];
+            for (let i = 0; i < 30; i++) addresses.push(mockERC20.address);
+            for (let i = 0; i < 16; i++) bools.push(true);
+
+            await expect(originationController.connect(admin).setAllowedPayableCurrencies(addresses, bools))
+                .to.be.revertedWith("OC_BatchLengthMismatch");
+        });
+
         it("Reverts when user without whitelist manager role tries to whitelist a currency", async () => {
             const { originationController, other, mockERC20 } = ctx;
 
@@ -2632,6 +2672,18 @@ describe("OriginationController", () => {
 
             await expect(originationController.connect(admin).setAllowedCollateralAddresses(addresses, bools))
                 .to.be.revertedWith("OC_ArrayTooManyElements");
+        });
+
+        it("Reverts when the collateral whitelist batch update's arguments have mismatched length", async () => {
+            const { originationController, user: admin, mockERC721 } = ctx;
+
+            const addresses: string[] = [];
+            const bools: boolean[] = [];
+            for (let i = 0; i < 30; i++) addresses.push(mockERC721.address);
+            for (let i = 0; i < 16; i++) bools.push(true);
+
+            await expect(originationController.connect(admin).setAllowedCollateralAddresses(addresses, bools))
+                .to.be.revertedWith("OC_BatchLengthMismatch");
         });
 
         it("Reverts when user without whitelist manager role tries to remove a whitelisted currency", async () => {

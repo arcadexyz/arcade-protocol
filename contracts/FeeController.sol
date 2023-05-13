@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IFeeController.sol";
 import "./libraries/FeeLookups.sol";
 
-import { FC_FeeTooLarge } from "./errors/Lending.sol";
+import { FC_FeeOverMax } from "./errors/Lending.sol";
 
 /**
  * @title FeeController
@@ -69,7 +69,7 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
      */
     function set(bytes32 id, uint256 fee) public override onlyOwner {
         if (maxFees[id] != 0 && fee > maxFees[id]) {
-            revert FC_FeeTooLarge(id, fee, maxFees[id]);
+            revert FC_FeeOverMax(id, fee, maxFees[id]);
         }
 
         fees[id] = fee;

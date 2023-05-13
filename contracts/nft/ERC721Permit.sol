@@ -9,7 +9,11 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 
 import "../interfaces/IERC721Permit.sol";
 
-import { ERC721P_DeadlineExpired, ERC721P_NotTokenOwner, ERC721P_InvalidSignature } from "../errors/LendingUtils.sol";
+import {
+    ERC721P_DeadlineExpired,
+    ERC721P_NotTokenOwner,
+    ERC721P_InvalidSignature
+} from "../errors/LendingUtils.sol";
 
 /**
  * @title ERC721Permit

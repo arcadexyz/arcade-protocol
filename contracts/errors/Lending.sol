@@ -35,7 +35,7 @@ error OC_InvalidState(LoanLibrary.LoanState state);
 error OC_LoanDuration(uint256 durationSecs);
 
 /**
- * @notice Interest must be greater than 0.01%. (interestRate / 1e18 >= 1)
+ * @notice Interest must be greater than 0.01% and less than 10,000%. (interestRate / 1e18 >= 1)
  *
  * @param interestRate                  InterestRate with 1e18 multiplier.
  */
@@ -103,6 +103,13 @@ error OC_InvalidVerifier(address verifier);
 error OC_CallerNotParticipant(address caller);
 
 /**
+ * @notice Signer is attempting to take the wrong side of the loan.
+ *
+ * @param signer                       The address of the external signer.
+ */
+error OC_SideMismatch(address signer);
+
+/**
  * @notice Two related parameters for batch operations did not match in length.
  */
 error OC_BatchLengthMismatch();
@@ -145,20 +152,6 @@ error OC_RolloverCollateralMismatch(
 );
 
 /**
- * @notice Provided token has already been approved for trading.
- *
- * @param token       Token address to add to approvals mapping.
- */
-error OC_AlreadyAllowed(address token);
-
-/**
- * @notice Provided token not in approvals.
- *
- * @param token       Token address to remove from approvals mapping.
- */
-error OC_DoesNotExist(address token);
-
-/**
  * @notice Provided payable currency address is not approved for lending.
  *
  * @param payableCurrency       ERC20 token address supplied in loan terms.
@@ -181,13 +174,6 @@ error OC_ZeroArrayElements();
  * @notice Provided token array holds more than 50 token addresses.
  */
 error OC_ArrayTooManyElements();
-
-/**
- * @notice Signer is attempting to take the wrong side of the loan.
- *
- * @param signer                       The address of the external signer.
- */
-error OC_SideMismatch(address signer);
 
 // ==================================== ITEMS VERIFIER ======================================
 /// @notice All errors prefixed with IV_, to separate from other contracts in the protocol.
@@ -265,18 +251,6 @@ error RC_InvalidState(LoanLibrary.LoanState state);
  */
 error RC_OnlyLender(address lender, address caller);
 
-/**
- * @notice Loan has not started yet.
- *
- * @param startDate                 block timestamp of the startDate of loan stored in LoanData.
- */
-error RC_BeforeStartDate(uint256 startDate);
-
-/**
- * @notice The loan has zero amount due.
- */
-error RC_NoPaymentDue();
-
 // ==================================== Loan Core ======================================
 /// @notice All errors prefixed with LC_, to separate from other contracts in the protocol.
 
@@ -329,7 +303,7 @@ error LC_ArrayLengthMismatch();
  * @param maxSplitBps                  The maximum allowed affiliate split.
  *
  */
-error LC_InvalidSplit(uint96 splitBps, uint96 maxSplitBps);
+error LC_OverMaxSplit(uint96 splitBps, uint96 maxSplitBps);
 
 /**
  * @notice Ensure valid loan state for loan lifceycle operations.
@@ -362,29 +336,11 @@ error LC_NonceUsed(address user, uint160 nonce);
 error LC_AffiliateCodeAlreadySet(bytes32 affiliateCode);
 
 /**
- * @notice Caller is not the owner of lender note.
- *
- * @param caller                     Msg.sender of the function call.
- */
-error LC_OnlyLender(address caller);
-
-/**
  * @notice Specified note token ID does not have a redeemable receipt.
  *
  * @param loanId                     The loanId being checked.
  */
 error LC_NoReceipt(uint256 loanId);
-
-
-// ================================== Full Insterest Amount Calc ====================================
-/// @notice All errors prefixed with FIAC_, to separate from other contracts in the protocol.
-
-/**
- * @notice Interest must be greater than 0.01%. (interestRate / 1e18 >= 1)
- *
- * @param interestRate                  InterestRate with 1e18 multiplier.
- */
-error FIAC_InterestRate(uint256 interestRate);
 
 // ==================================== Promissory Note ======================================
 /// @notice All errors prefixed with PN_, to separate from other contracts in the protocol.
@@ -414,4 +370,4 @@ error PN_BurningRole(address caller);
 /**
  * @notice Caller attempted to set a fee which is larger than the global maximum.
  */
-error FC_FeeTooLarge(bytes32 selector, uint256 fee, uint256 maxFee);
+error FC_FeeOverMax(bytes32 selector, uint256 fee, uint256 maxFee);

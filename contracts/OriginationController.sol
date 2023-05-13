@@ -31,6 +31,7 @@ import {
     OC_ApprovedOwnLoan,
     OC_InvalidSignature,
     OC_CallerNotParticipant,
+    OC_SideMismatch,
     OC_PrincipalTooLow,
     OC_LoanDuration,
     OC_InterestRate,
@@ -39,11 +40,8 @@ import {
     OC_RolloverCollateralMismatch,
     OC_InvalidCurrency,
     OC_InvalidCollateral,
-    OC_DoesNotExist,
-    OC_AlreadyAllowed,
     OC_ZeroArrayElements,
     OC_ArrayTooManyElements,
-    OC_SideMismatch
 } from "./errors/Lending.sol";
 
 /**
@@ -164,7 +162,12 @@ contract OriginationController is
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
-        (bytes32 sighash, address externalSigner) = recoverTokenSignature(loanTerms, sig, nonce, neededSide);
+        (bytes32 sighash, address externalSigner) = recoverTokenSignature(
+            loanTerms,
+            sig,
+            nonce,
+            neededSide
+        );
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
 
@@ -201,25 +204,21 @@ contract OriginationController is
         _validateLoanTerms(loanTerms);
         if (itemPredicates.length == 0) revert OC_PredicatesArrayEmpty();
 
-        {
-            // Determine if signature needs to be on the borrow or lend side
-            Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
+        // Determine if signature needs to be on the borrow or lend side
+        Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
-            (bytes32 sighash, address externalSigner) = recoverItemsSignature(
-                loanTerms,
-                sig,
-                nonce,
-                neededSide,
-                keccak256(abi.encode(itemPredicates))
-            );
+        (bytes32 sighash, address externalSigner) = recoverItemsSignature(
+            loanTerms,
+            sig,
+            nonce,
+            neededSide,
+            keccak256(abi.encode(itemPredicates))
+        );
 
-            _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
-
-            loanCore.consumeNonce(externalSigner, nonce);
-        }
-
+        _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
         _runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
 
+        loanCore.consumeNonce(externalSigner, nonce);
         loanId = _initialize(loanTerms, borrower, lender);
     }
 
@@ -260,7 +259,7 @@ contract OriginationController is
         );
 
         loanId = initializeLoan(loanTerms, borrower, lender, sig, nonce);
-    }
+}
 
     /**
      * @notice Initializes a loan with Loan Core, with a permit signature instead of pre-approved collateral.
@@ -333,10 +332,16 @@ contract OriginationController is
         _validateRollover(data.terms, loanTerms);
 
         address borrower = IERC721(loanCore.borrowerNote()).ownerOf(oldLoanId);
+
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
-        (bytes32 sighash, address externalSigner) = recoverTokenSignature(loanTerms, sig, nonce, neededSide);
+        (bytes32 sighash, address externalSigner) = recoverTokenSignature(
+            loanTerms,
+            sig,
+            nonce,
+            neededSide
+        );
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
 
@@ -373,28 +378,26 @@ contract OriginationController is
         if (itemPredicates.length == 0) revert OC_PredicatesArrayEmpty();
 
         LoanLibrary.LoanData memory data = loanCore.getLoan(oldLoanId);
+        if (data.state != LoanLibrary.LoanState.Active) revert OC_InvalidState(data.state);
         _validateRollover(data.terms, loanTerms);
 
         address borrower = IERC721(loanCore.borrowerNote()).ownerOf(oldLoanId);
 
-        {
-            // Determine if signature needs to be on the borrow or lend side
-            Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
+        // Determine if signature needs to be on the borrow or lend side
+        Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
-            (bytes32 sighash, address externalSigner) = recoverItemsSignature(
-                loanTerms,
-                sig,
-                nonce,
-                neededSide,
-                keccak256(abi.encode(itemPredicates))
-            );
+        (bytes32 sighash, address externalSigner) = recoverItemsSignature(
+            loanTerms,
+            sig,
+            nonce,
+            neededSide,
+            keccak256(abi.encode(itemPredicates))
+        );
 
-            _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
-
-            loanCore.consumeNonce(externalSigner, nonce);
-        }
-
+        _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
         _runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
+
+        loanCore.consumeNonce(externalSigner, nonce);
 
         newLoanId = _rollover(oldLoanId, loanTerms, borrower, lender);
     }
@@ -561,12 +564,12 @@ contract OriginationController is
     ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
         if (tokens.length == 0) revert OC_ZeroArrayElements();
         if (tokens.length > 50) revert OC_ArrayTooManyElements();
+        if (tokens.length != isAllowed.length) revert OC_BatchLengthMismatch();
 
         for (uint256 i = 0; i < tokens.length; ++i) {
             if (tokens[i] == address(0)) revert OC_ZeroAddress();
 
             allowedCurrencies[tokens[i]] = isAllowed[i];
-
             emit SetAllowedCurrency(tokens[i], isAllowed[i]);
         }
     }
@@ -598,12 +601,12 @@ contract OriginationController is
     ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
         if (tokens.length == 0) revert OC_ZeroArrayElements();
         if (tokens.length > 50) revert OC_ArrayTooManyElements();
+        if (tokens.length != isAllowed.length) revert OC_BatchLengthMismatch();
 
         for (uint256 i = 0; i < tokens.length; ++i) {
             if (tokens[i] == address(0)) revert OC_ZeroAddress();
 
             allowedCollateral[tokens[i]] = isAllowed[i];
-
             emit SetAllowedCollateral(tokens[i], isAllowed[i]);
         }
     }
@@ -630,13 +633,14 @@ contract OriginationController is
         address[] calldata verifiers,
         bool[] calldata isAllowed
     ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
+        if (verifiers.length == 0) revert OC_ZeroArrayElements();
+        if (verifiers.length > 50) revert OC_ArrayTooManyElements();
         if (verifiers.length != isAllowed.length) revert OC_BatchLengthMismatch();
 
         for (uint256 i = 0; i < verifiers.length; ++i) {
             if (verifiers[i] == address(0)) revert OC_ZeroAddress();
 
             allowedVerifiers[verifiers[i]] = isAllowed[i];
-
             emit SetAllowedVerifier(verifiers[i], isAllowed[i]);
         }
     }
