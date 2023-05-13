@@ -2,12 +2,8 @@
 
 pragma solidity 0.8.18;
 
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-
 import "../libraries/LoanLibrary.sol";
-
 import "./IPromissoryNote.sol";
-import "./ILoanCore.sol";
 
 interface ILoanCore {
 
@@ -25,16 +21,15 @@ interface ILoanCore {
 
     // ================ Events =================
 
-    event LoanCreated(LoanLibrary.LoanTerms terms, uint256 loanId);
     event LoanStarted(uint256 loanId, address lender, address borrower);
     event LoanRepaid(uint256 loanId);
     event ForceRepay(uint256 loanId);
     event LoanRolledOver(uint256 oldLoanId, uint256 newLoanId);
     event LoanClaimed(uint256 loanId);
+    event NoteRedeemed(address indexed token, address indexed caller, address indexed to, uint256 tokenId, uint256 amount);
     event NonceUsed(address indexed user, uint160 nonce);
 
     event FeesWithdrawn(address indexed token, address indexed caller, address indexed to, uint256 amount);
-    event NoteRedeemed(address indexed token, address indexed caller, address indexed to, uint256 tokenId, uint256 amount);
     event AffiliateSet(bytes32 indexed code, address indexed affiliate, uint96 splitBps);
 
     // ============== Lifecycle Operations ==============
@@ -68,7 +63,7 @@ interface ILoanCore {
 
     function redeemNote(
         uint256 loanId,
-        uint256 _amountDeducted,
+        uint256 _amountFromLender,
         address to
     ) external;
 

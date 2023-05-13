@@ -33,7 +33,6 @@ interface IOriginationController {
     event SetAllowedVerifier(address indexed verifier, bool isAllowed);
     event SetAllowedCurrency(address indexed currency, bool isAllowed);
     event SetAllowedCollateral(address indexed collateral, bool isAllowed);
-    event SetFeeController(address feeController);
 
     // ============== Origination Operations ==============
 

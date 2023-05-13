@@ -17,6 +17,8 @@ import "../interfaces/INFTDescriptor.sol";
 contract BaseURIDescriptor is INFTDescriptor, Ownable {
     using Strings for uint256;
 
+    event SetBaseURI(address indexed caller, string indexed baseURI);
+
     // ============================================ STATE ==============================================
 
     string public baseURI;

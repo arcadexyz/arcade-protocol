@@ -2,9 +2,9 @@
 
 pragma solidity 0.8.18;
 
+import "../external/interfaces/IArtBlocks.sol";
 import "../interfaces/ISignatureVerifier.sol";
 import "../interfaces/IVaultFactory.sol";
-import "../external/interfaces/IArtBlocks.sol";
 
 import { IV_NoAmount, IV_ItemMissingAddress, IV_InvalidProjectId } from "../errors/Lending.sol";
 

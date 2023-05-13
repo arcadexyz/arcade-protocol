@@ -2,18 +2,16 @@
 
 pragma solidity 0.8.18;
 
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/interfaces/IERC1271.sol";
-import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 import "./interfaces/IOriginationController.sol";
 import "./interfaces/ILoanCore.sol";
 import "./interfaces/IERC721Permit.sol";
-import "./interfaces/IAssetVault.sol";
-import "./interfaces/IVaultFactory.sol";
 import "./interfaces/ISignatureVerifier.sol";
 import "./interfaces/IFeeController.sol";
 
@@ -178,7 +176,6 @@ contract OriginationController is
     /**
      * @notice Initializes a loan with Loan Core.
      * @notice Compared to initializeLoan, this verifies the specific items in a bundle.
-     * @notice Only works with bundles implementing the IVaultFactory interface.
      *
      * @dev The caller must be a borrower or lender, or approved by a borrower or lender.
      * @dev The external signer must be a borrower or lender, or approved by a borrower or lender.

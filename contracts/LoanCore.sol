@@ -2,22 +2,19 @@
 
 pragma solidity 0.8.18;
 
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
 
+import "./interfaces/ILoanCore.sol";
 import "./interfaces/ICallDelegator.sol";
 import "./interfaces/IPromissoryNote.sol";
-import "./interfaces/IAssetVault.sol";
-import "./interfaces/ILoanCore.sol";
 
 import "./PromissoryNote.sol";
 import "./libraries/InterestCalculator.sol";
-import "./libraries/FeeLookups.sol";
 import "./vault/OwnableERC721.sol";
 import {
     LC_ZeroAddress,
@@ -319,12 +316,12 @@ contract LoanCore is
      *         owner of the note.
      *
      * @param loanId                    The ID of the lender note to redeem.
-     * @param _amountDeducted           Any redemption fees to be collected from the lender.
+     * @param _amountFromLender         Any redemption fees to be collected from the lender.
      * @param to                        The address to receive the held tokens.
      */
     function redeemNote(
         uint256 loanId,
-        uint256 _amountDeducted,
+        uint256 _amountFromLender,
         address to
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         NoteReceipt memory receipt = noteReceipts[loanId];
@@ -332,10 +329,10 @@ contract LoanCore is
         if (token == address(0) || amount == 0) revert LC_NoReceipt(loanId);
 
         // Deduce the redeem fee from the amount and assign for withdrawal
-        amount -= _amountDeducted;
+        amount -= _amountFromLender;
 
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
-            _getAffiliateSplit(_amountDeducted, loans[loanId].terms.affiliateCode);
+            _getAffiliateSplit(_amountFromLender, loans[loanId].terms.affiliateCode);
 
         // Assign fees for withdrawal
         feesWithdrawable[token][address(this)] += protocolFee;

@@ -2,8 +2,6 @@
 
 pragma solidity 0.8.18;
 
-import "./ICallWhitelist.sol";
-
 interface IAssetVault {
     // ============= Enums ==============
 

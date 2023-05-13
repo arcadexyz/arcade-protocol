@@ -6,10 +6,8 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import "../interfaces/IVaultFactory.sol";
-import "../interfaces/IAssetVault.sol";
 import "../interfaces/ISignatureVerifier.sol";
-import "../libraries/LoanLibrary.sol";
+import "../interfaces/IVaultFactory.sol";
 
 import {
     IV_NoAmount,

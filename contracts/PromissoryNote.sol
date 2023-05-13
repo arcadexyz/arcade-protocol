@@ -3,16 +3,14 @@
 pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
 
-import "./nft/ERC721Permit.sol";
-import "./nft/BaseURIDescriptor.sol";
-import "./interfaces/ILoanCore.sol";
 import "./interfaces/IPromissoryNote.sol";
+import "./interfaces/ILoanCore.sol";
+import "./interfaces/INFTDescriptor.sol";
+import "./nft/ERC721Permit.sol";
 
 import {
     PN_ZeroAddress,

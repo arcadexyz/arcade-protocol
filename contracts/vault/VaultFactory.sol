@@ -3,15 +3,13 @@
 pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-import "../interfaces/IAssetVault.sol";
 import "../interfaces/IVaultFactory.sol";
+import "../interfaces/IAssetVault.sol";
 import "../interfaces/IFeeController.sol";
 import "../interfaces/INFTDescriptor.sol";
 import "../nft/ERC721Permit.sol";
@@ -222,7 +220,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
      *
      * @param _descriptor           The new descriptor contract.
      */
-    function setDescriptor(address _descriptor) external onlyRole(RESOURCE_MANAGER_ROLE) {
+    function setDescriptor(address _descriptor) external override onlyRole(RESOURCE_MANAGER_ROLE) {
         if (_descriptor == address(0)) revert VF_ZeroAddress();
 
         descriptor = INFTDescriptor(_descriptor);
