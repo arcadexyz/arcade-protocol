@@ -400,7 +400,7 @@ describe("AssetVault", () => {
             await whitelist.add(mockERC20.address, selector);
 
             await expect(vault.connect(user).call(mockERC20.address, mintData.data)).to.be.revertedWith(
-                "AV_CallDisallowed",
+                "AV_MissingAuthorization",
             );
         });
 
@@ -602,7 +602,7 @@ describe("AssetVault", () => {
             await whitelist.setApproval(mockERC20.address, other.address, true);
 
             await expect(vault.connect(user).callApprove(mockERC20.address, other.address, amount))
-                .to.be.revertedWith("AV_CallDisallowed");
+                .to.be.revertedWith("AV_MissingAuthorization");
         });
 
         it("fails if delegator is EOA", async () => {
@@ -758,7 +758,7 @@ describe("AssetVault", () => {
             await whitelist.setDelegationApproval(mockERC20.address, true);
 
             await expect(vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true))
-                .to.be.revertedWith("AV_CallDisallowed");
+                .to.be.revertedWith("AV_MissingAuthorization");
         });
 
         it("fails if delegator is contract which doesn't support interface", async () => {
@@ -886,7 +886,7 @@ describe("AssetVault", () => {
             const tokenId = await mintERC721(mockERC721, vault.address);
 
             await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true))
-                .to.be.revertedWith("AV_CallDisallowed");
+                .to.be.revertedWith("AV_MissingAuthorization");
         });
 
         it("fails if delegator is contract which doesn't support interface", async () => {
@@ -1030,7 +1030,7 @@ describe("AssetVault", () => {
             await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
 
             await expect(vault.connect(user).callRevokeAllDelegates())
-                .to.be.revertedWith("AV_CallDisallowed");
+                .to.be.revertedWith("AV_MissingAuthorization");
         });
 
         it("fails if delegator is contract which doesn't support interface", async () => {

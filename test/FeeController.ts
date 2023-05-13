@@ -67,7 +67,7 @@ describe("FeeController", () => {
                 await expect(
                     feeController.connect(user).set(await feeController.FL_02(), 50_00)
                 ).to.be.revertedWith(
-                    "FC_FeeTooLarge"
+                    "FC_FeeOverMax"
                 );
             });
 

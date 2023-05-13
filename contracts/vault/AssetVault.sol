@@ -358,7 +358,7 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
     // ============================================ HELPERS =============================================
 
     /**
-     * @notice Private function to withdraw a ERC721 token from the vault.
+     * @dev Private function to withdraw a ERC721 token from the vault.
      *
      * @param token                 The token to withdraw.
      * @param tokenId               The ID of the NFT to withdraw.
@@ -374,7 +374,7 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
     }
 
     /**
-     * @notice Private function to withdraw ERC1155 tokens from the vault.
+     * @dev Private function to withdraw ERC1155 tokens from the vault.
      *
      * @param token                 The token to withdraw.
      * @param tokenId               The ID of the token to withdraw.

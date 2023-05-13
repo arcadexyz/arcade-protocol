@@ -2,6 +2,8 @@
 
 pragma solidity 0.8.18;
 
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
 import "../interfaces/ISignatureVerifier.sol";
 import "../interfaces/IVaultFactory.sol";
 import "../external/interfaces/IPunks.sol";
@@ -28,6 +30,11 @@ contract PunksVerifier is ISignatureVerifier {
 
     // ========================================== CONSTRUCTOR ===========================================
 
+    /**
+     * @notice Construct a new PunksVerifier contract.
+     *
+     * @param _punks                        The address of the CryptoPunks contract.
+     */
     constructor(address _punks) {
         punks = IPunks(_punks);
     }

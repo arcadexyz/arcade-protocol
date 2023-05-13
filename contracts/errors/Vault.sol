@@ -33,7 +33,7 @@ error AV_WithdrawsEnabled();
 error AV_AlreadyInitialized(address ownershipToken);
 
 /**
- * @notice CanCallOn authorizatino returned false.
+ * @notice CanCallOn authorization returned false.
  *
  * @param caller                             Msg.sender of the function call.
  */

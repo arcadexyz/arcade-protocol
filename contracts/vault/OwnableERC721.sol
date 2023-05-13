@@ -38,6 +38,8 @@ abstract contract OwnableERC721 {
     /**
      * @dev Set the ownership token - the ERC721 that specified who controls
      *      defined addresses.
+     *
+     * @param _ownershipToken       The address of the ERC721 token that defines ownership.
      */
     function _setNFT(address _ownershipToken) internal {
         ownershipToken = _ownershipToken;

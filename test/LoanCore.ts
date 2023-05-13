@@ -1888,7 +1888,7 @@ describe("LoanCore", () => {
                 const code = ethers.utils.id("FOO");
                 await expect(
                     loanCore.setAffiliateSplits([code], [{ affiliate: other.address, splitBps: 100_00 }]),
-                ).to.be.revertedWith("LC_InvalidSplit");
+                ).to.be.revertedWith("LC_OverMaxSplit");
             });
 
             it("affiliate split argument lengths must be matched", async () => {

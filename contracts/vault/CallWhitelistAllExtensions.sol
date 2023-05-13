@@ -15,5 +15,7 @@ import "./CallWhitelistApprovals.sol";
  * contract descriptions for more information.
  */
 contract CallWhitelistAllExtensions is CallWhitelist, CallWhitelistApprovals, CallWhitelistDelegation {
+
+    /// @dev Deploys the contracts with the needed inherited behavior.
     constructor(address _registry) CallWhitelistDelegation(_registry) {}
 }

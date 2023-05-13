@@ -13,7 +13,7 @@ import {
     ERC721P_DeadlineExpired,
     ERC721P_NotTokenOwner,
     ERC721P_InvalidSignature
-} from "../errors/LendingUtils.sol";
+} from "../errors/Lending.sol";
 
 /**
  * @title ERC721Permit
@@ -115,7 +115,7 @@ abstract contract ERC721Permit is ERC721, IERC721Permit, EIP712 {
      *
      * @param owner                 The given owner to check the nonce for.
      *
-     * @return current              The current noonce for the owner.
+     * @return current              The current nonce for the owner.
      */
     function nonces(address owner) public view virtual override returns (uint256) {
         return _nonces[owner].current();

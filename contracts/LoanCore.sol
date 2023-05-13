@@ -66,6 +66,7 @@ contract LoanCore is
     bytes32 public constant AFFILIATE_MANAGER_ROLE = keccak256("AFFILIATE_MANAGER");
     bytes32 public constant FEE_CLAIMER_ROLE = keccak256("FEE_CLAIMER");
 
+    /// @dev Max split any affiliate can earn.
     uint96 private constant MAX_AFFILIATE_SPLIT = 50_00;
 
     // =============== Contract References ================
@@ -75,12 +76,18 @@ contract LoanCore is
 
     // =================== Loan State =====================
 
-    // TODO: Add dev docs to these
-
+    /// @dev Counter for serial IDs of all loans created.
     Counters.Counter private loanIdTracker;
+
+    /// @dev Lookup table storing loan data structure.
     mapping(uint256 => LoanLibrary.LoanData) private loans;
-    // key is hash of (collateralAddress, collateralId)
+
+    /// @dev Lookup table showing what collateral is currently being escrowed.
+    ///      Key is hash of (collateralAddress, collateralId).
     mapping(bytes32 => bool) private collateralInUse;
+
+    /// @dev Lookup table showing for which user, which nonces have been used.
+    ///      user => nonce => isUsed
     mapping(address => mapping(uint160 => bool)) public usedNonces;
 
     // =================== Fee Management =====================
@@ -150,21 +157,23 @@ contract LoanCore is
         uint256 _amountFromLender,
         uint256 _amountToBorrower
     ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 loanId) {
-        // check collateral is not already used in a loan.
+        // Check collateral is not already used in a loan.
         bytes32 collateralKey = keccak256(abi.encode(terms.collateralAddress, terms.collateralId));
         if (collateralInUse[collateralKey]) revert LC_CollateralInUse(terms.collateralAddress, terms.collateralId);
 
         // Check that we will not net lose tokens.
         if (_amountToBorrower > _amountFromLender) revert LC_CannotSettle(_amountToBorrower, _amountFromLender);
+
+
+        // Assign fees for withdrawal
         uint256 feesEarned = _amountFromLender - _amountToBorrower;
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
             _getAffiliateSplit(feesEarned, terms.affiliateCode);
 
-        // Assign fees for withdrawal
         feesWithdrawable[terms.payableCurrency][address(this)] += protocolFee;
         feesWithdrawable[terms.payableCurrency][affiliate] += affiliateFee;
 
-        // get current loanId and increment for next function call
+        // Get current loanId and increment for next function call
         loanId = loanIdTracker.current();
         loanIdTracker.increment();
 
@@ -175,6 +184,7 @@ contract LoanCore is
             state: LoanLibrary.LoanState.Active
         });
 
+        // Mark collateral as escrowed
         collateralInUse[collateralKey] = true;
 
         // Distribute notes and principal
@@ -192,8 +202,8 @@ contract LoanCore is
 
     /**
      * @notice Repay the given loan. Can only be called by RepaymentController,
-     *         which verifies repayment conditions. This method will calculate
-     *         the total interest due, collect it from the borrower, and redistribute
+     *         which verifies repayment conditions. This method will collext
+     *         the total interest due from the borrower  and redistribute
      *         principal + interest to the lender, and collateral to the borrower.
      *         All promissory notes will be burned and the loan will be marked as complete.
      *
@@ -210,7 +220,7 @@ contract LoanCore is
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         LoanLibrary.LoanData memory data = _handleRepay(loanId, _amountFromPayer, _amountToLender);
 
-        // get promissory notes from two parties involved, then burn
+        // Get promissory notes from two parties involved, then burn
         address lender = lenderNote.ownerOf(loanId);
         address borrower = borrowerNote.ownerOf(loanId);
         _burnLoanNotes(loanId);
@@ -244,7 +254,7 @@ contract LoanCore is
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         LoanLibrary.LoanData memory data = _handleRepay(loanId, _amountFromPayer, _amountToLender);
 
-        // get promissory notes from two parties involved, then burn
+        // Get promissory notes from two parties involved, then burn
         // borrower note _only_ - do not burn lender note until receipt
         // is redeemed
         address borrower = borrowerNote.ownerOf(loanId);
@@ -278,34 +288,35 @@ contract LoanCore is
         nonReentrant
     {
         LoanLibrary.LoanData memory data = loans[loanId];
-
+        // Ensure valid initial loan state when claiming loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
 
         // First check if the call is being made after the due date.
         uint256 dueDate = data.startDate + data.terms.durationSecs;
         if (dueDate > block.timestamp) revert LC_NotExpired(dueDate);
 
-        address lender = lenderNote.ownerOf(loanId);
-
-        // NOTE: these must be performed before assets are released to prevent reentrance
+        // State changes and cleanup
         loans[loanId].state = LoanLibrary.LoanState.Defaulted;
         collateralInUse[keccak256(abi.encode(data.terms.collateralAddress, data.terms.collateralId))] = false;
 
+        // Get promissory notes from two parties involved, then burn
+        address lender = lenderNote.ownerOf(loanId);
         _burnLoanNotes(loanId);
 
         if (_amountFromLender > 0) {
+            // Assign fees for withdrawal
             (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
                 _getAffiliateSplit(_amountFromLender, data.terms.affiliateCode);
 
-            // Assign fees for withdrawal
             feesWithdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
             feesWithdrawable[data.terms.payableCurrency][affiliate] += affiliateFee;
 
+            // Collect claim fee from lender
             _collectIfNonzero(IERC20(data.terms.payableCurrency), lender, _amountFromLender);
         }
 
-        // collateral redistribution
-        IERC721(data.terms.collateralAddress).transferFrom(address(this), lender, data.terms.collateralId);
+        // Collateral redistribution
+        IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), lender, data.terms.collateralId);
 
         emit LoanClaimed(loanId);
     }
@@ -328,24 +339,24 @@ contract LoanCore is
         (address token, uint256 amount) = (receipt.token, receipt.amount);
         if (token == address(0) || amount == 0) revert LC_NoReceipt(loanId);
 
-        // Deduce the redeem fee from the amount and assign for withdrawal
+        // Deduct the redeem fee from the amount and assign for withdrawal
         amount -= _amountFromLender;
 
+        // Assign fees for withdrawal
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
             _getAffiliateSplit(_amountFromLender, loans[loanId].terms.affiliateCode);
 
-        // Assign fees for withdrawal
         feesWithdrawable[token][address(this)] += protocolFee;
         feesWithdrawable[token][affiliate] += affiliateFee;
 
-        // delete the receipt
+        // Delete the receipt
         delete noteReceipts[loanId];
 
-        // burn the note
+        // Burn the note
         address lender = lenderNote.ownerOf(loanId);
         lenderNote.burn(loanId);
 
-        // transfer the held tokens to the lender-specified address
+        // Transfer the held tokens to the lender-specified address
         _transferIfNonzero(IERC20(token), to, amount);
 
         emit NoteRedeemed(token, lender, to, loanId, amount);
@@ -379,20 +390,18 @@ contract LoanCore is
         uint256 _amountToLender,
         uint256 _amountToBorrower
     ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 newLoanId) {
-        // Repay loan
         LoanLibrary.LoanData storage data = loans[oldLoanId];
-
-        // ensure valid initial loan state when repaying loan
+        // Ensure valid initial loan state when repaying loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
 
+        // State change for old loan
         data.state = LoanLibrary.LoanState.Repaid;
 
         address oldLender = lenderNote.ownerOf(oldLoanId);
         IERC20 payableCurrency = IERC20(data.terms.payableCurrency);
 
-        if (_amountToOldLender + _amountToLender + _amountToBorrower > _settledAmount) {
+        if (_amountToOldLender + _amountToLender + _amountToBorrower > _settledAmount)
             revert LC_CannotSettle(_amountToOldLender + _amountToLender + _amountToBorrower, _settledAmount);
-        }
 
         {
             uint256 feesEarned = _settledAmount - _amountToOldLender - _amountToLender - _amountToBorrower;
@@ -634,7 +643,7 @@ contract LoanCore is
         uint256 _amountToLender
     ) internal returns (LoanLibrary.LoanData memory data) {
         data = loans[loanId];
-        // ensure valid initial loan state when repaying loan
+        // Ensure valid initial loan state when repaying loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
 
         // Check that we will not net lose tokens.
@@ -647,8 +656,7 @@ contract LoanCore is
         feesWithdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
         feesWithdrawable[data.terms.payableCurrency][affiliate] += affiliateFee;
 
-        // state changes and cleanup
-        // NOTE: these must be performed before assets are released to prevent reentrance
+        // State changes and cleanup
         loans[loanId].state = LoanLibrary.LoanState.Repaid;
         collateralInUse[keccak256(abi.encode(data.terms.collateralAddress, data.terms.collateralId))] = false;
     }

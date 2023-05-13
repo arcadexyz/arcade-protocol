@@ -6,7 +6,8 @@ pragma solidity 0.8.18;
  * @title FeeLookups
  * @author Non-Fungible Technologies, Inc.
  *
- * Enumerates unique identifiers for any fee that can be looked up.
+ * Enumerates unique identifiers for fee identifiers
+ * that the lending protocol uses.
  */
 abstract contract FeeLookups {
     /// @dev Vault mint fee: gross amount, payable in ETH

@@ -131,6 +131,12 @@ contract ArtBlocksVerifier is ISignatureVerifier {
         return true;
     }
 
+    /**
+     * @dev Get the full tokenId for an ArtBlocks project.
+     *
+     * @param projectId                     The project ID.
+     * @param tokenId                       The within-project token ID.
+     */
     function _getFullTokenId(uint256 projectId, uint256 tokenId) internal pure returns (uint256) {
         return projectId * PROJECT_ID_BASE + tokenId;
     }

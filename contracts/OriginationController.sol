@@ -39,7 +39,7 @@ import {
     OC_InvalidCurrency,
     OC_InvalidCollateral,
     OC_ZeroArrayElements,
-    OC_ArrayTooManyElements,
+    OC_ArrayTooManyElements
 } from "./errors/Lending.sol";
 
 /**

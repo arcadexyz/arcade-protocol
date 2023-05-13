@@ -73,7 +73,6 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
      * @param _whitelist         The address of the CallWhitelist contract.
      * @param _feeController     The contract reporting fees for vault minting.
      * @param _descriptor        The resource descriptor contract.
-     *
      */
     constructor(
         address _template,
