@@ -49,6 +49,8 @@ describe("UnvaultedItemsVerifier", () => {
             await expect(
                 verifier.verifyPredicates(
                     mockERC721.address,
+                    mockERC721.address,
+                    mockERC721.address,
                     100,
                     encodeItemCheck(ZERO_ADDRESS, 100, false)
                 )
@@ -61,6 +63,8 @@ describe("UnvaultedItemsVerifier", () => {
             expect(
                 await verifier.verifyPredicates(
                     mockERC721.address,
+                    mockERC721.address,
+                    mockERC721.address,
                     100,
                     encodeItemCheck(mockERC721.address, 99, false)
                 )
@@ -69,6 +73,8 @@ describe("UnvaultedItemsVerifier", () => {
             expect(
                 await verifier.verifyPredicates(
                     mockERC721.address,
+                    mockERC721.address,
+                    mockERC721.address,
                     99,
                     encodeItemCheck(mockERC721.address, 100, false)
                 )
@@ -76,6 +82,8 @@ describe("UnvaultedItemsVerifier", () => {
 
             expect(
                 await verifier.verifyPredicates(
+                    mockERC721.address,
+                    mockERC721.address,
                     mockERC721.address,
                     100,
                     encodeItemCheck(mockERC721.address, 100, false)
@@ -91,6 +99,8 @@ describe("UnvaultedItemsVerifier", () => {
             expect(
                 await verifier.verifyPredicates(
                     mockERC721.address,
+                    mockERC721.address,
+                    mockERC721.address,
                     100,
                     encodeItemCheck(mockERC721.address, 100, true)
                 )
@@ -99,6 +109,8 @@ describe("UnvaultedItemsVerifier", () => {
             expect(
                 await verifier.verifyPredicates(
                     mockERC721.address,
+                    mockERC721.address,
+                    mockERC721.address,
                     100,
                     encodeItemCheck(mockERC721.address, 0, true)
                 )
@@ -106,6 +118,8 @@ describe("UnvaultedItemsVerifier", () => {
 
             expect(
                 await verifier.verifyPredicates(
+                    mockERC721.address,
+                    mockERC721.address,
                     mockERC721.address,
                     777,
                     encodeItemCheck(mockERC721.address, 0, true)
@@ -115,6 +129,8 @@ describe("UnvaultedItemsVerifier", () => {
             expect(
                 await verifier.verifyPredicates(
                     mockERC721.address,
+                    mockERC721.address,
+                    mockERC721.address,
                     100,
                     encodeItemCheck(otherMockERC721.address, 0, true)
                 )
@@ -122,6 +138,8 @@ describe("UnvaultedItemsVerifier", () => {
 
             expect(
                 await verifier.verifyPredicates(
+                    mockERC721.address,
+                    mockERC721.address,
                     otherMockERC721.address,
                     100,
                     encodeItemCheck(mockERC721.address, 0, true)

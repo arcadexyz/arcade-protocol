@@ -44,6 +44,7 @@ contract UnvaultedItemsVerifier is ISignatureVerifier {
      * @return verified                     Whether the bundle contains the specified items.
      */
     function verifyPredicates(
+        address, address,
         address collateralAddress,
         uint256 collateralId,
         bytes calldata predicates

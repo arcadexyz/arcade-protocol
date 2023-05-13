@@ -102,7 +102,7 @@ describe("ArtBlocksVerifier", () => {
                 },
             ];
 
-            await expect(verifier.verifyPredicates(vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems)))
+            await expect(verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems)))
                 .to.be.revertedWith("IV_ItemMissingAddress");
         });
 
@@ -126,7 +126,7 @@ describe("ArtBlocksVerifier", () => {
                 },
             ];
 
-            await expect(verifier.verifyPredicates(vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems)))
+            await expect(verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems)))
                 .to.be.revertedWith("IV_InvalidProjectId");
         });
 
@@ -150,7 +150,7 @@ describe("ArtBlocksVerifier", () => {
                 },
             ];
 
-            await expect(verifier.verifyPredicates(vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems)))
+            await expect(verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems)))
                 .to.be.revertedWith("IV_NoAmount");
         });
 
@@ -173,7 +173,7 @@ describe("ArtBlocksVerifier", () => {
                 },
             ];
 
-            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems))).to.be.true;
+            expect(await verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems))).to.be.true;
         });
 
         it("returns true for a project wildcard", async () => {
@@ -195,8 +195,8 @@ describe("ArtBlocksVerifier", () => {
                 },
             ];
 
-            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems))).to.be.true;
-            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId2, encodeArtBlocksItems(signatureItems))).to.be.false;
+            expect(await verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems))).to.be.true;
+            expect(await verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId2, encodeArtBlocksItems(signatureItems))).to.be.false;
         });
 
         it("returns false for a specific token id which is not owned", async () => {
@@ -217,7 +217,7 @@ describe("ArtBlocksVerifier", () => {
                 },
             ];
 
-            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems))).to.be.false;
+            expect(await verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems))).to.be.false;
         });
 
         it("returns false for an project wildcard which is not owned", async () => {
@@ -248,8 +248,8 @@ describe("ArtBlocksVerifier", () => {
                 },
             ];
 
-            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems))).to.be.true;
-            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItemsFalse))).to.be.false;
+            expect(await verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems))).to.be.true;
+            expect(await verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItemsFalse))).to.be.false;
         });
 
         it("returns true for a combination of multiple predicates", async () => {
@@ -303,8 +303,8 @@ describe("ArtBlocksVerifier", () => {
                 },
             ];
 
-            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems))).to.be.true;
-            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItemsFalse))).to.be.false;
+            expect(await verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems))).to.be.true;
+            expect(await verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItemsFalse))).to.be.false;
         });
     });
 });

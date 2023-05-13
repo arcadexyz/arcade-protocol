@@ -199,6 +199,7 @@ contract OriginationController is
         LoanLibrary.Predicate[] calldata itemPredicates
     ) public override returns (uint256 loanId) {
         _validateLoanTerms(loanTerms);
+        if (itemPredicates.length == 0) revert OC_PredicatesArrayEmpty();
 
         {
             // Determine if signature needs to be on the borrow or lend side
@@ -217,28 +218,7 @@ contract OriginationController is
             loanCore.consumeNonce(externalSigner, nonce);
         }
 
-        if (itemPredicates.length == 0) {
-            revert OC_PredicatesArrayEmpty();
-        }
-
-        for (uint256 i = 0; i < itemPredicates.length; ++i) {
-            // Verify items are held in the wrapper
-            address verifier = itemPredicates[i].verifier;
-            if (!isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
-
-            if (!ISignatureVerifier(verifier).verifyPredicates(
-                loanTerms.collateralAddress,
-                loanTerms.collateralId,
-                itemPredicates[i].data
-            )) {
-                revert OC_PredicateFailed(
-                    verifier,
-                    loanTerms.collateralAddress,
-                    loanTerms.collateralId,
-                    itemPredicates[i].data
-                );
-            }
-        }
+        _runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
 
         loanId = _initialize(loanTerms, borrower, lender);
     }
@@ -350,12 +330,11 @@ contract OriginationController is
 
         LoanLibrary.LoanData memory data = loanCore.getLoan(oldLoanId);
         if (data.state != LoanLibrary.LoanState.Active) revert OC_InvalidState(data.state);
+        _validateRollover(data.terms, loanTerms);
 
         address borrower = IERC721(loanCore.borrowerNote()).ownerOf(oldLoanId);
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
-
-        _validateRollover(data.terms, loanTerms);
 
         (bytes32 sighash, address externalSigner) = recoverTokenSignature(loanTerms, sig, nonce, neededSide);
 
@@ -391,6 +370,7 @@ contract OriginationController is
         LoanLibrary.Predicate[] calldata itemPredicates
     ) public override returns (uint256 newLoanId) {
         _validateLoanTerms(loanTerms);
+        if (itemPredicates.length == 0) revert OC_PredicatesArrayEmpty();
 
         LoanLibrary.LoanData memory data = loanCore.getLoan(oldLoanId);
         _validateRollover(data.terms, loanTerms);
@@ -414,28 +394,8 @@ contract OriginationController is
             loanCore.consumeNonce(externalSigner, nonce);
         }
 
-        if (itemPredicates.length == 0) {
-            revert OC_PredicatesArrayEmpty();
-        }
+        _runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
 
-        for (uint256 i = 0; i < itemPredicates.length; ++i) {
-            // Verify items are held in the wrapper
-            address verifier = itemPredicates[i].verifier;
-            if (!isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
-
-            if (!ISignatureVerifier(verifier).verifyPredicates(
-                loanTerms.collateralAddress,
-                loanTerms.collateralId,
-                itemPredicates[i].data
-            )) {
-                revert OC_PredicateFailed(
-                    verifier,
-                    loanTerms.collateralAddress,
-                    loanTerms.collateralId,
-                    itemPredicates[i].data
-                );
-            }
-        }
         newLoanId = _rollover(oldLoanId, loanTerms, borrower, lender);
     }
 
@@ -787,6 +747,36 @@ contract OriginationController is
 
         // Revert if the signer is the calling counterparty
         if (signer == callingCounterparty) revert OC_SideMismatch(signer);
+    }
+
+    function _runPredicatesCheck(
+        address borrower,
+        address lender,
+        LoanLibrary.LoanTerms memory loanTerms,
+        LoanLibrary.Predicate[] calldata itemPredicates
+    ) internal view {
+        for (uint256 i = 0; i < itemPredicates.length; ++i) {
+            // Verify items are held in the wrapper
+            address verifier = itemPredicates[i].verifier;
+            if (!isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
+
+            if (!ISignatureVerifier(verifier).verifyPredicates(
+                borrower,
+                lender,
+                loanTerms.collateralAddress,
+                loanTerms.collateralId,
+                itemPredicates[i].data
+            )) {
+                revert OC_PredicateFailed(
+                    verifier,
+                    borrower,
+                    lender,
+                    loanTerms.collateralAddress,
+                    loanTerms.collateralId,
+                    itemPredicates[i].data
+                );
+            }
+        }
     }
 
     /**

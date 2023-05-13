@@ -60,6 +60,8 @@ describe("CollectionWideOfferVerifier", () => {
             expect(
                 await verifier.verifyPredicates(
                     mockERC721.address,
+                    mockERC721.address,
+                    mockERC721.address,
                     101,
                     ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address])
                 )
@@ -72,6 +74,8 @@ describe("CollectionWideOfferVerifier", () => {
 
             await expect(
                 verifier.verifyPredicates(
+                    mockERC721.address,
+                    mockERC721.address,
                     otherMockERC721.address,
                     101,
                     ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address])
@@ -86,6 +90,8 @@ describe("CollectionWideOfferVerifier", () => {
 
             expect(
                 await verifier.verifyPredicates(
+                    mockERC721.address,
+                    mockERC721.address,
                     vaultFactory.address,
                     1010101010101, // diff bundle that has not been registered
                     ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address])
@@ -100,6 +106,8 @@ describe("CollectionWideOfferVerifier", () => {
 
             expect(
                 await verifier.verifyPredicates(
+                    mockERC721.address,
+                    mockERC721.address,
                     vaultFactory.address,
                     bundleId,
                     ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address])
@@ -115,6 +123,8 @@ describe("CollectionWideOfferVerifier", () => {
 
             expect(
                 await verifier.verifyPredicates(
+                    mockERC721.address,
+                    mockERC721.address,
                     vaultFactory.address,
                     bundleId,
                     ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address])

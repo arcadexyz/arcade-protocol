@@ -71,7 +71,7 @@ describe("PunksVerifier", () => {
             const bundleId = await initializeBundle(vaultFactory, user);
 
             // Will revert because 20000 is not a valid punk token Id
-            await expect(verifier.verifyPredicates(vaultFactory.address, bundleId, encodeInts([20000]))).to.be.revertedWith("IV_InvalidTokenId");
+            await expect(verifier.verifyPredicates(user.address, user.address, vaultFactory.address, bundleId, encodeInts([20000]))).to.be.revertedWith("IV_InvalidTokenId");
         });
 
         it("verifies a specific punk token id", async () => {
@@ -93,9 +93,9 @@ describe("PunksVerifier", () => {
             await punks.connect(user).transferPunk(bundleAddress2, tokenId2);
 
             // First bundle should have item
-            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeInts([tokenId]))).to.be.true;
+            expect(await verifier.verifyPredicates(user.address, user.address, vaultFactory.address, bundleId, encodeInts([tokenId]))).to.be.true;
             // Second bundle should not
-            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId2, encodeInts([tokenId]))).to.be.false;
+            expect(await verifier.verifyPredicates(user.address, user.address, vaultFactory.address, bundleId2, encodeInts([tokenId]))).to.be.false;
         });
 
         it("verifies punks any token id", async () => {
@@ -118,11 +118,11 @@ describe("PunksVerifier", () => {
             await punks.connect(user).transferPunk(bundleAddress2, tokenId2);
 
             // First and second bundle should have item
-            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeInts([-1]))).to.be.true;
-            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId2, encodeInts([-1]))).to.be.true;
+            expect(await verifier.verifyPredicates(user.address, user.address, vaultFactory.address, bundleId, encodeInts([-1]))).to.be.true;
+            expect(await verifier.verifyPredicates(user.address, user.address, vaultFactory.address, bundleId2, encodeInts([-1]))).to.be.true;
 
             // Third should not
-            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId3, encodeInts([-1]))).to.be.false;
+            expect(await verifier.verifyPredicates(user.address, user.address, vaultFactory.address, bundleId3, encodeInts([-1]))).to.be.false;
         });
 
         it("verifies multiple punk token ids", async () => {
@@ -148,9 +148,9 @@ describe("PunksVerifier", () => {
             await punks.connect(user).getPunk(tokenId3);
             await punks.connect(user).transferPunk(bundleAddress, tokenId3);
 
-            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId, encodeInts([5555, 8888]))).to.be.true;
-            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId2, encodeInts([7777, 8888]))).to.be.false;
-            expect(await verifier.verifyPredicates(vaultFactory.address, bundleId3, encodeInts([5555, 7777]))).to.be.false;
+            expect(await verifier.verifyPredicates(user.address, user.address, vaultFactory.address, bundleId, encodeInts([5555, 8888]))).to.be.true;
+            expect(await verifier.verifyPredicates(user.address, user.address, vaultFactory.address, bundleId2, encodeInts([7777, 8888]))).to.be.false;
+            expect(await verifier.verifyPredicates(user.address, user.address, vaultFactory.address, bundleId3, encodeInts([5555, 7777]))).to.be.false;
         });
     });
 });

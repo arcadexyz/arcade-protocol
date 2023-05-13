@@ -6,6 +6,8 @@ interface ISignatureVerifier {
     // ============== Collateral Verification ==============
 
     function verifyPredicates(
+        address borrower,
+        address lender,
         address collateralAddress,
         uint256 collateralId,
         bytes calldata predicates
