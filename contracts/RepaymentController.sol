@@ -141,7 +141,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     /**
      * @dev Shared logic to perform validation and calculations for repay and forceRepay.
      *
-     * @param  loanId               The ID of the loan.
+     * @param loanId               The ID of the loan.
      *
      * @return amountFromBorrower   The amount to collect from the borrower.
      * @return amountToLender       The amount owed to the lender.

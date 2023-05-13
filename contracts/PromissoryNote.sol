@@ -65,8 +65,6 @@ contract PromissoryNote is
     /// @dev Contract for returning tokenURI resources.
     INFTDescriptor public descriptor;
 
-    bool private initialized;
-
     Counters.Counter private _tokenIdTracker;
 
     // ========================================= CONSTRUCTOR ===========================================
@@ -115,10 +113,9 @@ contract PromissoryNote is
         // Grant mint/burn role to loanCore
         _setupRole(MINT_BURN_ROLE, loanCore);
 
-        // Revoke admin role from msg.sender
+        // Revoke admin role from msg.sender. Since there is no ROLE_ADMIN,
+        // nobody can ever get ADMIN_ROLE again.
         renounceRole(ADMIN_ROLE, msg.sender);
-
-        initialized = true;
     }
 
     // ======================================= TOKEN OPERATIONS =========================================

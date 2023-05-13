@@ -65,13 +65,14 @@ contract OriginationController is
 
     // ============================================ STATE ==============================================
 
-    // =================== Constants =====================
 
-    /// @notice The minimum principal amount allowed to start a loan.
-    uint256 public constant MIN_LOAN_PRINCIPAL = 1_000_000;
+    // =================== Constants =====================
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
     bytes32 public constant WHITELIST_MANAGER_ROLE = keccak256("WHITELIST_MANAGER");
+
+    /// @notice The minimum principal amount allowed to start a loan.
+    uint256 public constant MIN_LOAN_PRINCIPAL = 1_000_000;
 
     /// @notice EIP712 type hash for bundle-based signatures.
     bytes32 private constant _TOKEN_ID_TYPEHASH =
@@ -175,7 +176,7 @@ contract OriginationController is
 
     /**
      * @notice Initializes a loan with Loan Core.
-     * @notice Compared to initializeLoan, this verifies the specific items in a bundle.
+     * @notice Compared to initializeLoan, this uses custom predicates to verify collateral.
      *
      * @dev The caller must be a borrower or lender, or approved by a borrower or lender.
      * @dev The external signer must be a borrower or lender, or approved by a borrower or lender.
@@ -750,6 +751,16 @@ contract OriginationController is
         if (signer == callingCounterparty) revert OC_SideMismatch(signer);
     }
 
+    /**
+     * @dev Run the predicates check for an items signature, sending the defined
+     *      predicate payload to each defined verifier contract, and reverting
+     *      if a verifier returns false.
+     *
+     * @param borrower              The borrower of the loan.
+     * @param lender                The lender of the loan.
+     * @param loanTerms             The terms of the loan.
+     * @param itemPredicates        The array of predicates to check.
+     */
     function _runPredicatesCheck(
         address borrower,
         address lender,
