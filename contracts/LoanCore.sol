@@ -55,7 +55,6 @@ contract LoanCore is
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
-
     // ============================================ STATE ==============================================
 
     // =================== Constants =====================
@@ -126,7 +125,8 @@ contract LoanCore is
 
         /// @dev Although using references for both promissory notes, these
         ///      must be fresh versions and cannot be re-used across multiple
-        ///      loanCore instances, to ensure loanId <> tokenID parity
+        ///      loanCore instances, to ensure loanId <> tokenID parity. This is
+        ///      enforced via deployment processes.
         borrowerNote = _borrowerNote;
         lenderNote = _lenderNote;
 
@@ -157,13 +157,15 @@ contract LoanCore is
         uint256 _amountFromLender,
         uint256 _amountToBorrower
     ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 loanId) {
-        // Check collateral is not already used in a loan.
+        // Check collateral is not already used in a loan
         bytes32 collateralKey = keccak256(abi.encode(terms.collateralAddress, terms.collateralId));
         if (collateralInUse[collateralKey]) revert LC_CollateralInUse(terms.collateralAddress, terms.collateralId);
 
-        // Check that we will not net lose tokens.
+        // Check that we will not net lose tokens
         if (_amountToBorrower > _amountFromLender) revert LC_CannotSettle(_amountToBorrower, _amountFromLender);
 
+        // Mark collateral as escrowed
+        collateralInUse[collateralKey] = true;
 
         // Assign fees for withdrawal
         uint256 feesEarned = _amountFromLender - _amountToBorrower;
@@ -183,9 +185,6 @@ contract LoanCore is
             startDate: uint160(block.timestamp),
             state: LoanLibrary.LoanState.Active
         });
-
-        // Mark collateral as escrowed
-        collateralInUse[collateralKey] = true;
 
         // Distribute notes and principal
         _mintLoanNotes(loanId, borrower, lender);
@@ -254,14 +253,14 @@ contract LoanCore is
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         LoanLibrary.LoanData memory data = _handleRepay(loanId, _amountFromPayer, _amountToLender);
 
+        // Do not send collected principal, but make it available for withdrawal by a holder of the lender note
+        noteReceipts[loanId] = NoteReceipt(data.terms.payableCurrency, _amountToLender);
+
         // Get promissory notes from two parties involved, then burn
         // borrower note _only_ - do not burn lender note until receipt
         // is redeemed
         address borrower = borrowerNote.ownerOf(loanId);
         borrowerNote.burn(loanId);
-
-        // Do not send collected principal, but make it available for withdrawal by a holder of the lender note
-        noteReceipts[loanId] = NoteReceipt(data.terms.payableCurrency, _amountToLender);
 
         // Collect from borrower and redistribute collateral
         _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, _amountFromPayer);
@@ -293,15 +292,11 @@ contract LoanCore is
 
         // First check if the call is being made after the due date.
         uint256 dueDate = data.startDate + data.terms.durationSecs;
-        if (dueDate > block.timestamp) revert LC_NotExpired(dueDate);
+        if (dueDate >= block.timestamp) revert LC_NotExpired(dueDate);
 
         // State changes and cleanup
         loans[loanId].state = LoanLibrary.LoanState.Defaulted;
         collateralInUse[keccak256(abi.encode(data.terms.collateralAddress, data.terms.collateralId))] = false;
-
-        // Get promissory notes from two parties involved, then burn
-        address lender = lenderNote.ownerOf(loanId);
-        _burnLoanNotes(loanId);
 
         if (_amountFromLender > 0) {
             // Assign fees for withdrawal
@@ -310,10 +305,14 @@ contract LoanCore is
 
             feesWithdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
             feesWithdrawable[data.terms.payableCurrency][affiliate] += affiliateFee;
-
-            // Collect claim fee from lender
-            _collectIfNonzero(IERC20(data.terms.payableCurrency), lender, _amountFromLender);
         }
+
+        // Get promissory notes from two parties involved, then burn
+        address lender = lenderNote.ownerOf(loanId);
+        _burnLoanNotes(loanId);
+
+        // Collect claim fee from lender
+        _collectIfNonzero(IERC20(data.terms.payableCurrency), lender, _amountFromLender);
 
         // Collateral redistribution
         IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), lender, data.terms.collateralId);
@@ -404,6 +403,7 @@ contract LoanCore is
             revert LC_CannotSettle(_amountToOldLender + _amountToLender + _amountToBorrower, _settledAmount);
 
         {
+            // Assign fees for withdrawal
             uint256 feesEarned = _settledAmount - _amountToOldLender - _amountToLender - _amountToBorrower;
 
             // Make sure split goes to affiliate code from _new_ terms
@@ -428,7 +428,7 @@ contract LoanCore is
         // Burn old notes
         _burnLoanNotes(oldLoanId);
 
-        // Distribute notes and principal
+        // Mint new notes
         _mintLoanNotes(newLoanId, borrower, lender);
 
         // Perform net settlement operations

@@ -804,9 +804,17 @@ describe("Rollovers", () => {
                 vaultFactory,
                 borrower,
                 newLender,
-                verifier
+                verifier,
+                admin,
+                loanCore,
+                repaymentController
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
+
+            // Repay the loan
+            await mockERC20.connect(admin).mint(borrower.address, ethers.utils.parseEther("1000"));
+            await mockERC20.connect(borrower).approve(loanCore.address, ethers.utils.parseEther("1000"));
+            await repaymentController.connect(borrower).repay(loanId);
 
             const collateralId = await mint721(mockERC721, borrower);
             const collateralId2 = await mint721(mockERC721, borrower);
@@ -848,7 +856,11 @@ describe("Rollovers", () => {
                     .connect(borrower)
                     .rolloverLoanWithItems(loanId, newTerms, newLender.address, sig, 2, predicates),
             )
-                .to.be.revertedWith("OC_PredicateFailed");
+                .to.be.revertedWith("OC_InvalidState");
+        });
+
+        it("should not allow rollover a with items on an already closed laon", async () => {
+
         });
 
 

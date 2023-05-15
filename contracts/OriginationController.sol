@@ -866,20 +866,18 @@ contract OriginationController is
             settledAmount += amounts.leftoverPrincipal;
         }
 
-        {
-            payableCurrency.approve(address(loanCore), settledAmount);
+        payableCurrency.approve(address(loanCore), settledAmount);
 
-            loanId = loanCore.rollover(
-                oldLoanId,
-                borrower,
-                lender,
-                newTerms,
-                settledAmount,
-                amounts.amountToOldLender,
-                amounts.amountToLender,
-                amounts.amountToBorrower
-            );
-        }
+        loanId = loanCore.rollover(
+            oldLoanId,
+            borrower,
+            lender,
+            newTerms,
+            settledAmount,
+            amounts.amountToOldLender,
+            amounts.amountToLender,
+            amounts.amountToBorrower
+        );
     }
 
     /**
