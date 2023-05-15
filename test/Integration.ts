@@ -567,6 +567,38 @@ describe("Integration", () => {
     });
 
     describe("End-to-end", () => {
+        it("full loan cycle, no fees", async () => {
+            const context = await loadFixture(fixture);
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender } = context;
+
+            const { loanId, loanTerms, bundleId } = await initializeLoan(context, 1, undefined);
+
+            const grossInterest = loanTerms.principal.mul(loanTerms.proratedInterestRate).div(ethers.utils.parseEther("10000"));
+            const repayAmount = loanTerms.principal.add(grossInterest);
+
+            await mint(mockERC20, borrower, repayAmount);
+            await mockERC20
+                .connect(borrower)
+                .approve(loanCore.address, repayAmount);
+
+            // pre-repaid state
+            expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
+
+            await expect(repaymentController.connect(borrower).repay(loanId))
+                .to.emit(loanCore, "LoanRepaid")
+                .withArgs(loanId)
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(borrower.address, loanCore.address, repayAmount)
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(loanCore.address, lender.address, ethers.utils.parseEther("110"));
+
+            // post-repaid state
+            expect(await vaultFactory.ownerOf(bundleId)).to.equal(borrower.address);
+
+            // No fees accrued
+            expect(await mockERC20.balanceOf(loanCore.address)).to.equal(0);
+        });
+
         it("full loan cycle, with realistic fees and registered affiliate", async () => {
             const context = await loadFixture(fixture);
             const { feeController, repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, admin } = context;
