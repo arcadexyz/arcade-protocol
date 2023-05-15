@@ -9,6 +9,7 @@ node_modules/
 typechain/
 .openzeppelin/
 .deployments/
+contracts/external/
 
 # files
 coverage.json
