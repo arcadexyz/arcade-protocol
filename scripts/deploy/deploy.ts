@@ -83,7 +83,7 @@ export async function main(): Promise<DeployedResources> {
     await vaultFactory.deployed();
 
     const vaultFactoryAddress = vaultFactory.address;
-    console.log("VaultFactory proxy deployed to:", vaultFactoryAddress);
+    console.log("VaultFactory deployed to:", vaultFactoryAddress);
     console.log(SUBSECTION_SEPARATOR);
 
     const bNoteName = "Arcade.xyz BorrowerNote";
@@ -116,7 +116,7 @@ export async function main(): Promise<DeployedResources> {
     await loanCore.deployed();
 
     const loanCoreAddress = loanCore.address;
-    console.log("LoanCore proxy deployed to:", loanCoreAddress);
+    console.log("LoanCore deployed to:", loanCoreAddress);
     console.log(SUBSECTION_SEPARATOR);
 
     const RepaymentControllerFactory = await ethers.getContractFactory("RepaymentController");

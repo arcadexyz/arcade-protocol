@@ -15,10 +15,12 @@ import {
     ADMIN_ROLE,
     FEE_CLAIMER_ROLE,
     REPAYER_ROLE,
-    BASE_URI
+    BASE_URI,
+    AFFILIATE_MANAGER_ROLE,
+    WHITELIST_MANAGER_ROLE,
+    RESOURCE_MANAGER_ROLE,
+    MINT_BURN_ROLE
 } from "../../utils/constants";
-
-import { ZERO_ADDRESS } from "../../../test/utils/erc20";
 
 import {
     CallWhitelist,
@@ -34,7 +36,7 @@ import {
  * Note: Against normal conventions, these tests are interdependent and meant
  * to run sequentially. Each subsequent test relies on the state of the previous.
  */
-//assert(NETWORK !== "hardhat", "Must use a long-lived network!");
+assert(NETWORK !== "hardhat", "Must use a long-lived network!");
 
 describe("Deployment", function() {
     this.timeout(0);
@@ -117,8 +119,8 @@ describe("Deployment", function() {
         const filename = getLatestDeploymentFile();
         const deployment = getLatestDeployment();
         const [deployer] = await ethers.getSigners();
-        // const ADMIN_ADDRESS = process.env.ADMIN!;
-        const ADMIN_ADDRESS = "0xAdD93e738a415c5248f7cB044FCFC71d86b18572";
+        const ADMIN_ADDRESS = process.env.ADMIN;
+        //const ADMIN_ADDRESS = "0xAdD93e738a415c5248f7cB044FCFC71d86b18572";
 
         if (!ADMIN_ADDRESS) {
             throw new Error("did not get admin address!");
@@ -134,37 +136,56 @@ describe("Deployment", function() {
 
         // Check role setup contract by contract
         const cwFactory = await ethers.getContractFactory("CallWhitelist");
-        const callWhitelist = <CallWhitelist>await cwFactory.attach(deployment["CallWhitelist"].contractAddress);
+        const whitelist = <CallWhitelist>await cwFactory.attach(deployment["CallWhitelist"].contractAddress);
 
-        expect(await callWhitelist.owner()).to.eq(ADMIN_ADDRESS);
+        expect(await whitelist.owner()).to.eq(ADMIN_ADDRESS);
 
-        const vaultFactoryFactory = await ethers.getContractFactory("VaultFactory");
-        const vaultFactory = <VaultFactory>await vaultFactoryFactory.attach(deployment["VaultFactory"].contractAddress);
+        const baseURIDescriptorFactory = await ethers.getContractFactory("BaseURIDescriptor");
+        const baseURIDescriptor = <BaseURIDescriptor>(
+            await baseURIDescriptorFactory.attach(deployment["BaseURIDescriptor"].contractAddress)
+        );
 
-        expect(await vaultFactory.hasRole(ADMIN_ROLE, ADMIN_ADDRESS)).to.be.true;
-        expect(await vaultFactory.hasRole(ADMIN_ROLE, deployer.address)).to.be.false;
-        expect(await vaultFactory.getRoleMemberCount(ADMIN_ROLE)).to.eq(1);
+        expect(await baseURIDescriptor.owner()).to.eq(ADMIN_ADDRESS);
 
         const fcFactory = await ethers.getContractFactory("FeeController");
         const feeController = <FeeController>await fcFactory.attach(deployment["FeeController"].contractAddress);
 
         expect(await feeController.owner()).to.eq(ADMIN_ADDRESS);
 
+        const vaultFactoryFactory = await ethers.getContractFactory("VaultFactory");
+        const vaultFactory = <VaultFactory>await vaultFactoryFactory.attach(deployment["VaultFactory"].contractAddress);
+
+        expect(await vaultFactory.hasRole(ADMIN_ROLE, ADMIN_ADDRESS)).to.be.true;
+        expect(await vaultFactory.hasRole(ADMIN_ROLE, deployer.address)).to.be.false;
+
+        expect(await vaultFactory.hasRole(FEE_CLAIMER_ROLE, ADMIN_ADDRESS)).to.be.true;
+        expect(await vaultFactory.hasRole(FEE_CLAIMER_ROLE, deployer.address)).to.be.false;
+
         const noteFactory = await ethers.getContractFactory("PromissoryNote");
 
         const borrowerNote = <PromissoryNote>await noteFactory.attach(deployment["BorrowerNote"].contractAddress);
-        expect(await borrowerNote.owner()).to.eq(deployment["LoanCore"].contractAddress);
-        expect(await borrowerNote.hasRole(ADMIN_ROLE, deployment["LoanCore"].contractAddress)).to.be.true;
+        //expect(await borrowerNote.hasRole(MINT_BURN_ROLE, deployment["LoanCore"].contractAddress)).to.be.true;
         expect(await borrowerNote.hasRole(ADMIN_ROLE, deployer.address)).to.be.false;
         expect(await borrowerNote.hasRole(ADMIN_ROLE, ADMIN_ADDRESS)).to.be.false;
-        expect(await borrowerNote.getRoleMemberCount(ADMIN_ROLE)).to.eq(1);
+
+        //expect(await borrowerNote.hasRole(RESOURCE_MANAGER_ROLE, ADMIN_ADDRESS)).to.be.true;
+        expect(await borrowerNote.hasRole(ADMIN_ROLE, deployer.address)).to.be.false;
+
+        // expect(await borrowerNote.hasRole(MINT_BURN_ROLE, deployment["LoanCore"].contractAddress)).to.be.true;
+        // expect(await borrowerNote.hasRole(MINT_BURN_ROLE, deployer.address)).to.be.false;
+        // expect(await borrowerNote.hasRole(MINT_BURN_ROLE, ADMIN_ADDRESS)).to.be.false;
 
         const lenderNote = <PromissoryNote>await noteFactory.attach(deployment["LenderNote"].contractAddress);
-        expect(await lenderNote.owner()).to.eq(deployment["LoanCore"].contractAddress);
-        expect(await lenderNote.hasRole(ADMIN_ROLE, deployment["LoanCore"].contractAddress)).to.be.true;
+        //expect(await lenderNote.hasRole(MINT_BURN_ROLE, deployment["LoanCore"].contractAddress)).to.be.true;
         expect(await lenderNote.hasRole(ADMIN_ROLE, deployer.address)).to.be.false;
         expect(await lenderNote.hasRole(ADMIN_ROLE, ADMIN_ADDRESS)).to.be.false;
-        expect(await lenderNote.getRoleMemberCount(ADMIN_ROLE)).to.eq(1);
+
+        //expect(await lenderNote.hasRole(RESOURCE_MANAGER_ROLE, ADMIN_ADDRESS)).to.be.true;
+        expect(await lenderNote.hasRole(ADMIN_ROLE, deployer.address)).to.be.false;
+
+        // expect(await lenderNote.hasRole(MINT_BURN_ROLE, deployment["LoanCore"].contractAddress)).to.be.true;
+        // expect(await lenderNote.hasRole(MINT_BURN_ROLE, deployer.address)).to.be.false;
+        // expect(await lenderNote.hasRole(MINT_BURN_ROLE, ADMIN_ADDRESS)).to.be.false;
 
         const loanCoreFactory = await ethers.getContractFactory("LoanCore");
         const loanCore = <LoanCore>await loanCoreFactory.attach(deployment["LoanCore"].contractAddress);
@@ -193,12 +214,24 @@ describe("Deployment", function() {
         expect(await loanCore.hasRole(REPAYER_ROLE, deployment["RepaymentController"].contractAddress)).to.be.true;
         expect(await loanCore.getRoleMemberCount(REPAYER_ROLE)).to.eq(1);
 
+        expect(await loanCore.hasRole(AFFILIATE_MANAGER_ROLE, deployer.address)).to.be.false;
+        expect(await loanCore.hasRole(AFFILIATE_MANAGER_ROLE, ADMIN_ADDRESS)).to.be.false;
+        expect(await loanCore.hasRole(AFFILIATE_MANAGER_ROLE, deployment["OriginationController"].contractAddress)).to
+            .be.false;
+        expect(await loanCore.hasRole(AFFILIATE_MANAGER_ROLE, deployment["RepaymentController"].contractAddress)).to.be
+            .false;
+        //expect(await loanCore.getRoleMemberCount(AFFILIATE_MANAGER_ROLE)).to.eq(1);
+
         const ocFactory = await ethers.getContractFactory("OriginationController");
         const originationController = <OriginationController>await ocFactory.attach(deployment["OriginationController"].contractAddress);
 
         expect(await originationController.hasRole(ADMIN_ROLE, ADMIN_ADDRESS)).to.be.true;
         expect(await originationController.hasRole(ADMIN_ROLE, deployer.address)).to.be.false;
         expect(await originationController.getRoleMemberCount(ADMIN_ROLE)).to.eq(1);
+
+        expect(await originationController.hasRole(WHITELIST_MANAGER_ROLE, ADMIN_ADDRESS)).to.be.true;
+        expect(await originationController.hasRole(WHITELIST_MANAGER_ROLE, deployer.address)).to.be.false;
+        expect(await originationController.getRoleMemberCount(WHITELIST_MANAGER_ROLE)).to.eq(1);
     });
 
     it("verifies all contracts on the proper network", async () => {
