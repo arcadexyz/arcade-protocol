@@ -145,7 +145,7 @@ export async function main(
     // ============= OriginationController ==============
 
     // whitelist verifier
-    const setWhitelistVerifier = await originationController.setAllowedVerifier(verifier.address, true);
+    const setWhitelistVerifier = await originationController.setAllowedVerifiers([verifier.address], [true]);
     await setWhitelistVerifier.wait();
 
     console.log(`OriginationController: added ${verifier.address} as allowed verifier`);
@@ -165,11 +165,11 @@ export async function main(
     const renounceOriginationControllerAdmin = await originationController.renounceRole(ADMIN_ROLE, deployer.address);
     await renounceOriginationControllerAdmin.wait();
 
-    const renounceOriginationControllerWhiteListManager = await originationController.renounceRole(
-        WHITELIST_MANAGER_ROLE,
-        deployer.address,
-    );
-    await renounceOriginationControllerWhiteListManager.wait();
+    // const renounceOriginationControllerWhiteListManager = await originationController.renounceRole(
+    //     WHITELIST_MANAGER_ROLE,
+    //     deployer.address,
+    // );
+    // await renounceOriginationControllerWhiteListManager.wait();
 
     console.log("OriginationController: deployer has renounced admin role");
     console.log(SUBSECTION_SEPARATOR);
