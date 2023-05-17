@@ -14,11 +14,9 @@ async function verifyArtifacts(
     console.log(`${contractName}: ${contractAddress}`);
     console.log(SUBSECTION_SEPARATOR);
 
-    const address = contractAddress;
-
     try {
         await hre.run("verify:verify", {
-            address,
+            address: contractAddress,
             constructorArguments: constructorArgs,
         });
     } catch (err) {
@@ -29,7 +27,7 @@ async function verifyArtifacts(
         }
     }
 
-    console.log(`${contractName}: ${address}`, "has been verified.");
+    console.log(`${contractName}: ${contractAddress}`, "has been verified.");
     console.log(SECTION_SEPARATOR);
 }
 

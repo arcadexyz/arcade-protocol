@@ -1,0 +1,70 @@
+{
+  "CallWhitelist": {
+    "contractAddress": "0xE2AeF0dab2B548410909CF4b2766FD972c51e38b",
+    "constructorArgs": []
+  },
+  "BaseURIDescriptor": {
+    "contractAddress": "0xFacC2619Db16b299c1C654c30b6cf2F423439f42",
+    "constructorArgs": [
+      "https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnBeats/"
+    ]
+  },
+  "FeeController": {
+    "contractAddress": "0x9fD01017f4a41828EA37A00e9dE25Bca9a55807f",
+    "constructorArgs": []
+  },
+  "AssetVault": {
+    "contractAddress": "0x4F4d1256287CBf81cCC07240C6900DD4823F9343",
+    "constructorArgs": []
+  },
+  "VaultFactory": {
+    "contractAddress": "0x4855540Ab665Da18398648C519660b2387170fC4",
+    "constructorArgs": [
+      "0x4F4d1256287CBf81cCC07240C6900DD4823F9343",
+      "0xE2AeF0dab2B548410909CF4b2766FD972c51e38b",
+      "0x9fD01017f4a41828EA37A00e9dE25Bca9a55807f",
+      "0xFacC2619Db16b299c1C654c30b6cf2F423439f42"
+    ]
+  },
+  "BorrowerNote": {
+    "contractAddress": "0xb8d99437613980D4aDCa0B4b94515981dAd4756b",
+    "constructorArgs": [
+      "Arcade.xyz BorrowerNote",
+      "aBN",
+      "0xFacC2619Db16b299c1C654c30b6cf2F423439f42"
+    ]
+  },
+  "LenderNote": {
+    "contractAddress": "0x6A08685c2aF2806bd13b2e801c97c66773bD269f",
+    "constructorArgs": [
+      "Arcade.xyz LenderNote",
+      "aLN",
+      "0xFacC2619Db16b299c1C654c30b6cf2F423439f42"
+    ]
+  },
+  "LoanCore": {
+    "contractAddress": "0x549B2553d67DF09C86417971ACF25C01fE88478e",
+    "constructorArgs": [
+      "0xb8d99437613980D4aDCa0B4b94515981dAd4756b",
+      "0x6A08685c2aF2806bd13b2e801c97c66773bD269f"
+    ]
+  },
+  "RepaymentController": {
+    "contractAddress": "0x1f33105652BE3966115F497c8256D54fC64c4387",
+    "constructorArgs": [
+      "0x549B2553d67DF09C86417971ACF25C01fE88478e",
+      "0x9fD01017f4a41828EA37A00e9dE25Bca9a55807f"
+    ]
+  },
+  "OriginationController": {
+    "contractAddress": "0x1C0C739b6d4DeC0d3E7a783B4639D6EF0970D8CC",
+    "constructorArgs": [
+      "0x549B2553d67DF09C86417971ACF25C01fE88478e",
+      "0x9fD01017f4a41828EA37A00e9dE25Bca9a55807f"
+    ]
+  },
+  "ArcadeItemsVerifier": {
+    "contractAddress": "0xE054aD51415b24FEc123C0dB1a92073603813007",
+    "constructorArgs": []
+  }
+}

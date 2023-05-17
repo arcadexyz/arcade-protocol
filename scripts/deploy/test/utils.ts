@@ -5,7 +5,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 import fetch from "node-fetch";
 import { URLSearchParams } from "url";
-import hre, { ethers } from "hardhat";
+import hre from "hardhat";
 import { expect } from "chai";
 import { fromRpcSig, ECDSASignature } from "ethereumjs-util";
 

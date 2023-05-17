@@ -111,7 +111,7 @@ export async function createInfo(
             assetVaultAddress,
             whitelistAddress,
             feeControllerAddress,
-            BASE_URI
+            baseURIDescriptorAddress
         ],
     };
 
@@ -120,7 +120,8 @@ export async function createInfo(
         constructorArgs: [
             bNoteName,
             bNoteSymbol,
-            BASE_URI],
+            baseURIDescriptorAddress
+        ],
     };
 
     contractInfo["LenderNote"] = {
@@ -128,7 +129,7 @@ export async function createInfo(
         constructorArgs: [
             lNoteName,
             lNoteSymbol,
-            BASE_URI
+            baseURIDescriptorAddress
         ],
     };
 

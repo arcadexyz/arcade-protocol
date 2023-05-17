@@ -23,7 +23,7 @@ import "./CallBlacklist.sol";
  *
  * The contract owner can add or remove items from the whitelist.
  */
-contract CallWhitelist is Ownable, CallBlacklist, ICallWhitelist {
+contract CallWhitelist is ICallWhitelist, Ownable, CallBlacklist {
     using SafeERC20 for IERC20;
 
     // ============================================ STATE ==============================================
