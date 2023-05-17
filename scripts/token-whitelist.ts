@@ -78,9 +78,10 @@ export async function main(): Promise<void> {
         isAllowed.push(true);
     }
 
-    const ORIGINATION_CONTROLLER = "0xad1e10fd728dc3264a382715decc6984ba6178cd";
-    const originationControllerFact = await hre.ethers.getContractFactory("OriginationController");
+    const ORIGINATION_CONTROLLER = "0xad1e10fd728dc3264a382715decc6984ba6178cd"; // sepolia deployment
+    const originationControllerFact = await ethers.getContractFactory("OriginationController");
     const originationController = <OriginationController>await originationControllerFact.attach(ORIGINATION_CONTROLLER);
+    //console.log(await getVerifiedABI(ORIGINATION_CONTROLLER));
 
     // const originationControllerAbi = await getVerifiedABI(originationControllerAddress);
     // const provider = new ethers.providers.JsonRpcProvider(
@@ -106,7 +107,7 @@ export async function main(): Promise<void> {
         const item = addressVerified.splice(0, 1)[0]; // Remove the first item from addressVerified
         whitelistingArr.push(item); // Push the item into whitelistingArr
     }
-
+    ///await originationController.setAllowedCollateralAddresses(whitelistingArr, isAllowed);
     // whitelist every 50 items
     await originationController.setAllowedCollateralAddresses(whitelistingArr, isAllowed);
     // and confirm that each collateral address has been whitelisted
