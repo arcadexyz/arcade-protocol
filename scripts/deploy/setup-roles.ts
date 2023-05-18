@@ -4,8 +4,14 @@ import { Contract } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 import { SUBSECTION_SEPARATOR, SECTION_SEPARATOR } from "../../test/utils/constants";
-
-import { ORIGINATOR_ROLE, ADMIN_ROLE, FEE_CLAIMER_ROLE, REPAYER_ROLE, RESOURCE_MANAGER_ROLE, WHITELIST_MANAGER_ROLE } from "../utils/constants";
+import {
+    ORIGINATOR_ROLE,
+    ADMIN_ROLE,
+    FEE_CLAIMER_ROLE,
+    REPAYER_ROLE,
+    RESOURCE_MANAGER_ROLE,
+    WHITELIST_MANAGER_ROLE
+} from "../utils/constants";
 
 const jsonContracts: { [key: string]: string } = {
     CallWhitelist: "whitelist",
@@ -172,6 +178,7 @@ export async function main(
     // originationController.renounceRole(WHITELIST_MANAGER_ROLE, deployer.address);
     // will occur in the token-whitelist.ts script because signer : deployer needs to
     // perform the whitelisting before the renounceRole txn
+    // And this is why line 217 is commented out in e2e.ts
 
     console.log("OriginationController: deployer has renounced admin role");
     console.log(SUBSECTION_SEPARATOR);

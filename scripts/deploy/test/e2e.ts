@@ -18,8 +18,6 @@ import {
     BASE_URI,
     AFFILIATE_MANAGER_ROLE,
     WHITELIST_MANAGER_ROLE,
-    RESOURCE_MANAGER_ROLE,
-    MINT_BURN_ROLE
 } from "../../utils/constants";
 
 import {
@@ -216,6 +214,7 @@ describe("Deployment", function() {
         expect(await originationController.getRoleMemberCount(ADMIN_ROLE)).to.eq(1);
 
         expect(await originationController.hasRole(WHITELIST_MANAGER_ROLE, ADMIN_ADDRESS)).to.be.true;
+        // The expect statement will work after the deployer renounces the role post finishing the token whitelisting
         //expect(await originationController.hasRole(WHITELIST_MANAGER_ROLE, deployer.address)).to.be.false;
         expect(await originationController.getRoleMemberCount(WHITELIST_MANAGER_ROLE)).to.eq(1);
     });
