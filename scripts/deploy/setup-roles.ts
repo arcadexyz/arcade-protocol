@@ -156,7 +156,10 @@ export async function main(
     await updateOriginationControllerAdmin.wait();
 
     // grant originationContoller the owner role
-    const updateOriginationWhiteListManager = await originationController.grantRole(WHITELIST_MANAGER_ROLE, ADMIN_ADDRESS);
+    const updateOriginationWhiteListManager = await originationController.grantRole(
+        WHITELIST_MANAGER_ROLE,
+        ADMIN_ADDRESS,
+    );
     await updateOriginationWhiteListManager.wait();
 
     console.log(`OriginationController: admin role granted to ${ADMIN_ADDRESS}`);
@@ -165,11 +168,10 @@ export async function main(
     const renounceOriginationControllerAdmin = await originationController.renounceRole(ADMIN_ROLE, deployer.address);
     await renounceOriginationControllerAdmin.wait();
 
-    // const renounceOriginationControllerWhiteListManager = await originationController.renounceRole(
-    //     WHITELIST_MANAGER_ROLE,
-    //     deployer.address,
-    // );
-    // await renounceOriginationControllerWhiteListManager.wait();
+    // NOTE:
+    // originationController.renounceRole(WHITELIST_MANAGER_ROLE, deployer.address);
+    // will occur in the token-whitelist.ts script because signer : deployer needs to
+    // perform the whitelisting before the renounceRole txn
 
     console.log("OriginationController: deployer has renounced admin role");
     console.log(SUBSECTION_SEPARATOR);

@@ -50,15 +50,17 @@ async function handleRequest() {
 }
 
 export async function main(): Promise<void> {
+    const WETH = ethers.utils.getAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
+    const WBTC = ethers.utils.getAddress("0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599");
+    const USDC = ethers.utils.getAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48");
+    const USDT = ethers.utils.getAddress("0xdac17f958d2ee523a2206206994597c13d831ec7");
+    const DAI = ethers.utils.getAddress("0x6B175474E89094C44Da98b954EedeAC495271d0F");
+    const APE = ethers.utils.getAddress("0x4d224452801ACEd8B2F0aebE155379bb5D594381");
+
+    const allowedCurrencies = [WETH, WBTC, USDC, USDT, DAI, APE];
     let whitelistingArr: string[] = [];
     let confirmWhitelist: string[] = [];
     const signers: SignerWithAddress[] = await ethers.getSigners();
-
-    // create an array of 50 is allowed = true
-    let isAllowed: boolean[] = [];
-    for (let i = 0; i < 50; i++) {
-        isAllowed.push(true);
-    }
 
     const ORIGINATION_CONTROLLER = "0xbbBC439b5F1BD1a7321D15FD6fFcC9220c3E4282"; // from deployment sepolia-1684350326.json
     const originationControllerFact = await ethers.getContractFactory("OriginationController");
@@ -67,6 +69,14 @@ export async function main(): Promise<void> {
     // make the API call
     await handleRequest();
 
+    // create an array of 50 isAllowed = true because that is the max allowable
+    // in the setAllowedCollateralAddresses parameter arrays
+    let isAllowed: boolean[] = [];
+    for (let i = 0; i < 50; i++) {
+        isAllowed.push(true);
+    }
+
+    // NFT Collection WHITELISTING
     // setAllowedCollateralAddresses takes 50 addresses max
     // so api data needs to be divided into batches of 50 for whitelisting
     let amountToWhitelist = Math.ceil(addressVerified.length * 100) / 100;
@@ -101,7 +111,7 @@ export async function main(): Promise<void> {
         for (let i = 0; i < whitelistingArr.length; i++) {
             isAllowed.push(true);
         }
-        // call txn to whitelist the less than 50 items
+        // call txn to whitelist remaining items
         await originationController.connect(signers[0]).setAllowedCollateralAddresses(whitelistingArr, isAllowed);
 
         amountToWhitelist -= amountToWhitelist;
@@ -113,17 +123,39 @@ export async function main(): Promise<void> {
         const isWhitelisted = await originationController.allowedCollateral(confirmWhitelist[i]);
         // log item status
         console.log(`Collateral address: "${confirmWhitelist[i]}", is whiteListed = ${isWhitelisted}`);
-        console.log(i);
+        console.log(`${i}`);
     }
 
+    console.log(`${confirmWhitelist.length} Collections have been whitelisted`);
     console.log(SECTION_SEPARATOR);
+
+    // Payable Currency WHITELISTING
+    // reset isAllowed to match the length of allowedCurrencies
+    isAllowed.length = 0;
+    for (let i = 0; i < allowedCurrencies.length; i++) {
+        isAllowed.push(true);
+    }
 
     // whitelist ERC20 Tokens
+    await originationController.connect(signers[0]).setAllowedPayableCurrencies(allowedCurrencies, isAllowed);
 
+    // confirm that each item in the allowedCurrencies array has been whitelisted
+    for (let i = 0; i < allowedCurrencies.length; i++) {
+        const isCurrencyWhitelisted = await originationController.isAllowedCurrency(allowedCurrencies[i]);
+        // log item status
+        console.log(`Currency address: "${allowedCurrencies[i]}", is whiteListed = ${isCurrencyWhitelisted}`);
+    }
 
+    console.log("Payable Currencies: WETH, WBTC, USDC, USDT, DAI, APE are whitelisted");
     console.log(SECTION_SEPARATOR);
 
-    // deployer revokes WHITELIST_MANAGER_ROLE
+    // // deployer revokes WHITELIST_MANAGER_ROLE
+    // const renounceOriginationControllerWhiteListManager = await originationController.renounceRole(
+    //     WHITELIST_MANAGER_ROLE,
+    //     signers[0].address,
+    // );
+    // await renounceOriginationControllerWhiteListManager.wait();
+    // console.log("OriginationController: deployer has renounced WHITELIST_MANAGER_ROLE");
 
     return;
 }
