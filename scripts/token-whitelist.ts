@@ -2,8 +2,7 @@ import { ethers} from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import assert from "assert";
 import fetch from "node-fetch";
-
-import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../test/utils/constants";
+import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "./utils/constants";
 import { NETWORK } from "./deploy/test/utils";
 import { WHITELIST_MANAGER_ROLE } from "./utils/constants";
 
@@ -62,7 +61,7 @@ export async function main(): Promise<void> {
     const APE = ethers.utils.getAddress("0x4d224452801ACEd8B2F0aebE155379bb5D594381");
     const allowedCurrencies = [WETH, WBTC, USDC, USDT, DAI, APE];
 
-    const ORIGINATION_CONTROLLER = "0xbbBC439b5F1BD1a7321D15FD6fFcC9220c3E4282"; // from deployment sepolia-1684350326.json
+    const ORIGINATION_CONTROLLER = "0xad9A60B116F7004de62D3942ed668AFD29E66534"; // from deployment sepolia-1684446603.json
     const originationControllerFact = await ethers.getContractFactory("OriginationController");
     const originationController = <OriginationController>await originationControllerFact.attach(ORIGINATION_CONTROLLER);
 
@@ -156,6 +155,7 @@ export async function main(): Promise<void> {
     );
     await renounceOriginationControllerWhiteListManager.wait();
     console.log("OriginationController: deployer has renounced WHITELIST_MANAGER_ROLE");
+    console.log(SECTION_SEPARATOR);
 
     return;
 }

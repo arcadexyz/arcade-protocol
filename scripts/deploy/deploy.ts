@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 
 import { writeJson } from "./write-json";
-import { BASE_URI, SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../../test/utils/constants";
+import { BASE_URI, SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../utils/constants";
 
 import {
     AssetVault,
