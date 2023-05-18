@@ -214,9 +214,9 @@ describe("Deployment", function() {
         expect(await originationController.getRoleMemberCount(ADMIN_ROLE)).to.eq(1);
 
         expect(await originationController.hasRole(WHITELIST_MANAGER_ROLE, ADMIN_ADDRESS)).to.be.true;
-        // The expect statement will work after the deployer renounces the role post finishing the token whitelisting
+        // These expect statement will work after the deployer renounces the role post finishing the token whitelisting
         //expect(await originationController.hasRole(WHITELIST_MANAGER_ROLE, deployer.address)).to.be.false;
-        expect(await originationController.getRoleMemberCount(WHITELIST_MANAGER_ROLE)).to.eq(1);
+        //expect(await originationController.getRoleMemberCount(WHITELIST_MANAGER_ROLE)).to.eq(1);
     });
 
     it("verifies all contracts on the proper network", async () => {
