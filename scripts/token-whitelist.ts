@@ -50,17 +50,17 @@ async function handleRequest() {
 }
 
 export async function main(): Promise<void> {
+    let whitelistingArr: string[] = [];
+    let confirmWhitelist: string[] = [];
+    const signers: SignerWithAddress[] = await ethers.getSigners();
+
     const WETH = ethers.utils.getAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
     const WBTC = ethers.utils.getAddress("0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599");
     const USDC = ethers.utils.getAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48");
     const USDT = ethers.utils.getAddress("0xdac17f958d2ee523a2206206994597c13d831ec7");
     const DAI = ethers.utils.getAddress("0x6B175474E89094C44Da98b954EedeAC495271d0F");
     const APE = ethers.utils.getAddress("0x4d224452801ACEd8B2F0aebE155379bb5D594381");
-
     const allowedCurrencies = [WETH, WBTC, USDC, USDT, DAI, APE];
-    let whitelistingArr: string[] = [];
-    let confirmWhitelist: string[] = [];
-    const signers: SignerWithAddress[] = await ethers.getSigners();
 
     const ORIGINATION_CONTROLLER = "0xbbBC439b5F1BD1a7321D15FD6fFcC9220c3E4282"; // from deployment sepolia-1684350326.json
     const originationControllerFact = await ethers.getContractFactory("OriginationController");
@@ -149,13 +149,13 @@ export async function main(): Promise<void> {
     console.log("Payable Currencies: WETH, WBTC, USDC, USDT, DAI, APE are whitelisted");
     console.log(SECTION_SEPARATOR);
 
-    // // deployer revokes WHITELIST_MANAGER_ROLE
-    // const renounceOriginationControllerWhiteListManager = await originationController.renounceRole(
-    //     WHITELIST_MANAGER_ROLE,
-    //     signers[0].address,
-    // );
-    // await renounceOriginationControllerWhiteListManager.wait();
-    // console.log("OriginationController: deployer has renounced WHITELIST_MANAGER_ROLE");
+    // deployer revokes WHITELIST_MANAGER_ROLE
+    const renounceOriginationControllerWhiteListManager = await originationController.renounceRole(
+        WHITELIST_MANAGER_ROLE,
+        signers[0].address,
+    );
+    await renounceOriginationControllerWhiteListManager.wait();
+    console.log("OriginationController: deployer has renounced WHITELIST_MANAGER_ROLE");
 
     return;
 }
