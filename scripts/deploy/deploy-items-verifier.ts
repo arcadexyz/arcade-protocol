@@ -1,5 +1,5 @@
 import hre, { ethers } from "hardhat";
-import { SECTION_SEPARATOR } from "../../test/utils/constants";
+import { SECTION_SEPARATOR } from "../utils/constants";
 
 import {
     ArcadeItemsVerifier

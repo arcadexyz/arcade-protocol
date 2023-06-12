@@ -22,7 +22,7 @@ assert(NETWORK !== "hardhat", "Must use a long-lived network!");
 let addressVerified: string[] = [];
 let verifiedAmount: number;
 
-async function handleRequest() {
+async function getVerifiedTokenData() {
     try {
         const apiURL = `https://api.arcade.xyz/api/v2/collections/?isVerified=true`;
         const resp = await fetch(apiURL, {
@@ -66,7 +66,7 @@ export async function main(): Promise<void> {
     const originationController = <OriginationController>await originationControllerFact.attach(ORIGINATION_CONTROLLER);
 
     // make the API call
-    await handleRequest();
+    await getVerifiedTokenData();
 
     // create an array of 50 isAllowed = true because that is the max allowable
     // in the setAllowedCollateralAddresses parameter arrays

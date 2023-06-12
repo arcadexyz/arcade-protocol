@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import { Contract } from "ethers";
 
-import { SECTION_SEPARATOR } from "../../test/utils/constants";
+import { SECTION_SEPARATOR } from "../utils/constants";
 
 export interface DeployedResources {
     contract: Contract;

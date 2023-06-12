@@ -49,22 +49,12 @@ if (forkMainnet && !process.env.ALCHEMY_API_KEY) {
 
 // create testnet network
 function createTestnetConfig(network: keyof typeof chainIds): NetworkUserConfig {
-    const url = `https://eth-${network}.alchemyapi.io/v2/${alchemyApiKey}`;
-    return {
-        accounts: {
-            count: 10,
-            initialIndex: 0,
-            mnemonic,
-            path: "m/44'/60'/0'/0", // HD derivation path
-        },
-        chainId: chainIds[network],
-        url,
+    const networkUrls = {
+        A: `https://rpc.sepolia.org/`,
+        B: `https://eth-${network}.alchemyapi.io/v2/${alchemyApiKey}`,
     };
-}
+    const url = network === `sepolia` ? networkUrls.A : networkUrls.B;
 
-// create sepolia network config
-function createSepoliaTestnetConfig(network: keyof typeof chainIds): NetworkUserConfig {
-    const url = `https://rpc.sepolia.org/`;
     return {
         accounts: {
             count: 10,
@@ -134,7 +124,7 @@ export const config: HardhatUserConfig = {
         kovan: createTestnetConfig("kovan"),
         rinkeby: createTestnetConfig("rinkeby"),
         ropsten: createTestnetConfig("ropsten"),
-        sepolia: createSepoliaTestnetConfig("sepolia"),
+        sepolia: createTestnetConfig("sepolia"),
         localhost: {
             accounts: {
                 mnemonic,

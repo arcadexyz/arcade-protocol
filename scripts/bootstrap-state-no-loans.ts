@@ -5,7 +5,7 @@ import { ethers } from "hardhat";
 import { main as deploy } from "./deploy/deploy";
 import { deployNFTs } from "./utils/deploy-assets";
 import { mintAndDistribute } from "./utils/mint-distribute-assets";
-import { SECTION_SEPARATOR } from "./utils/bootstrap-tools";
+import { SECTION_SEPARATOR } from "./utils/constants";
 
 export async function main(): Promise<void> {
     // Bootstrap five accounts only.
