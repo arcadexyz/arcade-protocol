@@ -123,3 +123,22 @@ error VF_NoTransferWithdrawEnabled(uint256 tokenId);
  * @param requiredMintFee                    The required mint fee.
  */
 error VF_InsufficientMintFee(uint256 value, uint256 requiredMintFee);
+
+// ================================== Call Whitelist ======================================
+/// @notice All errors prefixed with CW_, to separate from other contracts in the protocol.
+
+/**
+ * @notice Cannot whitelist a call which has already been whitelisted.
+ *
+ * @param callee                             The contract to be added to CallWhitelist mapping.
+ * @param selector                           The function selector to be added to CallWhitelist mapping.
+ */
+error CW_AlreadyWhitelisted(address callee, bytes4 selector);
+
+/**
+ * @notice Cannot remove a call from the CallWhitelist that has not yet been added.
+ *
+ * @param callee                             The contract to be removed from CallWhitelist mapping.
+ * @param selector                           The function selector to be removed from CallWhitelist mapping.
+ */
+error CW_NotWhitelisted(address callee, bytes4 selector);

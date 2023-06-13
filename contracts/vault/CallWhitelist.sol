@@ -9,6 +9,11 @@ import "../interfaces/ICallWhitelist.sol";
 
 import "./CallBlacklist.sol";
 
+import {
+    CW_AlreadyWhitelisted,
+    CW_NotWhitelisted
+} from "../errors/Vault.sol";
+
 /**
  * @title CallWhitelist
  * @author Non-Fungible Technologies, Inc.
@@ -56,24 +61,34 @@ contract CallWhitelist is Ownable, CallBlacklist, ICallWhitelist {
 
     /**
      * @notice Add the given callee and selector to the whitelist. Can only be called by owner.
+     *
      * @dev    A blacklist supersedes a whitelist, so should not add blacklisted selectors.
+     *         Calls which are already whitelisted will revert.
      *
      * @param callee                The contract to whitelist.
      * @param selector              The function selector to whitelist.
      */
     function add(address callee, bytes4 selector) external override onlyOwner {
+        if (whitelist[callee][selector]) revert CW_AlreadyWhitelisted(callee, selector);
+
         whitelist[callee][selector] = true;
+
         emit CallAdded(msg.sender, callee, selector);
     }
 
     /**
      * @notice Remove the given calle and selector from the whitelist. Can only be called by owner.
      *
+     * @dev   Calls which are not already whitelisted will revert.
+     *
      * @param callee                The contract to whitelist.
      * @param selector              The function selector to whitelist.
      */
     function remove(address callee, bytes4 selector) external override onlyOwner {
+        if (!whitelist[callee][selector]) revert CW_NotWhitelisted(callee, selector);
+
         whitelist[callee][selector] = false;
+
         emit CallRemoved(msg.sender, callee, selector);
     }
 }
