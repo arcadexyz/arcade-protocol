@@ -15,7 +15,8 @@ import "./nft/ERC721Permit.sol";
 import {
     PN_ZeroAddress,
     PN_MintingRole,
-    PN_BurningRole
+    PN_BurningRole,
+    PN_DoesNotExist
 } from "./errors/Lending.sol";
 
 /**
@@ -163,7 +164,7 @@ contract PromissoryNote is
      * @return                      The token ID's URI.
      */
     function tokenURI(uint256 tokenId) public view override(INFTWithDescriptor, ERC721) returns (string memory) {
-        _exists(tokenId);
+        if (!_exists(tokenId)) revert PN_DoesNotExist(tokenId);
 
         return descriptor.tokenURI(address(this), tokenId);
     }
