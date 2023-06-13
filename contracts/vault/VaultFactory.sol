@@ -156,7 +156,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
      * @notice Creates a new bundle token and vault contract for `to`. Its token ID will be
      * automatically assigned (and available on the emitted {IERC721-Transfer} event)
      *
-     * See {ERC721-_mint}.
+     * See {ERC721-_safeMint}.
      *
      * @param to                    The address that will own the new vault.
      *
@@ -169,7 +169,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
 
         address vault = _create();
 
-        _mint(to, uint256(uint160(vault)));
+        _safeMint(to, uint256(uint160(vault)));
 
         if (msg.value > mintFee) payable(msg.sender).transfer(msg.value - mintFee);
 

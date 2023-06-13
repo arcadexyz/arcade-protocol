@@ -126,7 +126,7 @@ contract PromissoryNote is
      *         should match the loan ID, and can only be called by the minter. Also
      *         updates the mapping to lookup loan IDs by note IDs.
      *
-     * @dev See {ERC721-_mint}.
+     * @dev See {ERC721-_safeMint}.
      *
      * @param to                    The owner of the minted token.
      * @param loanId                The ID of the token to mint, should match a loan.
@@ -135,7 +135,8 @@ contract PromissoryNote is
      */
     function mint(address to, uint256 loanId) external override returns (uint256) {
         if (!hasRole(MINT_BURN_ROLE, msg.sender)) revert PN_MintingRole(msg.sender);
-        _mint(to, loanId);
+
+        _safeMint(to, loanId);
 
         return loanId;
     }

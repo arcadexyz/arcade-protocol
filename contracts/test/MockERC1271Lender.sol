@@ -4,11 +4,10 @@ pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-import "../interfaces/IOriginationController.sol";
-
-contract ERC1271LenderMock is IERC1271 {
+contract ERC1271LenderMock is IERC1271, IERC721Receiver {
     bytes4 internal constant MAGICVALUE = 0x1626ba7e;
 
     address public signer;
@@ -26,5 +25,14 @@ contract ERC1271LenderMock is IERC1271 {
 
         if (recovered == signer) return MAGICVALUE;
         else return 0xFFFFFFFF;
+    }
+
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes calldata
+    ) external pure returns (bytes4) {
+        return this.onERC721Received.selector;
     }
 }
