@@ -28,11 +28,15 @@ import { createLoanItemsSignature, createLoanTermsSignature } from "./utils/eip7
 import { encodeItemCheck, encodePredicates } from "./utils/loans";
 
 import {
+    ADMIN_ROLE,
     ORIGINATOR_ROLE,
     FEE_CLAIMER_ROLE,
     REPAYER_ROLE,
     AFFILIATE_MANAGER_ROLE,
-    BASE_URI
+    BASE_URI,
+    RESOURCE_MANAGER_ROLE,
+    MINT_BURN_ROLE,
+    WHITELIST_MANAGER_ROLE,
 } from "./utils/constants";
 
 interface TestContext {
@@ -42,9 +46,11 @@ interface TestContext {
     borrowerNote: PromissoryNote;
     lenderNote: PromissoryNote;
     vaultFactory: VaultFactory;
+    whitelist: CallWhitelist;
     feeController: FeeController;
     repaymentController: RepaymentController;
     originationController: OriginationController;
+    descriptor: BaseURIDescriptor;
     borrower: SignerWithAddress;
     lender: SignerWithAddress;
     admin: SignerWithAddress;
@@ -71,16 +77,16 @@ const fixture = async (): Promise<TestContext> => {
     const signers: SignerWithAddress[] = await ethers.getSigners();
     const [borrower, lender, admin] = signers;
 
-    const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
-    const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
+    const whitelist = <CallWhitelist>await deploy("CallWhitelist", admin, []);
+    const vaultTemplate = <AssetVault>await deploy("AssetVault", admin, []);
     const feeController = <FeeController>await deploy("FeeController", admin, []);
-    const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
-    const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address]);
+    const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", admin, [BASE_URI])
+    const vaultFactory = <VaultFactory>await deploy("VaultFactory", admin, [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address]);
 
     const borrowerNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz BorrowerNote", "aBN", descriptor.address]);
     const lenderNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz LenderNote", "aLN", descriptor.address]);
 
-    const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [borrowerNote.address, lenderNote.address]);
+    const loanCore = <LoanCore>await deploy("LoanCore", admin, [borrowerNote.address, lenderNote.address]);
 
     await loanCore.grantRole(FEE_CLAIMER_ROLE, admin.address);
 
@@ -88,9 +94,6 @@ const fixture = async (): Promise<TestContext> => {
     for (const note of [borrowerNote, lenderNote]) {
         await note.connect(admin).initialize(loanCore.address);
     }
-
-    const updateborrowerPermissions = await loanCore.grantRole(ORIGINATOR_ROLE, borrower.address);
-    await updateborrowerPermissions.wait();
 
     const mockERC20 = <MockERC20>await deploy("MockERC20", admin, ["Mock ERC20", "MOCK"]);
     const mockERC721 = <MockERC721>await deploy("MockERC721", admin, ["Mock ERC721", "MOCK"]);
@@ -104,7 +107,7 @@ const fixture = async (): Promise<TestContext> => {
     await updateRepaymentControllerPermissions.wait();
 
     const originationController = <OriginationController>await deploy(
-        "OriginationController", signers[0], [loanCore.address, feeController.address]
+        "OriginationController", admin, [loanCore.address, feeController.address]
     )
     await originationController.deployed();
 
@@ -136,11 +139,13 @@ const fixture = async (): Promise<TestContext> => {
         borrowerNote,
         lenderNote,
         vaultFactory,
+        whitelist,
         feeController,
         repaymentController,
         originationController,
         mockERC20,
         mockERC721,
+        descriptor,
         borrower,
         lender,
         admin,
@@ -241,6 +246,47 @@ const initializeLoan = async (
 };
 
 describe("Integration", () => {
+    describe("Deployment Permissions", () => {
+        it("verify deployed contract permissions", async () => {
+            const {
+                loanCore,
+                borrowerNote,
+                lenderNote,
+                vaultFactory,
+                descriptor,
+                whitelist,
+                feeController,
+                repaymentController,
+                originationController,
+                admin
+            } = await loadFixture(fixture);
+
+            // LoanCore roles
+            expect(await loanCore.hasRole(FEE_CLAIMER_ROLE, admin.address)).to.be.true;
+            expect(await loanCore.hasRole(ORIGINATOR_ROLE, originationController.address)).to.be.true;
+            expect(await loanCore.hasRole(REPAYER_ROLE, repaymentController.address)).to.be.true;
+            // CallWhitelist owner
+            expect(await whitelist.owner()).to.equal(admin.address);
+            // FeeController owner
+            expect(await feeController.owner()).to.equal(admin.address);
+            // BaseURIDescriptor owner
+            expect(await descriptor.owner()).to.equal(admin.address);
+            // VaultFactory roles
+            expect(await vaultFactory.hasRole(ADMIN_ROLE, admin.address)).to.be.true;
+            expect(await vaultFactory.hasRole(FEE_CLAIMER_ROLE, admin.address)).to.be.true;
+            // PromissoryNotes roles
+            expect(await borrowerNote.hasRole(ADMIN_ROLE, admin.address)).to.be.false;
+            expect(await borrowerNote.hasRole(MINT_BURN_ROLE, loanCore.address)).to.be.true;
+            expect(await borrowerNote.hasRole(RESOURCE_MANAGER_ROLE, admin.address)).to.be.true;
+            expect(await lenderNote.hasRole(ADMIN_ROLE, admin.address)).to.be.false;
+            expect(await lenderNote.hasRole(MINT_BURN_ROLE, loanCore.address)).to.be.true;
+            expect(await lenderNote.hasRole(RESOURCE_MANAGER_ROLE, admin.address)).to.be.true;
+            // OriginationController roles
+            expect(await originationController.hasRole(ADMIN_ROLE, admin.address)).to.be.true;
+            expect(await originationController.hasRole(WHITELIST_MANAGER_ROLE, admin.address)).to.be.true;
+        });
+    });
+
     describe("Originate Loan", function () {
         it("should successfully create a loan", async () => {
             const { originationController, mockERC20, loanCore, vaultFactory, lender, borrower } = await loadFixture(
