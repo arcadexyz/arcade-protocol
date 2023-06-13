@@ -549,7 +549,9 @@ contract LoanCore is
      * @param to                    The address to send the tokens to.
      */
     function withdraw(address token, uint256 amount, address to) external override nonReentrant {
+        if (token == address(0)) revert LC_ZeroAddress();
         if (amount == 0) revert LC_ZeroAmount();
+        if (to == address(0)) revert LC_ZeroAddress();
 
         // any token balances remaining on this contract are fees owned by the protocol
         uint256 available = feesWithdrawable[token][msg.sender];
@@ -570,6 +572,9 @@ contract LoanCore is
      * @param to                        The address to send the fees to.
      */
     function withdrawProtocolFees(address token, address to) external override nonReentrant onlyRole(FEE_CLAIMER_ROLE) {
+        if (token == address(0)) revert LC_ZeroAddress();
+        if (to == address(0)) revert LC_ZeroAddress();
+
         // any token balances remaining on this contract are fees owned by the protocol
         uint256 amount = feesWithdrawable[token][address(this)];
         feesWithdrawable[token][address(this)] = 0;

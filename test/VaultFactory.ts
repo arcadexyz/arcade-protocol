@@ -257,6 +257,16 @@ describe("VaultFactory", () => {
                 .to.emit(factory, "ClaimFees")
                 .withArgs(user.address, MINT_FEE);
         });
+
+        it("reverts if claimFees() is called to address zero", async () => {
+            const { user, factory } = ctx;
+
+            await expect(factory.initializeBundle(user.address, { value: MINT_FEE })).to.emit(factory, "VaultCreated");
+
+            expect(await ethers.provider.getBalance(factory.address)).to.eq(MINT_FEE);
+
+            await expect(factory.connect(user).claimFees(ethers.constants.AddressZero)).to.be.revertedWith("VF_ZeroAddress");
+        });
     })
 
     describe("Permit", () => {

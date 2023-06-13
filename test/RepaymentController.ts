@@ -1048,6 +1048,24 @@ describe("RepaymentController", () => {
             ).to.be.revertedWith("RC_InvalidState");
         });
 
+        it("reverts if redeemNote() is called to address zero", async () => {
+            const { mockERC20, repaymentController, lender } = ctx;
+
+            const { loanId } = await initializeLoan(
+                ctx,
+                mockERC20.address,
+                BigNumber.from(86400), // durationSecs
+                ethers.utils.parseEther("100"), // principal
+                ethers.utils.parseEther("1000"), // interest
+                1754884800, // deadline
+            );
+
+            // Should fail, since loan has not been repaid
+            await expect(
+                repaymentController.connect(lender).redeemNote(loanId, ethers.constants.AddressZero),
+            ).to.be.revertedWith("RC_ZeroAddress");
+        });
+
         it("100 ETH principal, 10% interest, borrower force repays (5% fee, 10% affiliate split), lender redeems with 10% fee", async () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, lenderNote } = ctx;
 

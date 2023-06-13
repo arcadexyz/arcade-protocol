@@ -124,6 +124,8 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
      * @param loanId                    The ID of the lender note to redeem.
      */
     function redeemNote(uint256 loanId, address to) external override {
+        if (to == address(0)) revert RC_ZeroAddress();
+
         LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
         (, uint256 amountOwed) = loanCore.getNoteReceipt(loanId);
 
