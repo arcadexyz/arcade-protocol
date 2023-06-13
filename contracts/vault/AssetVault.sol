@@ -317,7 +317,7 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
             revert AV_NonWhitelistedApproval(token, spender);
         }
 
-        // increase spender allowance
+        // decrease spender allowance
         IERC20(token).safeDecreaseAllowance(spender, amount);
 
         emit DecreaseAllowance(msg.sender, token, spender, amount);
