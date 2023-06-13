@@ -72,8 +72,10 @@ error AV_LengthMismatch(string arrayType);
 
 /**
  * @notice Zero address passed in where not allowed.
+ *
+ * @param addressType                  The type of address that is zero.
  */
-error AV_ZeroAddress();
+error AV_ZeroAddress(string addressType);
 
 /**
  * @notice Delegation disallowed.

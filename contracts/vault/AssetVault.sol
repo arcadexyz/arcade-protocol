@@ -132,6 +132,8 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
      * @param to                    The recipient of the withdrawn funds.
      */
     function withdrawERC20(address token, address to) external override onlyOwner onlyWithdrawEnabled {
+        if (to == address(0)) revert AV_ZeroAddress("to");
+        
         uint256 balance = IERC20(token).balanceOf(address(this));
         IERC20(token).safeTransfer(to, balance);
         emit WithdrawERC20(msg.sender, token, to, balance);
@@ -200,10 +202,10 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         if (tokensLength > MAX_WITHDRAW_ITEMS) revert AV_TooManyItems(tokensLength);
         if (tokensLength != tokenIds.length) revert AV_LengthMismatch("tokenId");
         if (tokensLength != tokenTypes.length) revert AV_LengthMismatch("tokenType");
-        if (to == address(0)) revert AV_ZeroAddress();
+        if (to == address(0)) revert AV_ZeroAddress("to");
 
         for (uint256 i = 0; i < tokensLength; i++) {
-            if (tokens[i] == address(0)) revert AV_ZeroAddress();
+            if (tokens[i] == address(0)) revert AV_ZeroAddress("token");
 
             if (tokenTypes[i] == TokenType.ERC721) {
                 _withdrawERC721(tokens[i], tokenIds[i], to);
@@ -221,6 +223,8 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
      * @param to                    The recipient of the withdrawn funds.
      */
     function withdrawETH(address to) external override onlyOwner onlyWithdrawEnabled nonReentrant {
+        if (to == address(0)) revert AV_ZeroAddress("to");
+        
         // perform transfer
         uint256 balance = address(this).balance;
         payable(to).sendValue(balance);
@@ -241,6 +245,8 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         uint256 punkIndex,
         address to
     ) external override onlyOwner onlyWithdrawEnabled {
+        if (to == address(0)) revert AV_ZeroAddress("to");
+
         IPunks(punks).transferPunk(to, punkIndex);
         emit WithdrawPunk(msg.sender, punks, to, punkIndex);
     }
@@ -369,7 +375,10 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         uint256 tokenId,
         address to
     ) private {
+        if (to == address(0)) revert AV_ZeroAddress("to");
+
         IERC721(token).safeTransferFrom(address(this), to, tokenId);
+
         emit WithdrawERC721(msg.sender, token, to, tokenId);
     }
 
@@ -385,8 +394,11 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         uint256 tokenId,
         address to
     ) private {
+        if (to == address(0)) revert AV_ZeroAddress("to");
+
         uint256 balance = IERC1155(token).balanceOf(address(this), tokenId);
         IERC1155(token).safeTransferFrom(address(this), to, tokenId, balance, "");
+
         emit WithdrawERC1155(msg.sender, token, to, tokenId, balance);
     }
 
