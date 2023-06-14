@@ -6,6 +6,8 @@ import "../external/interfaces/IDelegationRegistry.sol";
 
 import "./CallWhitelist.sol";
 
+import { CWD_RegistryAlreadySet } from "../errors/Vault.sol";
+
 /**
  * @title CallWhitelistDelegation
  * @author Non-Fungible Technologies, Inc.
@@ -83,6 +85,8 @@ contract CallWhitelistDelegation is CallWhitelist {
      * @param _registry             The new registry.
      */
     function setRegistry(address _registry) external onlyOwner {
+        if (address(registry) == _registry) revert CWD_RegistryAlreadySet();
+
         registry = IDelegationRegistry(_registry);
 
         emit RegistryChanged(msg.sender, _registry);

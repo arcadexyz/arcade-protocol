@@ -102,6 +102,17 @@ describe("CallWhitelistDelegation", () => {
                 .to.be.revertedWith("Ownable: caller is not the owner");
         });
 
+        it("should fail if same address is used", async () => {
+            const { whitelist, user, other } = await loadFixture(fixture);
+
+            await expect(whitelist.connect(user).setRegistry(other.address))
+                .to.emit(whitelist, "RegistryChanged")
+                .withArgs(user.address, other.address);
+
+            await expect(whitelist.connect(user).setRegistry(other.address))
+                .to.be.revertedWith("CWD_RegistryAlreadySet()");
+        });
+
         it("should succeed after ownership transferred", async () => {
             const { whitelist, user, other } = await loadFixture(fixture);
 

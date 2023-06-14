@@ -142,3 +142,10 @@ error CW_AlreadyWhitelisted(address callee, bytes4 selector);
  * @param selector                           The function selector to be removed from CallWhitelist mapping.
  */
 error CW_NotWhitelisted(address callee, bytes4 selector);
+
+// ================================== Call Whitelist Delegation ======================================
+
+/**
+ * @notice The registry address provided is currently set as the registry.
+ */
+error CWD_RegistryAlreadySet();
