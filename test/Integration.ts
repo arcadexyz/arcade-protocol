@@ -54,6 +54,7 @@ interface TestContext {
     borrower: SignerWithAddress;
     lender: SignerWithAddress;
     admin: SignerWithAddress;
+    other: SignerWithAddress;
     currentTimestamp: number;
     blockchainTime: BlockchainTime;
 }
@@ -75,7 +76,7 @@ const fixture = async (): Promise<TestContext> => {
     const currentTimestamp = await blockchainTime.secondsFromNow(0);
 
     const signers: SignerWithAddress[] = await ethers.getSigners();
-    const [borrower, lender, admin] = signers;
+    const [borrower, lender, admin, other] = signers;
 
     const whitelist = <CallWhitelist>await deploy("CallWhitelist", admin, []);
     const vaultTemplate = <AssetVault>await deploy("AssetVault", admin, []);
@@ -149,6 +150,7 @@ const fixture = async (): Promise<TestContext> => {
         borrower,
         lender,
         admin,
+        other,
         currentTimestamp,
         blockchainTime,
     };
@@ -701,7 +703,7 @@ describe("Integration", () => {
 
         it("full loan cycle, with realistic fees and registered affiliate, two-step repay", async () => {
             const context = await loadFixture(fixture);
-            const { feeController, repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, admin, lenderNote } = context;
+            const { feeController, repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, admin, other, lenderNote } = context;
 
             // Set a 50 bps lender fee on origination,
             // and a 10% fee on interest, plus 5% on redemption.
@@ -725,10 +727,13 @@ describe("Integration", () => {
                 .connect(borrower)
                 .approve(loanCore.address, repayAmount);
 
+            // Add lender to the mockERC20 blacklist so it forces the lender to call redeemNote
+            await mockERC20.setBlacklisted(lender.address, true);
+
             // pre-repaid state
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
 
-            await expect(repaymentController.connect(borrower).forceRepay(loanId))
+            await expect(repaymentController.connect(borrower).repay(loanId))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
                 .to.emit(loanCore, "ForceRepay")
@@ -741,11 +746,11 @@ describe("Integration", () => {
             expect(await lenderNote.ownerOf(loanId)).to.equal(lender.address);
 
             // redeem the note to complete the repay flow
-            await expect(repaymentController.connect(lender).redeemNote(loanId, lender.address))
+            await expect(repaymentController.connect(lender).redeemNote(loanId, other.address))
                 .to.emit(loanCore, "NoteRedeemed")
-                .withArgs(mockERC20.address, lender.address, lender.address, loanId, ethers.utils.parseEther("103.55"))
+                .withArgs(mockERC20.address, lender.address, other.address, loanId, ethers.utils.parseEther("103.55"))
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(loanCore.address, lender.address, ethers.utils.parseEther("103.55"));
+                .withArgs(loanCore.address, other.address, ethers.utils.parseEther("103.55"));
 
             // Withdraw fees for both protocol and affiliate
             await expect(
