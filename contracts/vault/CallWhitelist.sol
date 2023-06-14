@@ -77,7 +77,7 @@ contract CallWhitelist is Ownable, CallBlacklist, ICallWhitelist {
     }
 
     /**
-     * @notice Remove the given calle and selector from the whitelist. Can only be called by owner.
+     * @notice Remove the given callee and selector from the whitelist. Can only be called by owner.
      *
      * @dev   Calls which are not already whitelisted will revert.
      *
