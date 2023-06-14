@@ -202,7 +202,6 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         if (tokensLength > MAX_WITHDRAW_ITEMS) revert AV_TooManyItems(tokensLength);
         if (tokensLength != tokenIds.length) revert AV_LengthMismatch("tokenId");
         if (tokensLength != tokenTypes.length) revert AV_LengthMismatch("tokenType");
-        if (to == address(0)) revert AV_ZeroAddress("to");
 
         for (uint256 i = 0; i < tokensLength; i++) {
             if (tokens[i] == address(0)) revert AV_ZeroAddress("token");
