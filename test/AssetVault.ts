@@ -543,7 +543,7 @@ describe("AssetVault", () => {
         });
     });
 
-    describe("callApprove", () => {
+    describe("token allowances", () => {
         describe("increaseAllowance", () => {
             it("succeeds if current owner and on whitelist", async () => {
                 const { whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
