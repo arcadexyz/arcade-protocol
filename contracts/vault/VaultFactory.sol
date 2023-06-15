@@ -163,7 +163,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
      * @return tokenID              The token ID of the bundle token, derived from the vault address.
      */
     function initializeBundle(address to) external payable override returns (uint256) {
-        uint256 mintFee = feeController.get(FL_01);
+        uint256 mintFee = feeController.getVaultFee(FL_01);
 
         if (msg.value < mintFee) revert VF_InsufficientMintFee(msg.value, mintFee);
 

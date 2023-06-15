@@ -32,7 +32,7 @@ describe("FeeController", () => {
             expect(feeController).to.not.be.undefined;
 
             // Expect default max fees to be set
-            expect(await feeController.getMaxFee(await feeController.FL_01())).to.equal(ethers.utils.parseEther("1"));
+            expect(await feeController.getMaxVaultFee(await feeController.FL_01())).to.equal(ethers.utils.parseEther("1"));
             expect(await feeController.getMaxFee(await feeController.FL_02())).to.equal(10_00);
             expect(await feeController.getMaxFee(await feeController.FL_03())).to.equal(10_00);
             expect(await feeController.getMaxFee(await feeController.FL_04())).to.equal(20_00);
