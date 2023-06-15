@@ -208,8 +208,8 @@ contract LoanCore is
      *         All promissory notes will be burned and the loan will be marked as complete.
      *
      * @dev For loans where the lender cannot receive tokens, only the borrower note will be
-     *      burned. The loan will still be closed, but the lender will need to call redeemNote
-     *      to receive their tokens.
+     *      burned. In this case, the loan will still be closed, and the lender will need to
+     *      call redeemNote to receive their tokens.
      *
      * @param loanId                The ID of the loan to repay.
      * @param payer                 The party repaying the loan.
@@ -223,8 +223,6 @@ contract LoanCore is
         uint256 _amountToLender
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         LoanLibrary.LoanData memory data = _handleRepay(loanId, _amountFromPayer, _amountToLender);
-        IERC20 payableCurrency = IERC20(data.terms.payableCurrency);
-
         address lender = lenderNote.ownerOf(loanId);
         address borrower = borrowerNote.ownerOf(loanId);
 
@@ -232,7 +230,7 @@ contract LoanCore is
         _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, _amountFromPayer);
 
         // try to send repayment to lender. If it fails, create NoteReceipt and burn only the borrower note
-        try this.transferLenderTokens(payableCurrency, lender, _amountToLender) {
+        try this.transferLenderTokens(IERC20(data.terms.payableCurrency), lender, _amountToLender) {
             // burn borrower and lender notes
             _burnLoanNotes(loanId);
         } catch {

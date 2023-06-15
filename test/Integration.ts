@@ -727,7 +727,7 @@ describe("Integration", () => {
                 .connect(borrower)
                 .approve(loanCore.address, repayAmount);
 
-            // Add lender to the mockERC20 blacklist so it forces the lender to call redeemNote
+            // Add lender to the mockERC20 blacklist so it forces call to redeemNote
             await mockERC20.setBlacklisted(lender.address, true);
 
             // pre-repaid state
