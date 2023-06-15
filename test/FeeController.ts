@@ -66,7 +66,47 @@ describe("FeeController", () => {
                 const { feeController, user } = ctx;
 
                 await expect(
-                    feeController.connect(user).set(await feeController.FL_02(), 50_00)
+                    feeController.connect(user).set(await feeController.FL_01(), ethers.utils.parseEther("1.1"))
+                ).to.be.revertedWith(
+                    "FC_FeeOverMax"
+                );
+                await expect(
+                    feeController.connect(user).set(await feeController.FL_02(), 11_00)
+                ).to.be.revertedWith(
+                    "FC_FeeOverMax"
+                );
+                await expect(
+                    feeController.connect(user).set(await feeController.FL_03(), 11_00)
+                ).to.be.revertedWith(
+                    "FC_FeeOverMax"
+                );
+                await expect(
+                    feeController.connect(user).set(await feeController.FL_04(), 21_00)
+                ).to.be.revertedWith(
+                    "FC_FeeOverMax"
+                );
+                await expect(
+                    feeController.connect(user).set(await feeController.FL_05(), 21_00)
+                ).to.be.revertedWith(
+                    "FC_FeeOverMax"
+                );
+                await expect(
+                    feeController.connect(user).set(await feeController.FL_06(), 11_00)
+                ).to.be.revertedWith(
+                    "FC_FeeOverMax"
+                );
+                await expect(
+                    feeController.connect(user).set(await feeController.FL_07(), 51_00)
+                ).to.be.revertedWith(
+                    "FC_FeeOverMax"
+                );
+                await expect(
+                    feeController.connect(user).set(await feeController.FL_08(), 11_00)
+                ).to.be.revertedWith(
+                    "FC_FeeOverMax"
+                );
+                await expect(
+                    feeController.connect(user).set(await feeController.FL_09(), 11_00)
                 ).to.be.revertedWith(
                     "FC_FeeOverMax"
                 );
