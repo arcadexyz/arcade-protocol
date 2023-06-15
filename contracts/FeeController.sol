@@ -27,12 +27,12 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
     /// @dev Important: these fees may be expressed either in gross amounts or basis
     ///                 points. It's required that the consumer of this controller handle
     ///                 accounting properly based on their own knowledge of the fee type.
-    mapping(bytes32 => uint256) public fees;
+    mapping(bytes32 => uint64) public fees;
 
     /// @dev Max fees
     /// @dev Functionally immutable, can only be set on deployment. Can specify a maximum fee
     ///      for any id.
-    mapping(bytes32 => uint256) public maxFees;
+    mapping(bytes32 => uint64) public maxFees;
 
     // ========================================= CONSTRUCTOR ===========================================
 
@@ -67,7 +67,7 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
      * @param id                            The bytes32 identifier for the fee.
      * @param fee                           The fee to set.
      */
-    function set(bytes32 id, uint256 fee) public override onlyOwner {
+    function set(bytes32 id, uint64 fee) public override onlyOwner {
         if (maxFees[id] != 0 && fee > maxFees[id]) {
             revert FC_FeeOverMax(id, fee, maxFees[id]);
         }
@@ -84,7 +84,7 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
      *
      * @return fee                          The fee for the given id.
      */
-    function get(bytes32 id) external view override returns (uint256) {
+    function get(bytes32 id) external view override returns (uint64) {
         return fees[id];
     }
 
@@ -95,7 +95,7 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
      *
      * @return fee                          The maximum fee for the given id.
      */
-    function getMaxFee(bytes32 id) external view override returns (uint256) {
+    function getMaxFee(bytes32 id) external view override returns (uint64) {
         return maxFees[id];
     }
 }
