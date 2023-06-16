@@ -31,6 +31,7 @@ interface ILoanCore {
 
     event FeesWithdrawn(address indexed token, address indexed caller, address indexed to, uint256 amount);
     event AffiliateSet(bytes32 indexed code, address indexed affiliate, uint96 splitBps);
+    event GracePeriodSet(uint256 gracePeriod);
 
     // ============== Lifecycle Operations ==============
 

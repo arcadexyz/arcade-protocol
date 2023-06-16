@@ -30,7 +30,8 @@ import {
     LC_NonceUsed,
     LC_AffiliateCodeAlreadySet,
     LC_NoReceipt,
-    LC_CallerNotLoanCore
+    LC_CallerNotLoanCore,
+    LC_InvalidGracePeriod
 } from "./errors/Lending.sol";
 
 /**
@@ -70,7 +71,7 @@ contract LoanCore is
     uint96 private constant MAX_AFFILIATE_SPLIT = 50_00;
 
     /// @dev Grace period for repaying a loan after loan duration.
-    uint256 private constant GRACE_PERIOD = 1 days;
+    uint256 public gracePeriod = 1 days;
 
     // =============== Contract References ================
 
@@ -274,7 +275,7 @@ contract LoanCore is
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
 
         // First check if the call is being made after the due date.
-        uint256 dueDate = data.startDate + data.terms.durationSecs + GRACE_PERIOD;
+        uint256 dueDate = data.startDate + data.terms.durationSecs + gracePeriod;
         if (dueDate >= block.timestamp) revert LC_NotExpired(dueDate);
 
         // State changes and cleanup
@@ -610,6 +611,23 @@ contract LoanCore is
      */
     function unpause() external onlyRole(ADMIN_ROLE) {
         _unpause();
+    }
+
+    /**
+     * @notice Set the grace period for repaying a loan after the loan duration.
+     *         Can only be called by contract admin. The grace period must be
+     *         between 1 hour and 7 days.
+     *
+     * @param _gracePeriod              The new grace period to set in seconds.
+     */
+    function setGracePeriod(uint256 _gracePeriod) external onlyRole(ADMIN_ROLE) {
+        if (_gracePeriod >= 1 hours && _gracePeriod <= 7 days) {
+            gracePeriod = _gracePeriod;
+
+            emit GracePeriodSet(_gracePeriod);
+        } else {
+            revert LC_InvalidGracePeriod();
+        }
     }
 
     // ============================================= HELPERS ============================================
