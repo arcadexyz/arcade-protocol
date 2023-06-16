@@ -844,14 +844,24 @@ contract OriginationController is
         address borrower,
         address lender
     ) internal nonReentrant returns (uint256 loanId) {
-        uint256 borrowerFee = (loanTerms.principal * feeController.get(FL_02)) / BASIS_POINTS_DENOMINATOR;
-        uint256 lenderFee = (loanTerms.principal * feeController.get(FL_03)) / BASIS_POINTS_DENOMINATOR;
+        // get lending origination fees from fee controller
+        IFeeController.FeesOrigination memory feeData = feeController.getFeesOrigination();
+
+        // create LoanLibrary.FeeSnapshot struct from feeData
+        LoanLibrary.FeeSnapshot memory feeSnapshot = LoanLibrary.FeeSnapshot({
+            lenderDefaultFee: feeData.lenderDefaultFee,
+            lenderInterestFee: feeData.lenderInterestFee,
+            lenderPrincipalFee: feeData.lenderPrincipalFee
+        });
+
+        uint256 borrowerFee = (loanTerms.principal * feeData.borrowerOriginationFee) / BASIS_POINTS_DENOMINATOR;
+        uint256 lenderFee = (loanTerms.principal * feeData.lenderOriginationFee) / BASIS_POINTS_DENOMINATOR;
 
         // Determine settlement amounts based on fees
         uint256 amountFromLender = loanTerms.principal + lenderFee;
         uint256 amountToBorrower = loanTerms.principal - borrowerFee;
 
-        loanId = loanCore.startLoan(lender, borrower, loanTerms, amountFromLender, amountToBorrower);
+        loanId = loanCore.startLoan(lender, borrower, loanTerms, amountFromLender, amountToBorrower, feeSnapshot);
     }
 
     /**
@@ -937,16 +947,15 @@ contract OriginationController is
         address lender,
         address oldLender
     ) internal view returns (RolloverAmounts memory amounts) {
-        uint256 borrowerFeeBps = feeController.get(FL_04);
-        uint256 lenderFeeBps = feeController.get(FL_05);
+        IFeeController.FeesRollover memory feeData = feeController.getFeesRollover();
 
         uint256 interest = getInterestAmount(oldTerms.principal, oldTerms.proratedInterestRate);
         uint256 repayAmount = oldTerms.principal + interest;
 
-        uint256 borrowerFee = (newTerms.principal * borrowerFeeBps) / BASIS_POINTS_DENOMINATOR;
+        uint256 borrowerFee = (newTerms.principal * feeData.borrowerRolloverFee) / BASIS_POINTS_DENOMINATOR;
         uint256 borrowerOwedForNewLoan = newTerms.principal - borrowerFee;
 
-        uint256 lenderFee = (newTerms.principal * lenderFeeBps) / BASIS_POINTS_DENOMINATOR;
+        uint256 lenderFee = (newTerms.principal * feeData.lenderRolloverFee) / BASIS_POINTS_DENOMINATOR;
         amounts.amountFromLender = newTerms.principal + lenderFee;
 
         // Settle amounts

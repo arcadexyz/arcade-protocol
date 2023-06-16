@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IFeeController.sol";
 import "./libraries/FeeLookups.sol";
 
-import { FC_FeeOverMax } from "./errors/Lending.sol";
+import { FC_FeeOverMax, FC_VaultMintFeeOverMax } from "./errors/Lending.sol";
 
 /**
  * @title FeeController
@@ -23,27 +23,22 @@ import { FC_FeeOverMax } from "./errors/Lending.sol";
 contract FeeController is IFeeController, FeeLookups, Ownable {
     // ============================================ STATE ==============================================
 
+    /// @dev Fee for minting a vault.
+    uint64 public vaultMintFee;
+
+    /// @dev Max fee for minting a vault.
+    uint64 public immutable maxVaultMintFee;
+
     /// @dev Fee mapping for lending protocol operations.
-    /// @dev Important: these fees are expressed either in basis points. It's required that
+    /// @dev Important: these fees are expressed in basis points. It's required that
     ///                 the consumer of this controller handle accounting properly based
     ///                 on their own knowledge of the fee type.
-    mapping(bytes32 => uint16) public fees;
-
-    /// @dev Fee mapping for vault operations.
-    /// @dev Important: these fees may be expressed either in gross amounts or basis
-    ///                 points. It's required that the consumer of this controller handle
-    ///                 accounting properly based on their own knowledge of the fee type.
-    mapping(bytes32 => uint64) public vaultFees;
+    mapping(bytes32 => uint16) public loanFees;
 
     /// @dev Max fees for lending protocol operations.
     /// @dev Functionally immutable, can only be set on deployment. Can specify a maximum fee
     ///      for any id.
-    mapping(bytes32 => uint16) public maxFees;
-
-    /// @dev Max fees for vault operations.
-    /// @dev Functionally immutable, can only be set on deployment. Can specify a maximum fee
-    ///      for any id.
-    mapping(bytes32 => uint64) public maxVaultFees;
+    mapping(bytes32 => uint16) public maxLoanFees;
 
     // ========================================= CONSTRUCTOR ===========================================
 
@@ -52,21 +47,20 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
      */
     constructor() {
         /// @dev Vault mint fee - gross
-        maxVaultFees[FL_01] = 1 ether;
+        maxVaultMintFee = 1 ether;
 
         /// @dev Origination fees - bps
-        maxFees[FL_02] = 10_00;
-        maxFees[FL_03] = 10_00;
+        maxLoanFees[FL_02] = 10_00;
+        maxLoanFees[FL_03] = 10_00;
 
         /// @dev Rollover fees - bps
-        maxFees[FL_04] = 20_00;
-        maxFees[FL_05] = 20_00;
+        maxLoanFees[FL_04] = 20_00;
+        maxLoanFees[FL_05] = 20_00;
 
         /// @dev Loan closure fees - bps
-        maxFees[FL_06] = 10_00;
-        maxFees[FL_07] = 50_00;
-        maxFees[FL_08] = 10_00;
-        maxFees[FL_09] = 10_00;
+        maxLoanFees[FL_06] = 10_00;
+        maxLoanFees[FL_07] = 50_00;
+        maxLoanFees[FL_08] = 10_00;
     }
 
     // ======================================== GETTER/SETTER ==========================================
@@ -78,31 +72,29 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
      * @param id                            The bytes32 identifier for the fee.
      * @param fee                           The fee to set.
      */
-    function set(bytes32 id, uint16 fee) public override onlyOwner {
-        if (maxFees[id] != 0 && fee > maxFees[id]) {
-            revert FC_FeeOverMax(id, fee, maxFees[id]);
+    function setLendingFee(bytes32 id, uint16 fee) public override onlyOwner {
+        if (maxLoanFees[id] != 0 && fee > maxLoanFees[id]) {
+            revert FC_FeeOverMax(id, fee, maxLoanFees[id]);
         }
 
-        fees[id] = fee;
+        loanFees[id] = fee;
 
         emit SetFee(id, fee);
     }
 
     /**
-     * @notice Set the protocol fee for a given operation to the given value.
-     *         The caller must be the owner of the contract.
+     * @notice Set the vault mint fee. The caller must be the owner of the contract.
      *
-     * @param id                            The bytes32 identifier for the fee.
      * @param fee                           The fee to set.
      */
-    function setVaultFee(bytes32 id, uint64 fee) public override onlyOwner {
-        if (maxVaultFees[id] != 0 && fee > maxVaultFees[id]) {
-            revert FC_FeeOverMax(id, fee, maxVaultFees[id]);
+    function setVaultMintFee(uint64 fee) public override onlyOwner {
+        if (maxVaultMintFee != 0 && fee > maxVaultMintFee) {
+            revert FC_VaultMintFeeOverMax(fee, maxVaultMintFee);
         }
 
-        vaultFees[id] = fee;
+        vaultMintFee = fee;
 
-        emit SetFee(id, fee);
+        emit SetVaultMintFee(fee);
     }
 
     /**
@@ -112,40 +104,67 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
      *
      * @return fee                    The fee for the given id.
      */
-    function get(bytes32 id) external view override returns (uint16) {
-        return fees[id];
+    function getLendingFee(bytes32 id) external view override returns (uint16) {
+        return loanFees[id];
     }
 
     /**
-     * @notice Get the fee for the given vault fee id.
-     *
-     * @param id                      The bytes32 id for the fee.
+     * @notice Get the vault mint fee.
      *
      * @return fee                    The fee for the given id.
      */
-    function getVaultFee(bytes32 id) external view override returns (uint64) {
-        return vaultFees[id];
+    function getVaultMintFee() external view override returns (uint64) {
+        return vaultMintFee;
     }
 
     /**
-     * @notice Get the max for the given id. Unset max fees return 0.
+     * @notice Get the fees for loan origination.
+     *
+     * @return FeesOrigination              Applicable fees for loan origination.
+     */
+    function getFeesOrigination() external view override returns (FeesOrigination memory) {
+        return (
+            FeesOrigination (
+                loanFees[FL_02],
+                loanFees[FL_03],
+                loanFees[FL_06],
+                loanFees[FL_07],
+                loanFees[FL_08]
+            )
+        );
+    }
+
+    /**
+     * @notice Get the fees for loan rollover.
+     *
+     * @return FeesRollover              Applicable fees for a loan rollover.
+     */
+    function getFeesRollover() external view override returns (FeesRollover memory) {
+        return (
+            FeesRollover (
+                loanFees[FL_04],
+                loanFees[FL_05]
+            )
+        );
+    }
+
+    /**
+     * @notice Get the max lending fee for the given id. Unset max fees return 0.
      *
      * @param id                      The bytes32 id for the fee.
      *
      * @return fee                    The maximum fee for the given id.
      */
-    function getMaxFee(bytes32 id) external view override returns (uint16) {
-        return maxFees[id];
+    function getMaxLendingFee(bytes32 id) external view override returns (uint16) {
+        return maxLoanFees[id];
     }
 
     /**
-     * @notice Get the max for the given id. Unset max fees return 0.
+     * @notice Get the max vault mint fee.
      *
-     * @param id                      The bytes32 id for the fee.
-     *
-     * @return fee                    The maximum fee for the given id.
+     * @return fee                The maximum fee for the given id.
      */
-    function getMaxVaultFee(bytes32 id) external view override returns (uint64) {
-        return maxVaultFees[id];
+    function getMaxVaultMintFee() external view override returns (uint64) {
+        return maxVaultMintFee;
     }
 }

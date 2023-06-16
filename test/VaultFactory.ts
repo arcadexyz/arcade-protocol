@@ -191,7 +191,7 @@ describe("VaultFactory", () => {
             ctx = await loadFixture(fixture);
 
             // Set a mint fee of 0.1 ETH
-            await ctx.feeController.setVaultFee(await ctx.feeController.FL_01(), MINT_FEE);
+            await ctx.feeController.setVaultMintFee(MINT_FEE);
         });
 
         it("should fail to mint if the required fee is not provided", async () => {

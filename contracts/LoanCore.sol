@@ -160,7 +160,8 @@ contract LoanCore is
         address borrower,
         LoanLibrary.LoanTerms calldata terms,
         uint256 _amountFromLender,
-        uint256 _amountToBorrower
+        uint256 _amountToBorrower,
+        LoanLibrary.FeeSnapshot calldata _feeSnapshot
     ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 loanId) {
         // Check collateral is not already used in a loan
         bytes32 collateralKey = keccak256(abi.encode(terms.collateralAddress, terms.collateralId));
@@ -188,7 +189,8 @@ contract LoanCore is
         loans[loanId] = LoanLibrary.LoanData({
             terms: terms,
             startDate: uint160(block.timestamp),
-            state: LoanLibrary.LoanState.Active
+            state: LoanLibrary.LoanState.Active,
+            feeSnapshot: _feeSnapshot
         });
 
         // Distribute notes and principal
@@ -406,7 +408,8 @@ contract LoanCore is
         loans[newLoanId] = LoanLibrary.LoanData({
             terms: terms,
             state: LoanLibrary.LoanState.Active,
-            startDate: uint160(block.timestamp)
+            startDate: uint160(block.timestamp),
+            feeSnapshot: data.feeSnapshot
         });
 
         // Burn old notes

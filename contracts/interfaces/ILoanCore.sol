@@ -40,7 +40,8 @@ interface ILoanCore {
         address borrower,
         LoanLibrary.LoanTerms calldata terms,
         uint256 _amountFromLender,
-        uint256 _amountToBorrower
+        uint256 _amountToBorrower,
+        LoanLibrary.FeeSnapshot calldata feeSnapshot
     ) external returns (uint256 loanId);
 
     function repay(

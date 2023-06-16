@@ -30,7 +30,7 @@ import {
  * is also an ERC721 that maps "ownership" of its tokens to ownership of created
  * vault assets (see OwnableERC721).
  *
- * Each Asset Vault is created via "intializeBundle", and uses a specified template
+ * Each Asset Vault is created via "initializeBundle", and uses a specified template
  * and the OpenZeppelin Clones library to cheaply deploy a new clone pointing to logic
  * in the template. The address the newly created vault is deployed to is converted
  * into a uint256, which ends up being the token ID minted.
@@ -57,7 +57,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
 
     /// @dev The template contract for asset vaults
     address public immutable template;
-    /// @dev The CallWhitelist contract definining the calling restrictions for vaults.
+    /// @dev The CallWhitelist contract defining the calling restrictions for vaults.
     address public immutable whitelist;
     /// @dev The contract specifying minting fees, if non-zero
     IFeeController public immutable feeController;
@@ -163,7 +163,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
      * @return tokenID              The token ID of the bundle token, derived from the vault address.
      */
     function initializeBundle(address to) external payable override returns (uint256) {
-        uint256 mintFee = feeController.getVaultFee(FL_01);
+        uint256 mintFee = feeController.getVaultMintFee();
 
         if (msg.value < mintFee) revert VF_InsufficientMintFee(msg.value, mintFee);
 

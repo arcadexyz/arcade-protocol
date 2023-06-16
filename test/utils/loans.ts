@@ -3,8 +3,8 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { BigNumber, BigNumberish, ethers } from "ethers";
 
 import { LoanCore, VaultFactory } from "../../typechain";
-import { SignatureItem, ArtBlocksItem } from "./types";
-import { LoanTerms } from "./types";
+import { SignatureItem, ItemsPredicate, ArtBlocksItem } from "./types";
+import { LoanTerms, FeeSnapshot } from "./types";
 
 export const initializeBundle = async (vaultFactory: VaultFactory, user: SignerWithAddress): Promise<BigNumber> => {
     const tx = await vaultFactory.connect(user).initializeBundle(user.address);
@@ -48,6 +48,12 @@ export const encodeItemCheck = (addr: string, id: BigNumberish, anyIdAllowed = f
     return ethers.utils.defaultAbiCoder.encode(types, [addr, id, anyIdAllowed]);
 }
 
+export const feeSnapshot: FeeSnapshot = {
+    lenderDefaultFee: BigNumber.from(0),
+    lenderInterestFee: BigNumber.from(0),
+    lenderPrincipalFee: BigNumber.from(0),
+};
+
 export const startLoan = async (
     loanCore: LoanCore,
     originator: SignerWithAddress,
@@ -57,7 +63,7 @@ export const startLoan = async (
     amountFromLender: BigNumberish,
     amountToBorrower: BigNumberish,
 ): Promise<BigNumber> => {
-    const tx = await loanCore.connect(originator).startLoan(lender, borrower, terms, amountFromLender, amountToBorrower);
+    const tx = await loanCore.connect(originator).startLoan(lender, borrower, terms, amountFromLender, amountToBorrower, feeSnapshot);
     const receipt = await tx.wait();
 
     const loanStartedEvent = receipt?.events?.find(e => e.event === "LoanStarted");

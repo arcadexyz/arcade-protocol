@@ -97,6 +97,12 @@ library LoanLibrary {
         address verifier;
     }
 
+    struct FeeSnapshot {
+        uint16 lenderDefaultFee;
+        uint16 lenderInterestFee;
+        uint16 lenderPrincipalFee;
+    }
+
     /**
      * @dev The data of a loan. This is stored once the loan is Active
      */
@@ -109,5 +115,7 @@ library LoanLibrary {
         /// @dev Full-slot variables
         // The raw terms of the loan.
         LoanTerms terms;
+        // Protocol fees at the time of loan creation.
+        FeeSnapshot feeSnapshot;
     }
 }
