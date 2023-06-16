@@ -1168,7 +1168,7 @@ describe("RepaymentController", () => {
             const { repaymentController, lender } = ctx;
 
             // Wind to before expiry
-            await hre.network.provider.send("evm_increaseTime", [duration + 86399]);
+            await hre.network.provider.send("evm_increaseTime", [duration + 86350]);
             await hre.network.provider.send("evm_mine");
 
             await expect(repaymentController.connect(lender).claim(loanId))
