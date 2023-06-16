@@ -551,7 +551,8 @@ describe("Integration", () => {
 
             // pre-repaid state
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
-            await blockchainTime.increaseTime(20000);
+            await blockchainTime.increaseTime(3600); // increase past loan duration
+            await blockchainTime.increaseTime(86400); // increase past grace period
 
             await expect(repaymentController.connect(lender).claim(loanId))
                 .to.emit(loanCore, "LoanClaimed")
@@ -568,7 +569,8 @@ describe("Integration", () => {
 
             // pre-repaid state
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
-            await blockchainTime.increaseTime(5000);
+            await blockchainTime.increaseTime(3600); // increase past loan duration
+            await blockchainTime.increaseTime(86400); // increase past grace period
 
             await expect(repaymentController.connect(lender).claim(loanId))
                 .to.emit(loanCore, "LoanClaimed")
@@ -598,7 +600,9 @@ describe("Integration", () => {
             const context = await loadFixture(fixture);
             const { repaymentController, lender } = context;
 
-            await blockchainTime.increaseTime(5000);
+            await blockchainTime.increaseTime(3600); // increase past loan duration
+            await blockchainTime.increaseTime(86400); // increase past grace period
+
             await expect(repaymentController.connect(lender).claim(1234)).to.be.revertedWith(
                 "RC_CannotDereference"
             );
@@ -609,7 +613,9 @@ describe("Integration", () => {
             const { repaymentController, borrower } = context;
             const { loanId } = await initializeLoan(context, 1);
 
-            await blockchainTime.increaseTime(20000);
+            await blockchainTime.increaseTime(3600); // increase past loan duration
+            await blockchainTime.increaseTime(86400); // increase past grace period
+            
             await expect(repaymentController.connect(borrower).claim(loanId)).to.be.revertedWith("RC_OnlyLender");
         });
     });

@@ -69,6 +69,9 @@ contract LoanCore is
     /// @dev Max split any affiliate can earn.
     uint96 private constant MAX_AFFILIATE_SPLIT = 50_00;
 
+    /// @dev Grace period for repaying a loan after loan duration.
+    uint256 private constant GRACE_PERIOD = 1 days;
+
     // =============== Contract References ================
 
     IPromissoryNote public immutable override borrowerNote;
@@ -252,8 +255,9 @@ contract LoanCore is
     /**
      * @notice Claim collateral on a given loan. Can only be called by RepaymentController,
      *         which verifies claim conditions. This method validates that the loan's due
-     *         date has passed, and then distributes collateral to the lender. All promissory
-     *         notes will be burned and the loan will be marked as complete.
+     *         date has passed, the grace period of 1 day has passed. Then it distributes
+     *         collateral to the lender. All promissory notes will be burned and the loan
+     *         will be marked as complete.
      *
      * @param loanId                              The ID of the loan to claim.
      * @param _amountFromLender                   Any claiming fees to be collected from the lender.
@@ -270,7 +274,7 @@ contract LoanCore is
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
 
         // First check if the call is being made after the due date.
-        uint256 dueDate = data.startDate + data.terms.durationSecs;
+        uint256 dueDate = data.startDate + data.terms.durationSecs + GRACE_PERIOD;
         if (dueDate >= block.timestamp) revert LC_NotExpired(dueDate);
 
         // State changes and cleanup

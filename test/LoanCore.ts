@@ -550,7 +550,8 @@ describe("LoanCore", () => {
 
             await mockERC20.connect(borrower).mint(loanCore.address, principal.add(proratedInterestRate));
 
-            await blockchainTime.increaseTime(360001);
+            await blockchainTime.increaseTime(360001); // increase time past loan duration
+            await blockchainTime.increaseTime(86400); // increase time past grace period
 
             await loanCore.connect(borrower).claim(loanId, 0);
             await expect(
@@ -1033,7 +1034,8 @@ describe("LoanCore", () => {
 
             await mockERC20.connect(borrower).mint(loanCore.address, terms.principal.add(terms.proratedInterestRate));
 
-            await blockchainTime.increaseTime(360001);
+            await blockchainTime.increaseTime(360001); // increase to the end of loan duration
+            await blockchainTime.increaseTime(86400) // increase 1 day to the end of repayment grace period
 
             await expect(loanCore.connect(borrower).claim(loanId, 0))
                 .to.emit(loanCore, "LoanClaimed")
@@ -1044,7 +1046,9 @@ describe("LoanCore", () => {
             const { mockERC20, loanId, loanCore, user: borrower, other, terms, blockchainTime } = await setupLoan();
 
             await mockERC20.connect(borrower).mint(loanCore.address, terms.principal.add(terms.proratedInterestRate));
-            await blockchainTime.increaseTime(360001);
+
+            await blockchainTime.increaseTime(360001); // increase to the end of loan duration
+            await blockchainTime.increaseTime(86400) // increase 1 day to the end of repayment grace period
 
             await expect(loanCore.connect(other).claim(loanId, 0)).to.be.revertedWith(
                 `AccessControl: account ${(other.address).toLowerCase()} is missing role ${REPAYER_ROLE}`,
@@ -1081,7 +1085,8 @@ describe("LoanCore", () => {
         it("should fail if the loan is already claimed", async () => {
             const { loanId, loanCore, user: borrower, blockchainTime } = await setupLoan();
 
-            await blockchainTime.increaseTime(360001);
+            await blockchainTime.increaseTime(360001); // increase to the end of loan duration
+            await blockchainTime.increaseTime(86400) // increase 1 day to the end of repayment grace period
 
             await loanCore.connect(borrower).claim(loanId, 0);
             await expect(loanCore.connect(borrower).claim(loanId, 0)).to.be.revertedWith("LC_InvalidState");
@@ -1100,7 +1105,8 @@ describe("LoanCore", () => {
             const { mockERC20, loanId, loanCore, user: borrower, terms, blockchainTime } = await setupLoan();
             await mockERC20.connect(borrower).mint(loanCore.address, terms.principal.add(terms.proratedInterestRate));
 
-            await blockchainTime.increaseTime(360001);
+            await blockchainTime.increaseTime(360001); // increase to the end of loan duration
+            await blockchainTime.increaseTime(86400) // increase 1 day to the end of repayment grace period
 
             await loanCore.connect(borrower).pause();
             await expect(loanCore.connect(borrower).claim(loanId, 0)).to.be.revertedWith(
@@ -1119,7 +1125,8 @@ describe("LoanCore", () => {
             } = await setupLoan();
             await mockERC20.connect(borrower).mint(loanCore.address, terms.principal.add(terms.proratedInterestRate));
 
-            await blockchainTime.increaseTime(360001);
+            await blockchainTime.increaseTime(360001); // increase to the end of loan duration
+            await blockchainTime.increaseTime(86400) // increase 1 day to the end of repayment grace period
             await loanCore.connect(borrower).pause();
 
             await blockchainTime.increaseTime(100);
@@ -1672,7 +1679,8 @@ describe("LoanCore", () => {
                 .mint(borrower.address, repayAmount);
             await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
 
-            await blockchainTime.increaseTime(360001);
+            await blockchainTime.increaseTime(360001); // increase to the end of loan duration
+            await blockchainTime.increaseTime(86400) // increase 1 day to the end of grace period
 
             await expect(loanCore.connect(borrower).claim(loanId, 0))
                 .to.emit(loanCore, "LoanClaimed")
