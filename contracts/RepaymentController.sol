@@ -119,7 +119,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         address lender = lenderNote.ownerOf(loanId);
         if (lender != msg.sender) revert RC_OnlyLender(lender, msg.sender);
 
-        uint256 redeemFee = (amountOwed * feeController.getLendingFee(FL_09)) / BASIS_POINTS_DENOMINATOR;
+        uint256 redeemFee = (amountOwed * feeController.getLendingFee(FL_08)) / BASIS_POINTS_DENOMINATOR;
 
         loanCore.redeemNote(loanId, redeemFee, to);
     }

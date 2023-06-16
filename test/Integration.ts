@@ -204,7 +204,7 @@ const initializeLoan = async (
     const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId, affiliateCode });
     if (terms) Object.assign(loanTerms, terms);
 
-    const lenderFeeBps = await feeController.getLendingFee(await feeController.FL_03());
+    const lenderFeeBps = await feeController.getLendingFee(await feeController.FL_02());
     const lenderFee = loanTerms.principal.mul(lenderFeeBps).div(10_000);
     const lenderWillSend = loanTerms.principal.add(lenderFee);
 
@@ -660,8 +660,8 @@ describe("Integration", () => {
             // Set a 50 bps lender fee on origination,
             // and a 10% fee on interest. Total fees earned should be
             // 0.5 (on principal) + 1 (on interest) = 1.5 ETH
-            await feeController.setLendingFee(await feeController.FL_03(), 50);
-            await feeController.setLendingFee(await feeController.FL_07(), 10_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 50);
+            await feeController.setLendingFee(await feeController.FL_06(), 10_00);
 
             // Set affiliate share to 10% of fees for borrower
             await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);
@@ -715,9 +715,9 @@ describe("Integration", () => {
             // and a 10% fee on interest, plus 5% on redemption.
             // Total fees earned should be
             // 0.5 (on principal) + 1 (on interest) + 5.45 (on redemption) = 6.95 ETH
-            await feeController.setLendingFee(await feeController.FL_03(), 50);
-            await feeController.setLendingFee(await feeController.FL_07(), 10_00);
-            await feeController.setLendingFee(await feeController.FL_09(), 5_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 50);
+            await feeController.setLendingFee(await feeController.FL_06(), 10_00);
+            await feeController.setLendingFee(await feeController.FL_08(), 5_00);
 
             // Set affiliate share to 10% of fees for borrower
             await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);
@@ -785,9 +785,9 @@ describe("Integration", () => {
             // Set a 50 bps lender fee on origination, a 3% borrower rollover
             // fee, and a 10% fee on interest. Total fees earned should be
             // 0.5 (on principal) + 1 (on interest) + 3 (on rollover) = 4.5 ETH
-            await feeController.setLendingFee(await feeController.FL_03(), 50);
-            await feeController.setLendingFee(await feeController.FL_07(), 10_00);
-            await feeController.setLendingFee(await feeController.FL_04(), 3_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 50);
+            await feeController.setLendingFee(await feeController.FL_06(), 10_00);
+            await feeController.setLendingFee(await feeController.FL_03(), 3_00);
 
             // Set affiliate share to 10% of fees for borrower
             await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);

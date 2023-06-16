@@ -33,12 +33,13 @@ describe("FeeController", () => {
 
             // Expect default max fees to be set
             expect(await feeController.getMaxVaultMintFee()).to.equal(ethers.utils.parseEther("1"));
+            expect(await feeController.getMaxLendingFee(await feeController.FL_01())).to.equal(10_00);
             expect(await feeController.getMaxLendingFee(await feeController.FL_02())).to.equal(10_00);
-            expect(await feeController.getMaxLendingFee(await feeController.FL_03())).to.equal(10_00);
+            expect(await feeController.getMaxLendingFee(await feeController.FL_03())).to.equal(20_00);
             expect(await feeController.getMaxLendingFee(await feeController.FL_04())).to.equal(20_00);
-            expect(await feeController.getMaxLendingFee(await feeController.FL_05())).to.equal(20_00);
-            expect(await feeController.getMaxLendingFee(await feeController.FL_06())).to.equal(10_00);
-            expect(await feeController.getMaxLendingFee(await feeController.FL_07())).to.equal(50_00);
+            expect(await feeController.getMaxLendingFee(await feeController.FL_05())).to.equal(10_00);
+            expect(await feeController.getMaxLendingFee(await feeController.FL_06())).to.equal(50_00);
+            expect(await feeController.getMaxLendingFee(await feeController.FL_07())).to.equal(10_00);
             expect(await feeController.getMaxLendingFee(await feeController.FL_08())).to.equal(10_00);
         });
     });
@@ -55,7 +56,7 @@ describe("FeeController", () => {
                 const { feeController, other } = ctx;
 
                 await expect(
-                    feeController.connect(other).setLendingFee(await feeController.FL_02(), 5_00)
+                    feeController.connect(other).setLendingFee(await feeController.FL_01(), 5_00)
                 ).to.be.revertedWith(
                     "Ownable: caller is not the owner"
                 );
@@ -65,7 +66,7 @@ describe("FeeController", () => {
                 const { feeController, user } = ctx;
 
                 await expect(
-                    feeController.connect(user).setLendingFee(await feeController.FL_02(), 50_00)
+                    feeController.connect(user).setLendingFee(await feeController.FL_01(), 50_00)
                 ).to.be.revertedWith(
                     "FC_FeeOverMax"
                 );
@@ -74,14 +75,14 @@ describe("FeeController", () => {
             it("sets a fee", async () => {
                 const { feeController, user } = ctx;
 
-                expect(await feeController.connect(user).getLendingFee(await feeController.FL_02())).to.eq(0);
+                expect(await feeController.connect(user).getLendingFee(await feeController.FL_01())).to.eq(0);
 
                 await expect(
-                    feeController.connect(user).setLendingFee(await feeController.FL_02(), 5_00)
+                    feeController.connect(user).setLendingFee(await feeController.FL_01(), 5_00)
                 ).to.emit(feeController, "SetFee")
-                    .withArgs(await feeController.FL_02(), 5_00);
+                    .withArgs(await feeController.FL_01(), 5_00);
 
-                expect(await feeController.connect(user).getLendingFee(await feeController.FL_02())).to.eq(5_00);
+                expect(await feeController.connect(user).getLendingFee(await feeController.FL_01())).to.eq(5_00);
             });
         });
 
@@ -89,15 +90,15 @@ describe("FeeController", () => {
             it("gets a fee", async () => {
                 const { feeController, user } = ctx;
 
-                await feeController.connect(user).setLendingFee(await feeController.FL_02(), 5_00);
+                await feeController.connect(user).setLendingFee(await feeController.FL_01(), 5_00);
 
-                expect(await feeController.connect(user).getLendingFee(await feeController.FL_02())).to.eq(5_00);
+                expect(await feeController.connect(user).getLendingFee(await feeController.FL_01())).to.eq(5_00);
             });
 
             it("unset fees return 0", async () => {
                 const { feeController, user } = ctx;
 
-                expect(await feeController.connect(user).getLendingFee(await feeController.FL_08())).to.eq(0);
+                expect(await feeController.connect(user).getLendingFee(await feeController.FL_07())).to.eq(0);
             });
         });
 
@@ -106,7 +107,7 @@ describe("FeeController", () => {
                 const { feeController, user } = ctx;
 
                 expect(
-                    await feeController.connect(user).getMaxLendingFee(await feeController.FL_02())
+                    await feeController.connect(user).getMaxLendingFee(await feeController.FL_01())
                 ).to.eq(10_00);
             });
 

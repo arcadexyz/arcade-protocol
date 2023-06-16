@@ -256,7 +256,7 @@ describe("LoanCore", () => {
             await mockERC20.connect(lender).approve(loanCore.address, principal);
 
             const fee = principal.mul(5).div(1000);
-            await feeController.setLendingFee(await feeController.FL_02(), 50);
+            await feeController.setLendingFee(await feeController.FL_01(), 50);
 
             const loanId = await startLoan(
                 loanCore,
@@ -1240,7 +1240,7 @@ describe("LoanCore", () => {
             const repayAmount = terms.principal.add(terms.proratedInterestRate);
 
             // Set a redeem fee of 10%
-            await feeController.setLendingFee(await feeController.FL_09(), 10_00);
+            await feeController.setLendingFee(await feeController.FL_08(), 10_00);
 
             await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(10), borrower.address))
                 .to.emit(loanCore, "NoteRedeemed")

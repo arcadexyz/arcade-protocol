@@ -50,16 +50,17 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
         maxVaultMintFee = 1 ether;
 
         /// @dev Origination fees - bps
+        maxLoanFees[FL_01] = 10_00;
         maxLoanFees[FL_02] = 10_00;
-        maxLoanFees[FL_03] = 10_00;
 
         /// @dev Rollover fees - bps
+        maxLoanFees[FL_03] = 20_00;
         maxLoanFees[FL_04] = 20_00;
-        maxLoanFees[FL_05] = 20_00;
 
         /// @dev Loan closure fees - bps
-        maxLoanFees[FL_06] = 10_00;
-        maxLoanFees[FL_07] = 50_00;
+        maxLoanFees[FL_05] = 10_00;
+        maxLoanFees[FL_06] = 50_00;
+        maxLoanFees[FL_07] = 10_00;
         maxLoanFees[FL_08] = 10_00;
     }
 
@@ -125,11 +126,11 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
     function getFeesOrigination() external view override returns (FeesOrigination memory) {
         return (
             FeesOrigination (
+                loanFees[FL_01],
                 loanFees[FL_02],
-                loanFees[FL_03],
+                loanFees[FL_05],
                 loanFees[FL_06],
-                loanFees[FL_07],
-                loanFees[FL_08]
+                loanFees[FL_07]
             )
         );
     }
@@ -142,8 +143,8 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
     function getFeesRollover() external view override returns (FeesRollover memory) {
         return (
             FeesRollover (
-                loanFees[FL_04],
-                loanFees[FL_05]
+                loanFees[FL_03],
+                loanFees[FL_04]
             )
         );
     }

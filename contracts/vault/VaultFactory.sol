@@ -50,9 +50,6 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
     bytes32 public constant FEE_CLAIMER_ROLE = keccak256("FEE_CLAIMER");
     bytes32 public constant RESOURCE_MANAGER_ROLE = keccak256("RESOURCE_MANAGER");
 
-    /// @dev Lookup identifier for minting fee in fee controller
-    bytes32 public constant FL_01 = keccak256("VAULT_MINT_FEE");
-
     // ================= State Variables ==================
 
     /// @dev The template contract for asset vaults

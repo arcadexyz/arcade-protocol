@@ -2410,7 +2410,7 @@ describe("OriginationController", () => {
             await mint(mockERC20, lender, loanTerms.principal);
 
             // Set a borrower origination fee
-            await feeController.setLendingFee(await feeController.FL_02(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 2_00);
 
             const sig = await createLoanTermsSignature(
                 originationController.address,
@@ -2453,7 +2453,7 @@ describe("OriginationController", () => {
             await mint(mockERC20, lender, amountSent);
 
             // Set a lender origination fee
-            await feeController.setLendingFee(await feeController.FL_03(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 2_00);
 
             const sig = await createLoanTermsSignature(
                 originationController.address,
@@ -2494,8 +2494,8 @@ describe("OriginationController", () => {
             await mint(mockERC20, lender, amountSent);
 
             // Set a borrower and lender origination fee
+            await feeController.setLendingFee(await feeController.FL_01(), 2_00);
             await feeController.setLendingFee(await feeController.FL_02(), 2_00);
-            await feeController.setLendingFee(await feeController.FL_03(), 2_00);
 
             const sig = await createLoanTermsSignature(
                 originationController.address,
