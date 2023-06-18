@@ -913,7 +913,7 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 lender,
                 "3",
                 "1",
@@ -934,7 +934,7 @@ describe("OriginationController", () => {
             ).to.be.revertedWith("function selector was not recognized and there's no fallback function");
         });
 
-        it("Reverts if the required predicates fail", async () => {
+        it.only("Reverts if the required predicates fail", async () => {
             const { loanCore, originationController, mockERC20, mockERC721, vaultFactory, user: lender, other: borrower } = ctx;
             const bundleId = await initializeBundle(vaultFactory, borrower);
             const tokenId = await mint721(mockERC721, borrower);
@@ -952,8 +952,8 @@ describe("OriginationController", () => {
 
             const predicates: ItemsPredicate[] = [
                 {
-                    verifier: verifier.address,
                     data: encodeSignatureItems(signatureItems),
+                    verifier: verifier.address,
                 },
             ];
 
@@ -963,13 +963,14 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 lender,
                 "3",
                 "1",
                 "l",
             );
-
+console.log("TST 968 ===================== borrower.address", borrower.address);
+console.log("TST 969 ===================== lender.address", lender.address);
             await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
             await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
             await expect(
@@ -999,7 +1000,7 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 lender,
                 "3",
                 "1",
@@ -1053,7 +1054,7 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 borrower,
                 "3",
                 "2", // Use nonce 2
@@ -1108,7 +1109,7 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 borrower,
                 "3",
                 "2", // Use nonce 2,
@@ -1166,7 +1167,7 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 borrower,
                 "3",
                 "1",
@@ -1246,7 +1247,7 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 borrower,
                 "3",
                 "1",
@@ -1304,7 +1305,7 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 borrower,
                 "3",
                 "1",
@@ -1361,7 +1362,7 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 lender,
                 "3",
                 "1",
@@ -1427,7 +1428,7 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 lender,
                 "3",
                 "1",
@@ -1489,7 +1490,7 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 borrower,
                 "3",
                 "1",
@@ -1535,7 +1536,7 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 borrower,
                 "3",
                 "1",
@@ -1581,7 +1582,7 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 borrower,
                 "3",
                 "1",
@@ -1626,7 +1627,7 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 borrower,
                 "3",
                 "1",
@@ -1671,7 +1672,7 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 borrower,
                 "3",
                 "1",
@@ -1717,7 +1718,7 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 borrower,
                 "3",
                 "1",
@@ -1797,7 +1798,7 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 borrower,
                 "3",
                 "1",
@@ -1882,7 +1883,7 @@ describe("OriginationController", () => {
                     originationController.address,
                     "OriginationController",
                     loanTerms,
-                    encodePredicates(predicates),
+                    predicates,
                     lender,
                     "3",
                     "1",
@@ -1962,7 +1963,7 @@ describe("OriginationController", () => {
                     originationController.address,
                     "OriginationController",
                     loanTerms,
-                    encodePredicates(predicates),
+                    predicates,
                     lender,
                     "3",
                     "1",

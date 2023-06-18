@@ -41,7 +41,7 @@ import {
     OC_ZeroArrayElements,
     OC_ArrayTooManyElements
 } from "./errors/Lending.sol";
-
+import "hardhat/console.sol";
 /**
  * @title OriginationController
  * @author Non-Fungible Technologies, Inc.
@@ -85,7 +85,13 @@ contract OriginationController is
     bytes32 private constant _ITEMS_TYPEHASH =
         keccak256(
             // solhint-disable max-line-length
-            "LoanTermsWithItems(uint32 durationSecs,uint32 deadline,uint160 proratedInterestRate,uint256 principal,address collateralAddress,bytes32 itemsHash,address payableCurrency,bytes32 affiliateCode,uint160 nonce,uint8 side)"
+            "LoanTermsWithItems(uint32 durationSecs,uint32 deadline,uint160 proratedInterestRate,uint256 principal,address collateralAddress,Predicate[] items,address payableCurrency,bytes32 affiliateCode,uint160 nonce,uint8 side)Predicate(bytes data,address verifier)"
+        );
+
+    /// @notice EIP712 type hash for Predicate.
+    bytes32 public constant _PREDICATE_TYPEHASH =
+        keccak256(
+            "Predicate(bytes data,address verifier)"
         );
 
     // =============== Contract References ===============
@@ -202,6 +208,8 @@ contract OriginationController is
         _validateLoanTerms(loanTerms);
         if (itemPredicates.length == 0) revert OC_PredicatesArrayEmpty();
 
+        bytes32 encodedData = _encodeData(itemPredicates);
+
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
@@ -210,8 +218,12 @@ contract OriginationController is
             sig,
             nonce,
             neededSide,
-            keccak256(abi.encode(itemPredicates))
+            encodedData
         );
+        console.log("SOL 216 ===================== msg.sender", msg.sender);
+console.log("SOL 224 ===================== lender", lender);
+console.log("SOL 225 ===================== externalSigner", externalSigner);
+console.log("SOL 226 ===================== borrower", borrower);
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
         _runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
@@ -219,6 +231,40 @@ contract OriginationController is
         loanCore.consumeNonce(externalSigner, nonce);
         loanId = _initialize(loanTerms, borrower, lender);
     }
+
+    /**
+     * @notice Hashes each item in Predicate[] separately and concatenates these hashes for
+     *         inclusion in _ITEMS_TYPEHASH.
+     *
+     * @dev Solidity does not support array or nested struct hashing in the keccak256 function
+     *      hence the multi-step hash creation process.
+     *
+     * @param predicates                    The predicate items array.
+     *
+     * @return itemsHash                    The concatenated hash of all items in the Predicate array.
+     */
+    function _encodeData(LoanLibrary.Predicate[] memory predicates) public view returns (bytes32 itemsHash) {
+        bytes32[] memory itemHashes = new bytes32[](predicates.length);
+        console.log("predicates ===============================");
+
+        for(uint i = 0; i < predicates.length; ++i){
+            console.logBytes(predicates[i].data);
+            itemHashes[i] = keccak256(
+                abi.encode(
+                    _PREDICATE_TYPEHASH,
+                    predicates[i].data,
+                    predicates[i].verifier
+                )
+            );
+        }
+
+        // concatenate all predicate hashes
+        itemsHash = keccak256(abi.encodePacked(itemHashes));
+        console.log("itemsHash ===============================");
+console.logBytes32(itemsHash);
+        return itemsHash;
+    }
+
 
     /**
      * @notice Initializes a loan with Loan Core, with a permit signature instead of pre-approved collateral.
@@ -542,6 +588,7 @@ contract OriginationController is
 
         sighash = _hashTypedDataV4(loanHash);
         signer = ECDSA.recover(sighash, sig.v, sig.r, sig.s);
+        console.log("SOL 588 ===================== signer", signer);
     }
 
     // ===================================== WHITELIST MANAGER UTILS =====================================
@@ -741,7 +788,8 @@ contract OriginationController is
         if (!isSelfOrApproved(callingCounterparty, caller) && !isApprovedForContract(callingCounterparty, sig, sighash)) {
             revert OC_CallerNotParticipant(msg.sender);
         }
-
+console.log("SOL 788 ===================== signer", signer);
+console.log("SOL 789 ===================== signingCounterparty", signingCounterparty);
         // Check signature validity
         if (!isSelfOrApproved(signingCounterparty, signer) && !isApprovedForContract(signingCounterparty, sig, sighash)) {
             revert OC_InvalidSignature(signingCounterparty, signer);
