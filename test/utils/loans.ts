@@ -3,7 +3,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { BigNumber, BigNumberish, ethers } from "ethers";
 
 import { LoanCore, VaultFactory } from "../../typechain";
-import { SignatureItem, ItemsPredicate, ArtBlocksItem } from "./types";
+import { SignatureItem, ArtBlocksItem } from "./types";
 import { LoanTerms } from "./types";
 
 export const initializeBundle = async (vaultFactory: VaultFactory, user: SignerWithAddress): Promise<BigNumber> => {

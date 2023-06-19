@@ -144,7 +144,7 @@ export async function createLoanItemsSignature(
         nonce,
         side,
         deadline: terms.deadline,
-        affiliateCode: terms.affiliateCode,
+        affiliateCode: terms.affiliateCode
     };
 
     const data = buildData(verifyingContract, name, version, message, typedLoanItemsData);

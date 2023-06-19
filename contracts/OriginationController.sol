@@ -389,6 +389,8 @@ contract OriginationController is
 
         address borrower = IERC721(loanCore.borrowerNote()).ownerOf(oldLoanId);
 
+        bytes32 encodedData = _encodeData(itemPredicates);
+
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
@@ -397,7 +399,7 @@ contract OriginationController is
             sig,
             nonce,
             neededSide,
-            keccak256(abi.encode(itemPredicates))
+            encodedData
         );
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);

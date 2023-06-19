@@ -1,4 +1,4 @@
-import { BigNumber, BigNumberish, Bytes, BytesLike } from "ethers";
+import { BigNumber, BigNumberish, BytesLike } from "ethers";
 
 export enum LoanState {
     DUMMY = 0,
