@@ -41,7 +41,7 @@ import {
     OC_ZeroArrayElements,
     OC_ArrayTooManyElements
 } from "./errors/Lending.sol";
-import "hardhat/console.sol";
+
 /**
  * @title OriginationController
  * @author Non-Fungible Technologies, Inc.
@@ -220,10 +220,6 @@ contract OriginationController is
             neededSide,
             encodedData
         );
-        console.log("SOL 216 ===================== msg.sender", msg.sender);
-console.log("SOL 224 ===================== lender", lender);
-console.log("SOL 225 ===================== externalSigner", externalSigner);
-console.log("SOL 226 ===================== borrower", borrower);
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
         _runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
@@ -231,37 +227,6 @@ console.log("SOL 226 ===================== borrower", borrower);
         loanCore.consumeNonce(externalSigner, nonce);
         loanId = _initialize(loanTerms, borrower, lender);
     }
-
-    /**
-     * @notice Hashes each item in Predicate[] separately and concatenates these hashes for
-     *         inclusion in _ITEMS_TYPEHASH.
-     *
-     * @dev Solidity does not support array or nested struct hashing in the keccak256 function
-     *      hence the multi-step hash creation process.
-     *
-     * @param predicates                    The predicate items array.
-     *
-     * @return itemsHash                    The concatenated hash of all items in the Predicate array.
-     */
-    function _encodeData(LoanLibrary.Predicate[] memory predicates) public view returns (bytes32 itemsHash) {
-       bytes32[] memory itemHashes = new bytes32[](predicates.length);
-
-        for(uint i = 0; i < predicates.length; ++i){
-            itemHashes[i] = keccak256(
-                abi.encode(
-                    _PREDICATE_TYPEHASH,
-                    predicates[i].data,
-                    predicates[i].verifier
-                )
-            );
-        }
-        // concatenate all predicate hashes
-        itemsHash = keccak256(abi.encodePacked(itemHashes));
-        console.log("itemsHash ===============================");
-console.logBytes32(itemsHash);
-        return itemsHash;
-    }
-
 
     /**
      * @notice Initializes a loan with Loan Core, with a permit signature instead of pre-approved collateral.
@@ -585,7 +550,6 @@ console.logBytes32(itemsHash);
 
         sighash = _hashTypedDataV4(loanHash);
         signer = ECDSA.recover(sighash, sig.v, sig.r, sig.s);
-        console.log("SOL 588 ===================== signer", signer);
     }
 
     // ===================================== WHITELIST MANAGER UTILS =====================================
@@ -785,8 +749,7 @@ console.logBytes32(itemsHash);
         if (!isSelfOrApproved(callingCounterparty, caller) && !isApprovedForContract(callingCounterparty, sig, sighash)) {
             revert OC_CallerNotParticipant(msg.sender);
         }
-console.log("SOL 788 ===================== signer", signer);
-console.log("SOL 789 ===================== signingCounterparty", signingCounterparty);
+
         // Check signature validity
         if (!isSelfOrApproved(signingCounterparty, signer) && !isApprovedForContract(signingCounterparty, sig, sighash)) {
             revert OC_InvalidSignature(signingCounterparty, signer);
@@ -794,6 +757,36 @@ console.log("SOL 789 ===================== signingCounterparty", signingCounterp
 
         // Revert if the signer is the calling counterparty
         if (signer == callingCounterparty) revert OC_SideMismatch(signer);
+    }
+
+    /**
+     * @notice Hashes each item in Predicate[] separately and concatenates these hashes for
+     *         inclusion in _ITEMS_TYPEHASH.
+     *
+     * @dev Solidity does not support array or nested struct hashing in the keccak256 function
+     *      hence the multi-step hash creation process.
+     *
+     * @param predicates                    The predicate items array.
+     *
+     * @return itemsHash                    The concatenated hash of all items in the Predicate array.
+     */
+    function _encodeData(LoanLibrary.Predicate[] memory predicates) public pure returns (bytes32 itemsHash) {
+       bytes32[] memory itemHashes = new bytes32[](predicates.length);
+
+        for(uint i = 0; i < predicates.length; ++i){
+            itemHashes[i] = keccak256(
+                abi.encode(
+                    _PREDICATE_TYPEHASH,
+                    keccak256(predicates[i].data),
+                    predicates[i].verifier
+                )
+            );
+        }
+
+        // concatenate all predicate hashes
+        itemsHash = keccak256(abi.encodePacked(itemHashes));
+
+        return itemsHash;
     }
 
     /**

@@ -42,14 +42,6 @@ export const encodeArtBlocksItems = (items: ArtBlocksItem[]): string => {
     return ethers.utils.defaultAbiCoder.encode(types, [values]);
 };
 
-export const encodePredicates = (predicates: ItemsPredicate[]): string => {
-    const types = ["(bytes,address)[]"];
-    const values = predicates.map(p => [p.data, p.verifier]);
-
-    const coded = ethers.utils.defaultAbiCoder.encode(types, [values]);
-    return ethers.utils.keccak256(coded);
-};
-
 export const encodeItemCheck = (addr: string, id: BigNumberish, anyIdAllowed = false): string => {
     const types = ["address", "uint256", "bool"];
 

@@ -1,9 +1,9 @@
 import chai, { expect } from "chai";
-import hre, { waffle, ethers } from "hardhat";
+import { waffle, ethers } from "hardhat";
 import { solidity } from "ethereum-waffle";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { BigNumber, constants } from "ethers";
+import { BigNumber } from "ethers";
 import { deploy } from "./utils/contracts";
 
 chai.use(solidity);
@@ -28,7 +28,7 @@ import { approve, mint, ZERO_ADDRESS } from "./utils/erc20";
 import { mint as mint721 } from "./utils/erc721";
 import { ItemsPredicate, LoanTerms, SignatureItem } from "./utils/types";
 import { createLoanTermsSignature, createLoanItemsSignature, createPermitSignature } from "./utils/eip712";
-import { encodePredicates, encodeSignatureItems, encodeItemCheck, initializeBundle } from "./utils/loans";
+import { encodeSignatureItems, encodeItemCheck, initializeBundle } from "./utils/loans";
 
 import {
     ORIGINATOR_ROLE,
@@ -934,7 +934,7 @@ describe("OriginationController", () => {
             ).to.be.revertedWith("function selector was not recognized and there's no fallback function");
         });
 
-        it.only("Reverts if the required predicates fail", async () => {
+        it("Reverts if the required predicates fail", async () => {
             const { loanCore, originationController, mockERC20, mockERC721, vaultFactory, user: lender, other: borrower } = ctx;
             const bundleId = await initializeBundle(vaultFactory, borrower);
             const tokenId = await mint721(mockERC721, borrower);
@@ -969,8 +969,7 @@ describe("OriginationController", () => {
                 "1",
                 "l",
             );
-console.log("TST 968 ===================== borrower.address", borrower.address);
-console.log("TST 969 ===================== lender.address", lender.address);
+
             await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
             await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
             await expect(
