@@ -84,7 +84,7 @@ contract PromissoryNote is
         string memory symbol,
         address _descriptor
     ) ERC721(name, symbol) ERC721Permit(name) {
-        if (_descriptor == address(0)) revert PN_ZeroAddress();
+        if (_descriptor == address(0)) revert PN_ZeroAddress("descriptor");
 
         descriptor = INFTDescriptor(_descriptor);
 
@@ -176,7 +176,7 @@ contract PromissoryNote is
      * @param _descriptor           The new descriptor contract.
      */
     function setDescriptor(address _descriptor) external onlyRole(RESOURCE_MANAGER_ROLE) {
-        if (_descriptor == address(0)) revert PN_ZeroAddress();
+        if (_descriptor == address(0)) revert PN_ZeroAddress("descriptor");
 
         descriptor = INFTDescriptor(_descriptor);
 

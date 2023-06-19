@@ -117,8 +117,8 @@ contract OriginationController is
      * @param _feeController                The address of the fee logic of the protocol.
      */
     constructor(address _loanCore, address _feeController) EIP712("OriginationController", "3") {
-        if (_loanCore == address(0)) revert OC_ZeroAddress();
-        if (_feeController == address(0)) revert OC_ZeroAddress();
+        if (_loanCore == address(0)) revert OC_ZeroAddress("loanCore");
+        if (_feeController == address(0)) revert OC_ZeroAddress("feeController");
 
         _setupRole(ADMIN_ROLE, msg.sender);
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
@@ -565,7 +565,7 @@ contract OriginationController is
         if (tokens.length != isAllowed.length) revert OC_BatchLengthMismatch();
 
         for (uint256 i = 0; i < tokens.length; ++i) {
-            if (tokens[i] == address(0)) revert OC_ZeroAddress();
+            if (tokens[i] == address(0)) revert OC_ZeroAddress("token");
 
             allowedCurrencies[tokens[i]] = isAllowed[i];
             emit SetAllowedCurrency(tokens[i], isAllowed[i]);
@@ -602,7 +602,7 @@ contract OriginationController is
         if (tokens.length != isAllowed.length) revert OC_BatchLengthMismatch();
 
         for (uint256 i = 0; i < tokens.length; ++i) {
-            if (tokens[i] == address(0)) revert OC_ZeroAddress();
+            if (tokens[i] == address(0)) revert OC_ZeroAddress("token");
 
             allowedCollateral[tokens[i]] = isAllowed[i];
             emit SetAllowedCollateral(tokens[i], isAllowed[i]);
@@ -636,7 +636,7 @@ contract OriginationController is
         if (verifiers.length != isAllowed.length) revert OC_BatchLengthMismatch();
 
         for (uint256 i = 0; i < verifiers.length; ++i) {
-            if (verifiers[i] == address(0)) revert OC_ZeroAddress();
+            if (verifiers[i] == address(0)) revert OC_ZeroAddress("verifier");
 
             allowedVerifiers[verifiers[i]] = isAllowed[i];
             emit SetAllowedVerifier(verifiers[i], isAllowed[i]);

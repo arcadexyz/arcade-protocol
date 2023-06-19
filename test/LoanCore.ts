@@ -192,18 +192,18 @@ describe("LoanCore", () => {
             const { mockLenderNote } = await loadFixture(fixture);
             const LoanCoreFactory = await ethers.getContractFactory("LoanCore");
 
-            await expect(
-                LoanCoreFactory.deploy(ZERO_ADDRESS, mockLenderNote.address)
-            ).to.be.revertedWith("LC_ZeroAddress");
+            await expect(LoanCoreFactory.deploy(ZERO_ADDRESS, mockLenderNote.address)).to.be.revertedWith(
+                `LC_ZeroAddress("borrowerNote")`
+            );
         });
 
         it("should not allow initialization with an invalid lender note", async () => {
             const { mockBorrowerNote } = await loadFixture(fixture);
             const LoanCoreFactory = await ethers.getContractFactory("LoanCore");
 
-            await expect(
-                LoanCoreFactory.deploy(mockBorrowerNote.address, ZERO_ADDRESS)
-            ).to.be.revertedWith("LC_ZeroAddress");
+            await expect(LoanCoreFactory.deploy(mockBorrowerNote.address, ZERO_ADDRESS)).to.be.revertedWith(
+                `LC_ZeroAddress("lenderNote")`
+            );
         });
 
         it("should not allow initialization using the same note twice", async () => {
@@ -1266,10 +1266,8 @@ describe("LoanCore", () => {
             expect(await loanCore.feesWithdrawable(mockERC20.address, loanCore.address)).to.eq(repayAmount.div(10));
 
             await expect(
-                loanCore
-                    .connect(borrower)
-                    .withdrawProtocolFees(mockERC20.address, ethers.constants.AddressZero),
-            ).to.be.revertedWith("LC_ZeroAddress");
+                loanCore.connect(borrower).withdrawProtocolFees(mockERC20.address, ethers.constants.AddressZero),
+            ).to.be.revertedWith(`LC_ZeroAddress("to")`);
         });
 
         it("reverts if withdrawProtocolFees() is called on token address zero", async () => {
@@ -1301,10 +1299,8 @@ describe("LoanCore", () => {
             expect(await loanCore.feesWithdrawable(mockERC20.address, loanCore.address)).to.eq(repayAmount.div(10));
 
             await expect(
-                loanCore
-                    .connect(borrower)
-                    .withdrawProtocolFees(ethers.constants.AddressZero, borrower.address),
-            ).to.be.revertedWith("LC_ZeroAddress");
+                loanCore.connect(borrower).withdrawProtocolFees(ethers.constants.AddressZero, borrower.address),
+            ).to.be.revertedWith(`LC_ZeroAddress("token")`);
         });
     });
 
@@ -2166,7 +2162,7 @@ describe("LoanCore", () => {
 
                 await expect(
                     loanCore.connect(borrower).withdraw(mockERC20.address, fee.div(2), ethers.constants.AddressZero),
-                ).to.be.revertedWith("LC_ZeroAddress");
+                ).to.be.revertedWith(`LC_ZeroAddress("to")`);
             });
 
             it("reverts if withdraw() is called on token address zero", async () => {
@@ -2176,7 +2172,7 @@ describe("LoanCore", () => {
 
                 await expect(
                     loanCore.connect(borrower).withdraw(ethers.constants.AddressZero, fee.div(2), borrower.address),
-                ).to.be.revertedWith("LC_ZeroAddress");
+                ).to.be.revertedWith(`LC_ZeroAddress("token")`);
             });
         });
 

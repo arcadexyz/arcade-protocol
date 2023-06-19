@@ -17,8 +17,12 @@ import "../libraries/LoanLibrary.sol";
 // ==================================== ORIGINATION CONTROLLER ======================================
 /// @notice All errors prefixed with OC_, to separate from other contracts in the protocol.
 
-/// @notice Zero address passed in where not allowed.
-error OC_ZeroAddress();
+/**
+ * @notice Zero address passed in where not allowed.
+ *
+ * @param addressType                  The type of address that is zero.
+ */
+error OC_ZeroAddress(string addressType);
 
 /**
  * @notice Ensure valid loan state for loan lifceycle operations.
@@ -226,8 +230,12 @@ error IV_InvalidProjectId(uint256 projectId, uint256 nextProjectId);
 // ==================================== REPAYMENT CONTROLLER ======================================
 /// @notice All errors prefixed with RC_, to separate from other contracts in the protocol.
 
-/// @notice Zero address passed in where not allowed.
-error RC_ZeroAddress();
+/**
+ * @notice Zero address passed in where not allowed.
+ *
+ * @param addressType                  The type of address that is zero.
+ */
+error RC_ZeroAddress(string addressType);
 
 /**
  * @notice Could not dereference loan from loan ID.
@@ -254,8 +262,12 @@ error RC_OnlyLender(address lender, address caller);
 // ==================================== Loan Core ======================================
 /// @notice All errors prefixed with LC_, to separate from other contracts in the protocol.
 
-/// @notice Zero address passed in where not allowed.
-error LC_ZeroAddress();
+/**
+ * @notice Zero address passed in where not allowed.
+ *
+ * @param addressType                  The type of address that is zero.
+ */
+error LC_ZeroAddress(string addressType);
 
 /// @notice Borrower address is same as lender address.
 error LC_ReusedNote();
@@ -346,9 +358,11 @@ error LC_NoReceipt(uint256 loanId);
 /// @notice All errors prefixed with PN_, to separate from other contracts in the protocol.
 
 /**
- * @notice Zero address provided as argument.
+ * @notice Zero address passed in where not allowed.
+ *
+ * @param addressType                  The type of address that is zero.
  */
-error PN_ZeroAddress();
+error PN_ZeroAddress(string addressType);
 
 /**
  * @notice Caller of mint function must have the MINTER_ROLE in AccessControl.
