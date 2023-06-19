@@ -447,7 +447,7 @@ describe("PromissoryNote", () => {
         });
 
         it("reverts if the tokenURI does not exist", async () => {
-            const { lenderPromissoryNote: promissoryNote, user, other } = ctx;
+            const { lenderPromissoryNote: promissoryNote } = ctx;
             const tokenId = 1;
 
             await expect(promissoryNote.tokenURI(tokenId)).to.be.revertedWith(`PN_DoesNotExist(${tokenId})`);
