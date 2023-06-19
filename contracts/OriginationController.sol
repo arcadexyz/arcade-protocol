@@ -244,11 +244,9 @@ console.log("SOL 226 ===================== borrower", borrower);
      * @return itemsHash                    The concatenated hash of all items in the Predicate array.
      */
     function _encodeData(LoanLibrary.Predicate[] memory predicates) public view returns (bytes32 itemsHash) {
-        bytes32[] memory itemHashes = new bytes32[](predicates.length);
-        console.log("predicates ===============================");
+       bytes32[] memory itemHashes = new bytes32[](predicates.length);
 
         for(uint i = 0; i < predicates.length; ++i){
-            console.logBytes(predicates[i].data);
             itemHashes[i] = keccak256(
                 abi.encode(
                     _PREDICATE_TYPEHASH,
@@ -257,7 +255,6 @@ console.log("SOL 226 ===================== borrower", borrower);
                 )
             );
         }
-
         // concatenate all predicate hashes
         itemsHash = keccak256(abi.encodePacked(itemHashes));
         console.log("itemsHash ===============================");

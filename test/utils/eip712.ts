@@ -148,8 +148,8 @@ export async function createLoanItemsSignature(
     };
 
     const data = buildData(verifyingContract, name, version, message, typedLoanItemsData);
-    // console.log("This is data:");
-    // console.log(JSON.stringify(data, null, 4));
+    console.log("This is data:");
+    console.log(JSON.stringify(data, null, 4));
     const signature = await signer._signTypedData(data.domain, data.types, data.message);
 console.log("154 EIP, signer.address ===========", signer.address);
     return fromRpcSig(signature);
