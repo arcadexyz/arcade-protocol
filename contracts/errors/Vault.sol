@@ -98,9 +98,11 @@ error OERC721_CallerNotOwner(address caller);
 /// @notice All errors prefixed with VF_, to separate from other contracts in the protocol.
 
 /**
- * @notice Zero address passed in constructor.
+ * @notice Zero address passed in where not allowed.
+ *
+ * @param addressType                  The type of address that is zero.
  */
-error VF_ZeroAddress();
+error VF_ZeroAddress(string addressType);
 
 /**
  * @notice Global index out of bounds.

@@ -75,8 +75,8 @@ describe("VaultFactory", () => {
 
         const VaultFactory = await hre.ethers.getContractFactory("VaultFactory");
         await expect(
-            VaultFactory.deploy(ZERO_ADDRESS, whitelist.address, feeController.address, descriptor.address)
-        ).to.be.revertedWith("VF_ZeroAddress");
+            VaultFactory.deploy(ZERO_ADDRESS, whitelist.address, feeController.address, descriptor.address),
+        ).to.be.revertedWith(`VF_ZeroAddress("template")`);
     });
 
     it("should return template address", async () => {
@@ -89,8 +89,8 @@ describe("VaultFactory", () => {
 
         const VaultFactory = await hre.ethers.getContractFactory("VaultFactory");
         await expect(
-            VaultFactory.deploy(vaultTemplate.address, ZERO_ADDRESS, feeController.address, descriptor.address)
-        ).to.be.revertedWith("VF_ZeroAddress");
+            VaultFactory.deploy(vaultTemplate.address, ZERO_ADDRESS, feeController.address, descriptor.address),
+        ).to.be.revertedWith(`VF_ZeroAddress("whitelist")`);
     });
 
     it("should fail to initialize if passed an invalid descriptor", async () => {
@@ -98,8 +98,8 @@ describe("VaultFactory", () => {
 
         const VaultFactory = await hre.ethers.getContractFactory("VaultFactory");
         await expect(
-            VaultFactory.deploy(vaultTemplate.address, whitelist.address, feeController.address, ZERO_ADDRESS)
-        ).to.be.revertedWith("VF_ZeroAddress");
+            VaultFactory.deploy(vaultTemplate.address, whitelist.address, feeController.address, ZERO_ADDRESS),
+        ).to.be.revertedWith(`VF_ZeroAddress("descriptor")`);
     });
 
     it("should return whitelist address", async () => {
@@ -112,8 +112,8 @@ describe("VaultFactory", () => {
 
         const VaultFactory = await hre.ethers.getContractFactory("VaultFactory");
         await expect(
-            VaultFactory.deploy(vaultTemplate.address, whitelist.address, ZERO_ADDRESS, descriptor.address)
-        ).to.be.revertedWith("VF_ZeroAddress");
+            VaultFactory.deploy(vaultTemplate.address, whitelist.address, ZERO_ADDRESS, descriptor.address),
+        ).to.be.revertedWith(`VF_ZeroAddress("feeController")`);
     });
 
     it("should return fee controller address", async () => {
@@ -265,7 +265,9 @@ describe("VaultFactory", () => {
 
             expect(await ethers.provider.getBalance(factory.address)).to.eq(MINT_FEE);
 
-            await expect(factory.connect(user).claimFees(ethers.constants.AddressZero)).to.be.revertedWith("VF_ZeroAddress");
+            await expect(factory.connect(user).claimFees(ethers.constants.AddressZero)).to.be.revertedWith(
+                `VF_ZeroAddress("to")`
+            );
         });
     })
 
@@ -703,8 +705,9 @@ describe("VaultFactory", () => {
                 const { factory, other } = ctx;
                 await factory.grantRole(RESOURCE_MANAGER_ROLE, other.address);
 
-                await expect(factory.connect(other).setDescriptor(ZERO_ADDRESS))
-                    .to.be.revertedWith("VF_ZeroAddress");
+                await expect(factory.connect(other).setDescriptor(ZERO_ADDRESS)).to.be.revertedWith(
+                    `VF_ZeroAddress("descriptor")`
+                );
             });
 
             it("changes the descriptor", async () => {
