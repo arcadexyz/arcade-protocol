@@ -1256,11 +1256,11 @@ describe("LoanCore", () => {
             // Set a redeem fee of 10%
             await feeController.set(await feeController.FL_09(), 10_00);
 
-            await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(10), lender.address))
+            await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(10), borrower.address))
                 .to.emit(loanCore, "NoteRedeemed")
-                .withArgs(mockERC20.address, lender.address, lender.address, loanId, repayAmount.div(10).mul(9))
+                .withArgs(mockERC20.address, lender.address, borrower.address, loanId, repayAmount.div(10).mul(9))
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(loanCore.address, lender.address, repayAmount.div(10).mul(9));
+                .withArgs(loanCore.address, borrower.address, repayAmount.div(10).mul(9));
 
             // Make sure lender note burned
             await expect(mockLenderNote.ownerOf(loanId)).to.be.revertedWith(
@@ -1289,11 +1289,11 @@ describe("LoanCore", () => {
             // Set a redeem fee of 10%
             await feeController.set(await feeController.FL_09(), 10_00);
 
-            await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(10), lender.address))
+            await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(10), borrower.address))
                 .to.emit(loanCore, "NoteRedeemed")
-                .withArgs(mockERC20.address, lender.address, lender.address, loanId, repayAmount.div(10).mul(9))
+                .withArgs(mockERC20.address, lender.address, borrower.address, loanId, repayAmount.div(10).mul(9))
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(loanCore.address, lender.address, repayAmount.div(10).mul(9));
+                .withArgs(loanCore.address, borrower.address, repayAmount.div(10).mul(9));
 
             // Make sure lender note burned
             await expect(mockLenderNote.ownerOf(loanId)).to.be.revertedWith(
