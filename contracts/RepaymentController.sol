@@ -77,22 +77,6 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     }
 
     /**
-     * @notice Repay an active loan, referenced by borrower note ID (equivalent to loan ID). The interest for a loan
-     *         is calculated, and the principal plus interest is withdrawn from the caller. Anyone can repay a loan.
-     *         Using forceRepay will not send funds to the lender: instead, those funds will be made
-     *         available for withdrawal in LoanCore. Can be used in cases where a borrower has funds to repay
-     *         but the lender is not able to receive those tokens (e.g. token blacklist).
-     *
-     * @param  loanId               The ID of the loan.
-     */
-    function forceRepay(uint256 loanId) external override {
-        (uint256 amountFromBorrower, uint256 amountToLender) = _prepareRepay(loanId);
-
-        // call repay function in loan core -  msg.sender will pay the amountFromBorrower
-        loanCore.forceRepay(loanId, msg.sender, amountFromBorrower, amountToLender);
-    }
-
-    /**
      * @notice Claim collateral on an active loan, referenced by lender note ID (equivalent to loan ID).
      *         The loan must be past the due date. No funds are collected
      *         from the borrower.
@@ -118,10 +102,12 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     }
 
     /**
-     * @notice Redeem a lender note for a completed return in return for funds repaid in an earlier
-     *         transaction via forceRepay. The lender note must be owned by the caller.
+     * @notice Redeem a lender note for a completed loan in return for funds repaid in an earlier
+     *         transaction that failed to send the funds to the lender upon borrower repayment.
+     *         The lender note must be owned by the caller.
      *
      * @param loanId                    The ID of the lender note to redeem.
+     * @param to                        The address to send the redeemed funds to.
      */
     function redeemNote(uint256 loanId, address to) external override {
         if (to == address(0)) revert RC_ZeroAddress("to");
@@ -141,7 +127,8 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     // =========================================== HELPERS ==============================================
 
     /**
-     * @dev Shared logic to perform validation and calculations for repay and forceRepay.
+     * @dev Perform validation and calculations for repay function. Check the loan state,
+     *      calculate the amount to collect from the borrower, and the amount to send to the lender.
      *
      * @param loanId               The ID of the loan.
      *

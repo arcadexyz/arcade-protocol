@@ -354,6 +354,11 @@ error LC_AffiliateCodeAlreadySet(bytes32 affiliateCode);
  */
 error LC_NoReceipt(uint256 loanId);
 
+/**
+ * @notice Only Loan Core contract can call this function.
+ */
+error LC_CallerNotLoanCore();
+
 // ==================================== Promissory Note ======================================
 /// @notice All errors prefixed with PN_, to separate from other contracts in the protocol.
 
