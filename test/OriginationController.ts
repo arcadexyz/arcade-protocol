@@ -2289,6 +2289,7 @@ describe("OriginationController", () => {
 
             await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
             await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+
             await expect(
                 originationController
                     .connect(borrower)
