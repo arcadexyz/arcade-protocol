@@ -18,7 +18,8 @@ import {
     VF_ZeroAddress,
     VF_TokenIdOutOfBounds,
     VF_NoTransferWithdrawEnabled,
-    VF_InsufficientMintFee
+    VF_InsufficientMintFee,
+    VF_DoesNotExist
 } from "../errors/Vault.sol";
 
 /**
@@ -208,7 +209,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
      * @return                      The bundle ID's URI string.
      */
     function tokenURI(uint256 tokenId) public view override(INFTWithDescriptor, ERC721) returns (string memory) {
-        _exists(tokenId);
+        if (!_exists(tokenId)) revert VF_DoesNotExist(tokenId);
 
         return descriptor.tokenURI(address(this), tokenId);
     }

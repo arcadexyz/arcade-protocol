@@ -364,6 +364,13 @@ error PN_MintingRole(address caller);
  */
 error PN_BurningRole(address caller);
 
+/**
+ * @notice Non-existant token id provided as argument.
+ *
+ * @param tokenId                       The ID of the token to lookup the URI for.
+ */
+error PN_DoesNotExist(uint256 tokenId);
+
 // ==================================== Fee Controller ======================================
 /// @notice All errors prefixed with FC_, to separate from other contracts in the protocol.
 

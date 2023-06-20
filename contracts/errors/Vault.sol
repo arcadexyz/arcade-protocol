@@ -124,6 +124,13 @@ error VF_NoTransferWithdrawEnabled(uint256 tokenId);
  */
 error VF_InsufficientMintFee(uint256 value, uint256 requiredMintFee);
 
+/**
+ * @notice Non-existant token id provided as argument.
+ *
+ * @param tokenId                       The ID of the token to lookup the URI for.
+ */
+error VF_DoesNotExist(uint256 tokenId);
+
 // ================================== Call Whitelist ======================================
 /// @notice All errors prefixed with CW_, to separate from other contracts in the protocol.
 
@@ -149,3 +156,4 @@ error CW_NotWhitelisted(address callee, bytes4 selector);
  * @notice The registry address provided is currently set as the registry.
  */
 error CWD_RegistryAlreadySet();
+

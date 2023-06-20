@@ -446,6 +446,13 @@ describe("PromissoryNote", () => {
             expect(await promissoryNote.tokenURI(1)).to.be.eq(`${BASE_URI}1`);
         });
 
+        it("reverts if the tokenURI does not exist", async () => {
+            const { lenderPromissoryNote: promissoryNote } = ctx;
+            const tokenId = 1;
+
+            await expect(promissoryNote.tokenURI(tokenId)).to.be.revertedWith(`PN_DoesNotExist(${tokenId})`);
+        });
+
         it("reverts if non-admin tries to change the descriptor", async () => {
             const { lenderPromissoryNote: promissoryNote, other } = ctx;
 
@@ -462,7 +469,7 @@ describe("PromissoryNote", () => {
         });
 
         it("changes the descriptor", async () => {
-            const { lenderPromissoryNote: promissoryNote, other } = ctx;
+            const { lenderPromissoryNote: promissoryNote, user, other } = ctx;
             await promissoryNote.grantRole(RESOURCE_MANAGER_ROLE, other.address);
 
             expect(await newDescriptor.baseURI()).to.be.eq(otherBaseURI);
@@ -472,6 +479,8 @@ describe("PromissoryNote", () => {
                 .withArgs(other.address, newDescriptor.address);
 
             expect(await newDescriptor.baseURI()).to.be.eq(otherBaseURI);
+
+            await promissoryNote.connect(user).mint(other.address, 1);
             expect(await promissoryNote.tokenURI(1)).to.be.eq(`${otherBaseURI}1`);
         });
     });

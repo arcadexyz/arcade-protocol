@@ -698,7 +698,7 @@ describe("VaultFactory", () => {
             });
 
             it("changes the descriptor", async () => {
-                const { factory, other } = ctx;
+                const { factory, other, user } = ctx;
                 await factory.grantRole(RESOURCE_MANAGER_ROLE, other.address);
 
                 expect(await newDescriptor.baseURI()).to.be.eq(otherBaseURI);
@@ -708,7 +708,10 @@ describe("VaultFactory", () => {
                     .withArgs(other.address, newDescriptor.address);
 
                 expect(await newDescriptor.baseURI()).to.be.eq(otherBaseURI);
-                expect(await factory.tokenURI(1)).to.be.eq(`${otherBaseURI}1`);
+
+                await createVault(factory, user);
+                const tokenId = await factory.tokenOfOwnerByIndex(user.address, 0);
+                expect(await factory.tokenURI(tokenId.toString())).to.be.eq(`${otherBaseURI}${tokenId}`);
             });
         });
 
@@ -719,6 +722,13 @@ describe("VaultFactory", () => {
             const tokenId = await factory.tokenOfOwnerByIndex(user.address, 0);
 
             expect(await factory.tokenURI(tokenId.toString())).to.be.eq(`${BASE_URI}${tokenId}`);
+        });
+
+        it("reverts if the tokenURI does not exist", async () => {
+            const { factory } = await loadFixture(fixture);
+            const tokenId = 1;
+
+            await expect(factory.tokenURI(tokenId.toString())).to.be.revertedWith(`VF_DoesNotExist(${tokenId})`);
         });
     });
 });
