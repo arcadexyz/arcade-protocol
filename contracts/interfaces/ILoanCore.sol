@@ -78,14 +78,17 @@ interface ILoanCore {
 
     function cancelNonce(uint160 nonce) external;
 
-    // ============== Fees ==============
-
-    function setAffiliateSplits(bytes32[] calldata codes, AffiliateSplit[] calldata splits) external;
+    // ============== Fee Management ==============
 
     function withdraw(address token, uint256 amount, address to) external;
 
     function withdrawProtocolFees(address token, address to) external;
 
+    // ============== Admin Operations ==============
+
+    function setAffiliateSplits(bytes32[] calldata codes, AffiliateSplit[] calldata splits) external;
+
+    function setGracePeriod(uint256 _gracePeriod) external;
 
     // ============== View Functions ==============
 

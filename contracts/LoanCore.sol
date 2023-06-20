@@ -256,7 +256,7 @@ contract LoanCore is
     /**
      * @notice Claim collateral on a given loan. Can only be called by RepaymentController,
      *         which verifies claim conditions. This method validates that the loan's due
-     *         date has passed, the grace period of 1 day has passed. Then it distributes
+     *         date has passed, and the grace period of 1 day has also passed. Then it distributes
      *         collateral to the lender. All promissory notes will be burned and the loan
      *         will be marked as complete.
      *
@@ -626,7 +626,7 @@ contract LoanCore is
 
             emit GracePeriodSet(_gracePeriod);
         } else {
-            revert LC_InvalidGracePeriod();
+            revert LC_InvalidGracePeriod(_gracePeriod);
         }
     }
 

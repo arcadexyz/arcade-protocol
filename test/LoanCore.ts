@@ -214,11 +214,6 @@ describe("LoanCore", () => {
                 LoanCoreFactory.deploy(mockBorrowerNote.address, mockBorrowerNote.address)
             ).to.be.revertedWith("LC_ReusedNote");
         });
-
-        it("check grace period is equal to 1 day", async () => {
-            const { loanCore } = await loadFixture(fixture);
-            expect(await loanCore.gracePeriod()).to.equal(86400);
-        });
     });
 
     describe("Start Loan", () => {
@@ -2206,6 +2201,9 @@ describe("LoanCore", () => {
         it("set new grace period", async () => {
             const { loanCore, user } = await loadFixture(fixture);
 
+            // verify default grace period
+            expect(await loanCore.gracePeriod()).to.equal(86400);
+
             const newGracePeriod = 86400 * 2; // two days
 
             await expect(loanCore.connect(user).setGracePeriod(newGracePeriod))
@@ -2223,7 +2221,7 @@ describe("LoanCore", () => {
             const newGracePeriod = 3600 - 1; // 1 hour - 1 second
 
             await expect(loanCore.connect(user).setGracePeriod(newGracePeriod))
-                .to.be.revertedWith("LC_InvalidGracePeriod");
+                .to.be.revertedWith(`LC_InvalidGracePeriod(${newGracePeriod})`);
         });
 
         it("reverts if grace period is set above 7 days", async () => {
@@ -2232,7 +2230,7 @@ describe("LoanCore", () => {
             const newGracePeriod = 86400 * 7 + 1; // 7 days + 1 second
 
             await expect(loanCore.connect(user).setGracePeriod(newGracePeriod))
-                .to.be.revertedWith("LC_InvalidGracePeriod");
+                .to.be.revertedWith(`LC_InvalidGracePeriod(${newGracePeriod})`);
         });
     });
 });
