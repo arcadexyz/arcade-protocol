@@ -81,10 +81,10 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
         address _feeController,
         address _descriptor
     ) ERC721("Asset Vault", "AV") ERC721Permit("Asset Vault") {
-        if (_template == address(0)) revert VF_ZeroAddress();
-        if (_whitelist == address(0)) revert VF_ZeroAddress();
-        if (_feeController == address(0)) revert VF_ZeroAddress();
-        if (_descriptor == address(0)) revert VF_ZeroAddress();
+        if (_template == address(0)) revert VF_ZeroAddress("template");
+        if (_whitelist == address(0)) revert VF_ZeroAddress("whitelist");
+        if (_feeController == address(0)) revert VF_ZeroAddress("feeController");
+        if (_descriptor == address(0)) revert VF_ZeroAddress("descriptor");
 
         template = _template;
         whitelist = _whitelist;
@@ -193,6 +193,8 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
      * @notice Claim any accrued minting fees. Only callable by FEE_CLAIMER_ROLE.
      */
     function claimFees(address to) external onlyRole(FEE_CLAIMER_ROLE) {
+        if (to == address(0)) revert VF_ZeroAddress("to");
+
         uint256 balance = address(this).balance;
         payable(to).transfer(balance);
 
@@ -221,7 +223,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
      * @param _descriptor           The new descriptor contract.
      */
     function setDescriptor(address _descriptor) external override onlyRole(RESOURCE_MANAGER_ROLE) {
-        if (_descriptor == address(0)) revert VF_ZeroAddress();
+        if (_descriptor == address(0)) revert VF_ZeroAddress("descriptor");
 
         descriptor = INFTDescriptor(_descriptor);
 

@@ -205,14 +205,18 @@ describe("OriginationController", () => {
             const { feeController } = await loadFixture(fixture);
 
             const OriginationController = await ethers.getContractFactory("OriginationController");
-            await expect(OriginationController.deploy(ZERO_ADDRESS, feeController.address)).to.be.revertedWith("OC_ZeroAddress");
+            await expect(OriginationController.deploy(ZERO_ADDRESS, feeController.address)).to.be.revertedWith(
+                `OC_ZeroAddress("loanCore")`
+            );
         });
 
         it("Reverts if feeController address is not provided", async () => {
             const { loanCore } = await loadFixture(fixture);
 
             const OriginationController = await ethers.getContractFactory("OriginationController");
-            await expect(OriginationController.deploy(loanCore.address, ZERO_ADDRESS)).to.be.revertedWith("OC_ZeroAddress");
+            await expect(OriginationController.deploy(loanCore.address, ZERO_ADDRESS)).to.be.revertedWith(
+                `OC_ZeroAddress("feeController")`
+            );
         });
 
         it("Instantiates the OriginationController", async () => {
@@ -2009,7 +2013,7 @@ describe("OriginationController", () => {
                 originationController
                     .connect(user)
                     .setAllowedVerifiers(["0x0000000000000000000000000000000000000000"], [true]),
-            ).to.be.revertedWith("OC_ZeroAddress");
+            ).to.be.revertedWith(`OC_ZeroAddress("verifier")`);
         });
 
         it("allows the contract owner to update the whitelist", async () => {
@@ -2614,15 +2618,17 @@ describe("OriginationController", () => {
         it("Reverts when whitelist manager role tries to whitelist payable currency zero address", async () => {
             const { originationController, user: admin } = ctx;
 
-            await expect(originationController.connect(admin).setAllowedPayableCurrencies([ZERO_ADDRESS], [true]))
-                .to.be.revertedWith("OC_ZeroAddress");
+            await expect(
+                originationController.connect(admin).setAllowedPayableCurrencies([ZERO_ADDRESS], [true]),
+            ).to.be.revertedWith(`OC_ZeroAddress("token")`);
         });
 
         it("Reverts when whitelist manager role tries to remove a currency with no address provided", async () => {
             const { originationController, user: admin } = ctx;
 
-            await expect(originationController.connect(admin).setAllowedPayableCurrencies([ZERO_ADDRESS], [false]))
-                .to.be.revertedWith("OC_ZeroAddress");
+            await expect(
+                originationController.connect(admin).setAllowedPayableCurrencies([ZERO_ADDRESS], [false]),
+            ).to.be.revertedWith(`OC_ZeroAddress("token")`);
         });
 
         it("Reverts when whitelist manager role tries to remove more than 50 currencies", async () => {
@@ -2712,8 +2718,9 @@ describe("OriginationController", () => {
         it("Reverts when whitelist manager role tries to whitelist collateral at zero address", async () => {
             const { originationController, user: admin } = ctx;
 
-            await expect(originationController.connect(admin).setAllowedCollateralAddresses([ZERO_ADDRESS], [true]))
-                .to.be.revertedWith("OC_ZeroAddress");
+            await expect(
+                originationController.connect(admin).setAllowedCollateralAddresses([ZERO_ADDRESS], [true]),
+            ).to.be.revertedWith(`OC_ZeroAddress("token")`);
         });
 
         it("Whitelist manager role adds and removes whitelisted collateral", async () => {
@@ -2735,8 +2742,9 @@ describe("OriginationController", () => {
         it("Reverts when whitelist manager role tries to whitelist collateral at zero address", async () => {
             const { originationController, user: admin } = ctx;
 
-            await expect(originationController.connect(admin).setAllowedCollateralAddresses([ZERO_ADDRESS], [false]))
-                .to.be.revertedWith("OC_ZeroAddress");
+            await expect(
+                originationController.connect(admin).setAllowedCollateralAddresses([ZERO_ADDRESS], [false]),
+            ).to.be.revertedWith(`OC_ZeroAddress("token")`);
         });
     });
 });

@@ -52,8 +52,8 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
      * @param _feeController                The address of the fee logic of the protocol.
      */
     constructor(address _loanCore, address _feeController) {
-        if (_loanCore == address(0)) revert RC_ZeroAddress();
-        if (_feeController == address(0)) revert RC_ZeroAddress();
+        if (_loanCore == address(0)) revert RC_ZeroAddress("loanCore");
+        if (_feeController == address(0)) revert RC_ZeroAddress("feeController");
 
         loanCore = ILoanCore(_loanCore);
         lenderNote = loanCore.lenderNote();
@@ -124,6 +124,8 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
      * @param loanId                    The ID of the lender note to redeem.
      */
     function redeemNote(uint256 loanId, address to) external override {
+        if (to == address(0)) revert RC_ZeroAddress("to");
+
         LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
         (, uint256 amountOwed) = loanCore.getNoteReceipt(loanId);
 

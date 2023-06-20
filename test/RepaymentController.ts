@@ -244,14 +244,18 @@ describe("RepaymentController", () => {
             const { feeController } = ctx;
 
             const RepaymentController = await ethers.getContractFactory("RepaymentController");
-            await expect(RepaymentController.deploy(ZERO_ADDRESS, feeController.address)).to.be.revertedWith("RC_ZeroAddress");
+            await expect(RepaymentController.deploy(ZERO_ADDRESS, feeController.address)).to.be.revertedWith(
+                `RC_ZeroAddress("loanCore")`
+            );
         });
 
         it("Reverts if feeController address is not provided", async () => {
             const { loanCore } = ctx;
 
             const RepaymentController = await ethers.getContractFactory("RepaymentController");
-            await expect(RepaymentController.deploy(loanCore.address, ZERO_ADDRESS)).to.be.revertedWith("RC_ZeroAddress");
+            await expect(RepaymentController.deploy(loanCore.address, ZERO_ADDRESS)).to.be.revertedWith(
+                `RC_ZeroAddress("feeController")`,
+            );
         });
 
         it("Instantiates the RepaymentController", async () => {
@@ -1046,6 +1050,24 @@ describe("RepaymentController", () => {
             await expect(
                 repaymentController.connect(lender).redeemNote(loanId, lender.address)
             ).to.be.revertedWith("RC_InvalidState");
+        });
+
+        it("reverts if redeemNote() is called to address zero", async () => {
+            const { mockERC20, repaymentController, lender } = ctx;
+
+            const { loanId } = await initializeLoan(
+                ctx,
+                mockERC20.address,
+                BigNumber.from(86400), // durationSecs
+                ethers.utils.parseEther("100"), // principal
+                ethers.utils.parseEther("1000"), // interest
+                1754884800, // deadline
+            );
+
+            // Should fail, since loan has not been repaid
+            await expect(
+                repaymentController.connect(lender).redeemNote(loanId, ethers.constants.AddressZero),
+            ).to.be.revertedWith(`RC_ZeroAddress("to")`);
         });
 
         it("100 ETH principal, 10% interest, borrower force repays (5% fee, 10% affiliate split), lender redeems with 10% fee", async () => {

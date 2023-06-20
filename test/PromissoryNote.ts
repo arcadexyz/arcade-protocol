@@ -464,8 +464,9 @@ describe("PromissoryNote", () => {
             const { lenderPromissoryNote: promissoryNote, other } = ctx;
             await promissoryNote.grantRole(RESOURCE_MANAGER_ROLE, other.address);
 
-            await expect(promissoryNote.connect(other).setDescriptor(ZERO_ADDRESS))
-                .to.be.revertedWith("PN_ZeroAddress");
+            await expect(promissoryNote.connect(other).setDescriptor(ZERO_ADDRESS)).to.be.revertedWith(
+                `PN_ZeroAddress("descriptor")`
+            );
         });
 
         it("changes the descriptor", async () => {

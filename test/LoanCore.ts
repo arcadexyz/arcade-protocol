@@ -192,18 +192,18 @@ describe("LoanCore", () => {
             const { mockLenderNote } = await loadFixture(fixture);
             const LoanCoreFactory = await ethers.getContractFactory("LoanCore");
 
-            await expect(
-                LoanCoreFactory.deploy(ZERO_ADDRESS, mockLenderNote.address)
-            ).to.be.revertedWith("LC_ZeroAddress");
+            await expect(LoanCoreFactory.deploy(ZERO_ADDRESS, mockLenderNote.address)).to.be.revertedWith(
+                `LC_ZeroAddress("borrowerNote")`
+            );
         });
 
         it("should not allow initialization with an invalid lender note", async () => {
             const { mockBorrowerNote } = await loadFixture(fixture);
             const LoanCoreFactory = await ethers.getContractFactory("LoanCore");
 
-            await expect(
-                LoanCoreFactory.deploy(mockBorrowerNote.address, ZERO_ADDRESS)
-            ).to.be.revertedWith("LC_ZeroAddress");
+            await expect(LoanCoreFactory.deploy(mockBorrowerNote.address, ZERO_ADDRESS)).to.be.revertedWith(
+                `LC_ZeroAddress("lenderNote")`
+            );
         });
 
         it("should not allow initialization using the same note twice", async () => {
@@ -1236,6 +1236,72 @@ describe("LoanCore", () => {
                 .to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, borrower.address, borrower.address, repayAmount.div(10));
         });
+
+        it("reverts if withdrawProtocolFees() is called to address zero", async () => {
+            const { loanCore, mockERC20, loanId, borrower, lender, terms, mockLenderNote, feeController } =
+                await setupLoan();
+            const repayAmount = terms.principal.add(terms.proratedInterestRate);
+
+            // Set a redeem fee of 10%
+            await feeController.set(await feeController.FL_09(), 10_00);
+
+            await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(10), lender.address))
+                .to.emit(loanCore, "NoteRedeemed")
+                .withArgs(mockERC20.address, lender.address, lender.address, loanId, repayAmount.div(10).mul(9))
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(loanCore.address, lender.address, repayAmount.div(10).mul(9));
+
+            // Make sure lender note burned
+            await expect(mockLenderNote.ownerOf(loanId)).to.be.revertedWith(
+                "ERC721: owner query for nonexistent token",
+            );
+
+            // Make sure receipt is zero'd out
+            const receipt = await loanCore.noteReceipts(loanId);
+            expect(receipt).to.not.be.undefined;
+            expect(receipt[0]).to.eq(ZERO_ADDRESS);
+            expect(receipt[1]).to.eq(0);
+
+            // Check protocol fees available for withdrawal
+            expect(await loanCore.feesWithdrawable(mockERC20.address, loanCore.address)).to.eq(repayAmount.div(10));
+
+            await expect(
+                loanCore.connect(borrower).withdrawProtocolFees(mockERC20.address, ethers.constants.AddressZero),
+            ).to.be.revertedWith(`LC_ZeroAddress("to")`);
+        });
+
+        it("reverts if withdrawProtocolFees() is called on token address zero", async () => {
+            const { loanCore, mockERC20, loanId, borrower, lender, terms, mockLenderNote, feeController } =
+                await setupLoan();
+            const repayAmount = terms.principal.add(terms.proratedInterestRate);
+
+            // Set a redeem fee of 10%
+            await feeController.set(await feeController.FL_09(), 10_00);
+
+            await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(10), lender.address))
+                .to.emit(loanCore, "NoteRedeemed")
+                .withArgs(mockERC20.address, lender.address, lender.address, loanId, repayAmount.div(10).mul(9))
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(loanCore.address, lender.address, repayAmount.div(10).mul(9));
+
+            // Make sure lender note burned
+            await expect(mockLenderNote.ownerOf(loanId)).to.be.revertedWith(
+                "ERC721: owner query for nonexistent token",
+            );
+
+            // Make sure receipt is zero'd out
+            const receipt = await loanCore.noteReceipts(loanId);
+            expect(receipt).to.not.be.undefined;
+            expect(receipt[0]).to.eq(ZERO_ADDRESS);
+            expect(receipt[1]).to.eq(0);
+
+            // Check protocol fees available for withdrawal
+            expect(await loanCore.feesWithdrawable(mockERC20.address, loanCore.address)).to.eq(repayAmount.div(10));
+
+            await expect(
+                loanCore.connect(borrower).withdrawProtocolFees(ethers.constants.AddressZero, borrower.address),
+            ).to.be.revertedWith(`LC_ZeroAddress("token")`);
+        });
     });
 
     describe("Claim fees", () => {
@@ -2087,6 +2153,26 @@ describe("LoanCore", () => {
 
                 await expect(loanCore.connect(borrower).withdraw(mockERC20.address, 1, borrower.address))
                     .to.be.revertedWith("LC_CannotWithdraw");
+            });
+
+            it("reverts if withdraw() is called to address zero", async () => {
+                const { borrower, loanCore, mockERC20 } = ctx;
+
+                expect(await loanCore.feesWithdrawable(mockERC20.address, borrower.address)).to.eq(fee.div(2));
+
+                await expect(
+                    loanCore.connect(borrower).withdraw(mockERC20.address, fee.div(2), ethers.constants.AddressZero),
+                ).to.be.revertedWith(`LC_ZeroAddress("to")`);
+            });
+
+            it("reverts if withdraw() is called on token address zero", async () => {
+                const { borrower, loanCore, mockERC20 } = ctx;
+
+                expect(await loanCore.feesWithdrawable(mockERC20.address, borrower.address)).to.eq(fee.div(2));
+
+                await expect(
+                    loanCore.connect(borrower).withdraw(ethers.constants.AddressZero, fee.div(2), borrower.address),
+                ).to.be.revertedWith(`LC_ZeroAddress("token")`);
             });
         });
 
