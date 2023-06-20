@@ -276,15 +276,15 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
     }
 
     /**
-     * @notice Approve a token for spending by an external contract. Note that any token
-     *         approved in the whitelist does not make good collateral, because the allowed
-     *         spender may be able to withdraw it from the vault.
+     * @notice Increase token allowance for spending by an external contract. Note that any
+     *         token approved in the whitelist does not make good collateral, because the
+     *         allowed spender may be able to withdraw it from the vault.
      *
      * @param token                 The token to approve.
      * @param spender               The approved spender.
-     * @param amount                The amount to approve.
+     * @param amount                The amount to increase allowance by.
      */
-    function callApprove(
+    function callIncreaseAllowance(
         address token,
         address spender,
         uint256 amount
@@ -293,10 +293,34 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
             revert AV_NonWhitelistedApproval(token, spender);
         }
 
-        // Do approval
-        IERC20(token).safeApprove(spender, amount);
+        // increase spender allowance
+        IERC20(token).safeIncreaseAllowance(spender, amount);
 
-        emit Approve(msg.sender, token, spender, amount);
+        emit IncreaseAllowance(msg.sender, token, spender, amount);
+    }
+
+    /**
+     * @notice Decrease token allowance for spending by an external contract. Note that any
+     *         token approved in the whitelist does not make good collateral, because the
+     *         allowed spender may be able to withdraw it from the vault.
+     *
+     * @param token                 The token to approve.
+     * @param spender               The approved spender.
+     * @param amount                The amount to decrease allowance by.
+     */
+    function callDecreaseAllowance(
+        address token,
+        address spender,
+        uint256 amount
+    ) external override onlyAllowedCallers onlyWithdrawDisabled nonReentrant {
+        if (!CallWhitelistApprovals(whitelist).isApproved(token, spender)) {
+            revert AV_NonWhitelistedApproval(token, spender);
+        }
+
+        // decrease spender allowance
+        IERC20(token).safeDecreaseAllowance(spender, amount);
+
+        emit DecreaseAllowance(msg.sender, token, spender, amount);
     }
 
     /**

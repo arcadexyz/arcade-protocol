@@ -543,140 +543,287 @@ describe("AssetVault", () => {
         });
     });
 
-    describe("callApprove", () => {
-        it("succeeds if current owner and on whitelist", async () => {
-            const { whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
-            const amount = ethers.utils.parseEther("10");
+    describe("token allowances", () => {
+        describe("increaseAllowance", () => {
+            it("succeeds if current owner and on whitelist", async () => {
+                const { whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
 
-            await whitelist.setApproval(mockERC20.address, other.address, true);
+                await whitelist.setApproval(mockERC20.address, other.address, true);
 
-            await expect(vault.connect(user).callApprove(mockERC20.address, other.address, amount))
-                .to.emit(vault, "Approve")
-                .withArgs(user.address, mockERC20.address, other.address, amount);
+                await expect(vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.emit(vault, "IncreaseAllowance")
+                    .withArgs(user.address, mockERC20.address, other.address, amount);
 
-            expect(await mockERC20.allowance(vault.address, other.address))
-                .to.eq(amount);
+                expect(await mockERC20.allowance(vault.address, other.address))
+                    .to.eq(amount);
+            });
+
+            it("succeeds if delegated and on whitelist", async () => {
+                const { nft, whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
+
+                const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+                await mockCallDelegator.connect(other).setCanCall(true);
+
+                await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
+
+                await whitelist.setApproval(mockERC20.address, other.address, true);
+
+                await expect(vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.emit(vault, "IncreaseAllowance")
+                    .withArgs(user.address, mockERC20.address, other.address, amount);
+
+                expect(await mockERC20.allowance(vault.address, other.address))
+                    .to.eq(amount);
+            });
+
+            it("fails if withdraw enabled on vault", async () => {
+                const { whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
+
+                await whitelist.setApproval(mockERC20.address, other.address, true);
+
+                // enable withdraw on the vault
+                await vault.connect(user).enableWithdraw();
+
+                await expect(vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.be.revertedWith("AV_WithdrawsEnabled");
+            });
+
+            it("fails if delegator disallows", async () => {
+                const { nft, whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
+
+                const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+                await mockCallDelegator.connect(other).setCanCall(false);
+
+                await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
+
+                await whitelist.setApproval(mockERC20.address, other.address, true);
+
+                await expect(vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.be.revertedWith("AV_MissingAuthorization");
+            });
+
+            it("fails if delegator is EOA", async () => {
+                const { nft, whitelist, vault, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
+
+                const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+                await mockCallDelegator.connect(other).setCanCall(true);
+
+                await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
+
+                await whitelist.setApproval(user.address, other.address, true);
+
+                await expect(vault.connect(user).callIncreaseAllowance(user.address, other.address, amount))
+                    .to.be.revertedWith("Transaction reverted: function returned an unexpected amount of data");
+            });
+
+            it("fails if delegator is contract which doesn't support interface", async () => {
+                const { nft, whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
+
+                const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+                await mockCallDelegator.connect(other).setCanCall(false);
+
+                // transfer the NFT to the call delegator (like using it as loan collateral)
+                await nft.transferFrom(user.address, mockERC20.address, vault.address);
+
+                await whitelist.setApproval(mockERC20.address, other.address, true);
+
+                await expect(vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.be.revertedWith(
+                        "Transaction reverted: function selector was not recognized and there's no fallback function",
+                    );
+            });
+
+            it("fails from current owner if not whitelisted", async () => {
+                const { vault, mockERC20, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
+
+                await expect(vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+            });
+
+            it("fails if delegated and not whitelisted", async () => {
+                const { nft, vault, mockERC20, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
+
+                const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+                await mockCallDelegator.connect(other).setCanCall(true);
+
+                await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
+
+                await expect(vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+            });
+
+            it("fails if token is on the whitelist but spender is not", async () => {
+                const { whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
+
+                await whitelist.setApproval(mockERC20.address, user.address, true);
+
+                await expect(vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+            });
+
+            it("fails if spender is on the whitelist but token is not", async () => {
+                const { whitelist, vault, mockERC20, mockERC1155, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
+
+                await whitelist.setApproval(mockERC20.address, other.address, true);
+
+                await expect(vault.connect(user).callIncreaseAllowance(mockERC1155.address, other.address, amount))
+                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+            });
         });
 
-        it("succeeds if delegated and on whitelist", async () => {
-            const { nft, whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
-            const amount = ethers.utils.parseEther("10");
+        describe("decreaseAllowance", () => {
+            it("succeeds if current owner and on whitelist", async () => {
+                const { whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
 
-            const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
-            await mockCallDelegator.connect(other).setCanCall(true);
+                await whitelist.setApproval(mockERC20.address, other.address, true);
 
-            await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
+                await expect(vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.emit(vault, "IncreaseAllowance")
+                    .withArgs(user.address, mockERC20.address, other.address, amount);
 
-            await whitelist.setApproval(mockERC20.address, other.address, true);
+                await expect(vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.emit(vault, "DecreaseAllowance")
+                    .withArgs(user.address, mockERC20.address, other.address, amount);
 
-            await expect(vault.connect(user).callApprove(mockERC20.address, other.address, amount))
-                .to.emit(vault, "Approve")
-                .withArgs(user.address, mockERC20.address, other.address, amount);
+                expect(await mockERC20.allowance(vault.address, other.address))
+                    .to.eq(0);
+            });
 
-            expect(await mockERC20.allowance(vault.address, other.address))
-                .to.eq(amount);
-        });
+            it("succeeds if delegated and on whitelist", async () => {
+                const { nft, whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
 
-        it("fails if withdraw enabled on vault", async () => {
-            const { whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
-            const amount = ethers.utils.parseEther("10");
+                const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+                await mockCallDelegator.connect(other).setCanCall(true);
 
-            await whitelist.setApproval(mockERC20.address, other.address, true);
+                await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
 
-            // enable withdraw on the vault
-            await vault.connect(user).enableWithdraw();
+                await whitelist.setApproval(mockERC20.address, other.address, true);
 
-            await expect(vault.connect(user).callApprove(mockERC20.address, other.address, amount))
-                .to.be.revertedWith("AV_WithdrawsEnabled");
-        });
+                await expect(vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.emit(vault, "IncreaseAllowance")
+                    .withArgs(user.address, mockERC20.address, other.address, amount);
 
-        it("fails if delegator disallows", async () => {
-            const { nft, whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
-            const amount = ethers.utils.parseEther("10");
+                await expect(vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.emit(vault, "DecreaseAllowance")
+                    .withArgs(user.address, mockERC20.address, other.address, amount);
 
-            const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
-            await mockCallDelegator.connect(other).setCanCall(false);
+                expect(await mockERC20.allowance(vault.address, other.address))
+                    .to.eq(0);
+            });
 
-            await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
+            it("fails if withdraw enabled on vault", async () => {
+                const { whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
 
-            await whitelist.setApproval(mockERC20.address, other.address, true);
+                await whitelist.setApproval(mockERC20.address, other.address, true);
 
-            await expect(vault.connect(user).callApprove(mockERC20.address, other.address, amount))
-                .to.be.revertedWith("AV_MissingAuthorization");
-        });
+                // enable withdraw on the vault
+                await vault.connect(user).enableWithdraw();
 
-        it("fails if delegator is EOA", async () => {
-            const { nft, whitelist, vault, user, other } = await loadFixture(fixture);
-            const amount = ethers.utils.parseEther("10");
+                await expect(vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.be.revertedWith("AV_WithdrawsEnabled");
+            });
 
-            const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
-            await mockCallDelegator.connect(other).setCanCall(true);
+            it("fails if delegator disallows", async () => {
+                const { nft, whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
 
-            await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
+                const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+                await mockCallDelegator.connect(other).setCanCall(false);
 
-            await whitelist.setApproval(user.address, other.address, true);
+                await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
 
-            await expect(vault.connect(user).callApprove(user.address, other.address, amount))
-                .to.be.revertedWith("Transaction reverted: function returned an unexpected amount of data");
-        });
+                await whitelist.setApproval(mockERC20.address, other.address, true);
 
-        it("fails if delegator is contract which doesn't support interface", async () => {
-            const { nft, whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
-            const amount = ethers.utils.parseEther("10");
+                await expect(vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.be.revertedWith("AV_MissingAuthorization");
+            });
 
-            const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
-            await mockCallDelegator.connect(other).setCanCall(false);
+            it("fails if delegator is EOA", async () => {
+                const { nft, whitelist, vault, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
 
-            // transfer the NFT to the call delegator (like using it as loan collateral)
-            await nft.transferFrom(user.address, mockERC20.address, vault.address);
+                const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+                await mockCallDelegator.connect(other).setCanCall(true);
 
-            await whitelist.setApproval(mockERC20.address, other.address, true);
+                await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
 
-            await expect(vault.connect(user).callApprove(mockERC20.address, other.address, amount))
-                .to.be.revertedWith(
-                    "Transaction reverted: function selector was not recognized and there's no fallback function",
-                );
-        });
+                await whitelist.setApproval(user.address, other.address, true);
 
-        it("fails from current owner if not whitelisted", async () => {
-            const { vault, mockERC20, user, other } = await loadFixture(fixture);
-            const amount = ethers.utils.parseEther("10");
+                await expect(vault.connect(user).callDecreaseAllowance(user.address, other.address, amount))
+                    .to.be.revertedWith("Transaction reverted: function returned an unexpected amount of data");
+            });
 
-            await expect(vault.connect(user).callApprove(mockERC20.address, other.address, amount))
-                .to.be.revertedWith("AV_NonWhitelistedApproval");
-        });
+            it("fails if delegator is contract which doesn't support interface", async () => {
+                const { nft, whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
 
-        it("fails if delegated and not whitelisted", async () => {
-            const { nft, vault, mockERC20, user, other } = await loadFixture(fixture);
-            const amount = ethers.utils.parseEther("10");
+                const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+                await mockCallDelegator.connect(other).setCanCall(false);
 
-            const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
-            await mockCallDelegator.connect(other).setCanCall(true);
+                // transfer the NFT to the call delegator (like using it as loan collateral)
+                await nft.transferFrom(user.address, mockERC20.address, vault.address);
 
-            await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
+                await whitelist.setApproval(mockERC20.address, other.address, true);
 
-            await expect(vault.connect(user).callApprove(mockERC20.address, other.address, amount))
-                .to.be.revertedWith("AV_NonWhitelistedApproval");
-        });
+                await expect(vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.be.revertedWith(
+                        "Transaction reverted: function selector was not recognized and there's no fallback function",
+                    );
+            });
 
-        it("fails if token is on the whitelist but spender is not", async () => {
-            const { whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
-            const amount = ethers.utils.parseEther("10");
+            it("fails from current owner if not whitelisted", async () => {
+                const { vault, mockERC20, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
 
-            await whitelist.setApproval(mockERC20.address, user.address, true);
+                await expect(vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+            });
 
-            await expect(vault.connect(user).callApprove(mockERC20.address, other.address, amount))
-                .to.be.revertedWith("AV_NonWhitelistedApproval");
-        });
+            it("fails if delegated and not whitelisted", async () => {
+                const { nft, vault, mockERC20, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
 
-        it("fails if spender is on the whitelist but token is not", async () => {
-            const { whitelist, vault, mockERC20, mockERC1155, user, other } = await loadFixture(fixture);
-            const amount = ethers.utils.parseEther("10");
+                const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
+                await mockCallDelegator.connect(other).setCanCall(true);
 
-            await whitelist.setApproval(mockERC20.address, other.address, true);
+                await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
 
-            await expect(vault.connect(user).callApprove(mockERC1155.address, other.address, amount))
-                .to.be.revertedWith("AV_NonWhitelistedApproval");
+                await expect(vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+            });
+
+            it("fails if token is on the whitelist but spender is not", async () => {
+                const { whitelist, vault, mockERC20, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
+
+                await whitelist.setApproval(mockERC20.address, user.address, true);
+
+                await expect(vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount))
+                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+            });
+
+            it("fails if spender is on the whitelist but token is not", async () => {
+                const { whitelist, vault, mockERC20, mockERC1155, user, other } = await loadFixture(fixture);
+                const amount = ethers.utils.parseEther("10");
+
+                await whitelist.setApproval(mockERC20.address, other.address, true);
+
+                await expect(vault.connect(user).callDecreaseAllowance(mockERC1155.address, other.address, amount))
+                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+            });
         });
     });
 
