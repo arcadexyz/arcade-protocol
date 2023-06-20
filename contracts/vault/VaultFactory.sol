@@ -196,6 +196,8 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
         if (to == address(0)) revert VF_ZeroAddress("to");
 
         uint256 balance = address(this).balance;
+        // transfer() only sends 2300 gas. if the recipient is a contract with logic inside
+        // of receive(), the transaction will most likely fail because of out-of-gas revert
         payable(to).transfer(balance);
 
         emit ClaimFees(to, balance);

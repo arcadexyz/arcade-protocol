@@ -226,6 +226,8 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         
         // perform transfer
         uint256 balance = address(this).balance;
+        // sendValue() internally uses call() which passes along all of
+        // the remaining gas, potentially introducing an attack vector
         payable(to).sendValue(balance);
         emit WithdrawETH(msg.sender, to, balance);
     }
