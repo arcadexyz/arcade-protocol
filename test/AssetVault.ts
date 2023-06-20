@@ -1164,6 +1164,16 @@ describe("AssetVault", () => {
                     vault.connect(other).withdrawERC20(mockERC20.address, user.address),
                 ).to.be.revertedWith("OERC721_CallerNotOwner");
             });
+
+            it("should fail when recipient is address zero", async () => {
+                const { vault, mockERC20, user } = await loadFixture(fixture);
+                const amount = hre.ethers.utils.parseUnits("50", 18);
+                await deposit(mockERC20, vault, amount, user);
+
+                await vault.connect(user).enableWithdraw();
+                await expect(vault.connect(user).withdrawERC20(mockERC20.address, ethers.constants.AddressZero))
+                    .to.be.revertedWith(`AV_ZeroAddress("to")`);
+            });
         });
 
         describe("ERC721", () => {
@@ -1211,6 +1221,22 @@ describe("AssetVault", () => {
                     .withArgs(vault.address, user.address, punkIndex);
             });
 
+            it("should fail to withdraw CryptoPunk when recipient is address zero", async () => {
+                const { vault, punks, user } = await loadFixture(fixture);
+                const punkIndex = 1234;
+                // claim ownership of punk
+                await punks.setInitialOwner(user.address, punkIndex);
+                await punks.allInitialOwnersAssigned();
+                // "approve" the punk to the vault
+                await punks.offerPunkForSaleToAddress(punkIndex, 0, vault.address);
+                // deposit the punk into the vault
+                await punks.transferPunk(vault.address, punkIndex);
+
+                await vault.enableWithdraw();
+                await expect(vault.connect(user).withdrawPunk(punks.address, punkIndex, ethers.constants.AddressZero))
+                    .to.be.revertedWith(`AV_ZeroAddress("to")`);
+            });
+
             it("should throw when already withdrawn", async () => {
                 const { vault, mockERC721, user } = await loadFixture(fixture);
                 const tokenId = await deposit(mockERC721, vault, user);
@@ -1244,6 +1270,15 @@ describe("AssetVault", () => {
                 await expect(
                     vault.connect(user).withdrawERC721(mockERC721.address, tokenId, user.address),
                 ).to.be.revertedWith("AV_WithdrawsDisabled");
+            });
+
+            it("should fail to withdraw when recipient is zero address", async () => {
+                const { vault, mockERC721, user } = await loadFixture(fixture);
+                const tokenId = await deposit(mockERC721, vault, user);
+
+                await vault.enableWithdraw();
+                await expect(vault.connect(user).withdrawERC721(mockERC721.address, tokenId, ethers.constants.AddressZero))
+                    .to.be.revertedWith(`AV_ZeroAddress("to")`);
             });
         });
 
@@ -1302,6 +1337,16 @@ describe("AssetVault", () => {
                 await expect(
                     vault.connect(other).withdrawERC1155(mockERC1155.address, tokenId, other.address),
                 ).to.be.revertedWith("OERC721_CallerNotOwner");
+            });
+
+            it("should fail when recipient is zero address", async () => {
+                const { vault, mockERC1155, user } = await loadFixture(fixture);
+                const amount = BigNumber.from("1");
+                const tokenId = await deposit(mockERC1155, vault, user, amount);
+
+                await vault.enableWithdraw();
+                await expect(vault.connect(user).withdrawERC1155(mockERC1155.address, tokenId, ethers.constants.AddressZero))
+                    .to.be.revertedWith(`AV_ZeroAddress("to")`);
             });
         });
 
@@ -1475,7 +1520,7 @@ describe("AssetVault", () => {
                 await vault.enableWithdraw();
                 await expect(
                     vault.connect(user).withdrawBatch([mockERC721.address], [tokenId], [0], ethers.constants.AddressZero)
-                ).to.be.revertedWith("AV_ZeroAddress");
+                ).to.be.revertedWith(`AV_ZeroAddress("to")`);
             });
 
             it("should revert when user specifies zero address as the token address to withdraw", async () => {
@@ -1485,7 +1530,7 @@ describe("AssetVault", () => {
                 await vault.enableWithdraw();
                 await expect(
                     vault.connect(user).withdrawBatch([ethers.constants.AddressZero], [tokenId], [0], user.address)
-                ).to.be.revertedWith("AV_ZeroAddress");
+                ).to.be.revertedWith(`AV_ZeroAddress("token")`);
             });
 
             it("should revert when user specifies invalid tokenType", async () => {
@@ -1560,6 +1605,17 @@ describe("AssetVault", () => {
                 await expect(vault.connect(other).withdrawETH(other.address)).to.be.revertedWith(
                     "OERC721_CallerNotOwner",
                 );
+            });
+
+            it("should fail when recipient is address zero", async () => {
+                const { vault, user } = await loadFixture(fixture);
+                const amount = hre.ethers.utils.parseEther("123");
+                await deposit(vault, user, amount);
+                const startingBalance = await vault.provider.getBalance(user.address);
+
+                await vault.enableWithdraw();
+                await expect(vault.connect(user).withdrawETH(ethers.constants.AddressZero))
+                    .to.be.revertedWith(`AV_ZeroAddress("to")`);
             });
         });
 
