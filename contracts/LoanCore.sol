@@ -30,7 +30,8 @@ import {
     LC_NonceUsed,
     LC_AffiliateCodeAlreadySet,
     LC_NoReceipt,
-    LC_CallerNotLoanCore
+    LC_CallerNotLoanCore,
+    LC_InvalidGracePeriod
 } from "./errors/Lending.sol";
 
 /**
@@ -68,6 +69,9 @@ contract LoanCore is
 
     /// @dev Max split any affiliate can earn.
     uint96 private constant MAX_AFFILIATE_SPLIT = 50_00;
+
+    /// @dev Grace period for repaying a loan after loan duration.
+    uint256 public gracePeriod = 1 days;
 
     // =============== Contract References ================
 
@@ -252,8 +256,9 @@ contract LoanCore is
     /**
      * @notice Claim collateral on a given loan. Can only be called by RepaymentController,
      *         which verifies claim conditions. This method validates that the loan's due
-     *         date has passed, and then distributes collateral to the lender. All promissory
-     *         notes will be burned and the loan will be marked as complete.
+     *         date has passed, and the grace period of 1 day has also passed. Then it distributes
+     *         collateral to the lender. All promissory notes will be burned and the loan
+     *         will be marked as complete.
      *
      * @param loanId                              The ID of the loan to claim.
      * @param _amountFromLender                   Any claiming fees to be collected from the lender.
@@ -270,7 +275,7 @@ contract LoanCore is
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
 
         // First check if the call is being made after the due date.
-        uint256 dueDate = data.startDate + data.terms.durationSecs;
+        uint256 dueDate = data.startDate + data.terms.durationSecs + gracePeriod;
         if (dueDate >= block.timestamp) revert LC_NotExpired(dueDate);
 
         // State changes and cleanup
@@ -606,6 +611,23 @@ contract LoanCore is
      */
     function unpause() external onlyRole(ADMIN_ROLE) {
         _unpause();
+    }
+
+    /**
+     * @notice Set the grace period for repaying a loan after the loan duration.
+     *         Can only be called by contract admin. The grace period must be
+     *         between 1 hour and 7 days.
+     *
+     * @param _gracePeriod              The new grace period to set in seconds.
+     */
+    function setGracePeriod(uint256 _gracePeriod) external override onlyRole(ADMIN_ROLE) {
+        if (_gracePeriod >= 1 hours && _gracePeriod <= 7 days) {
+            gracePeriod = _gracePeriod;
+
+            emit GracePeriodSet(_gracePeriod);
+        } else {
+            revert LC_InvalidGracePeriod(_gracePeriod);
+        }
     }
 
     // ============================================= HELPERS ============================================

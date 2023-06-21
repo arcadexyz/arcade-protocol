@@ -1090,8 +1090,8 @@ describe("RepaymentController", () => {
         it("100 ETH principal, 10% interest, borrower defaults and lender claims (zero fee)", async () => {
             const { lender, repaymentController, loanCore, vaultFactory } = ctx;
 
-            // Wind to expiry
-            await hre.network.provider.send("evm_increaseTime", [duration + 100]);
+            // Wind to expiry to include grace period
+            await hre.network.provider.send("evm_increaseTime", [duration + 86401]);
             await hre.network.provider.send("evm_mine");
 
             await expect(repaymentController.connect(lender).claim(loanId))
@@ -1104,8 +1104,8 @@ describe("RepaymentController", () => {
         it("100 ETH principal, 10% interest, borrower defaults and lender claims (5% fee)", async () => {
             const { lender, repaymentController, loanCore, vaultFactory, feeController, mockERC20 } = ctx;
 
-            // Wind to expiry
-            await hre.network.provider.send("evm_increaseTime", [duration + 100]);
+            // Wind to expiry to include grace period
+            await hre.network.provider.send("evm_increaseTime", [duration + 86401]);
             await hre.network.provider.send("evm_mine");
 
             // Set 5% claim fee (assessed on total owed)
@@ -1130,8 +1130,8 @@ describe("RepaymentController", () => {
         it("100 ETH principal, 10% interest, borrower defaults and lender claims (5% fee, 10% affiliate split)", async () => {
             const { lender, borrower, admin, repaymentController, loanCore, vaultFactory, feeController, mockERC20 } = ctx;
 
-            // Wind to expiry
-            await hre.network.provider.send("evm_increaseTime", [duration + 100]);
+            // Wind to expiry to include grace period
+            await hre.network.provider.send("evm_increaseTime", [duration + 86401]);
             await hre.network.provider.send("evm_mine");
 
             // Set 5% claim fee (assessed on total owed)
@@ -1168,7 +1168,7 @@ describe("RepaymentController", () => {
             const { repaymentController, lender } = ctx;
 
             // Wind to before expiry
-            await hre.network.provider.send("evm_increaseTime", [duration / 2]);
+            await hre.network.provider.send("evm_increaseTime", [duration + 86350]);
             await hre.network.provider.send("evm_mine");
 
             await expect(repaymentController.connect(lender).claim(loanId))
@@ -1178,8 +1178,8 @@ describe("RepaymentController", () => {
         it("100 ETH principal, 10% interest, borrower defaults, non-lender, reverts", async () => {
             const { repaymentController, borrower } = ctx;
 
-            // Wind to expiry
-            await hre.network.provider.send("evm_increaseTime", [duration + 100]);
+            // Wind to expiry to include grace period
+            await hre.network.provider.send("evm_increaseTime", [duration + 86400]);
             await hre.network.provider.send("evm_mine");
 
             await expect(repaymentController.connect(borrower).claim(loanId))
@@ -1189,8 +1189,8 @@ describe("RepaymentController", () => {
         it("100 ETH principal, 10% interest, borrower defaults, lender cannot pay claim fee, reverts", async () => {
             const { lender, repaymentController, feeController, mockERC20 } = ctx;
 
-            // Wind to expiry
-            await hre.network.provider.send("evm_increaseTime", [duration + 100]);
+            // Wind to expiry to include grace period
+            await hre.network.provider.send("evm_increaseTime", [duration + 86400]);
             await hre.network.provider.send("evm_mine");
 
             // Set 5% claim fee (assessed on total owed)

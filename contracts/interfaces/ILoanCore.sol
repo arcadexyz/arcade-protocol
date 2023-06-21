@@ -31,6 +31,7 @@ interface ILoanCore {
 
     event FeesWithdrawn(address indexed token, address indexed caller, address indexed to, uint256 amount);
     event AffiliateSet(bytes32 indexed code, address indexed affiliate, uint96 splitBps);
+    event GracePeriodSet(uint256 gracePeriod);
 
     // ============== Lifecycle Operations ==============
 
@@ -77,14 +78,17 @@ interface ILoanCore {
 
     function cancelNonce(uint160 nonce) external;
 
-    // ============== Fees ==============
-
-    function setAffiliateSplits(bytes32[] calldata codes, AffiliateSplit[] calldata splits) external;
+    // ============== Fee Management ==============
 
     function withdraw(address token, uint256 amount, address to) external;
 
     function withdrawProtocolFees(address token, address to) external;
 
+    // ============== Admin Operations ==============
+
+    function setAffiliateSplits(bytes32[] calldata codes, AffiliateSplit[] calldata splits) external;
+
+    function setGracePeriod(uint256 _gracePeriod) external;
 
     // ============== View Functions ==============
 
