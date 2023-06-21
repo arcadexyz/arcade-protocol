@@ -133,9 +133,6 @@ contract ArcadeItemsVerifier is ISignatureVerifier {
 
                 // Does not own specifically specified asset
                 if (asset.balanceOf(vault) < item.amount) return false;
-            } else {
-                // Interface could not be parsed - fail
-                revert IV_InvalidCollateralType(item.asset, uint256(item.cType));
             }
         }
 
