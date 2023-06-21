@@ -7,6 +7,7 @@ export enum LoanState {
     Defaulted = 3,
 }
 
+// Items Verifier signature item
 export interface SignatureItem {
     cType: 0 | 1 | 2;
     asset: string;
@@ -15,7 +16,8 @@ export interface SignatureItem {
     anyIdAllowed: boolean;
 }
 
-export interface ArtBlocksItem {
+// Art Blocks signature item
+export interface ABSignatureItem {
     asset: string;
     projectId: BigNumberish;
     tokenId: BigNumberish;
