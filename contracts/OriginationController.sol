@@ -208,7 +208,7 @@ contract OriginationController is
         _validateLoanTerms(loanTerms);
         if (itemPredicates.length == 0) revert OC_PredicatesArrayEmpty();
 
-        bytes32 encodedData = _encodeData(itemPredicates);
+        bytes32 encodedPredicates = _encodePredicates(itemPredicates);
 
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
@@ -218,7 +218,7 @@ contract OriginationController is
             sig,
             nonce,
             neededSide,
-            encodedData
+            encodedPredicates
         );
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
@@ -389,7 +389,7 @@ contract OriginationController is
 
         address borrower = IERC721(loanCore.borrowerNote()).ownerOf(oldLoanId);
 
-        bytes32 encodedData = _encodeData(itemPredicates);
+        bytes32 encodedPredicates = _encodePredicates(itemPredicates);
 
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
@@ -399,7 +399,7 @@ contract OriginationController is
             sig,
             nonce,
             neededSide,
-            encodedData
+            encodedPredicates
         );
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
@@ -772,7 +772,7 @@ contract OriginationController is
      *
      * @return itemsHash                    The concatenated hash of all items in the Predicate array.
      */
-    function _encodeData(LoanLibrary.Predicate[] memory predicates) public pure returns (bytes32 itemsHash) {
+    function _encodePredicates(LoanLibrary.Predicate[] memory predicates) public pure returns (bytes32 itemsHash) {
        bytes32[] memory itemHashes = new bytes32[](predicates.length);
 
         for(uint i = 0; i < predicates.length; ++i){
@@ -787,8 +787,6 @@ contract OriginationController is
 
         // concatenate all predicate hashes
         itemsHash = keccak256(abi.encodePacked(itemHashes));
-
-        return itemsHash;
     }
 
     /**
