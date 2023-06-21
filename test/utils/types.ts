@@ -7,7 +7,7 @@ export enum LoanState {
     Defaulted = 3,
 }
 
-// Items Verifier signature item
+// Arcade Items Verifier signature item
 export interface SignatureItem {
     cType: 0 | 1 | 2;
     asset: string;
