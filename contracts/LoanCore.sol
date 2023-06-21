@@ -620,7 +620,7 @@ contract LoanCore is
      *
      * @param _gracePeriod              The new grace period to set in seconds.
      */
-    function setGracePeriod(uint256 _gracePeriod) external onlyRole(ADMIN_ROLE) {
+    function setGracePeriod(uint256 _gracePeriod) external override onlyRole(ADMIN_ROLE) {
         if (_gracePeriod >= 1 hours && _gracePeriod <= 7 days) {
             gracePeriod = _gracePeriod;
 
