@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import hre, { ethers, waffle } from "hardhat";
+import { ethers, waffle } from "hardhat";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { BigNumber } from "ethers";
@@ -25,7 +25,7 @@ import { approve, mint } from "./utils/erc20";
 import { mint as mint721 } from "./utils/erc721";
 import { LoanTerms, LoanData, ItemsPredicate } from "./utils/types";
 import { createLoanItemsSignature, createLoanTermsSignature } from "./utils/eip712";
-import { encodeItemCheck, encodePredicates } from "./utils/loans";
+import { encodeItemCheck } from "./utils/loans";
 
 import {
     ADMIN_ROLE,
@@ -815,7 +815,7 @@ describe("Integration", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(predicates),
+                predicates,
                 borrower,
                 "3",
                 "1",
@@ -860,7 +860,7 @@ describe("Integration", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                encodePredicates(rolloverPredicates),
+                rolloverPredicates,
                 lender,
                 "3",
                 "2",

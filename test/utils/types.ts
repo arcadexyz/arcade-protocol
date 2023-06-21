@@ -44,7 +44,7 @@ export interface ItemsPayload {
     principal: BigNumber;
     proratedInterestRate: BigNumber;
     collateralAddress: string;
-    itemsHash: string;
+    items: ItemsPredicate[];
     payableCurrency: string;
     affiliateCode: BytesLike;
     nonce: BigNumberish;

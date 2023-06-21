@@ -3,7 +3,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { BigNumber, BigNumberish, ethers } from "ethers";
 
 import { LoanCore, VaultFactory } from "../../typechain";
-import { SignatureItem, ItemsPredicate, ArtBlocksItem } from "./types";
+import { SignatureItem, ArtBlocksItem } from "./types";
 import { LoanTerms } from "./types";
 
 export const initializeBundle = async (vaultFactory: VaultFactory, user: SignerWithAddress): Promise<BigNumber> => {
@@ -40,14 +40,6 @@ export const encodeArtBlocksItems = (items: ArtBlocksItem[]): string => {
     const values = items.map(item => [item.asset, item.projectId, item.tokenId, item.amount, item.anyIdAllowed]);
 
     return ethers.utils.defaultAbiCoder.encode(types, [values]);
-};
-
-export const encodePredicates = (predicates: ItemsPredicate[]): string => {
-    const types = ["(bytes,address)[]"];
-    const values = predicates.map(p => [p.data, p.verifier]);
-
-    const coded = ethers.utils.defaultAbiCoder.encode(types, [values]);
-    return ethers.utils.keccak256(coded);
 };
 
 export const encodeItemCheck = (addr: string, id: BigNumberish, anyIdAllowed = false): string => {

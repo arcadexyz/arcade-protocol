@@ -24,7 +24,7 @@ import { deploy } from "./utils/contracts";
 import { approve, mint } from "./utils/erc20";
 import { LoanTerms, LoanData, ItemsPredicate, SignatureItem } from "./utils/types";
 import { createLoanTermsSignature, createLoanItemsSignature } from "./utils/eip712";
-import { encodePredicates, encodeSignatureItems } from "./utils/loans";
+import { encodeSignatureItems } from "./utils/loans";
 
 import {
     ORIGINATOR_ROLE,
@@ -724,7 +724,7 @@ describe("Rollovers", () => {
                 originationController.address,
                 "OriginationController",
                 newTerms,
-                encodePredicates(predicates),
+                predicates,
                 newLender,
                 "3",
                 "2",
@@ -781,7 +781,7 @@ describe("Rollovers", () => {
                 originationController.address,
                 "OriginationController",
                 newTerms,
-                encodePredicates(predicates),
+                predicates,
                 newLender,
                 "3",
                 "2",
@@ -844,7 +844,7 @@ describe("Rollovers", () => {
                 originationController.address,
                 "OriginationController",
                 newTerms,
-                encodePredicates(predicates),
+                predicates,
                 newLender,
                 "3",
                 "2",
@@ -907,7 +907,7 @@ describe("Rollovers", () => {
                 originationController.address,
                 "OriginationController",
                 newTerms,
-                encodePredicates(predicates),
+                predicates,
                 newLender,
                 "3",
                 "2",
@@ -1008,7 +1008,7 @@ describe("Rollovers", () => {
                 originationController.address,
                 "OriginationController",
                 newTerms,
-                encodePredicates(predicates),
+                predicates,
                 lender,
                 "3",
                 "2",

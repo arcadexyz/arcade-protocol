@@ -85,7 +85,13 @@ contract OriginationController is
     bytes32 private constant _ITEMS_TYPEHASH =
         keccak256(
             // solhint-disable max-line-length
-            "LoanTermsWithItems(uint32 durationSecs,uint32 deadline,uint160 proratedInterestRate,uint256 principal,address collateralAddress,bytes32 itemsHash,address payableCurrency,bytes32 affiliateCode,uint160 nonce,uint8 side)"
+            "LoanTermsWithItems(uint32 durationSecs,uint32 deadline,uint160 proratedInterestRate,uint256 principal,address collateralAddress,Predicate[] items,address payableCurrency,bytes32 affiliateCode,uint160 nonce,uint8 side)Predicate(bytes data,address verifier)"
+        );
+
+    /// @notice EIP712 type hash for Predicate.
+    bytes32 public constant _PREDICATE_TYPEHASH =
+        keccak256(
+            "Predicate(bytes data,address verifier)"
         );
 
     // =============== Contract References ===============
@@ -202,6 +208,8 @@ contract OriginationController is
         _validateLoanTerms(loanTerms);
         if (itemPredicates.length == 0) revert OC_PredicatesArrayEmpty();
 
+        bytes32 encodedPredicates = _encodePredicates(itemPredicates);
+
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
@@ -210,7 +218,7 @@ contract OriginationController is
             sig,
             nonce,
             neededSide,
-            keccak256(abi.encode(itemPredicates))
+            encodedPredicates
         );
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
@@ -381,6 +389,8 @@ contract OriginationController is
 
         address borrower = IERC721(loanCore.borrowerNote()).ownerOf(oldLoanId);
 
+        bytes32 encodedPredicates = _encodePredicates(itemPredicates);
+
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
@@ -389,7 +399,7 @@ contract OriginationController is
             sig,
             nonce,
             neededSide,
-            keccak256(abi.encode(itemPredicates))
+            encodedPredicates
         );
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
@@ -749,6 +759,34 @@ contract OriginationController is
 
         // Revert if the signer is the calling counterparty
         if (signer == callingCounterparty) revert OC_SideMismatch(signer);
+    }
+
+    /**
+     * @notice Hashes each item in Predicate[] separately and concatenates these hashes for
+     *         inclusion in _ITEMS_TYPEHASH.
+     *
+     * @dev Solidity does not support array or nested struct hashing in the keccak256 function
+     *      hence the multi-step hash creation process.
+     *
+     * @param predicates                    The predicate items array.
+     *
+     * @return itemsHash                    The concatenated hash of all items in the Predicate array.
+     */
+    function _encodePredicates(LoanLibrary.Predicate[] memory predicates) public pure returns (bytes32 itemsHash) {
+       bytes32[] memory itemHashes = new bytes32[](predicates.length);
+
+        for(uint i = 0; i < predicates.length; ++i){
+            itemHashes[i] = keccak256(
+                abi.encode(
+                    _PREDICATE_TYPEHASH,
+                    keccak256(predicates[i].data),
+                    predicates[i].verifier
+                )
+            );
+        }
+
+        // concatenate all predicate hashes
+        itemsHash = keccak256(abi.encodePacked(itemHashes));
     }
 
     /**

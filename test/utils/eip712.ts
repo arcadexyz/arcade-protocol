@@ -1,9 +1,8 @@
 import hre from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
-import { BigNumberish, BigNumber } from "ethers";
-import { LoanTerms, ItemsPayload } from "./types";
+import { BigNumberish } from "ethers";
+import { LoanTerms, ItemsPayload, ItemsPredicate } from "./types";
 import { fromRpcSig, ECDSASignature } from "ethereumjs-util";
-import { isBigNumberish } from "@ethersproject/bignumber/lib/bignumber";
 
 interface TypeData {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,11 +57,15 @@ const typedLoanItemsData: TypeData = {
             { name: "proratedInterestRate", type: "uint160" },
             { name: "principal", type: "uint256" },
             { name: "collateralAddress", type: "address" },
-            { name: "itemsHash", type: "bytes32" },
+            { name: "items", type: "Predicate[]" },
             { name: "payableCurrency", type: "address" },
             { name: "affiliateCode", type: "bytes32" },
             { name: "nonce", type: "uint160" },
             { name: "side", type: "uint8" },
+        ],
+        Predicate: [
+            { name: "data", type: "bytes" },
+            { name: "verifier", type: "address" },
         ],
     },
     primaryType: "LoanTermsWithItems" as const,
@@ -123,7 +126,7 @@ export async function createLoanItemsSignature(
     verifyingContract: string,
     name: string,
     terms: LoanTerms,
-    itemsHash: string,
+    items: ItemsPredicate[],
     signer: SignerWithAddress,
     version = "3",
     nonce = "1",
@@ -136,7 +139,7 @@ export async function createLoanItemsSignature(
         principal: terms.principal,
         proratedInterestRate: terms.proratedInterestRate,
         collateralAddress: terms.collateralAddress,
-        itemsHash,
+        items,
         payableCurrency: terms.payableCurrency,
         nonce,
         side,
