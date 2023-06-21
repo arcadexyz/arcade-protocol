@@ -112,7 +112,7 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
     /**
      * @notice Get the vault mint fee.
      *
-     * @return fee                    The fee for minting a vault.
+     * @return vaultMintFee            The fee for minting a vault.
      */
     function getVaultMintFee() external view override returns (uint64) {
         return vaultMintFee;
