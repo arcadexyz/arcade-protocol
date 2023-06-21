@@ -20,7 +20,7 @@ interface IFeeController {
 
     // ================ Events =================
 
-    event SetFee(bytes32 indexed id, uint64 fee);
+    event SetLendingFee(bytes32 indexed id, uint64 fee);
 
     event SetVaultMintFee(uint64 fee);
 

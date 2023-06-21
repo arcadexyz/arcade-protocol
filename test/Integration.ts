@@ -798,7 +798,7 @@ describe("Integration", () => {
             await mockERC721.connect(borrower).approve(loanCore.address, tokenId);
             const loanTerms = createLoanTerms(mockERC20.address, mockERC721.address, { collateralId: tokenId, affiliateCode: code });
 
-            const lenderFeeBps = await feeController.getLendingFee(await feeController.FL_03());
+            const lenderFeeBps = await feeController.getLendingFee(await feeController.FL_02());
             const lenderFee = loanTerms.principal.mul(lenderFeeBps).div(10_000);
             const lenderWillSend = loanTerms.principal.add(lenderFee);
 

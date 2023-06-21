@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/IFeeController.sol";
 import "./libraries/FeeLookups.sol";
 
-import { FC_FeeOverMax, FC_VaultMintFeeOverMax } from "./errors/Lending.sol";
+import { FC_LendingFeeOverMax, FC_VaultMintFeeOverMax } from "./errors/Lending.sol";
 
 /**
  * @title FeeController
@@ -75,12 +75,12 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
      */
     function setLendingFee(bytes32 id, uint16 fee) public override onlyOwner {
         if (maxLoanFees[id] != 0 && fee > maxLoanFees[id]) {
-            revert FC_FeeOverMax(id, fee, maxLoanFees[id]);
+            revert FC_LendingFeeOverMax(id, fee, maxLoanFees[id]);
         }
 
         loanFees[id] = fee;
 
-        emit SetFee(id, fee);
+        emit SetLendingFee(id, fee);
     }
 
     /**
@@ -112,14 +112,15 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
     /**
      * @notice Get the vault mint fee.
      *
-     * @return fee                    The fee for the given id.
+     * @return fee                    The fee for minting a vault.
      */
     function getVaultMintFee() external view override returns (uint64) {
         return vaultMintFee;
     }
 
     /**
-     * @notice Get the fees for loan origination.
+     * @notice Get the fees for loan origination. Fees are returned in a struct to be used
+     *         upon loan origination.
      *
      * @return FeesOrigination              Applicable fees for loan origination.
      */
@@ -136,7 +137,8 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
     }
 
     /**
-     * @notice Get the fees for loan rollover.
+     * @notice Get the fees for loan rollover. Fees are returned in a struct to be used
+     *         when a rollover occurs in the repayment controller.
      *
      * @return FeesRollover              Applicable fees for a loan rollover.
      */
@@ -154,7 +156,7 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
      *
      * @param id                      The bytes32 id for the fee.
      *
-     * @return fee                    The maximum fee for the given id.
+     * @return maxLoanFee             The maximum fee for the given id.
      */
     function getMaxLendingFee(bytes32 id) external view override returns (uint16) {
         return maxLoanFees[id];
@@ -163,7 +165,7 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
     /**
      * @notice Get the max vault mint fee.
      *
-     * @return fee                The maximum fee for the given id.
+     * @return maxVaultMintFee        The maximum fee for minting a vault.
      */
     function getMaxVaultMintFee() external view override returns (uint64) {
         return maxVaultMintFee;

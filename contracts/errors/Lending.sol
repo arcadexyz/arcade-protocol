@@ -403,7 +403,7 @@ error PN_DoesNotExist(uint256 tokenId);
 /**
  * @notice Caller attempted to set a lending fee which is larger than the global maximum.
  */
-error FC_FeeOverMax(bytes32 selector, uint256 fee, uint256 maxFee);
+error FC_LendingFeeOverMax(bytes32 selector, uint256 fee, uint256 maxFee);
 
 /**
  * @notice Caller attempted to set a vault mint fee which is larger than the global maximum.

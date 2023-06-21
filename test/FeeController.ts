@@ -68,7 +68,7 @@ describe("FeeController", () => {
                 await expect(
                     feeController.connect(user).setLendingFee(await feeController.FL_01(), 50_00)
                 ).to.be.revertedWith(
-                    "FC_FeeOverMax"
+                    "FC_LendingFeeOverMax"
                 );
             });
 
@@ -79,7 +79,7 @@ describe("FeeController", () => {
 
                 await expect(
                     feeController.connect(user).setLendingFee(await feeController.FL_01(), 5_00)
-                ).to.emit(feeController, "SetFee")
+                ).to.emit(feeController, "SetLendingFee")
                     .withArgs(await feeController.FL_01(), 5_00);
 
                 expect(await feeController.connect(user).getLendingFee(await feeController.FL_01())).to.eq(5_00);
@@ -121,7 +121,7 @@ describe("FeeController", () => {
         });
 
         describe("setVaultMintFee", () => {
-            it("reverts if sender does not have admin role", async () => {
+            it("reverts if sender is not owner", async () => {
                 const { feeController, other } = ctx;
 
                 await expect(
@@ -150,16 +150,6 @@ describe("FeeController", () => {
                     feeController.connect(user).setVaultMintFee(ethers.utils.parseEther("0.5"))
                 ).to.emit(feeController, "SetVaultMintFee")
                     .withArgs(ethers.utils.parseEther("0.5"));
-
-                expect(await feeController.connect(user).getVaultMintFee()).to.eq(ethers.utils.parseEther("0.5"));
-            });
-        });
-
-        describe("getVaultMintFee", () => {
-            it("gets vault mint fee", async () => {
-                const { feeController, user } = ctx;
-
-                await feeController.connect(user).setVaultMintFee(ethers.utils.parseEther("0.5"));
 
                 expect(await feeController.connect(user).getVaultMintFee()).to.eq(ethers.utils.parseEther("0.5"));
             });

@@ -115,7 +115,7 @@ library LoanLibrary {
         /// @dev Full-slot variables
         // The raw terms of the loan.
         LoanTerms terms;
-        // Protocol fees at the time of loan creation.
+        // Record of lending fees at the time of loan creation.
         FeeSnapshot feeSnapshot;
     }
 }
