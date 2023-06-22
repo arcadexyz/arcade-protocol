@@ -16,7 +16,7 @@ import {
 import { deploy } from "./utils/contracts";
 
 import { encodeArtBlocksItems, initializeBundle } from "./utils/loans";
-import { ArtBlocksItem } from "./utils/types";
+import { ABSignatureItem } from "./utils/types";
 import { BASE_URI } from "./utils/constants";
 
 type Signer = SignerWithAddress;
@@ -92,7 +92,7 @@ describe("ArtBlocksVerifier", () => {
             const tokenId = receipt.events?.[0].args?.tokenId;
 
             // Create predicate for a single ID
-            const signatureItems: ArtBlocksItem[] = [
+            const signatureItems: ABSignatureItem[] = [
                 {
                     asset: "0x0000000000000000000000000000000000000000",
                     projectId: 3,
@@ -116,7 +116,7 @@ describe("ArtBlocksVerifier", () => {
             const tokenId = receipt.events?.[0].args?.tokenId;
 
             // Create predicate for a single ID
-            const signatureItems: ArtBlocksItem[] = [
+            const signatureItems: ABSignatureItem[] = [
                 {
                     asset: artblocks.address,
                     projectId: 10, // No project with this ID
@@ -140,7 +140,7 @@ describe("ArtBlocksVerifier", () => {
             const tokenId = receipt.events?.[0].args?.tokenId;
 
             // Set to specific token ID, but mark amount as 0
-            const signatureItems: ArtBlocksItem[] = [
+            const signatureItems: ABSignatureItem[] = [
                 {
                     asset: artblocks.address,
                     projectId: 3,
@@ -163,7 +163,7 @@ describe("ArtBlocksVerifier", () => {
             const receipt = await tx.wait();
             const tokenId = receipt.events?.[0].args?.tokenId.sub(1_000_000 * 3);
 
-            const signatureItems: ArtBlocksItem[] = [
+            const signatureItems: ABSignatureItem[] = [
                 {
                     asset: artblocks.address,
                     projectId: 3,
@@ -185,7 +185,7 @@ describe("ArtBlocksVerifier", () => {
 
             await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);;
 
-            const signatureItems: ArtBlocksItem[] = [
+            const signatureItems: ABSignatureItem[] = [
                 {
                     asset: artblocks.address,
                     projectId: 3,
@@ -207,7 +207,7 @@ describe("ArtBlocksVerifier", () => {
             await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);
             await artblocks.connect(minter).mint(user.address, 3, deployer.address);
 
-            const signatureItems: ArtBlocksItem[] = [
+            const signatureItems: ABSignatureItem[] = [
                 {
                     asset: artblocks.address,
                     projectId: 3,
@@ -228,7 +228,7 @@ describe("ArtBlocksVerifier", () => {
 
             await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);;
 
-            const signatureItems: ArtBlocksItem[] = [
+            const signatureItems: ABSignatureItem[] = [
                 {
                     asset: artblocks.address,
                     projectId: 3,
@@ -238,7 +238,7 @@ describe("ArtBlocksVerifier", () => {
                 },
             ];
 
-            const signatureItemsFalse: ArtBlocksItem[] = [
+            const signatureItemsFalse: ABSignatureItem[] = [
                 {
                     asset: artblocks.address,
                     projectId: 4,
@@ -268,7 +268,7 @@ describe("ArtBlocksVerifier", () => {
             await artblocks.connect(minter).mint(bundleAddress, 5, deployer.address);;
 
             // Check 1 wildcard, check 1 specific ID, and check 1 wildcard of amount > 1
-            const signatureItems: ArtBlocksItem[] = [
+            const signatureItems: ABSignatureItem[] = [
                 {
                     asset: artblocks.address,
                     projectId: 3,
@@ -293,7 +293,7 @@ describe("ArtBlocksVerifier", () => {
             ];
 
             // Check a larger amount, when 2 are owned
-            const signatureItemsFalse: ArtBlocksItem[] = [
+            const signatureItemsFalse: ABSignatureItem[] = [
                 {
                     asset: artblocks.address,
                     projectId: 5,
