@@ -96,7 +96,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         uint256 interest = getInterestAmount(terms.principal, terms.proratedInterestRate);
         uint256 totalOwed = terms.principal + interest;
 
-        uint256 claimFee = (totalOwed * feeController.get(FL_06)) / BASIS_POINTS_DENOMINATOR;
+        uint256 claimFee = (totalOwed * data.feeSnapshot.lenderDefaultFee) / BASIS_POINTS_DENOMINATOR;
 
         loanCore.claim(loanId, claimFee);
     }
@@ -119,7 +119,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         address lender = lenderNote.ownerOf(loanId);
         if (lender != msg.sender) revert RC_OnlyLender(lender, msg.sender);
 
-        uint256 redeemFee = (amountOwed * feeController.get(FL_09)) / BASIS_POINTS_DENOMINATOR;
+        uint256 redeemFee = (amountOwed * feeController.getLendingFee(FL_08)) / BASIS_POINTS_DENOMINATOR;
 
         loanCore.redeemNote(loanId, redeemFee, to);
     }
@@ -144,8 +144,8 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
 
         uint256 interest = getInterestAmount(terms.principal, terms.proratedInterestRate);
 
-        uint256 interestFee = (interest * feeController.get(FL_07)) / BASIS_POINTS_DENOMINATOR;
-        uint256 principalFee = (terms.principal * feeController.get(FL_08)) / BASIS_POINTS_DENOMINATOR;
+        uint256 interestFee = (interest * data.feeSnapshot.lenderInterestFee) / BASIS_POINTS_DENOMINATOR;
+        uint256 principalFee = (terms.principal * data.feeSnapshot.lenderPrincipalFee) / BASIS_POINTS_DENOMINATOR;
 
         amountFromBorrower = terms.principal + interest;
         amountToLender = amountFromBorrower - interestFee - principalFee;

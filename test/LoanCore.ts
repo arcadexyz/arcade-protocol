@@ -17,7 +17,7 @@ import {
 import { BlockchainTime } from "./utils/time";
 import { LoanTerms, LoanState } from "./utils/types";
 import { deploy } from "./utils/contracts";
-import { startLoan } from "./utils/loans";
+import { startLoan, feeSnapshot } from "./utils/loans";
 import { ZERO_ADDRESS } from "./utils/erc20";
 
 import {
@@ -256,7 +256,7 @@ describe("LoanCore", () => {
             await mockERC20.connect(lender).approve(loanCore.address, principal);
 
             const fee = principal.mul(5).div(1000);
-            await feeController.set(await feeController.FL_02(), 50);
+            await feeController.setLendingFee(await feeController.FL_01(), 50);
 
             const loanId = await startLoan(
                 loanCore,
@@ -388,7 +388,8 @@ describe("LoanCore", () => {
                     borrower.address,
                     terms,
                     principal,
-                    principal.add(ethers.utils.parseEther("1")) // borrower receives extra principal
+                    principal.add(ethers.utils.parseEther("1")), // borrower receives extra principal
+                    feeSnapshot
                 )
             ).to.be.revertedWith("LC_CannotSettle");
         });
@@ -426,7 +427,8 @@ describe("LoanCore", () => {
                     borrower.address,
                     terms,
                     principal,
-                    principal
+                    principal,
+                    feeSnapshot
                 )
             ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
         });
@@ -441,6 +443,7 @@ describe("LoanCore", () => {
                     terms,
                     terms.principal,
                     terms.principal,
+                    feeSnapshot
                 )
             ).to.be.revertedWith(
                 `AccessControl: account ${(
@@ -468,7 +471,8 @@ describe("LoanCore", () => {
                 borrower.address,
                 terms,
                 terms.principal,
-                terms.principal
+                terms.principal,
+                feeSnapshot
             );
 
             await expect(
@@ -477,7 +481,8 @@ describe("LoanCore", () => {
                     borrower.address,
                     terms,
                     terms.principal,
-                    terms.principal
+                    terms.principal,
+                    feeSnapshot
                 ),
             ).to.be.revertedWith("LC_CollateralInUse");
         });
@@ -519,7 +524,8 @@ describe("LoanCore", () => {
                     borrower.address,
                     terms,
                     principal,
-                    principal
+                    principal,
+                    feeSnapshot
                 ),
             ).to.be.revertedWith("ERC721: transfer caller is not owner nor approved");
         });
@@ -560,7 +566,8 @@ describe("LoanCore", () => {
                     borrower.address,
                     terms,
                     principal,
-                    principal
+                    principal,
+                    feeSnapshot
                 ),
             ).to.be.revertedWith("ERC721: transfer caller is not owner nor approved");
         });
@@ -574,7 +581,8 @@ describe("LoanCore", () => {
                     borrower.address,
                     terms,
                     terms.principal,
-                    terms.principal
+                    terms.principal,
+                    feeSnapshot
                 ),
             ).to.be.revertedWith("ERC721: transfer caller is not owner nor approved");
         });
@@ -595,7 +603,8 @@ describe("LoanCore", () => {
                     borrower.address,
                     terms,
                     principal,
-                    principal
+                    principal,
+                    feeSnapshot
                 ),
             ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
         });
@@ -620,7 +629,8 @@ describe("LoanCore", () => {
                     borrower.address,
                     terms,
                     principal,
-                    principal
+                    principal,
+                    feeSnapshot
                 ),
             ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
         });
@@ -642,7 +652,8 @@ describe("LoanCore", () => {
                     borrower.address,
                     terms,
                     principal,
-                    principal
+                    principal,
+                    feeSnapshot
                 ),
             ).to.be.revertedWith("Pausable: paused");
         });
@@ -1229,7 +1240,7 @@ describe("LoanCore", () => {
             const repayAmount = terms.principal.add(terms.proratedInterestRate);
 
             // Set a redeem fee of 10%
-            await feeController.set(await feeController.FL_09(), 10_00);
+            await feeController.setLendingFee(await feeController.FL_08(), 10_00);
 
             await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(10), borrower.address))
                 .to.emit(loanCore, "NoteRedeemed")
@@ -1261,7 +1272,7 @@ describe("LoanCore", () => {
             const repayAmount = terms.principal.add(terms.proratedInterestRate);
 
             // Set a redeem fee of 10%
-            await feeController.set(await feeController.FL_09(), 10_00);
+            await feeController.setLendingFee(await feeController.FL_08(), 10_00);
 
             await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(10), borrower.address))
                 .to.emit(loanCore, "NoteRedeemed")
@@ -1294,7 +1305,7 @@ describe("LoanCore", () => {
             const repayAmount = terms.principal.add(terms.proratedInterestRate);
 
             // Set a redeem fee of 10%
-            await feeController.set(await feeController.FL_09(), 10_00);
+            await feeController.setLendingFee(await feeController.FL_08(), 10_00);
 
             await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(10), borrower.address))
                 .to.emit(loanCore, "NoteRedeemed")

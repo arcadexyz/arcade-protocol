@@ -75,8 +75,8 @@ const fixture = async (): Promise<TestContext> => {
     const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
     const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address]);
 
-    await feeController.set(await feeController.FL_02(), 50);
-    await feeController.set(await feeController.FL_04(), 10);
+    await feeController.setLendingFee(await feeController.FL_01(), 50);
+    await feeController.setLendingFee(await feeController.FL_03(), 10);
 
     const borrowerNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz BorrowerNote", "aBN", descriptor.address]);
     const lenderNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz LenderNote", "aLN", descriptor.address]);
@@ -1316,7 +1316,7 @@ describe("Rollovers", () => {
             );
 
             // Previous tests use fee - set fees to 0
-            await feeController.set(await feeController.FL_04(), 0);
+            await feeController.setLendingFee(await feeController.FL_03(), 0);
 
             await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
             await mockERC20.connect(borrower).approve(originationController.address, ethers.utils.parseEther("12"));
@@ -1384,8 +1384,8 @@ describe("Rollovers", () => {
             );
 
             // Previous tests use fee - set fees to 0 for borrower, and set lender fee
-            await feeController.set(await feeController.FL_04(), 0);
-            await feeController.set(await feeController.FL_05(), 1_00);
+            await feeController.setLendingFee(await feeController.FL_03(), 0);
+            await feeController.setLendingFee(await feeController.FL_04(), 1_00);
 
             await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
             await mockERC20.connect(borrower).approve(originationController.address, ethers.utils.parseEther("12"));
@@ -1453,7 +1453,7 @@ describe("Rollovers", () => {
             );
 
             // Previous tests use fee - set lender fee, borrower fee already set
-            await feeController.set(await feeController.FL_05(), 1_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 1_00);
 
             await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
             await mockERC20.connect(borrower).approve(originationController.address, ethers.utils.parseEther("12"));
@@ -1508,7 +1508,7 @@ describe("Rollovers", () => {
             const { loanId, loanTerms, bundleId } = loan;
 
             // Previous tests use fee - set lender fee, borrower fee already set
-            await feeController.set(await feeController.FL_05(), 1_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 1_00);
 
             // create new terms for rollover and sign them
             const newTerms = createLoanTerms(mockERC20.address, vaultFactory.address, {
@@ -1598,7 +1598,7 @@ describe("Rollovers", () => {
             );
 
             // Set borrower fee to 0
-            await feeController.set(await feeController.FL_04(), 0);
+            await feeController.setLendingFee(await feeController.FL_03(), 0);
 
             // Figure out amounts owed
             // With same terms, borrower will have to pay interest plus 0.1%
@@ -1679,8 +1679,8 @@ describe("Rollovers", () => {
             );
 
             // Set borrower fee to 0, but add 1% lender fee
-            await feeController.set(await feeController.FL_04(), 0);
-            await feeController.set(await feeController.FL_05(), 1_00);
+            await feeController.setLendingFee(await feeController.FL_03(), 0);
+            await feeController.setLendingFee(await feeController.FL_04(), 1_00);
 
             // Figure out amounts owed
             // With same terms, borrower will have to pay interest plus 0.1%
@@ -1761,7 +1761,7 @@ describe("Rollovers", () => {
             );
 
             // Leave borrower fee at 0.1%, add 1% lender fee
-            await feeController.set(await feeController.FL_05(), 1_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 1_00);
 
             // Figure out amounts owed
             // With same terms, borrower will have to pay interest plus 0.1%
@@ -1845,7 +1845,7 @@ describe("Rollovers", () => {
             );
 
             // Leave borrower fee at 0.1%, add 1% lender fee
-            await feeController.set(await feeController.FL_05(), 1_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 1_00);
 
             // Figure out amounts owed
             // With same terms, borrower will have to pay interest plus 0.1%
@@ -1930,7 +1930,7 @@ describe("Rollovers", () => {
             );
 
             // Leave borrower fee at 0.1%, add 1% lender fee
-            await feeController.set(await feeController.FL_05(), 1_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 1_00);
 
             // Add a 20% affiliate split
             await loanCore.connect(admin).setAffiliateSplits([affiliateCode], [{ affiliate: borrower.address, splitBps: 20_00 }])
@@ -2028,7 +2028,7 @@ describe("Rollovers", () => {
             );
 
             // Leave borrower fee at 0.1%, add 1% lender fee
-            await feeController.set(await feeController.FL_05(), 1_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 1_00);
 
             // Add a 20% affiliate split for both codes
             await loanCore.connect(admin).setAffiliateSplits(
@@ -2115,7 +2115,7 @@ describe("Rollovers", () => {
             const { loanId, loanTerms, bundleId } = loan;
 
             // Leave borrower fee at 0.1%, add 1% lender fee
-            await feeController.set(await feeController.FL_05(), 1_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 1_00);
 
             // create new terms for rollover and sign them
             // Have new principal be exactly what is due:

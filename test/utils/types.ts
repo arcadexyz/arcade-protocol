@@ -57,3 +57,9 @@ export interface LoanData {
     state: LoanState;
     startDate: BigNumberish;
 }
+
+export interface FeeSnapshot {
+    lenderDefaultFee: BigNumber;
+    lenderInterestFee: BigNumber;
+    lenderPrincipalFee: BigNumber;
+}
