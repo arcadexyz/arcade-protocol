@@ -376,7 +376,7 @@ contract LoanCore is
         uint256 _amountToBorrower
     ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 newLoanId) {
         LoanLibrary.LoanData storage data = loans[oldLoanId];
-        // Ensure valid initial loan state when repaying loan
+        // Ensure valid loan state for old loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
 
         // State change for old loan
@@ -385,6 +385,7 @@ contract LoanCore is
         address oldLender = lenderNote.ownerOf(oldLoanId);
         IERC20 payableCurrency = IERC20(data.terms.payableCurrency);
 
+        // Check that contract will not net lose tokens
         if (_amountToOldLender + _amountToLender + _amountToBorrower > _settledAmount)
             revert LC_CannotSettle(_amountToOldLender + _amountToLender + _amountToBorrower, _settledAmount);
 
