@@ -887,7 +887,7 @@ contract OriginationController is
         address oldLender = loanCore.lenderNote().ownerOf(oldLoanId);
         IERC20 payableCurrency = IERC20(oldTerms.payableCurrency);
 
-        // Settle amounts
+        // Calculate settle amounts
         RolloverAmounts memory amounts = _calculateRolloverAmounts(
             oldTerms,
             newTerms,
@@ -895,25 +895,26 @@ contract OriginationController is
             oldLender
         );
 
-        // Collect funds
+        // Collect funds based on settle amounts and total them
         uint256 settledAmount;
         if (lender != oldLender) {
-            // Take new principal from lender
+            // If new lender, take new principal from new lender
             payableCurrency.safeTransferFrom(lender, address(this), amounts.amountFromLender);
             settledAmount += amounts.amountFromLender;
         }
 
         if (amounts.needFromBorrower > 0) {
-            // Borrower must pay difference
+            // Borrower owes from old loan
             payableCurrency.safeTransferFrom(borrower, address(this), amounts.needFromBorrower);
             settledAmount += amounts.needFromBorrower;
         } else if (amounts.leftoverPrincipal > 0 && lender == oldLender) {
-            // Lender must pay difference
-            // Make sure to collect fee
+            // If same lender, and new amount from lender is greater than old loan repayment amount,
+            // take the difference from the lender
             payableCurrency.safeTransferFrom(lender, address(this), amounts.leftoverPrincipal);
             settledAmount += amounts.leftoverPrincipal;
         }
 
+        // approve LoanCore to take the total settled amount
         payableCurrency.approve(address(loanCore), settledAmount);
 
         loanId = loanCore.rollover(
@@ -947,19 +948,26 @@ contract OriginationController is
         address lender,
         address oldLender
     ) internal view returns (RolloverAmounts memory amounts) {
+        // get rollover fees
         IFeeController.FeesRollover memory feeData = feeController.getFeesRollover();
 
+        // Calculate repay amount of old loan
         uint256 interest = getInterestAmount(oldTerms.principal, oldTerms.proratedInterestRate);
         uint256 repayAmount = oldTerms.principal + interest;
 
+        // Calculate amount to be sent to borrower for new loan minus rollover fees
         uint256 borrowerFee = (newTerms.principal * feeData.borrowerRolloverFee) / BASIS_POINTS_DENOMINATOR;
         uint256 borrowerOwedForNewLoan = newTerms.principal - borrowerFee;
 
+        // Calculate amount to be collected from the lender for new loan plus rollover fees
         uint256 lenderFee = (newTerms.principal * feeData.lenderRolloverFee) / BASIS_POINTS_DENOMINATOR;
         amounts.amountFromLender = newTerms.principal + lenderFee;
 
-        // Settle amounts
+        // Calculate net amounts based on if repayment amount for old loan is greater than
+        // new loan principal minus fees
         if (repayAmount > borrowerOwedForNewLoan) {
+            // amount to collect from borrower
+            // new loan principal is less than old loan repayment amount
             amounts.needFromBorrower = repayAmount - borrowerOwedForNewLoan;
         } else {
             // amount to collect from lender (either old or new)
@@ -969,16 +977,20 @@ contract OriginationController is
             amounts.amountToBorrower = borrowerOwedForNewLoan - repayAmount;
         }
 
-        // Collect funds
+        // Calculate lender amounts based on if the lender is the same as the old lender
         if (lender != oldLender) {
-            // old lender
+            // different lenders, repay old lender
             amounts.amountToOldLender = repayAmount;
 
-            // new lender
+            // different lender, new lender is owed zero tokens
             amounts.amountToLender = 0;
         } else {
+            // same lender
             amounts.amountToOldLender = 0;
 
+            // same lender, so check if the amount to collect from the lender is less than
+            // the amount the lender is owed for the old loan. If so, the lender is owed the
+            // difference
             if (amounts.needFromBorrower > 0 && repayAmount > amounts.amountFromLender) {
                 amounts.amountToLender = repayAmount - amounts.amountFromLender;
             }
