@@ -1006,6 +1006,23 @@ describe("LoanCore", () => {
                 .to.emit(loanCore, "LoanRepaid").withArgs(loanId)
                 .to.emit(loanCore, "ForceRepay").withArgs(loanId);
         });
+
+        it("3rd party cannot call transferLenderTokens", async () => {
+            const { mockERC20, loanCore, borrower, lender, admin, } = await setupLoan();
+
+            await expect(loanCore.connect(borrower).transferLenderTokens(mockERC20.address, borrower.address, ethers.utils.parseEther("1"))).to.be.revertedWith(
+                `LC_CallerNotLoanCore`,
+            );
+
+            await expect(loanCore.connect(lender).transferLenderTokens(mockERC20.address, lender.address, ethers.utils.parseEther("1"))).to.be.revertedWith(
+                `LC_CallerNotLoanCore`,
+            );
+
+            await expect(loanCore.connect(admin).transferLenderTokens(mockERC20.address, admin.address, ethers.utils.parseEther("1"))).to.be.revertedWith(
+                `LC_CallerNotLoanCore`,
+            );
+
+        });
     });
 
     describe("Claim loan", () => {
