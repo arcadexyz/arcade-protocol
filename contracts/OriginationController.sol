@@ -17,7 +17,7 @@ import "./interfaces/IFeeController.sol";
 
 import "./libraries/InterestCalculator.sol";
 import "./libraries/FeeLookups.sol";
-import "./verifiers/ItemsVerifier.sol";
+import "./verifiers/ArcadeItemsVerifier.sol";
 import {
     OC_ZeroAddress,
     OC_InvalidState,
