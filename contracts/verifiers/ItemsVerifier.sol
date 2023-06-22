@@ -111,12 +111,11 @@ contract ArcadeItemsVerifier is ISignatureVerifier {
 
             if (item.cType == CollateralType.ERC_721) {
                 IERC721 asset = IERC721(item.asset);
-                uint256 id = item.tokenId;
 
                 // Wildcard, but vault has no assets or not enough specified
                 if (item.anyIdAllowed && asset.balanceOf(vault) < item.amount) return false;
                 // Does not own specifically specified asset
-                if (!item.anyIdAllowed && asset.ownerOf(id) != vault) return false;
+                if (!item.anyIdAllowed && asset.ownerOf(item.tokenId) != vault) return false;
             } else if (item.cType == CollateralType.ERC_1155) {
                 IERC1155 asset = IERC1155(item.asset);
 
