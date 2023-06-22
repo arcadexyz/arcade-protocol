@@ -676,11 +676,11 @@ contract OriginationController is
         // principal must be greater than or equal to the MIN_LOAN_PRINCIPAL constant
         if (terms.principal < MIN_LOAN_PRINCIPAL) revert OC_PrincipalTooLow(terms.principal);
 
-        // loan duration must be greater than 1 hr and less than 3 years
+        // loan duration must be greater or equal to 1 hr and less or equal to 3 years
         if (terms.durationSecs < 3600 || terms.durationSecs > 94_608_000) revert OC_LoanDuration(terms.durationSecs);
 
         // interest rate must be greater than or equal to 0.01%
-        // and less than 10,000% (1e6 basis points)
+        // and less or equal to 10,000% (1e6 basis points)
         if (terms.proratedInterestRate < 1e18 || terms.proratedInterestRate > 1e24) revert OC_InterestRate(terms.proratedInterestRate);
 
         // signature must not have already expired
