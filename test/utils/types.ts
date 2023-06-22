@@ -16,7 +16,7 @@ export interface SignatureItem {
     anyIdAllowed: boolean;
 }
 
-// Art Blocks signature item
+// Art Blocks Verifier signature item
 export interface ABSignatureItem {
     asset: string;
     projectId: BigNumberish;
