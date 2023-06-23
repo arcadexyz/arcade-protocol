@@ -34,6 +34,8 @@ import {
     LC_InvalidGracePeriod
 } from "./errors/Lending.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title LoanCore
  * @author Non-Fungible Technologies, Inc.
@@ -236,10 +238,10 @@ contract LoanCore is
         _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, _amountFromPayer);
 
         // try to send repayment to lender. If it fails, create NoteReceipt and burn only the borrower note
-        try this.transferLenderTokens(IERC20(data.terms.payableCurrency), lender, _amountToLender) {
+        if (transferLenderTokens(IERC20(data.terms.payableCurrency), lender, _amountToLender)) {
             // burn borrower and lender notes
             _burnLoanNotes(loanId);
-        } catch {
+        } else {
             // create NoteReceipt
             noteReceipts[loanId] = NoteReceipt(data.terms.payableCurrency, _amountToLender);
 
@@ -771,19 +773,32 @@ contract LoanCore is
     }
 
     /**
-     * @notice Transfer tokens to a lender from this contract. This function can
-     *         only be called by this contract.
+     * @notice Transfer tokens to a lender from this contract. This function detects if
+     *         the token transfer reverts or fails to occur.
      *
-     * @dev This function is used for surfacing the _transferIfNonzero internal function
-     *      to the repay function. This way it can be used in the try/catch statement.
-     *
-     * @param currency              The token to transfer.
+     * @param token                 The token address to transfer.
      * @param lender                The address receiving the tokens.
      * @param amount                The amount of tokens to transfer.
      */
-    function transferLenderTokens(IERC20 currency, address lender, uint256 amount) public {
-        if (msg.sender != address(this)) revert LC_CallerNotLoanCore();
+    function transferLenderTokens(IERC20 token, address lender, uint256 amount) internal returns (bool) {
+        bytes memory data = abi.encodeWithSelector(token.transfer.selector, lender, amount);
+        (bool success, bytes memory returnData) = address(token).call(data);
 
-        _transferIfNonzero(currency, lender, amount);
+        if (!success) {
+            // if call reverts, return false
+            return false;
+        }
+        else if (success && returnData.length == 0) {
+            // if call succeeds and has no return data, return true
+            return true;
+        }
+        else {
+            // if call succeeds and has return data, check if bool is true
+            if (abi.decode(returnData, (bool))) {
+                return true;
+            } else {
+                return false;
+            }
+        }
     }
 }
