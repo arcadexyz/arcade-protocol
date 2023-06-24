@@ -65,3 +65,10 @@ export interface FeeSnapshot {
     lenderInterestFee: BigNumber;
     lenderPrincipalFee: BigNumber;
 }
+
+export interface InitializeLoanSignature {
+    v: number;
+    r: Buffer;
+    s: Buffer;
+    data: string;
+}

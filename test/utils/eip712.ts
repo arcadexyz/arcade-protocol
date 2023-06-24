@@ -1,7 +1,7 @@
 import hre from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { BigNumberish } from "ethers";
-import { LoanTerms, ItemsPayload, ItemsPredicate } from "./types";
+import { LoanTerms, ItemsPayload, ItemsPredicate, InitializeLoanSignature } from "./types";
 import { fromRpcSig, ECDSASignature } from "ethereumjs-util";
 
 interface TypeData {
@@ -10,6 +10,7 @@ interface TypeData {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     primaryType: any;
 }
+
 export interface PermitData {
     owner: string;
     spender: string;
@@ -104,12 +105,14 @@ export async function createLoanTermsSignature(
     version = "3",
     nonce: BigNumberish,
     _side: "b" | "l",
-): Promise<ECDSASignature> {
+): Promise<InitializeLoanSignature> {
     const side = _side === "b" ? 0 : 1;
     const data = buildData(verifyingContract, name, version, { ...terms, nonce, side }, typedLoanTermsData);
     const signature = await signer._signTypedData(data.domain, data.types, data.message);
 
-    return fromRpcSig(signature);
+    const sig: ECDSASignature =  fromRpcSig(signature);
+
+    return { v: sig.v, r: sig.r, s: sig.s, data: "0x" };
 }
 
 /**
@@ -131,7 +134,7 @@ export async function createLoanItemsSignature(
     version = "3",
     nonce = "1",
     _side: "b" | "l",
-): Promise<ECDSASignature> {
+): Promise<InitializeLoanSignature> {
     const side = _side === "b" ? 0 : 1;
 
     const message: ItemsPayload = {
@@ -152,7 +155,9 @@ export async function createLoanItemsSignature(
     // console.log(JSON.stringify(data, null, 4));
     const signature = await signer._signTypedData(data.domain, data.types, data.message);
 
-    return fromRpcSig(signature);
+    const sig: ECDSASignature =  fromRpcSig(signature);
+
+    return { v: sig.v, r: sig.r, s: sig.s, data: "0x" };
 }
 
 /**
@@ -167,9 +172,11 @@ export async function createPermitSignature(
     name: string,
     permitData: PermitData,
     signer: SignerWithAddress,
-): Promise<ECDSASignature> {
+): Promise<InitializeLoanSignature> {
     const data = buildData(verifyingContract, name, "1", permitData, typedPermitData);
     const signature = await signer._signTypedData(data.domain, data.types, data.message);
 
-    return fromRpcSig(signature);
+    const sig: ECDSASignature =  fromRpcSig(signature);
+
+    return { v: sig.v, r: sig.r, s: sig.s, data: "0x" };
 }

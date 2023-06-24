@@ -453,7 +453,7 @@ contract OriginationController is
         Signature calldata sig,
         bytes32 sighash
     ) public view override returns (bool) {
-        bytes memory signature = abi.encodePacked(sig.r, sig.s, sig.v);
+        bytes memory signature = abi.encodePacked(sig.r, sig.s, sig.v, sig.data);
 
         // Convert sig struct to bytes
         (bool success, bytes memory result) = target.staticcall(
