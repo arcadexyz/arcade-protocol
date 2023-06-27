@@ -73,7 +73,7 @@ error AV_LengthMismatch(string arrayType);
 /**
  * @notice Zero address passed in where not allowed.
  *
- * @param addressType                  The type of address that is zero.
+ * @param addressType                  The name of the parameter for which a zero address was provided.
  */
 error AV_ZeroAddress(string addressType);
 
@@ -100,7 +100,7 @@ error OERC721_CallerNotOwner(address caller);
 /**
  * @notice Zero address passed in where not allowed.
  *
- * @param addressType                  The type of address that is zero.
+ * @param addressType                  The name of the parameter for which a zero address was provided.
  */
 error VF_ZeroAddress(string addressType);
 

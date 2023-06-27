@@ -20,7 +20,7 @@ import "../libraries/LoanLibrary.sol";
 /**
  * @notice Zero address passed in where not allowed.
  *
- * @param addressType                  The type of address that is zero.
+ * @param addressType                  The name of the parameter for which a zero address was provided.
  */
 error OC_ZeroAddress(string addressType);
 
@@ -233,7 +233,7 @@ error IV_InvalidProjectId(uint256 projectId, uint256 nextProjectId);
 /**
  * @notice Zero address passed in where not allowed.
  *
- * @param addressType                  The type of address that is zero.
+ * @param addressType                  The name of the parameter for which a zero address was provided.
  */
 error RC_ZeroAddress(string addressType);
 
@@ -265,7 +265,7 @@ error RC_OnlyLender(address lender, address caller);
 /**
  * @notice Zero address passed in where not allowed.
  *
- * @param addressType                  The type of address that is zero.
+ * @param addressType                  The name of the parameter for which a zero address was provided.
  */
 error LC_ZeroAddress(string addressType);
 
@@ -372,7 +372,7 @@ error LC_InvalidGracePeriod(uint256 newGracePeriod);
 /**
  * @notice Zero address passed in where not allowed.
  *
- * @param addressType                  The type of address that is zero.
+ * @param addressType                  The name of the parameter for which a zero address was provided.
  */
 error PN_ZeroAddress(string addressType);
 
