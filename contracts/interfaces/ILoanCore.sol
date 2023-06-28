@@ -51,6 +51,13 @@ interface ILoanCore {
         uint256 _amountToLender
     ) external;
 
+    function forceRepay(
+        uint256 loanId,
+        address payer,
+        uint256 _amountFromPayer,
+        uint256 _amountToLender
+    ) external;
+
     function claim(
         uint256 loanId,
         uint256 _amountFromLender

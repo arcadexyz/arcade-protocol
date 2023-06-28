@@ -29,9 +29,9 @@ import {
     LC_NotExpired,
     LC_NonceUsed,
     LC_AffiliateCodeAlreadySet,
-    LC_NoReceipt,
     LC_CallerNotLoanCore,
-    LC_InvalidGracePeriod
+    LC_InvalidGracePeriod,
+    LC_NoReceipt
 } from "./errors/Lending.sol";
 
 /**
@@ -208,14 +208,10 @@ contract LoanCore is
 
     /**
      * @notice Repay the given loan. Can only be called by RepaymentController,
-     *         which verifies repayment conditions. This method will collect
+     *         which verifies repayment conditions. This method will collext
      *         the total interest due from the borrower  and redistribute
      *         principal + interest to the lender, and collateral to the borrower.
      *         All promissory notes will be burned and the loan will be marked as complete.
-     *
-     * @dev For loans where the lender cannot receive tokens, only the borrower note will be
-     *      burned. In this case, the loan will still be closed, and the lender will need to
-     *      call redeemNote to receive their tokens.
      *
      * @param loanId                The ID of the loan to repay.
      * @param payer                 The party repaying the loan.
@@ -229,30 +225,56 @@ contract LoanCore is
         uint256 _amountToLender
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         LoanLibrary.LoanData memory data = _handleRepay(loanId, _amountFromPayer, _amountToLender);
+
+        // Get promissory notes from two parties involved, then burn
         address lender = lenderNote.ownerOf(loanId);
         address borrower = borrowerNote.ownerOf(loanId);
+        _burnLoanNotes(loanId);
 
-        // collect from borrower
+        // Send collected principal + interest, less fees, to lender
         _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, _amountFromPayer);
+        _transferIfNonzero(IERC20(data.terms.payableCurrency), lender, _amountToLender);
 
-        // try to send repayment to lender. If it fails, create NoteReceipt and burn only the borrower note
-        try this.transferLenderTokens(IERC20(data.terms.payableCurrency), lender, _amountToLender) {
-            // burn borrower and lender notes
-            _burnLoanNotes(loanId);
-        } catch {
-            // create NoteReceipt
-            noteReceipts[loanId] = NoteReceipt(data.terms.payableCurrency, _amountToLender);
-
-            // burn borrower note only. Do not burn lender note until receipt is redeemed
-            borrowerNote.burn(loanId);
-            
-            emit ForceRepay(loanId);
-        }
-
-        // redistribute collateral to borrower
+        // Redistribute collateral
         IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
 
         emit LoanRepaid(loanId);
+    }
+
+    /**
+     * @notice Let the borrower repay the given loan, but do not release principal to the lender:
+     *         instead, make it available for withdrawal. Should be used in cases where the borrower wants
+     *         to fulfill loan obligations but the lender cannot receive tokens (due to malicious or
+     *         accidental behavior, token blacklisting etc).
+     *
+     * @param loanId                The ID of the loan to repay.
+     * @param payer                 The party repaying the loan.
+     * @param _amountFromPayer      The amount of tokens to be collected from the repayer.
+     * @param _amountToLender       The amount of tokens to be distributed to the lender (net after fees).
+     */
+    function forceRepay(
+        uint256 loanId,
+        address payer,
+        uint256 _amountFromPayer,
+        uint256 _amountToLender
+    ) external override onlyRole(REPAYER_ROLE) nonReentrant {
+        LoanLibrary.LoanData memory data = _handleRepay(loanId, _amountFromPayer, _amountToLender);
+
+        // Do not send collected principal, but make it available for withdrawal by a holder of the lender note
+        noteReceipts[loanId] = NoteReceipt(data.terms.payableCurrency, _amountToLender);
+
+        // Get promissory notes from two parties involved, then burn
+        // borrower note _only_ - do not burn lender note until receipt
+        // is redeemed
+        address borrower = borrowerNote.ownerOf(loanId);
+        borrowerNote.burn(loanId);
+
+        // Collect from borrower and redistribute collateral
+        _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, _amountFromPayer);
+        IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
+
+        emit LoanRepaid(loanId);
+        emit ForceRepay(loanId);
     }
 
     /**
@@ -308,7 +330,7 @@ contract LoanCore is
 
     /**
      * @notice Burn a lender note, for an already-completed loan, in order to receive
-     *         held tokens already paid back by the lender. Can only be called by the
+     *         held tokens already paid back by the borrower. Can only be called by the
      *         owner of the note.
      *
      * @param loanId                    The ID of the lender note to redeem.
@@ -638,8 +660,9 @@ contract LoanCore is
 
 
     /**
-     * @dev All "checks" and "effects" for the repay function. Will validate loan state, perform accounting
-     *      calculations, and update storage. Transfers and burns occur in the calling function.
+     * @dev Perform shared logic across repay operations repay and forceRepay - all "checks" and "effects".
+     *      Will validate loan state, perform accounting calculations, update storage and burn loan notes.
+     *      Transfers should occur in the calling function.
      *
      * @param loanId                The ID of the loan to repay.
      * @param _amountFromPayer      The amount of tokens to be collected from the repayer.
@@ -718,7 +741,7 @@ contract LoanCore is
      *
      * @param loanId                The token ID to mint.
      * @param borrower              The address of the recipient of the borrower note.
-     * @param lender                The address of the recpient of the lender note.
+     * @param lender                The address of the recipient of the lender note.
      */
     function _mintLoanNotes(
         uint256 loanId,
@@ -768,22 +791,5 @@ contract LoanCore is
         uint256 amount
     ) internal {
         if (amount > 0) token.safeTransferFrom(from, address(this), amount);
-    }
-
-    /**
-     * @notice Transfer tokens to a lender from this contract. This function can
-     *         only be called by this contract.
-     *
-     * @dev This function is used for surfacing the _transferIfNonzero internal function
-     *      to the repay function. This way it can be used in the try/catch statement.
-     *
-     * @param currency              The token to transfer.
-     * @param lender                The address receiving the tokens.
-     * @param amount                The amount of tokens to transfer.
-     */
-    function transferLenderTokens(IERC20 currency, address lender, uint256 amount) public {
-        if (msg.sender != address(this)) revert LC_CallerNotLoanCore();
-
-        _transferIfNonzero(currency, lender, amount);
     }
 }

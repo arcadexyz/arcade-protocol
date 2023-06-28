@@ -855,7 +855,7 @@ describe("LoanCore", () => {
             return { ...context, loanId, terms, borrower, lender };
         };
 
-        it("should successfully forceRepay (2 step repay) a loan", async () => {
+        it("should successfully forceRepay a loan", async () => {
             const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms, mockLenderNote } = await setupLoan();
             const repayAmount = terms.principal.add(terms.proratedInterestRate);
 
@@ -863,11 +863,7 @@ describe("LoanCore", () => {
                 .connect(borrower)
                 .mint(borrower.address, repayAmount);
             await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
-
-            // Add lender to the mockERC20 blacklist so it forces the lender to call redeemNote
-            await mockERC20.setBlacklisted(lender.address, true);
-
-            await expect(loanCore.connect(borrower).repay(loanId, borrower.address, repayAmount, repayAmount))
+            await expect(loanCore.connect(borrower).forceRepay(loanId, borrower.address, repayAmount, repayAmount))
                 .to.emit(loanCore, "LoanRepaid").withArgs(loanId)
                 .to.emit(loanCore, "ForceRepay").withArgs(loanId);
 
@@ -887,7 +883,7 @@ describe("LoanCore", () => {
 
             await mockERC20.connect(borrower).mint(loanCore.address, repayAmount);
 
-            await expect(loanCore.connect(other).repay(loanId, borrower.address, repayAmount, repayAmount)).to.be.revertedWith(
+            await expect(loanCore.connect(other).forceRepay(loanId, borrower.address, repayAmount, repayAmount)).to.be.revertedWith(
                 `AccessControl: account ${(other.address).toLowerCase()} is missing role ${REPAYER_ROLE}`,
             );
         });
@@ -903,13 +899,13 @@ describe("LoanCore", () => {
             await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
             await loanCore.grantRole(REPAYER_ROLE, other.address);
 
-            await expect(loanCore.connect(other).repay(loanId, borrower.address, repayAmount, repayAmount)).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
+            await expect(loanCore.connect(other).forceRepay(loanId, borrower.address, repayAmount, repayAmount)).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
         });
 
         it("should fail if the loan does not exist", async () => {
             const { loanCore, user: borrower } = await setupLoan();
             const loanId = "123412341324";
-            await expect(loanCore.connect(borrower).repay(loanId, borrower.address, 0, 0)).to.be.revertedWith("LC_InvalidState");
+            await expect(loanCore.connect(borrower).forceRepay(loanId, borrower.address, 0, 0)).to.be.revertedWith("LC_InvalidState");
         });
 
         it("should fail if the loan is not active", async () => {
@@ -917,7 +913,7 @@ describe("LoanCore", () => {
             const collateralId = await initializeBundle(vaultFactory, borrower);
             terms.collateralId = collateralId;
             const loanId = 1000;
-            await expect(loanCore.connect(borrower).repay(loanId, borrower.address, 0, 0)).to.be.revertedWith("LC_InvalidState");
+            await expect(loanCore.connect(borrower).forceRepay(loanId, borrower.address, 0, 0)).to.be.revertedWith("LC_InvalidState");
         });
 
         it("should fail if the loan is already repaid", async () => {
@@ -929,8 +925,8 @@ describe("LoanCore", () => {
                 .mint(borrower.address, repayAmount);
             await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
 
-            await loanCore.connect(borrower).repay(loanId, borrower.address, repayAmount, repayAmount);
-            await expect(loanCore.connect(borrower).repay(loanId, borrower.address, repayAmount, repayAmount)).to.be.revertedWith("LC_InvalidState");
+            await loanCore.connect(borrower).forceRepay(loanId, borrower.address, repayAmount, repayAmount);
+            await expect(loanCore.connect(borrower).forceRepay(loanId, borrower.address, repayAmount, repayAmount)).to.be.revertedWith("LC_InvalidState");
         });
 
         it("should fail if the loan is already claimed", async () => {
@@ -940,7 +936,7 @@ describe("LoanCore", () => {
             await mockERC20.connect(borrower).mint(loanCore.address, repayAmount);
             await blockchainTime.increaseTime(360001);
 
-            await expect(loanCore.connect(borrower).repay(loanId, borrower.address, repayAmount, repayAmount)).to.be.revertedWith(
+            await expect(loanCore.connect(borrower).forceRepay(loanId, borrower.address, repayAmount, repayAmount)).to.be.revertedWith(
                 "ERC20: transfer amount exceeds balance",
             );
         });
@@ -949,7 +945,7 @@ describe("LoanCore", () => {
             const { loanId, loanCore, user: borrower, terms } = await setupLoan();
             const repayAmount = terms.principal.add(terms.proratedInterestRate);
 
-            await expect(loanCore.connect(borrower).repay(loanId, borrower.address, repayAmount, repayAmount)).to.be.revertedWith(
+            await expect(loanCore.connect(borrower).forceRepay(loanId, borrower.address, repayAmount, repayAmount)).to.be.revertedWith(
                 "ERC20: transfer amount exceeds balance",
             );
         });
@@ -960,7 +956,7 @@ describe("LoanCore", () => {
 
             await mockERC20.connect(borrower).mint(loanCore.address, repayAmount.sub(1));
 
-            await expect(loanCore.connect(borrower).repay(loanId, borrower.address, repayAmount, repayAmount)).to.be.revertedWith(
+            await expect(loanCore.connect(borrower).forceRepay(loanId, borrower.address, repayAmount, repayAmount)).to.be.revertedWith(
                 "ERC20: transfer amount exceeds balance",
             );
         });
@@ -971,7 +967,7 @@ describe("LoanCore", () => {
 
             await mockERC20.connect(borrower).mint(loanCore.address, repayAmount.sub(1));
 
-            await expect(loanCore.connect(borrower).repay(loanId, borrower.address, repayAmount, repayAmount)).to.be.revertedWith(
+            await expect(loanCore.connect(borrower).forceRepay(loanId, borrower.address, repayAmount, repayAmount)).to.be.revertedWith(
                 "ERC20: transfer amount exceeds balance",
             );
         });
@@ -986,42 +982,21 @@ describe("LoanCore", () => {
                 .mint(borrower.address, repayAmount);
             await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
 
-            await expect(loanCore.connect(borrower).repay(loanId, borrower.address, repayAmount, amountToLender))
+            await expect(loanCore.connect(borrower).forceRepay(loanId, borrower.address, repayAmount, amountToLender))
                 .to.be.revertedWith("LC_CannotSettle");
         });
 
         it("should still work when paused", async () => {
-            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms } = await setupLoan();
+            const { mockERC20, loanId, loanCore, user: borrower, terms } = await setupLoan();
             const repayAmount = terms.principal.add(terms.proratedInterestRate);
 
             await mockERC20
                 .connect(borrower)
                 .mint(borrower.address, repayAmount);
             await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
-
-            // Add lender to the mockERC20 blacklist so it forces the lender to call redeemNote
-            await mockERC20.setBlacklisted(lender.address, true);
-
-            await expect(loanCore.connect(borrower).repay(loanId, borrower.address, repayAmount, repayAmount))
+            await expect(loanCore.connect(borrower).forceRepay(loanId, borrower.address, repayAmount, repayAmount))
                 .to.emit(loanCore, "LoanRepaid").withArgs(loanId)
                 .to.emit(loanCore, "ForceRepay").withArgs(loanId);
-        });
-
-        it("3rd party cannot call transferLenderTokens", async () => {
-            const { mockERC20, loanCore, borrower, lender, admin } = await setupLoan();
-
-            await expect(loanCore.connect(borrower).transferLenderTokens(mockERC20.address, borrower.address, ethers.utils.parseEther("1"))).to.be.revertedWith(
-                `LC_CallerNotLoanCore`
-            );
-
-            await expect(loanCore.connect(lender).transferLenderTokens(mockERC20.address, lender.address, ethers.utils.parseEther("1"))).to.be.revertedWith(
-                `LC_CallerNotLoanCore`
-            );
-
-            await expect(loanCore.connect(admin).transferLenderTokens(mockERC20.address, admin.address, ethers.utils.parseEther("1"))).to.be.revertedWith(
-                `LC_CallerNotLoanCore`
-            );
-
         });
     });
 
@@ -1203,10 +1178,7 @@ describe("LoanCore", () => {
                 .mint(borrower.address, repayAmount);
             await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
 
-            // Add lender to the mockERC20 blacklist so it forces the lender to call redeemNote
-            await mockERC20.setBlacklisted(lender.address, true);
-
-            await expect(loanCore.connect(borrower).repay(loanId, borrower.address, repayAmount, repayAmount))
+            await expect(loanCore.connect(borrower).forceRepay(loanId, borrower.address, repayAmount, repayAmount))
                 .to.emit(loanCore, "LoanRepaid").withArgs(loanId)
                 .to.emit(loanCore, "ForceRepay").withArgs(loanId);
 
@@ -1222,11 +1194,11 @@ describe("LoanCore", () => {
             const { loanCore, mockERC20, loanId, borrower, lender, terms, mockLenderNote } = await setupLoan();
             const repayAmount = terms.principal.add(terms.proratedInterestRate);
 
-            await expect(loanCore.connect(borrower).redeemNote(loanId, 0, borrower.address))
+            await expect(loanCore.connect(borrower).redeemNote(loanId, 0, lender.address))
                 .to.emit(loanCore, "NoteRedeemed")
-                .withArgs(mockERC20.address, lender.address, borrower.address, loanId, repayAmount)
+                .withArgs(mockERC20.address, lender.address, lender.address, loanId, repayAmount)
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(loanCore.address, borrower.address, repayAmount);
+                .withArgs(loanCore.address, lender.address, repayAmount);
 
             // Make sure lender note burned
             await expect(mockLenderNote.ownerOf(loanId)).to.be.revertedWith("ERC721: owner query for nonexistent token");
@@ -1259,11 +1231,11 @@ describe("LoanCore", () => {
             // Set a redeem fee of 10%
             await feeController.setLendingFee(await feeController.FL_08(), 10_00);
 
-            await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(10), borrower.address))
+            await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(10), lender.address))
                 .to.emit(loanCore, "NoteRedeemed")
-                .withArgs(mockERC20.address, lender.address, borrower.address, loanId, repayAmount.div(10).mul(9))
+                .withArgs(mockERC20.address, lender.address, lender.address, loanId, repayAmount.div(10).mul(9))
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(loanCore.address, borrower.address, repayAmount.div(10).mul(9));
+                .withArgs(loanCore.address, lender.address, repayAmount.div(10).mul(9));
 
             // Make sure lender note burned
             await expect(mockLenderNote.ownerOf(loanId)).to.be.revertedWith("ERC721: owner query for nonexistent token");
@@ -1291,11 +1263,11 @@ describe("LoanCore", () => {
             // Set a redeem fee of 10%
             await feeController.setLendingFee(await feeController.FL_08(), 10_00);
 
-            await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(10), borrower.address))
+            await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(10), lender.address))
                 .to.emit(loanCore, "NoteRedeemed")
-                .withArgs(mockERC20.address, lender.address, borrower.address, loanId, repayAmount.div(10).mul(9))
+                .withArgs(mockERC20.address, lender.address, lender.address, loanId, repayAmount.div(10).mul(9))
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(loanCore.address, borrower.address, repayAmount.div(10).mul(9));
+                .withArgs(loanCore.address, lender.address, repayAmount.div(10).mul(9));
 
             // Make sure lender note burned
             await expect(mockLenderNote.ownerOf(loanId)).to.be.revertedWith(
@@ -1324,11 +1296,11 @@ describe("LoanCore", () => {
             // Set a redeem fee of 10%
             await feeController.setLendingFee(await feeController.FL_08(), 10_00);
 
-            await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(10), borrower.address))
+            await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(10), lender.address))
                 .to.emit(loanCore, "NoteRedeemed")
-                .withArgs(mockERC20.address, lender.address, borrower.address, loanId, repayAmount.div(10).mul(9))
+                .withArgs(mockERC20.address, lender.address, lender.address, loanId, repayAmount.div(10).mul(9))
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(loanCore.address, borrower.address, repayAmount.div(10).mul(9));
+                .withArgs(loanCore.address, lender.address, repayAmount.div(10).mul(9));
 
             // Make sure lender note burned
             await expect(mockLenderNote.ownerOf(loanId)).to.be.revertedWith(
