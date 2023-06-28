@@ -758,7 +758,7 @@ describe("RepaymentController", () => {
     });
 
     describe("Two-Step Repayment", () => {
-        it("100 ETH principal, 10% interest, borrower force repays (5% fee, 10% affiliate split)", async () => {
+        it("100 ETH principal, 10% interest, borrower force repays (20% interest, 2% principal fee on lender)", async () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, lenderNote } = ctx;
 
             // Assess fee on lender
@@ -1069,7 +1069,7 @@ describe("RepaymentController", () => {
             ).to.be.revertedWith(`RC_ZeroAddress("to")`);
         });
 
-        it("100 ETH principal, 10% interest, borrower force repays (5% fee, 10% affiliate split), lender redeems with 10% fee", async () => {
+        it("100 ETH principal, 10% interest, borrower force repays (20% interest, 2% principal, 10% redeem fee on lender)", async () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, lenderNote } = ctx;
 
             // Assess fee on lender
