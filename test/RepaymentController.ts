@@ -831,10 +831,6 @@ describe("RepaymentController", () => {
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
 
-            // Assess fee on lender
-            await feeController.set(await feeController.FL_07(), 20_00);
-            await feeController.set(await feeController.FL_08(), 2_00);
-
             // Add lender to the mockERC20 blacklist
             await mockERC20.setBlacklisted(lender.address, true);
 
@@ -872,6 +868,10 @@ describe("RepaymentController", () => {
         it("if lender blacklisted, redeemNote can send to 3rd party", async () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote } = ctx;
 
+            // Assess fee on lender
+            await feeController.setLendingFee(await feeController.FL_06(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_07(), 2_00);
+
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
@@ -889,10 +889,6 @@ describe("RepaymentController", () => {
             await mockERC20.connect(borrower).approve(loanCore.address, total);
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
-
-            // Assess fee on lender
-            await feeController.set(await feeController.FL_07(), 20_00);
-            await feeController.set(await feeController.FL_08(), 2_00);
 
             // Add lender to the mockERC20 blacklist
             await mockERC20.setBlacklisted(lender.address, true);
@@ -950,10 +946,6 @@ describe("RepaymentController", () => {
             await mockERC20.connect(borrower).approve(loanCore.address, total);
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
-
-            // Assess fee on lender
-            await feeController.set(await feeController.FL_07(), 20_00);
-            await feeController.set(await feeController.FL_08(), 2_00);
 
             // Add lender to the mockERC20 blacklist
             await mockERC20.setBlacklisted(lender.address, true);
@@ -1165,7 +1157,7 @@ describe("RepaymentController", () => {
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
 
             await expect(
-                repaymentController.connect(borrower).repay(loanId)
+                repaymentController.connect(borrower).forceRepay(loanId)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId)
                 .to.emit(loanCore, "ForceRepay").withArgs(loanId);
 
@@ -1227,7 +1219,7 @@ describe("RepaymentController", () => {
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
 
             await expect(
-                repaymentController.connect(borrower).repay(loanId)
+                repaymentController.connect(borrower).forceRepay(loanId)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId)
                 .to.emit(loanCore, "ForceRepay").withArgs(loanId);
 
