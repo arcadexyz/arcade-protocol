@@ -29,7 +29,6 @@ import {
     LC_NotExpired,
     LC_NonceUsed,
     LC_AffiliateCodeAlreadySet,
-    LC_NoReceipt,
     LC_CallerNotLoanCore,
     LC_InvalidGracePeriod,
     LC_NoReceipt
@@ -331,7 +330,7 @@ contract LoanCore is
 
     /**
      * @notice Burn a lender note, for an already-completed loan, in order to receive
-     *         held tokens already paid back by the lender. Can only be called by the
+     *         held tokens already paid back by the borrower. Can only be called by the
      *         owner of the note.
      *
      * @param loanId                    The ID of the lender note to redeem.
@@ -742,7 +741,7 @@ contract LoanCore is
      *
      * @param loanId                The token ID to mint.
      * @param borrower              The address of the recipient of the borrower note.
-     * @param lender                The address of the recpient of the lender note.
+     * @param lender                The address of the recipient of the lender note.
      */
     function _mintLoanNotes(
         uint256 loanId,
