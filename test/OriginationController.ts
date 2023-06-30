@@ -20,6 +20,7 @@ import {
     ArcadeItemsVerifier,
     FeeController,
     ERC1271LenderMock,
+    MockERC1271LenderCustom,
     UnvaultedItemsVerifier,
     CollectionWideOfferVerifier,
     BaseURIDescriptor
@@ -2299,7 +2300,6 @@ describe("OriginationController", () => {
                 .withArgs(lenderContract.address, loanCore.address, loanTerms.principal);
         });
 
-
         it("rejects an ERC-1271 approval if the contract does not return the magic value", async () => {
             // Deploy an ERC-1271 to act as the lender
             const { loanCore, originationController, mockERC20, vaultFactory, user: lender, other: borrower } = ctx;
@@ -2327,6 +2327,115 @@ describe("OriginationController", () => {
 
             await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
             await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+            await expect(
+                originationController
+                    .connect(borrower)
+                    .initializeLoan(loanTerms, borrower.address, lenderContract.address, sig, 1),
+            ).to.be.revertedWith("OC_InvalidSignature");
+        });
+
+        it("honors and ERC-1271 approval with extra sig data", async () => {
+            // Deploy an ERC-1271 to act as the lender
+            const { loanCore, originationController, mockERC20, vaultFactory, user: lender, other: borrower } = ctx;
+            const lenderContract = <MockERC1271LenderCustom>await deploy("MockERC1271LenderCustom", lender, [lender.address]);
+
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
+
+            await mint(mockERC20, lender, loanTerms.principal);
+            await mockERC20.connect(lender).transfer(lenderContract.address, loanTerms.principal);
+            await lenderContract.approve(mockERC20.address, loanCore.address);
+
+            // No approval for origination - OC will check ERC-1271
+
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                lender,
+                "3",
+                1,
+                "l",
+            );
+            // Add extra data to the signature
+            sig.extraData = "0x00001234";
+
+            await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
+            await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+
+            await expect(
+                originationController
+                    .connect(borrower)
+                    .initializeLoan(loanTerms, borrower.address, lenderContract.address, sig, 1),
+            )
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(lenderContract.address, loanCore.address, loanTerms.principal);
+        });
+
+        it("rejects an ERC-1271 approval with extra data if the contract does not return the magic value", async () => {
+            // Deploy an ERC-1271 to act as the lender
+            const { loanCore, originationController, mockERC20, vaultFactory, user: lender, other: borrower } = ctx;
+            const lenderContract = <MockERC1271LenderCustom>await deploy("MockERC1271LenderCustom", lender, [lender.address]);
+
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
+
+            await mint(mockERC20, lender, loanTerms.principal);
+            await mockERC20.connect(lender).transfer(lenderContract.address, loanTerms.principal);
+            await lenderContract.approve(mockERC20.address, loanCore.address);
+
+            // No approval for origination - OC will check ERC-1271
+
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                lender,
+                "3",
+                1,
+                "l",
+            );
+            // Add extra data to the signature, does not match the expected data
+            sig.extraData = "0x0000";
+
+            await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
+            await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+
+            await expect(
+                originationController
+                    .connect(borrower)
+                    .initializeLoan(loanTerms, borrower.address, lenderContract.address, sig, 1),
+            ).to.be.revertedWith("OC_InvalidSignature");
+        });
+
+        it("if extra data exists in ERC-1271 approval, it will not work with a lender contract which is unaware of it", async () => {
+            // Deploy an ERC-1271 to act as the lender
+            const { loanCore, originationController, mockERC20, vaultFactory, user: lender, other: borrower } = ctx;
+            const lenderContract = <ERC1271LenderMock>await deploy("ERC1271LenderMock", lender, [lender.address]);
+
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
+
+            await mint(mockERC20, lender, loanTerms.principal);
+            await mockERC20.connect(lender).transfer(lenderContract.address, loanTerms.principal);
+            await lenderContract.approve(mockERC20.address, loanCore.address);
+
+            // No approval for origination - OC will check ERC-1271
+
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                lender,
+                "3",
+                1,
+                "l",
+            );
+            sig.extraData = "0x00001234";
+
+            await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
+            await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+
             await expect(
                 originationController
                     .connect(borrower)

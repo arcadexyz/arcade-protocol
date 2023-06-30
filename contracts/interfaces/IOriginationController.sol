@@ -16,7 +16,7 @@ interface IOriginationController {
         uint8 v;
         bytes32 r;
         bytes32 s;
-        bytes data;
+        bytes extraData;
     }
 
     struct RolloverAmounts {

@@ -112,7 +112,7 @@ export async function createLoanTermsSignature(
 
     const sig: ECDSASignature =  fromRpcSig(signature);
 
-    return { v: sig.v, r: sig.r, s: sig.s, data: "0x" };
+    return { v: sig.v, r: sig.r, s: sig.s, extraData: "0x" };
 }
 
 /**
@@ -157,7 +157,7 @@ export async function createLoanItemsSignature(
 
     const sig: ECDSASignature =  fromRpcSig(signature);
 
-    return { v: sig.v, r: sig.r, s: sig.s, data: "0x" };
+    return { v: sig.v, r: sig.r, s: sig.s, extraData: "0x" };
 }
 
 /**
@@ -178,5 +178,5 @@ export async function createPermitSignature(
 
     const sig: ECDSASignature =  fromRpcSig(signature);
 
-    return { v: sig.v, r: sig.r, s: sig.s, data: "0x" };
+    return { v: sig.v, r: sig.r, s: sig.s, extraData: "0x" };
 }

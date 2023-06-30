@@ -70,5 +70,5 @@ export interface InitializeLoanSignature {
     v: number;
     r: Buffer;
     s: Buffer;
-    data: string;
+    extraData: string;
 }
