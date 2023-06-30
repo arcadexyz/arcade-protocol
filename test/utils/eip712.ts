@@ -105,6 +105,7 @@ export async function createLoanTermsSignature(
     version = "3",
     nonce: BigNumberish,
     _side: "b" | "l",
+    extraData = "0x",
 ): Promise<InitializeLoanSignature> {
     const side = _side === "b" ? 0 : 1;
     const data = buildData(verifyingContract, name, version, { ...terms, nonce, side }, typedLoanTermsData);
@@ -112,7 +113,7 @@ export async function createLoanTermsSignature(
 
     const sig: ECDSASignature =  fromRpcSig(signature);
 
-    return { v: sig.v, r: sig.r, s: sig.s, extraData: "0x" };
+    return { v: sig.v, r: sig.r, s: sig.s, extraData };
 }
 
 /**
@@ -134,6 +135,7 @@ export async function createLoanItemsSignature(
     version = "3",
     nonce = "1",
     _side: "b" | "l",
+    extraData = "0x",
 ): Promise<InitializeLoanSignature> {
     const side = _side === "b" ? 0 : 1;
 
@@ -157,7 +159,7 @@ export async function createLoanItemsSignature(
 
     const sig: ECDSASignature =  fromRpcSig(signature);
 
-    return { v: sig.v, r: sig.r, s: sig.s, extraData: "0x" };
+    return { v: sig.v, r: sig.r, s: sig.s, extraData };
 }
 
 /**
@@ -172,11 +174,12 @@ export async function createPermitSignature(
     name: string,
     permitData: PermitData,
     signer: SignerWithAddress,
+    extraData = "0x",
 ): Promise<InitializeLoanSignature> {
     const data = buildData(verifyingContract, name, "1", permitData, typedPermitData);
     const signature = await signer._signTypedData(data.domain, data.types, data.message);
 
     const sig: ECDSASignature =  fromRpcSig(signature);
 
-    return { v: sig.v, r: sig.r, s: sig.s, extraData: "0x" };
+    return { v: sig.v, r: sig.r, s: sig.s, extraData };
 }

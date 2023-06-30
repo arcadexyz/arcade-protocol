@@ -52,7 +52,7 @@ contract MockERC1271LenderCustom is IERC1271, IERC721Receiver {
             }
             
             // check if the extra data is the expected data and the signer is the expected signer
-            if(keccak256(extraData) == keccak256(expectedData) && recovered == signer) return MAGICVALUE;
+            if (keccak256(extraData) == keccak256(expectedData) && recovered == signer) return MAGICVALUE;
             else return 0xFFFFFFFF;
         }
     }
