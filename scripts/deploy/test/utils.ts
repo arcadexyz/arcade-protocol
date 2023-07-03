@@ -8,6 +8,7 @@ import { URLSearchParams } from "url";
 import hre, { ethers } from "hardhat";
 import { expect } from "chai";
 import { fromRpcSig, ECDSASignature } from "ethereumjs-util";
+import { InitializeLoanSignature } from "../../../test/utils/types";
 
 export const NETWORK = hre.network.name;
 export const IS_MAINNET_FORK = process.env.FORK_MAINNET === "true";
@@ -122,9 +123,12 @@ export async function createLoanTermsSignature(
     name: string,
     terms: any,
     signer: SignerWithAddress,
-): Promise<ECDSASignature> {
+): Promise<InitializeLoanSignature> {
     const data = buildData(verifyingContract, name, "1", terms, typedLoanTermsData);
 
     const signature = await signer._signTypedData(data.domain, data.types, data.message);
-    return fromRpcSig(signature);
+
+    const sig: ECDSASignature =  fromRpcSig(signature);
+
+    return { v: sig.v, r: sig.r, s: sig.s, extraData: "0x" };
 }

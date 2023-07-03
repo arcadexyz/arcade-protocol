@@ -450,10 +450,16 @@ contract OriginationController is
      */
     function isApprovedForContract(
         address target,
-        Signature calldata sig,
+        Signature memory sig,
         bytes32 sighash
     ) public view override returns (bool) {
         bytes memory signature = abi.encodePacked(sig.r, sig.s, sig.v);
+
+        // Append extra data if it exists
+        bytes memory zeroBytes = new bytes(0);
+        if (keccak256(sig.extraData) != keccak256(zeroBytes)) {
+            signature = bytes.concat(signature, sig.extraData);
+        }
 
         // Convert sig struct to bytes
         (bool success, bytes memory result) = target.staticcall(
