@@ -359,13 +359,6 @@ error LC_NoReceipt(uint256 loanId);
  */
 error LC_CallerNotLoanCore();
 
-/**
- * @notice Grace period is invalid, must be between 1 hour and 7 days.
- *
- * @param newGracePeriod                The grace period being set.
- */
-error LC_InvalidGracePeriod(uint256 newGracePeriod);
-
 // ==================================== Promissory Note ======================================
 /// @notice All errors prefixed with PN_, to separate from other contracts in the protocol.
 
