@@ -30,7 +30,6 @@ import {
     LC_NonceUsed,
     LC_AffiliateCodeAlreadySet,
     LC_CallerNotLoanCore,
-    LC_InvalidGracePeriod,
     LC_NoReceipt
 } from "./errors/Lending.sol";
 
@@ -71,7 +70,7 @@ contract LoanCore is
     uint96 private constant MAX_AFFILIATE_SPLIT = 50_00;
 
     /// @dev Grace period for repaying a loan after loan duration.
-    uint256 public gracePeriod = 1 days;
+    uint256 public constant GRACE_PERIOD = 10 minutes;
 
     // =============== Contract References ================
 
@@ -208,7 +207,7 @@ contract LoanCore is
 
     /**
      * @notice Repay the given loan. Can only be called by RepaymentController,
-     *         which verifies repayment conditions. This method will collext
+     *         which verifies repayment conditions. This method will collect
      *         the total interest due from the borrower  and redistribute
      *         principal + interest to the lender, and collateral to the borrower.
      *         All promissory notes will be burned and the loan will be marked as complete.
@@ -280,7 +279,7 @@ contract LoanCore is
     /**
      * @notice Claim collateral on a given loan. Can only be called by RepaymentController,
      *         which verifies claim conditions. This method validates that the loan's due
-     *         date has passed, and the grace period of 1 day has also passed. Then it distributes
+     *         date has passed, and the grace period of 10 mins has also passed. Then it distributes
      *         collateral to the lender. All promissory notes will be burned and the loan
      *         will be marked as complete.
      *
@@ -298,8 +297,8 @@ contract LoanCore is
         // Ensure valid initial loan state when claiming loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
 
-        // First check if the call is being made after the due date.
-        uint256 dueDate = data.startDate + data.terms.durationSecs + gracePeriod;
+        // First check if the call is being made after the due date plus 10 min grace period.
+        uint256 dueDate = data.startDate + data.terms.durationSecs + GRACE_PERIOD;
         if (dueDate >= block.timestamp) revert LC_NotExpired(dueDate);
 
         // State changes and cleanup
@@ -637,23 +636,6 @@ contract LoanCore is
      */
     function unpause() external onlyRole(ADMIN_ROLE) {
         _unpause();
-    }
-
-    /**
-     * @notice Set the grace period for repaying a loan after the loan duration.
-     *         Can only be called by contract admin. The grace period must be
-     *         between 1 hour and 7 days.
-     *
-     * @param _gracePeriod              The new grace period to set in seconds.
-     */
-    function setGracePeriod(uint256 _gracePeriod) external override onlyRole(ADMIN_ROLE) {
-        if (_gracePeriod >= 1 hours && _gracePeriod <= 7 days) {
-            gracePeriod = _gracePeriod;
-
-            emit GracePeriodSet(_gracePeriod);
-        } else {
-            revert LC_InvalidGracePeriod(_gracePeriod);
-        }
     }
 
     // ============================================= HELPERS ============================================

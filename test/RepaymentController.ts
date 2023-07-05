@@ -1267,7 +1267,7 @@ describe("RepaymentController", () => {
             ));
 
             // Wind to expiry to include grace period
-            await hre.network.provider.send("evm_increaseTime", [duration + 86401]);
+            await hre.network.provider.send("evm_increaseTime", [duration + 600]);
             await hre.network.provider.send("evm_mine");
 
             await expect(repaymentController.connect(lender).claim(loanId))
@@ -1294,7 +1294,7 @@ describe("RepaymentController", () => {
             ));
 
             // Wind to expiry to include grace period
-            await hre.network.provider.send("evm_increaseTime", [duration + 86401]);
+            await hre.network.provider.send("evm_increaseTime", [duration + 600]);
             await hre.network.provider.send("evm_mine");
 
             // Mint to lender
@@ -1330,7 +1330,7 @@ describe("RepaymentController", () => {
             ));
 
             // Wind to expiry to include grace period
-            await hre.network.provider.send("evm_increaseTime", [duration + 86401]);
+            await hre.network.provider.send("evm_increaseTime", [duration + 600]);
             await hre.network.provider.send("evm_mine");
 
             // Register affiliate
@@ -1374,7 +1374,7 @@ describe("RepaymentController", () => {
             ));
 
             // Wind to before expiry
-            await hre.network.provider.send("evm_increaseTime", [duration + 86350]);
+            await hre.network.provider.send("evm_increaseTime", [duration + 590]);
             await hre.network.provider.send("evm_mine");
 
             await expect(repaymentController.connect(lender).claim(loanId))
@@ -1395,7 +1395,7 @@ describe("RepaymentController", () => {
             ));
 
             // Wind to expiry to include grace period
-            await hre.network.provider.send("evm_increaseTime", [duration + 86400]);
+            await hre.network.provider.send("evm_increaseTime", [duration + 600]);
             await hre.network.provider.send("evm_mine");
 
             await expect(repaymentController.connect(borrower).claim(loanId))
@@ -1419,7 +1419,7 @@ describe("RepaymentController", () => {
             ));
 
             // Wind to expiry to include grace period
-            await hre.network.provider.send("evm_increaseTime", [duration + 86400]);
+            await hre.network.provider.send("evm_increaseTime", [duration + 600]);
             await hre.network.provider.send("evm_mine");
 
             // Lender has no coins

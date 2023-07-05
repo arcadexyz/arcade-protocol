@@ -31,7 +31,6 @@ interface ILoanCore {
 
     event FeesWithdrawn(address indexed token, address indexed caller, address indexed to, uint256 amount);
     event AffiliateSet(bytes32 indexed code, address indexed affiliate, uint96 splitBps);
-    event GracePeriodSet(uint256 gracePeriod);
 
     // ============== Lifecycle Operations ==============
 
@@ -95,8 +94,6 @@ interface ILoanCore {
     // ============== Admin Operations ==============
 
     function setAffiliateSplits(bytes32[] calldata codes, AffiliateSplit[] calldata splits) external;
-
-    function setGracePeriod(uint256 _gracePeriod) external;
 
     // ============== View Functions ==============
 
