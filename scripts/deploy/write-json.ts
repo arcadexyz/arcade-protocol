@@ -36,7 +36,7 @@ export async function writeJson(
     artBlocksVerifierAddress: string,
     unvaultedItemsVerifierAddress: string,
     callWhitelistApprovalsAddress: string,
-    registryAddress: string,
+    delegationRegistryAddress: string,
     callWhitelistDelegationAddress: string,
 ): Promise<void> {
     const timestamp = Math.floor(new Date().getTime() / 1000);
@@ -72,7 +72,7 @@ export async function writeJson(
         artBlocksVerifierAddress,
         unvaultedItemsVerifierAddress,
         callWhitelistApprovalsAddress,
-        registryAddress,
+        delegationRegistryAddress,
         callWhitelistDelegationAddress,
     );
 
@@ -103,7 +103,7 @@ export async function createInfo(
     artBlocksVerifierAddress: string,
     unvaultedItemsVerifierAddress: string,
     callWhitelistApprovalsAddress: string,
-    registryAddress: string,
+    delegationRegistryAddress: string,
     callWhitelistDelegationAddress: string,
 ): Promise<DeploymentData> {
     const contractInfo: DeploymentData = {};
@@ -188,14 +188,14 @@ export async function createInfo(
         constructorArgs: [],
     };
 
-    contractInfo["Registry"] = {
-        contractAddress: registryAddress,
+    contractInfo["DelegationRegistry"] = {
+        contractAddress: delegationRegistryAddress,
         constructorArgs: [],
     };
 
     contractInfo["CallWhitelistDelegation"] = {
         contractAddress: callWhitelistDelegationAddress,
-        constructorArgs: [registryAddress],
+        constructorArgs: [delegationRegistryAddress],
     };
 
     return contractInfo;

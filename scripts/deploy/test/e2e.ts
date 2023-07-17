@@ -29,13 +29,8 @@ import {
     OriginationController,
     VaultFactory,
     BaseURIDescriptor,
-    PunksVerifier,
-    CollectionWideOfferVerifier,
-    ArtBlocksVerifier,
-    UnvaultedItemsVerifier,
     CallWhitelistApprovals,
     CallWhitelistDelegation,
-    DelegationRegistry
 } from "../../../typechain";
 
 /**

@@ -28,7 +28,7 @@ const jsonContracts: { [key: string]: string } = {
     PunksVerifier: "punksVerifier",
     CollectionWideOfferVerifier: "collectionWideOfferVerifier",
     ArtBlocksVerifier: "artBlocksVerifier",
-    UnvaultedItemsVerifer: "unvaultedItemsVerifier",
+    UnvaultedItemsVerifier: "unvaultedItemsVerifier",
     CallWhitelistApprovals: "callWhitelistApprovals",
     CallWhitelistDelegation: "callWhitelistDelegation",
 };
@@ -190,13 +190,13 @@ export async function main(
     const setWhitelistVerifier = await originationController.setAllowedVerifiers([verifier.address], [true]);
     await setWhitelistVerifier.wait();
 
-    console.log(`OriginationController: added ${verifier.address} as allowed verifier`);
+    console.log(`OriginationController added ArcadeItemsVerifier, at address: ${verifier.address} as allowed verifier`);
     console.log(SUBSECTION_SEPARATOR);
 
     const setPunksVerifier = await originationController.setAllowedVerifiers([punksVerifier.address], [true]);
     await setPunksVerifier.wait();
 
-    console.log(`OriginationController: added ${punksVerifier.address} as allowed verifier`);
+    console.log(`OriginationController added PunksVerifier, at address: ${punksVerifier.address} as allowed verifier`);
     console.log(SUBSECTION_SEPARATOR);
 
     const setcollectionWideOfferVerifier = await originationController.setAllowedVerifiers(
@@ -205,13 +205,13 @@ export async function main(
     );
     await setcollectionWideOfferVerifier.wait();
 
-    console.log(`OriginationController: added ${collectionWideOfferVerifier.address} as allowed verifier`);
+    console.log(`OriginationController added CollectionWideOfferVerifier at address: ${collectionWideOfferVerifier.address} as allowed verifier`);
     console.log(SUBSECTION_SEPARATOR);
 
     const setArtBlocksVerifier = await originationController.setAllowedVerifiers([artBlocksVerifier.address], [true]);
     await setArtBlocksVerifier.wait();
 
-    console.log(`OriginationController: added ${artBlocksVerifier.address} as allowed verifier`);
+    console.log(`OriginationController added ArtBlocksVerifier, at address ${artBlocksVerifier.address} as allowed verifier`);
     console.log(SUBSECTION_SEPARATOR);
 
     const setUnvaultedItemsVerifier = await originationController.setAllowedVerifiers(
@@ -220,7 +220,9 @@ export async function main(
     );
     await setUnvaultedItemsVerifier.wait();
 
-    console.log(`OriginationController: added ${unvaultedItemsVerifier.address} as allowed verifier`);
+    console.log(
+        `OriginationController added UnvaultedItemsVerifier, at address: ${unvaultedItemsVerifier.address} as allowed verifier`,
+    );
     console.log(SUBSECTION_SEPARATOR);
 
     // grant originationContoller the owner role

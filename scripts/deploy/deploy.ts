@@ -41,7 +41,7 @@ export interface DeployedResources {
     unvaultedItemsVerifier: UnvaultedItemsVerifier;
     callWhitelistApprovals: CallWhitelistApprovals,
     callWhitelistDelegation: CallWhitelistDelegation;
-    registry: DelegationRegistry;
+    delegationRegistry: DelegationRegistry;
 }
 
 export async function main(): Promise<DeployedResources> {
@@ -204,16 +204,16 @@ export async function main(): Promise<DeployedResources> {
     console.log(SUBSECTION_SEPARATOR);
 
     const DelegationRegistryFactory = await ethers.getContractFactory("DelegationRegistry");
-    const registry = <DelegationRegistry>await DelegationRegistryFactory.deploy();
-    await registry.deployed();
+    const delegationRegistry = <DelegationRegistry>await DelegationRegistryFactory.deploy();
+    await delegationRegistry.deployed();
 
-    const registryAddress = registry.address;
-    console.log("DelegationRegistry deployed to:", registryAddress);
+    const delegationRegistryAddress = delegationRegistry.address;
+    console.log("DelegationRegistry deployed to:", delegationRegistryAddress);
     console.log(SUBSECTION_SEPARATOR);
 
     const CallWhitelistDelegationFactory = await ethers.getContractFactory("CallWhitelistDelegation");
     const callWhitelistDelegation = <CallWhitelistDelegation>(
-        await CallWhitelistDelegationFactory.deploy(registryAddress)
+        await CallWhitelistDelegationFactory.deploy(delegationRegistryAddress)
     );
     await callWhitelistDelegation.deployed();
 
@@ -245,7 +245,7 @@ export async function main(): Promise<DeployedResources> {
         artBlocksVerifierAddress,
         unvaultedItemsVerifierAddress,
         callWhitelistApprovalsAddress,
-        registryAddress,
+        delegationRegistryAddress,
         callWhitelistDelegationAddress,
     );
 
@@ -268,7 +268,7 @@ export async function main(): Promise<DeployedResources> {
         artBlocksVerifier,
         unvaultedItemsVerifier,
         callWhitelistApprovals,
-        registry,
+        delegationRegistry,
         callWhitelistDelegation,
     };
 }
