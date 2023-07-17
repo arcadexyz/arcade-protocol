@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 
 import { writeJson } from "./write-json";
-import { BASE_URI, SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../utils/constants";
+import { BASE_URI, SECTION_SEPARATOR, SUBSECTION_SEPARATOR, PUNKS_ADDRESS } from "../utils/constants";
 
 import {
     AssetVault,
@@ -14,6 +14,13 @@ import {
     ArcadeItemsVerifier,
     VaultFactory,
     BaseURIDescriptor,
+    PunksVerifier,
+    CollectionWideOfferVerifier,
+    ArtBlocksVerifier,
+    UnvaultedItemsVerifier,
+    CallWhitelistApprovals,
+    CallWhitelistDelegation,
+    DelegationRegistry
 } from "../../typechain";
 
 export interface DeployedResources {
@@ -28,6 +35,13 @@ export interface DeployedResources {
     vaultFactory: VaultFactory;
     verifier: ArcadeItemsVerifier;
     baseURIDescriptor: BaseURIDescriptor;
+    punksVerifier: PunksVerifier;
+    collectionWideOfferVerifier: CollectionWideOfferVerifier;
+    artBlocksVerifier: ArtBlocksVerifier;
+    unvaultedItemsVerifier: UnvaultedItemsVerifier;
+    callWhitelistApprovals: CallWhitelistApprovals,
+    callWhitelistDelegation: CallWhitelistDelegation;
+    registry: DelegationRegistry;
 }
 
 export async function main(): Promise<DeployedResources> {
@@ -147,7 +161,64 @@ export async function main(): Promise<DeployedResources> {
 
     const verifierAddress = verifier.address;
     console.log("ItemsVerifier deployed to:", verifierAddress);
+    console.log(SUBSECTION_SEPARATOR);
 
+    const PunksVerifierFactory = await ethers.getContractFactory("PunksVerifier");
+    const punksVerifier = <PunksVerifier>await PunksVerifierFactory.deploy(PUNKS_ADDRESS);
+    await punksVerifier.deployed();
+
+    const punksVerifierAddress = punksVerifier.address;
+    console.log("PunksVerifier deployed to:", punksVerifierAddress);
+    console.log(SUBSECTION_SEPARATOR);
+
+    const CWOVerifierFactory = await ethers.getContractFactory("CollectionWideOfferVerifier");
+    const collectionWideOfferVerifier = <CollectionWideOfferVerifier>await CWOVerifierFactory.deploy();
+    await collectionWideOfferVerifier.deployed();
+
+    const collectionWideOfferVerifierAddress = collectionWideOfferVerifier.address;
+    console.log("CollectionWideVerifier deployed to:", collectionWideOfferVerifierAddress);
+    console.log(SUBSECTION_SEPARATOR);
+
+    const ArtBlocksVerifierFactory = await ethers.getContractFactory("ArtBlocksVerifier");
+    const artBlocksVerifier = <ArtBlocksVerifier>await ArtBlocksVerifierFactory.deploy();
+    await artBlocksVerifier.deployed();
+
+    const artBlocksVerifierAddress = artBlocksVerifier.address;
+    console.log("ArtBlocksVerifier deployed to:", artBlocksVerifierAddress);
+    console.log(SUBSECTION_SEPARATOR);
+
+    const UnvaultedItemsVerifierFactory = await ethers.getContractFactory("UnvaultedItemsVerifier");
+    const unvaultedItemsVerifier = <UnvaultedItemsVerifier>await UnvaultedItemsVerifierFactory.deploy();
+    await unvaultedItemsVerifier.deployed();
+
+    const unvaultedItemsVerifierAddress = unvaultedItemsVerifier.address;
+    console.log("UnvaultedItemsVerifier deployed to:", unvaultedItemsVerifierAddress);
+    console.log(SUBSECTION_SEPARATOR);
+
+    const CallWhitelistApprovalsFactory = await ethers.getContractFactory("CallWhitelistApprovals");
+    const callWhitelistApprovals = <CallWhitelistApprovals>await CallWhitelistApprovalsFactory.deploy();
+    await callWhitelistApprovals.deployed();
+
+    const callWhitelistApprovalsAddress = callWhitelistApprovals.address;
+    console.log("CallWhitelistApprovals deployed to:", callWhitelistApprovalsAddress);
+    console.log(SUBSECTION_SEPARATOR);
+
+    const DelegationRegistryFactory = await ethers.getContractFactory("DelegationRegistry");
+    const registry = <DelegationRegistry>await DelegationRegistryFactory.deploy();
+    await registry.deployed();
+
+    const registryAddress = registry.address;
+    console.log("DelegationRegistry deployed to:", registryAddress);
+    console.log(SUBSECTION_SEPARATOR);
+
+    const CallWhitelistDelegationFactory = await ethers.getContractFactory("CallWhitelistDelegation");
+    const callWhitelistDelegation = <CallWhitelistDelegation>(
+        await CallWhitelistDelegationFactory.deploy(registryAddress)
+    );
+    await callWhitelistDelegation.deployed();
+
+    const callWhitelistDelegationAddress = callWhitelistDelegation.address;
+    console.log("CallWhitelistDelegation deployed to:", callWhitelistDelegationAddress);
     console.log(SUBSECTION_SEPARATOR);
 
     console.log("Writing to deployments json file...");
@@ -168,7 +239,14 @@ export async function main(): Promise<DeployedResources> {
         bNoteSymbol,
         lNoteName,
         lNoteSymbol,
-        BASE_URI
+        BASE_URI,
+        punksVerifierAddress,
+        collectionWideOfferVerifierAddress,
+        artBlocksVerifierAddress,
+        unvaultedItemsVerifierAddress,
+        callWhitelistApprovalsAddress,
+        registryAddress,
+        callWhitelistDelegationAddress,
     );
 
     console.log(SECTION_SEPARATOR);
@@ -185,6 +263,13 @@ export async function main(): Promise<DeployedResources> {
         vaultFactory,
         verifier,
         baseURIDescriptor,
+        punksVerifier,
+        collectionWideOfferVerifier,
+        artBlocksVerifier,
+        unvaultedItemsVerifier,
+        callWhitelistApprovals,
+        registry,
+        callWhitelistDelegation,
     };
 }
 

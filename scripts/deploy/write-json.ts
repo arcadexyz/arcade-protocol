@@ -3,6 +3,8 @@ import path from "path";
 import hre from "hardhat";
 import { BigNumberish } from "ethers";
 
+import { PUNKS_ADDRESS } from "../utils/constants";
+
 export interface ContractData {
     contractAddress: string;
     constructorArgs: BigNumberish[];
@@ -29,6 +31,13 @@ export async function writeJson(
     lNoteName: string,
     lNoteSymbol: string,
     BASE_URI: string,
+    punksVerifierAddress: string,
+    collectionWideOfferVerifierAddress: string,
+    artBlocksVerifierAddress: string,
+    unvaultedItemsVerifierAddress: string,
+    callWhitelistApprovalsAddress: string,
+    registryAddress: string,
+    callWhitelistDelegationAddress: string,
 ): Promise<void> {
     const timestamp = Math.floor(new Date().getTime() / 1000);
     const networkName = hre.network.name;
@@ -57,7 +66,14 @@ export async function writeJson(
         bNoteSymbol,
         lNoteName,
         lNoteSymbol,
-        BASE_URI
+        BASE_URI,
+        punksVerifierAddress,
+        collectionWideOfferVerifierAddress,
+        artBlocksVerifierAddress,
+        unvaultedItemsVerifierAddress,
+        callWhitelistApprovalsAddress,
+        registryAddress,
+        callWhitelistDelegationAddress,
     );
 
     fs.writeFileSync(path.join(networkFolderPath, jsonFile), JSON.stringify(contractInfo, undefined, 2));
@@ -82,6 +98,13 @@ export async function createInfo(
     lNoteName: string,
     lNoteSymbol: string,
     BASE_URI: string,
+    punksVerifierAddress: string,
+    collectionWideOfferVerifierAddress: string,
+    artBlocksVerifierAddress: string,
+    unvaultedItemsVerifierAddress: string,
+    callWhitelistApprovalsAddress: string,
+    registryAddress: string,
+    callWhitelistDelegationAddress: string,
 ): Promise<DeploymentData> {
     const contractInfo: DeploymentData = {};
 
@@ -107,59 +130,72 @@ export async function createInfo(
 
     contractInfo["VaultFactory"] = {
         contractAddress: vaultFactoryAddress,
-        constructorArgs: [
-            assetVaultAddress,
-            whitelistAddress,
-            feeControllerAddress,
-            baseURIDescriptorAddress
-        ],
+        constructorArgs: [assetVaultAddress, whitelistAddress, feeControllerAddress, baseURIDescriptorAddress],
     };
 
     contractInfo["BorrowerNote"] = {
         contractAddress: borrowerNoteAddress,
-        constructorArgs: [
-            bNoteName,
-            bNoteSymbol,
-            baseURIDescriptorAddress
-        ],
+        constructorArgs: [bNoteName, bNoteSymbol, baseURIDescriptorAddress],
     };
 
     contractInfo["LenderNote"] = {
         contractAddress: lenderNoteAddress,
-        constructorArgs: [
-            lNoteName,
-            lNoteSymbol,
-            baseURIDescriptorAddress
-        ],
+        constructorArgs: [lNoteName, lNoteSymbol, baseURIDescriptorAddress],
     };
 
     contractInfo["LoanCore"] = {
         contractAddress: loanCoreAddress,
-        constructorArgs: [
-            borrowerNoteAddress,
-            lenderNoteAddress
-        ],
+        constructorArgs: [borrowerNoteAddress, lenderNoteAddress],
     };
 
     contractInfo["RepaymentController"] = {
         contractAddress: repaymentContAddress,
-        constructorArgs: [
-            loanCoreAddress,
-            feeControllerAddress
-        ],
+        constructorArgs: [loanCoreAddress, feeControllerAddress],
     };
 
     contractInfo["OriginationController"] = {
         contractAddress: originationContAddress,
-        constructorArgs: [
-            loanCoreAddress,
-            feeControllerAddress
-        ],
+        constructorArgs: [loanCoreAddress, feeControllerAddress],
     };
 
     contractInfo["ArcadeItemsVerifier"] = {
         contractAddress: verifierAddress,
         constructorArgs: [],
+    };
+
+    contractInfo["PunksVerifier"] = {
+        contractAddress: punksVerifierAddress,
+        constructorArgs: [PUNKS_ADDRESS],
+    };
+
+    contractInfo["CollectionWideOfferVerifier"] = {
+        contractAddress: collectionWideOfferVerifierAddress,
+        constructorArgs: [],
+    };
+
+    contractInfo["ArtBlocksVerifier"] = {
+        contractAddress: artBlocksVerifierAddress,
+        constructorArgs: [],
+    };
+
+    contractInfo["UnvaultedItemsVerifier"] = {
+        contractAddress: unvaultedItemsVerifierAddress,
+        constructorArgs: [],
+    };
+
+    contractInfo["CallWhitelistApprovals"] = {
+        contractAddress: callWhitelistApprovalsAddress,
+        constructorArgs: [],
+    };
+
+    contractInfo["Registry"] = {
+        contractAddress: registryAddress,
+        constructorArgs: [],
+    };
+
+    contractInfo["CallWhitelistDelegation"] = {
+        contractAddress: callWhitelistDelegationAddress,
+        constructorArgs: [registryAddress],
     };
 
     return contractInfo;

@@ -25,6 +25,12 @@ const jsonContracts: { [key: string]: string } = {
     RepaymentController: "repaymentController",
     OriginationController: "originationController",
     ArcadeItemsVerifier: "verifier",
+    PunksVerifier: "punksVerifier",
+    CollectionWideOfferVerifier: "collectionWideOfferVerifier",
+    ArtBlocksVerifier: "artBlocksVerifier",
+    UnvaultedItemsVerifer: "unvaultedItemsVerifier",
+    CallWhitelistApprovals: "callWhitelistApprovals",
+    CallWhitelistDelegation: "callWhitelistDelegation",
 };
 
 type ContractArgs = {
@@ -39,6 +45,12 @@ type ContractArgs = {
     repaymentController: Contract;
     originationController: Contract;
     verifier: Contract;
+    punksVerifier: Contract;
+    collectionWideOfferVerifier: Contract;
+    artBlocksVerifier: Contract;
+    unvaultedItemsVerifer: Contract;
+    callWhitelistApprovals: Contract;
+    callWhitelistDelegation: Contract;
 };
 
 export async function main(
@@ -53,6 +65,12 @@ export async function main(
     repaymentController: Contract,
     originationController: Contract,
     verifier: Contract,
+    punksVerifier: Contract,
+    collectionWideOfferVerifier: Contract,
+    artBlocksVerifier: Contract,
+    unvaultedItemsVerifier: Contract,
+    callWhitelistApprovals: Contract,
+    callWhitelistDelegation: Contract,
 ): Promise<void> {
     const signers: SignerWithAddress[] = await hre.ethers.getSigners();
     const [deployer] = signers;
@@ -75,6 +93,24 @@ export async function main(
     await updateWhitelistAdmin.wait();
 
     console.log(`CallWhitelist: ownership transferred to ${ADMIN_ADDRESS}`);
+    console.log(SUBSECTION_SEPARATOR);
+
+    // ============= CallWhitelistApprovals ==============
+
+    // set CallWhiteListApprovals admin
+    const updateWhitelistApprovalsAdmin = await callWhitelistApprovals.transferOwnership(ADMIN_ADDRESS);
+    await updateWhitelistApprovalsAdmin.wait();
+
+    console.log(`CallWhitelistApprovals: ownership transferred to ${ADMIN_ADDRESS}`);
+    console.log(SUBSECTION_SEPARATOR);
+
+    // ============= CallWhitelistDelegation ==============
+
+    // set CallWhiteListDelegation admin
+    const updateWhitelistDelegationAdmin = await callWhitelistDelegation.transferOwnership(ADMIN_ADDRESS);
+    await updateWhitelistDelegationAdmin.wait();
+
+    console.log(`CallWhitelistDelegation: ownership transferred to ${ADMIN_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
     // =========== BaseURIDescriptor ============
@@ -141,20 +177,50 @@ export async function main(
     console.log(`LoanCore: repayer role granted to ${REPAYMENT_CONTROLLER_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
-    // renounce ownership from deployer
-    const renounceAdmin = await loanCore.renounceRole(ADMIN_ROLE, deployer.address);
-    await renounceAdmin.wait();
+    // // renounce ownership from deployer
+    // const renounceAdmin = await loanCore.renounceRole(ADMIN_ROLE, deployer.address);
+    // await renounceAdmin.wait();
 
-    console.log("LoanCore: deployer has renounced admin role");
+    //console.log("LoanCore: deployer has renounced admin role");
     console.log(SUBSECTION_SEPARATOR);
 
     // ============= OriginationController ==============
 
-    // whitelist verifier
+    // whitelist verifiers
     const setWhitelistVerifier = await originationController.setAllowedVerifiers([verifier.address], [true]);
     await setWhitelistVerifier.wait();
 
     console.log(`OriginationController: added ${verifier.address} as allowed verifier`);
+    console.log(SUBSECTION_SEPARATOR);
+
+    const setPunksVerifier = await originationController.setAllowedVerifiers([punksVerifier.address], [true]);
+    await setPunksVerifier.wait();
+
+    console.log(`OriginationController: added ${punksVerifier.address} as allowed verifier`);
+    console.log(SUBSECTION_SEPARATOR);
+
+    const setcollectionWideOfferVerifier = await originationController.setAllowedVerifiers(
+        [collectionWideOfferVerifier.address],
+        [true],
+    );
+    await setcollectionWideOfferVerifier.wait();
+
+    console.log(`OriginationController: added ${collectionWideOfferVerifier.address} as allowed verifier`);
+    console.log(SUBSECTION_SEPARATOR);
+
+    const setArtBlocksVerifier = await originationController.setAllowedVerifiers([artBlocksVerifier.address], [true]);
+    await setArtBlocksVerifier.wait();
+
+    console.log(`OriginationController: added ${artBlocksVerifier.address} as allowed verifier`);
+    console.log(SUBSECTION_SEPARATOR);
+
+    const setUnvaultedItemsVerifier = await originationController.setAllowedVerifiers(
+        [unvaultedItemsVerifier.address],
+        [true],
+    );
+    await setUnvaultedItemsVerifier.wait();
+
+    console.log(`OriginationController: added ${unvaultedItemsVerifier.address} as allowed verifier`);
     console.log(SUBSECTION_SEPARATOR);
 
     // grant originationContoller the owner role
@@ -171,8 +237,8 @@ export async function main(
     console.log(`OriginationController: admin role granted to ${ADMIN_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
-    const renounceOriginationControllerAdmin = await originationController.renounceRole(ADMIN_ROLE, deployer.address);
-    await renounceOriginationControllerAdmin.wait();
+    //const renounceOriginationControllerAdmin = await originationController.renounceRole(ADMIN_ROLE, deployer.address);
+    //await renounceOriginationControllerAdmin.wait();
 
     // NOTE:
     // originationController.renounceRole(WHITELIST_MANAGER_ROLE, deployer.address);
@@ -180,7 +246,7 @@ export async function main(
     // perform the whitelisting before the renounceRole txn
     // And this is why line 217 is commented out in e2e.ts
 
-    console.log("OriginationController: deployer has renounced admin role");
+    //console.log("OriginationController: deployer has renounced admin role");
     console.log(SUBSECTION_SEPARATOR);
 
     // ================= VaultFactory ==================
@@ -200,18 +266,18 @@ export async function main(
     console.log(SUBSECTION_SEPARATOR);
 
     // renounce deployer permissions
-    const renounceVaultFactoryAdmin = await factory.renounceRole(ADMIN_ROLE, deployer.address);
-    await renounceVaultFactoryAdmin.wait();
+    //const renounceVaultFactoryAdmin = await factory.renounceRole(ADMIN_ROLE, deployer.address);
+    //await renounceVaultFactoryAdmin.wait();
 
-    const renounceVaultFactoryFeeClaimer = await factory.renounceRole(FEE_CLAIMER_ROLE, deployer.address);
-    await renounceVaultFactoryFeeClaimer.wait();
+    //const renounceVaultFactoryFeeClaimer = await factory.renounceRole(FEE_CLAIMER_ROLE, deployer.address);
+    //await renounceVaultFactoryFeeClaimer.wait();
 
-    const renounceVaultFactoryResourceManager = await factory.renounceRole(RESOURCE_MANAGER_ROLE, deployer.address);
-    await renounceVaultFactoryResourceManager.wait();
+    //const renounceVaultFactoryResourceManager = await factory.renounceRole(RESOURCE_MANAGER_ROLE, deployer.address);
+    //await renounceVaultFactoryResourceManager.wait();
 
-    console.log("VaultFactory: deployer has renounced admin role");
-    console.log("VaultFactory: deployer has renounced fee claimer role");
-    console.log("VaultFactory: deployer has renounced resource manager role");
+    // console.log("VaultFactory: deployer has renounced admin role");
+    // console.log("VaultFactory: deployer has renounced fee claimer role");
+    // console.log("VaultFactory: deployer has renounced resource manager role");
 
     console.log("Transferred all ownership.\n");
 }
@@ -260,6 +326,12 @@ if (require.main === module) {
             repaymentController,
             originationController,
             verifier,
+            punksVerifier,
+            collectionWideOfferVerifier,
+            artBlocksVerifier,
+            unvaultedItemsVerifer,
+            callWhitelistApprovals,
+            callWhitelistDelegation,
         } = res;
 
         main(
@@ -274,6 +346,12 @@ if (require.main === module) {
             repaymentController,
             originationController,
             verifier,
+            punksVerifier,
+            collectionWideOfferVerifier,
+            artBlocksVerifier,
+            unvaultedItemsVerifer,
+            callWhitelistApprovals,
+            callWhitelistDelegation,
         )
             .then(() => process.exit(0))
             .catch((error: Error) => {

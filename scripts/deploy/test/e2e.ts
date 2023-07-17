@@ -18,6 +18,7 @@ import {
     BASE_URI,
     AFFILIATE_MANAGER_ROLE,
     WHITELIST_MANAGER_ROLE,
+    PUNKS_ADDRESS
 } from "../../utils/constants";
 
 import {
@@ -27,7 +28,14 @@ import {
     PromissoryNote,
     OriginationController,
     VaultFactory,
-    BaseURIDescriptor
+    BaseURIDescriptor,
+    PunksVerifier,
+    CollectionWideOfferVerifier,
+    ArtBlocksVerifier,
+    UnvaultedItemsVerifier,
+    CallWhitelistApprovals,
+    CallWhitelistDelegation,
+    DelegationRegistry
 } from "../../../typechain";
 
 /**
@@ -111,6 +119,38 @@ describe("Deployment", function() {
         expect(deployment["ArcadeItemsVerifier"]).to.exist;
         expect(deployment["ArcadeItemsVerifier"].contractAddress).to.exist;
         expect(deployment["ArcadeItemsVerifier"].constructorArgs.length).to.eq(0);
+
+        expect(deployment["PunksVerifier"]).to.exist;
+        expect(deployment["PunksVerifier"].contractAddress).to.exist;
+        expect(deployment["PunksVerifier"].constructorArgs.length).to.eq(1);
+        expect(deployment["PunksVerifier"].constructorArgs[0]).to.eq(PUNKS_ADDRESS);
+
+        expect(deployment["CollectionWideOfferVerifier"]).to.exist;
+        expect(deployment["CollectionWideOfferVerifier"].contractAddress).to.exist;
+        expect(deployment["CollectionWideOfferVerifier"].constructorArgs.length).to.eq(0);
+
+        expect(deployment["ArtBlocksVerifier"]).to.exist;
+        expect(deployment["ArtBlocksVerifier"].contractAddress).to.exist;
+        expect(deployment["ArtBlocksVerifier"].constructorArgs.length).to.eq(0);
+
+        expect(deployment["UnvaultedItemsVerifier"]).to.exist;
+        expect(deployment["UnvaultedItemsVerifier"].contractAddress).to.exist;
+        expect(deployment["UnvaultedItemsVerifier"].constructorArgs.length).to.eq(0);
+
+        expect(deployment["CallWhitelistApprovals"]).to.exist;
+        expect(deployment["CallWhitelistApprovals"].contractAddress).to.exist;
+        expect(deployment["CallWhitelistApprovals"].constructorArgs.length).to.eq(0);
+
+        expect(deployment["DelegationRegistry"]).to.exist;
+        expect(deployment["DelegationRegistry"].contractAddress).to.exist;
+        expect(deployment["DelegationRegistry"].constructorArgs.length).to.eq(0);
+
+        expect(deployment["CallWhitelistDelegation"]).to.exist;
+        expect(deployment["CallWhitelistDelegation"].contractAddress).to.exist;
+        expect(deployment["CallWhitelistDelegation"].constructorArgs.length).to.eq(1);
+        expect(deployment["CallWhitelistDelegation"].constructorArgs[0]).to.eq(
+            deployment["DelegationRegistry"].contractAddress,
+        );
     });
 
     it("correctly sets up all roles and permissions", async () => {
@@ -129,7 +169,10 @@ describe("Deployment", function() {
         if (process.env.EXEC) {
             // Run setup, via command-line
             console.log(); // whitespace
-            execSync(`HARDHAT_NETWORK=${NETWORK} ADMIN=${ADMIN_ADDRESS} ts-node scripts/deploy/setup-roles.ts ${filename}`, { stdio: 'inherit' });
+            execSync(
+                `HARDHAT_NETWORK=${NETWORK} ADMIN=${ADMIN_ADDRESS} ts-node scripts/deploy/setup-roles.ts ${filename}`,
+                { stdio: "inherit" },
+            );
         }
 
         // Check role setup contract by contract
@@ -137,6 +180,20 @@ describe("Deployment", function() {
         const whitelist = <CallWhitelist>await cwFactory.attach(deployment["CallWhitelist"].contractAddress);
 
         expect(await whitelist.owner()).to.eq(ADMIN_ADDRESS);
+
+        const cwApprovalsFactory = await ethers.getContractFactory("CallWhitelistApprovals");
+        const callWhitelistApprovals = <CallWhitelistApprovals>(
+            await cwApprovalsFactory.attach(deployment["CallWhitelistApprovals"].contractAddress)
+        );
+
+        expect(await callWhitelistApprovals.owner()).to.eq(ADMIN_ADDRESS);
+
+        const cwDelegationFactory = await ethers.getContractFactory("CallWhitelistDelegation");
+        const callWhitelistDelegation = <CallWhitelistDelegation>(
+            await cwDelegationFactory.attach(deployment["CallWhitelistDelegation"].contractAddress)
+        );
+
+        expect(await callWhitelistDelegation.owner()).to.eq(ADMIN_ADDRESS);
 
         const baseURIDescriptorFactory = await ethers.getContractFactory("BaseURIDescriptor");
         const baseURIDescriptor = <BaseURIDescriptor>(
@@ -183,7 +240,8 @@ describe("Deployment", function() {
 
         expect(await loanCore.hasRole(FEE_CLAIMER_ROLE, deployer.address)).to.be.false;
         expect(await loanCore.hasRole(FEE_CLAIMER_ROLE, ADMIN_ADDRESS)).to.be.true;
-        expect(await loanCore.hasRole(FEE_CLAIMER_ROLE, deployment["OriginationController"].contractAddress)).to.be.false;
+        expect(await loanCore.hasRole(FEE_CLAIMER_ROLE, deployment["OriginationController"].contractAddress)).to.be
+            .false;
         expect(await loanCore.hasRole(FEE_CLAIMER_ROLE, deployment["RepaymentController"].contractAddress)).to.be.false;
         expect(await loanCore.getRoleMemberCount(FEE_CLAIMER_ROLE)).to.eq(1);
 
@@ -207,7 +265,9 @@ describe("Deployment", function() {
             .false;
 
         const ocFactory = await ethers.getContractFactory("OriginationController");
-        const originationController = <OriginationController>await ocFactory.attach(deployment["OriginationController"].contractAddress);
+        const originationController = <OriginationController>(
+            await ocFactory.attach(deployment["OriginationController"].contractAddress)
+        );
 
         expect(await originationController.hasRole(ADMIN_ROLE, ADMIN_ADDRESS)).to.be.true;
         expect(await originationController.hasRole(ADMIN_ROLE, deployer.address)).to.be.false;
@@ -217,6 +277,7 @@ describe("Deployment", function() {
         // These expect statement will work after the deployer renounces the role post finishing the token whitelisting
         //expect(await originationController.hasRole(WHITELIST_MANAGER_ROLE, deployer.address)).to.be.false;
         //expect(await originationController.getRoleMemberCount(WHITELIST_MANAGER_ROLE)).to.eq(1);
+
     });
 
     it("verifies all contracts on the proper network", async () => {
@@ -241,5 +302,4 @@ describe("Deployment", function() {
         }
     });
 
-    it.skip("can run sample loans")
 });
