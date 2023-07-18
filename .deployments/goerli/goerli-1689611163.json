@@ -1,0 +1,102 @@
+{
+  "CallWhitelist": {
+    "contractAddress": "0xCF7f96C47AD6bD438a509737D37b7C07F6F5513E",
+    "constructorArgs": []
+  },
+  "BaseURIDescriptor": {
+    "contractAddress": "0x02FD68b781ffBe6197D822d7A3d92759D4ced689",
+    "constructorArgs": [
+      "https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnBeats/"
+    ]
+  },
+  "FeeController": {
+    "contractAddress": "0xDfBB0a9d92fCbf2B9fc35d811B7EC25BC3732979",
+    "constructorArgs": []
+  },
+  "AssetVault": {
+    "contractAddress": "0xa3A1D9DfcA5301281681301c374673d8e59Af946",
+    "constructorArgs": []
+  },
+  "VaultFactory": {
+    "contractAddress": "0x885BE6a95bcA013A483D34A8E89938CE5c32dF6e",
+    "constructorArgs": [
+      "0xa3A1D9DfcA5301281681301c374673d8e59Af946",
+      "0xCF7f96C47AD6bD438a509737D37b7C07F6F5513E",
+      "0xDfBB0a9d92fCbf2B9fc35d811B7EC25BC3732979",
+      "0x02FD68b781ffBe6197D822d7A3d92759D4ced689"
+    ]
+  },
+  "BorrowerNote": {
+    "contractAddress": "0xA40f90A396e2a8456D4aF258F0dB996974F49F8d",
+    "constructorArgs": [
+      "Arcade.xyz BorrowerNote",
+      "aBN",
+      "0x02FD68b781ffBe6197D822d7A3d92759D4ced689"
+    ]
+  },
+  "LenderNote": {
+    "contractAddress": "0x7C1053d55A581e0eD8493851EEC6731401D1840d",
+    "constructorArgs": [
+      "Arcade.xyz LenderNote",
+      "aLN",
+      "0x02FD68b781ffBe6197D822d7A3d92759D4ced689"
+    ]
+  },
+  "LoanCore": {
+    "contractAddress": "0x8a2E4795B395B6eE9A04284a6074539753bfAbF8",
+    "constructorArgs": [
+      "0xA40f90A396e2a8456D4aF258F0dB996974F49F8d",
+      "0x7C1053d55A581e0eD8493851EEC6731401D1840d"
+    ]
+  },
+  "RepaymentController": {
+    "contractAddress": "0x0202f919d631D9f9EfdB2E8CeF78c3FA72B7b697",
+    "constructorArgs": [
+      "0x8a2E4795B395B6eE9A04284a6074539753bfAbF8",
+      "0xDfBB0a9d92fCbf2B9fc35d811B7EC25BC3732979"
+    ]
+  },
+  "OriginationController": {
+    "contractAddress": "0xDD4C612c843Ff593eB29C6cBF1D7CE4c880558f2",
+    "constructorArgs": [
+      "0x8a2E4795B395B6eE9A04284a6074539753bfAbF8",
+      "0xDfBB0a9d92fCbf2B9fc35d811B7EC25BC3732979"
+    ]
+  },
+  "ArcadeItemsVerifier": {
+    "contractAddress": "0xa2FDFeE8B8c9C877273f82Ba9e4AD83fD83C7379",
+    "constructorArgs": []
+  },
+  "PunksVerifier": {
+    "contractAddress": "0x5CE5213b71973acA0F1AA5201605009c255247Cd",
+    "constructorArgs": [
+      "0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB"
+    ]
+  },
+  "CollectionWideOfferVerifier": {
+    "contractAddress": "0x285E19a67CA0F591E38657f537725b3F917041DE",
+    "constructorArgs": []
+  },
+  "ArtBlocksVerifier": {
+    "contractAddress": "0x4b4404066cb96D4a1cd369AeDb3E9401c342a828",
+    "constructorArgs": []
+  },
+  "UnvaultedItemsVerifier": {
+    "contractAddress": "0x962941d024ffF98Dcd45A53aB8Ee9a3Ec6D7b984",
+    "constructorArgs": []
+  },
+  "CallWhitelistApprovals": {
+    "contractAddress": "0xcF2Ef563994E734ae6Fe34Ed71C34A528c52EA45",
+    "constructorArgs": []
+  },
+  "DelegationRegistry": {
+    "contractAddress": "0x7B9573393B6CE591Eb0F24a6b9ecAA53e42fC745",
+    "constructorArgs": []
+  },
+  "CallWhitelistDelegation": {
+    "contractAddress": "0x47CEA5fd136894b96C60595bb21A314CDDf1b4BB",
+    "constructorArgs": [
+      "0x7B9573393B6CE591Eb0F24a6b9ecAA53e42fC745"
+    ]
+  }
+}

@@ -48,7 +48,7 @@ type ContractArgs = {
     punksVerifier: Contract;
     collectionWideOfferVerifier: Contract;
     artBlocksVerifier: Contract;
-    unvaultedItemsVerifer: Contract;
+    unvaultedItemsVerifier: Contract;
     callWhitelistApprovals: Contract;
     callWhitelistDelegation: Contract;
 };
@@ -331,7 +331,7 @@ if (require.main === module) {
             punksVerifier,
             collectionWideOfferVerifier,
             artBlocksVerifier,
-            unvaultedItemsVerifer,
+            unvaultedItemsVerifier,
             callWhitelistApprovals,
             callWhitelistDelegation,
         } = res;
@@ -351,7 +351,7 @@ if (require.main === module) {
             punksVerifier,
             collectionWideOfferVerifier,
             artBlocksVerifier,
-            unvaultedItemsVerifer,
+            unvaultedItemsVerifier,
             callWhitelistApprovals,
             callWhitelistDelegation,
         )
