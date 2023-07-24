@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.18;
+pragma solidity ^0.8.11;
 
-import "../libraries/LoanLibrary.sol";
-import "./IFeeController.sol";
+import "../LoanLibraryV2.sol";
 
-interface IOriginationController {
+interface IOriginationControllerV2 {
     // ================ Data Types =============
 
     enum Side {
@@ -17,29 +16,26 @@ interface IOriginationController {
         uint8 v;
         bytes32 r;
         bytes32 s;
-        bytes extraData;
     }
 
     struct RolloverAmounts {
         uint256 needFromBorrower;
         uint256 leftoverPrincipal;
-        uint256 amountFromLender;
         uint256 amountToOldLender;
         uint256 amountToLender;
         uint256 amountToBorrower;
+        uint256 fee;
     }
 
     // ================ Events =================
 
     event Approval(address indexed owner, address indexed signer, bool isApproved);
     event SetAllowedVerifier(address indexed verifier, bool isAllowed);
-    event SetAllowedCurrency(address indexed currency, bool isAllowed);
-    event SetAllowedCollateral(address indexed collateral, bool isAllowed);
 
     // ============== Origination Operations ==============
 
     function initializeLoan(
-        LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibraryV2.LoanTerms calldata loanTerms,
         address borrower,
         address lender,
         Signature calldata sig,
@@ -47,16 +43,16 @@ interface IOriginationController {
     ) external returns (uint256 loanId);
 
     function initializeLoanWithItems(
-        LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibraryV2.LoanTerms calldata loanTerms,
         address borrower,
         address lender,
         Signature calldata sig,
         uint160 nonce,
-        LoanLibrary.Predicate[] calldata itemPredicates
+        LoanLibraryV2.Predicate[] calldata itemPredicates
     ) external returns (uint256 loanId);
 
     function initializeLoanWithCollateralPermit(
-        LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibraryV2.LoanTerms calldata loanTerms,
         address borrower,
         address lender,
         Signature calldata sig,
@@ -66,19 +62,19 @@ interface IOriginationController {
     ) external returns (uint256 loanId);
 
     function initializeLoanWithCollateralPermitAndItems(
-        LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibraryV2.LoanTerms calldata loanTerms,
         address borrower,
         address lender,
         Signature calldata sig,
         uint160 nonce,
         Signature calldata collateralSig,
         uint256 permitDeadline,
-        LoanLibrary.Predicate[] calldata itemPredicates
+        LoanLibraryV2.Predicate[] calldata itemPredicates
     ) external returns (uint256 loanId);
 
     function rolloverLoan(
         uint256 oldLoanId,
-        LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibraryV2.LoanTerms calldata loanTerms,
         address lender,
         Signature calldata sig,
         uint160 nonce
@@ -86,11 +82,11 @@ interface IOriginationController {
 
     function rolloverLoanWithItems(
         uint256 oldLoanId,
-        LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibraryV2.LoanTerms calldata loanTerms,
         address lender,
         Signature calldata sig,
         uint160 nonce,
-        LoanLibrary.Predicate[] calldata itemPredicates
+        LoanLibraryV2.Predicate[] calldata itemPredicates
     ) external returns (uint256 newLoanId);
 
     // ================ Permission Management =================
@@ -110,14 +106,14 @@ interface IOriginationController {
     // ============== Signature Verification ==============
 
     function recoverTokenSignature(
-        LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibraryV2.LoanTerms calldata loanTerms,
         Signature calldata sig,
         uint160 nonce,
         Side side
     ) external view returns (bytes32 sighash, address signer);
 
     function recoverItemsSignature(
-        LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibraryV2.LoanTerms calldata loanTerms,
         Signature calldata sig,
         uint160 nonce,
         Side side,
@@ -126,17 +122,9 @@ interface IOriginationController {
 
     // ============== Admin Operations ==============
 
-    function setAllowedPayableCurrencies(address[] memory _tokenAddress, bool[] calldata isAllowed) external;
+    function setAllowedVerifier(address verifier, bool isAllowed) external;
 
-    function setAllowedCollateralAddresses(address[] memory _tokenAddress, bool[] calldata isAllowed) external;
-
-    function setAllowedVerifiers(address[] calldata verifiers, bool[] calldata isAllowed) external;
-
-    function isAllowedCurrency(address token) external view returns (bool);
-
-    function isAllowedCollateral(address token) external view returns (bool);
+    function setAllowedVerifierBatch(address[] calldata verifiers, bool[] calldata isAllowed) external;
 
     function isAllowedVerifier(address verifier) external view returns (bool);
-
-    function feeController() external returns (IFeeController);
 }
