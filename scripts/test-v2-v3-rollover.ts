@@ -58,6 +58,7 @@ export async function main(): Promise<void> {
         flashSource = process.env.FLASH_SOURCE;
     }
 
+    // ================================== Deploy V3 Lending Protocol ==================================
     // Deploy V3 contracts
     console.log(SECTION_SEPARATOR);
     console.log("Deploying V3 contracts...");
@@ -65,25 +66,19 @@ export async function main(): Promise<void> {
     const CallWhiteListFactory = await ethers.getContractFactory("CallWhitelist");
     const whitelist = <CallWhitelist>await CallWhiteListFactory.deploy();
     await whitelist.deployed();
-
-    const whitelistAddress = whitelist.address;
-    console.log("CallWhitelist deployed to:", whitelistAddress);
+    console.log("CallWhitelist deployed to:", whitelist.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const BaseURIDescriptorFactory = await ethers.getContractFactory("BaseURIDescriptor");
     const baseURIDescriptor = <BaseURIDescriptor>await BaseURIDescriptorFactory.deploy(`${BASE_URI}`);
     await baseURIDescriptor.deployed();
-
-    const baseURIDescriptorAddress = baseURIDescriptor.address;
-    console.log("BaseURIDescriptor deployed to:", baseURIDescriptorAddress);
+    console.log("BaseURIDescriptor deployed to:", baseURIDescriptor.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const FeeControllerFactory = await ethers.getContractFactory("FeeController");
     const feeController = <FeeController>await FeeControllerFactory.deploy();
     await feeController.deployed();
-
-    const feeControllerAddress = feeController.address;
-    console.log("FeeController deployed to: ", feeControllerAddress);
+    console.log("FeeController deployed to: ", feeController.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const bNoteName = "Arcade.xyz BorrowerNote";
@@ -93,8 +88,6 @@ export async function main(): Promise<void> {
         await PromissoryNoteFactory.deploy(bNoteName, bNoteSymbol, baseURIDescriptor.address)
     );
     await borrowerNote.deployed();
-
-    const borrowerNoteAddressV3 = borrowerNote.address;
     console.log("BorrowerNote deployed to:", borrowerNote.address);
 
     const lNoteName = "Arcade.xyz LenderNote";
@@ -103,9 +96,7 @@ export async function main(): Promise<void> {
         await PromissoryNoteFactory.deploy(lNoteName, lNoteSymbol, baseURIDescriptor.address)
     );
     await lenderNote.deployed();
-
-    const lenderNoteAddress = lenderNote.address;
-    console.log("LenderNote deployed to:", lenderNoteAddress);
+    console.log("LenderNote deployed to:", lenderNote.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const LoanCoreFactory = await ethers.getContractFactory("LoanCore");
@@ -114,9 +105,7 @@ export async function main(): Promise<void> {
         lenderNote.address
     );
     await loanCore.deployed();
-
-    const loanCoreAddress = loanCore.address;
-    console.log("LoanCore deployed to:", loanCoreAddress);
+    console.log("LoanCore deployed to:", loanCore.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const RepaymentControllerFactory = await ethers.getContractFactory("RepaymentController");
@@ -124,10 +113,7 @@ export async function main(): Promise<void> {
         await RepaymentControllerFactory.deploy(loanCore.address, feeController.address)
     );
     await repaymentController.deployed();
-
-    const repaymentContAddress = repaymentController.address;
-    console.log("RepaymentController deployed to:", repaymentContAddress);
-
+    console.log("RepaymentController deployed to:", repaymentController.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationController");
@@ -136,82 +122,65 @@ export async function main(): Promise<void> {
         feeController.address
     );
     await originationController.deployed();
-
-    const originationContAddress = originationController.address;
-    console.log("OriginationController deployed to:", originationContAddress);
-
+    console.log("OriginationController deployed to:", originationController.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const VerifierFactory = await ethers.getContractFactory("ArcadeItemsVerifier");
     const verifier = <ArcadeItemsVerifier>await VerifierFactory.deploy();
     await verifier.deployed();
-
-    const verifierAddress = verifier.address;
-    console.log("ItemsVerifier deployed to:", verifierAddress);
+    console.log("ItemsVerifier deployed to:", verifier.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const PunksVerifierFactory = await ethers.getContractFactory("PunksVerifier");
     const punksVerifier = <PunksVerifier>await PunksVerifierFactory.deploy(PUNKS_ADDRESS);
     await punksVerifier.deployed();
-
-    const punksVerifierAddress = punksVerifier.address;
-    console.log("PunksVerifier deployed to:", punksVerifierAddress);
+    console.log("PunksVerifier deployed to:", punksVerifier.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const CWOVerifierFactory = await ethers.getContractFactory("CollectionWideOfferVerifier");
     const collectionWideOfferVerifier = <CollectionWideOfferVerifier>await CWOVerifierFactory.deploy();
     await collectionWideOfferVerifier.deployed();
-
-    const collectionWideOfferVerifierAddress = collectionWideOfferVerifier.address;
-    console.log("CollectionWideVerifier deployed to:", collectionWideOfferVerifierAddress);
+    console.log("CollectionWideVerifier deployed to:", collectionWideOfferVerifier.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const ArtBlocksVerifierFactory = await ethers.getContractFactory("ArtBlocksVerifier");
     const artBlocksVerifier = <ArtBlocksVerifier>await ArtBlocksVerifierFactory.deploy();
     await artBlocksVerifier.deployed();
-
-    const artBlocksVerifierAddress = artBlocksVerifier.address;
-    console.log("ArtBlocksVerifier deployed to:", artBlocksVerifierAddress);
+    console.log("ArtBlocksVerifier deployed to:", artBlocksVerifier.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const UnvaultedItemsVerifierFactory = await ethers.getContractFactory("UnvaultedItemsVerifier");
     const unvaultedItemsVerifier = <UnvaultedItemsVerifier>await UnvaultedItemsVerifierFactory.deploy();
     await unvaultedItemsVerifier.deployed();
-
-    const unvaultedItemsVerifierAddress = unvaultedItemsVerifier.address;
-    console.log("UnvaultedItemsVerifier deployed to:", unvaultedItemsVerifierAddress);
+    console.log("UnvaultedItemsVerifier deployed to:", unvaultedItemsVerifier.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const CallWhitelistApprovalsFactory = await ethers.getContractFactory("CallWhitelistApprovals");
     const callWhitelistApprovals = <CallWhitelistApprovals>await CallWhitelistApprovalsFactory.deploy();
     await callWhitelistApprovals.deployed();
-
-    const callWhitelistApprovalsAddress = callWhitelistApprovals.address;
-    console.log("CallWhitelistApprovals deployed to:", callWhitelistApprovalsAddress);
+    console.log("CallWhitelistApprovals deployed to:", callWhitelistApprovals.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const DelegationRegistryFactory = await ethers.getContractFactory("DelegationRegistry");
     const delegationRegistry = <DelegationRegistry>await DelegationRegistryFactory.deploy();
     await delegationRegistry.deployed();
-
-    const delegationRegistryAddress = delegationRegistry.address;
-    console.log("DelegationRegistry deployed to:", delegationRegistryAddress);
+    console.log("DelegationRegistry deployed to:", delegationRegistry.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const CallWhitelistDelegationFactory = await ethers.getContractFactory("CallWhitelistDelegation");
     const callWhitelistDelegation = <CallWhitelistDelegation>(
-        await CallWhitelistDelegationFactory.deploy(delegationRegistryAddress)
+        await CallWhitelistDelegationFactory.deploy(delegationRegistry.address)
     );
     await callWhitelistDelegation.deployed();
-
-    const callWhitelistDelegationAddress = callWhitelistDelegation.address;
-    console.log("CallWhitelistDelegation deployed to:", callWhitelistDelegationAddress);
+    console.log("CallWhitelistDelegation deployed to:", callWhitelistDelegation.address);
     console.log(SUBSECTION_SEPARATOR);
 
     console.log(SECTION_SEPARATOR);
     console.log("Contracts Deployed, Setting up V3...");
 
-    // Set setup roles addresses
+    // ================================== Setup V3 Lending Protocol ==================================
+
+    // roles addresses
     const ADMIN_ADDRESS = process.env.ADMIN ? process.env.ADMIN : (await hre.ethers.getSigners())[0].address;
     console.log("Admin address:", ADMIN_ADDRESS);
 
@@ -226,7 +195,6 @@ export async function main(): Promise<void> {
     // set CallWhiteList admin
     const updateWhitelistAdmin = await whitelist.transferOwnership(ADMIN_ADDRESS);
     await updateWhitelistAdmin.wait();
-
     console.log(`CallWhitelist: ownership transferred to ${ADMIN_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
@@ -235,7 +203,6 @@ export async function main(): Promise<void> {
     // set CallWhiteListApprovals admin
     const updateWhitelistApprovalsAdmin = await callWhitelistApprovals.transferOwnership(ADMIN_ADDRESS);
     await updateWhitelistApprovalsAdmin.wait();
-
     console.log(`CallWhitelistApprovals: ownership transferred to ${ADMIN_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
@@ -244,7 +211,6 @@ export async function main(): Promise<void> {
     // set CallWhiteListDelegation admin
     const updateWhitelistDelegationAdmin = await callWhitelistDelegation.transferOwnership(ADMIN_ADDRESS);
     await updateWhitelistDelegationAdmin.wait();
-
     console.log(`CallWhitelistDelegation: ownership transferred to ${ADMIN_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
@@ -253,7 +219,6 @@ export async function main(): Promise<void> {
     // set BaseURIDescriptorAdmin admin
     const updateBaseURIDescriptorAdmin = await baseURIDescriptor.transferOwnership(ADMIN_ADDRESS);
     await updateBaseURIDescriptorAdmin.wait();
-
     console.log(`BaseURIDescriptor: ownership transferred to ${ADMIN_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
@@ -262,7 +227,6 @@ export async function main(): Promise<void> {
     // set FeeController admin
     const updateFeeControllerAdmin = await feeController.transferOwnership(ADMIN_ADDRESS);
     await updateFeeControllerAdmin.wait();
-
     console.log(`FeeController: ownership transferred to ${ADMIN_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
@@ -270,7 +234,6 @@ export async function main(): Promise<void> {
 
     const initBorrowerNote = await borrowerNote.initialize(LOAN_CORE_ADDRESS);
     await initBorrowerNote.wait();
-
     console.log(`BorrowerNote: initialized loanCore at address ${LOAN_CORE_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
@@ -278,7 +241,6 @@ export async function main(): Promise<void> {
 
     const initLenderNote = await lenderNote.initialize(LOAN_CORE_ADDRESS);
     await initLenderNote.wait();
-
     console.log(`LenderNote: initialized loanCore at address ${LOAN_CORE_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
@@ -287,32 +249,25 @@ export async function main(): Promise<void> {
     // grant the admin role for LoanCore
     const updateLoanCoreAdmin = await loanCore.grantRole(ADMIN_ROLE, ADMIN_ADDRESS);
     await updateLoanCoreAdmin.wait();
-
     console.log(`LoanCore: admin role granted to ${ADMIN_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
     // grant LoanCore admin fee claimer permissions
     const updateLoanCoreFeeClaimer = await loanCore.grantRole(FEE_CLAIMER_ROLE, ADMIN_ADDRESS);
     await updateLoanCoreFeeClaimer.wait();
-
     console.log(`LoanCore: fee claimer role granted to ${ADMIN_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
     // grant originationContoller the originator role
     const updateOriginationControllerRole = await loanCore.grantRole(ORIGINATOR_ROLE, ORIGINATION_CONTROLLER_ADDRESS);
     await updateOriginationControllerRole.wait();
-
     console.log(`LoanCore: originator role granted to ${ORIGINATION_CONTROLLER_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
     // grant repaymentContoller the REPAYER_ROLE
     const updateRepaymentControllerAdmin = await loanCore.grantRole(REPAYER_ROLE, REPAYMENT_CONTROLLER_ADDRESS);
     await updateRepaymentControllerAdmin.wait();
-
     console.log(`LoanCore: repayer role granted to ${REPAYMENT_CONTROLLER_ADDRESS}`);
-    console.log(SUBSECTION_SEPARATOR);
-
-    //console.log("LoanCore: deployer has renounced admin role");
     console.log(SUBSECTION_SEPARATOR);
 
     // ============= OriginationController ==============
@@ -320,13 +275,11 @@ export async function main(): Promise<void> {
     // whitelist verifiers
     const setWhitelistVerifier = await originationController.setAllowedVerifiers([verifier.address], [true]);
     await setWhitelistVerifier.wait();
-
     console.log(`OriginationController added ArcadeItemsVerifier, at address: ${verifier.address} as allowed verifier`);
     console.log(SUBSECTION_SEPARATOR);
 
     const setPunksVerifier = await originationController.setAllowedVerifiers([punksVerifier.address], [true]);
     await setPunksVerifier.wait();
-
     console.log(`OriginationController added PunksVerifier, at address: ${punksVerifier.address} as allowed verifier`);
     console.log(SUBSECTION_SEPARATOR);
 
@@ -335,13 +288,11 @@ export async function main(): Promise<void> {
         [true],
     );
     await setcollectionWideOfferVerifier.wait();
-
     console.log(`OriginationController added CollectionWideOfferVerifier at address: ${collectionWideOfferVerifier.address} as allowed verifier`);
     console.log(SUBSECTION_SEPARATOR);
 
     const setArtBlocksVerifier = await originationController.setAllowedVerifiers([artBlocksVerifier.address], [true]);
     await setArtBlocksVerifier.wait();
-
     console.log(`OriginationController added ArtBlocksVerifier, at address ${artBlocksVerifier.address} as allowed verifier`);
     console.log(SUBSECTION_SEPARATOR);
 
@@ -350,7 +301,6 @@ export async function main(): Promise<void> {
         [true],
     );
     await setUnvaultedItemsVerifier.wait();
-
     console.log(
         `OriginationController added UnvaultedItemsVerifier, at address: ${unvaultedItemsVerifier.address} as allowed verifier`,
     );
@@ -370,8 +320,10 @@ export async function main(): Promise<void> {
     console.log(`OriginationController: admin role granted to ${ADMIN_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
-    console.log("Transferred all ownership.\n");
+    console.log("V3 Lending Protocol setup complete");
     console.log(SECTION_SEPARATOR);
+
+    // ================================== Execute V2 -> V3 Rollover ==================================
 
     ///////////////////////////////
     // MAINNET STATE FOR FORKING //
@@ -388,26 +340,33 @@ export async function main(): Promise<void> {
     const SOURCE_LOAN_CORE_ADDRESS = "0x81b2F8Fc75Bab64A6b144aa6d2fAa127B4Fa7fD9"; // v2 loan core mainnet
     const SOURCE_REPAYMENT_CONTROLLER_ADDRESS = "0xb39dAB85FA05C381767FF992cCDE4c94619993d4"; // v2 repayment controller mainnet
 
+    ///////////////////////////////
+    //////// V2 LOAN DATA /////////
+    ///////////////////////////////
     const LOAN_ID = 2304; // active loanId on mainnet
     const COLLATERAL_ID = BigNumber.from("32675882429474081022340835984931386905292101387"); // vault id on mainnet
+
+    ///////////////////////////////
+    //////// V3 LOAN DATA /////////
+    ///////////////////////////////
     const NONCE = 1; // Nonce to use in new lender's bid
     const newLoanAmount = ethers.utils.parseUnits("3.00", 18); // no fees
     const newLoanInterestRate = ethers.utils.parseUnits("2.66666666666666666700", 18); // 2.67% interest
     const oldLoanRepaymentAmount = ethers.utils.parseUnits("3.08", 18); // no fees
-
-    console.log(SUBSECTION_SEPARATOR);
     const [newLender] = await hre.ethers.getSigners();
     console.log("New lender address:", newLender.address);
 
+    // Whitelist collateral and payable currency used in the new loan terms
     console.log(SUBSECTION_SEPARATOR);
-    console.log(`Add collateral and payable currency used in the loan terms to OriginationController...`);
+    console.log(`Add collateral and payable currency to V3 OriginationController...`);
     const addCollateral = await originationController.setAllowedCollateralAddresses([VAULT_FACTORY_ADDRESS], [true]);
     await addCollateral.wait();
     const addPayableCurrency = await originationController.setAllowedPayableCurrencies([WETH_ADDRESS], [true]);
     await addPayableCurrency.wait();
 
+    // Deploy v2 -> v3 rollover contract and set the flash loan fee value
     console.log(SUBSECTION_SEPARATOR);
-    console.log("Deploying rollover...");
+    console.log("Deploying rollover contract...");
     let flashRollover: V2ToV3BalancerRollover | V2ToV3AAVERollover;
     let flashLoanFee: BigNumber;
     if (flashSource === "balancer") {
@@ -428,17 +387,16 @@ export async function main(): Promise<void> {
         throw new Error("Invalid flash loan provider, please use 'balancer' or 'AAVE'");
     }
 
+    // impersonate accounts
     console.log(SUBSECTION_SEPARATOR);
     await hre.network.provider.request({
         method: "hardhat_impersonateAccount",
         params: [WHALE],
     });
-
     await hre.network.provider.request({
         method: "hardhat_impersonateAccount",
         params: [BORROWER],
     });
-
     await hre.network.provider.request({
         method: "hardhat_impersonateAccount",
         params: [LENDER],
@@ -473,14 +431,12 @@ export async function main(): Promise<void> {
     const flashLoanAmountDue = oldLoanRepaymentAmount.add(oldLoanRepaymentAmount.mul(flashLoanFee).div(10000));
     if (newLoanAmount.lt(flashLoanAmountDue)) {
         const difference = flashLoanAmountDue.sub(newLoanAmount);
-
         await weth.connect(whale).transfer(borrower.address, difference)
         await weth.connect(borrower).approve(flashRollover.address, difference);
     }
-
     console.log(SUBSECTION_SEPARATOR);
+
     console.log("New Lender creates V3 signature...");
-    
     const newLoanTerms: LoanTerms = {
         durationSecs: 86400,
         deadline: Math.floor(Date.now() / 1000) + 100_000,
@@ -501,10 +457,9 @@ export async function main(): Promise<void> {
         NONCE,
         "l",
     );
-
     console.log(SUBSECTION_SEPARATOR);
-    console.log("Execute V2 -> V3 rollover...");
 
+    console.log("Execute V2 -> V3 rollover...");
     const contracts = {
         sourceLoanCore: SOURCE_LOAN_CORE_ADDRESS,
         targetLoanCore: LOAN_CORE_ADDRESS,
@@ -513,7 +468,7 @@ export async function main(): Promise<void> {
         vaultFactory: VAULT_FACTORY_ADDRESS
     };
 
-    // encode payload
+    // encode rollover
     const tx = await flashRollover.connect(borrower).rolloverLoan(
         contracts,
         LOAN_ID,
