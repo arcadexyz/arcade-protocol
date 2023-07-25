@@ -328,12 +328,11 @@ export async function main(): Promise<void> {
     ///////////////////////////////
     // MAINNET STATE FOR FORKING //
     ///////////////////////////////
-    const BORROWER = "0x58ff6950ecf6521729addc597f50d0405fdb2652";
-    const LENDER = "0x28c3bfe0cfe3f10cf0135da5de9896571ef5dda5";
-    // const USDC_ADDRESS = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
-    const WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
-    const WHALE = "0x54BE3a794282C030b15E43aE2bB182E14c409C5e"; // dingaling.eth
-    const LOAN_COLLATERAL_ADDRESS = "0x6e9B4c2f6Bd57b7b924d29b5dcfCa1273Ecc94A2"; // vault factory
+    const BORROWER = "0x3df8bcb3c65016e25ae0f7a72f0edc91ce9c01cf";
+    const USDC_ADDRESS = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
+    // const WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+    const WHALE = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"; // vitalik.eth
+    const LOAN_COLLATERAL_ADDRESS = "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D"; // BAYC
     const ADDRESSES_PROVIDER_ADDRESS = "0xB53C1a33016B2DC2fF3653530bfF1848a515c8c5"; // AAVE
     const BALANCER_ADDRESS = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"; // Balancer
     const BORROWER_NOTE_ADDRESS = "0x337104A4f06260Ff327d6734C555A0f5d8F863aa";
@@ -343,16 +342,16 @@ export async function main(): Promise<void> {
     ///////////////////////////////
     //////// V2 LOAN DATA /////////
     ///////////////////////////////
-    const LOAN_ID = 2304; // active loanId on mainnet
-    const COLLATERAL_ID = BigNumber.from("32675882429474081022340835984931386905292101387"); // vault id on mainnet
+    const LOAN_ID = 2343; // active loanId on mainnet
+    const COLLATERAL_ID = 6435 // BigNumber.from("32675882429474081022340835984931386905292101387"); // vault id on mainnet
 
     ///////////////////////////////
     //////// V3 LOAN DATA /////////
     ///////////////////////////////
     const NONCE = 1; // Nonce to use in new lender's bid
-    const newLoanAmount = ethers.utils.parseUnits("3.00", 18); // no fees
+    const newLoanAmount = ethers.utils.parseUnits("3.00", 6); // no fees
     const newLoanInterestRate = ethers.utils.parseUnits("2.66666666666666666700", 18); // 2.67% interest
-    const oldLoanRepaymentAmount = ethers.utils.parseUnits("3.08", 18); // no fees
+    const oldLoanRepaymentAmount = ethers.utils.parseUnits("83000", 6); // no fees
     const [newLender] = await hre.ethers.getSigners();
     console.log("New lender address:", newLender.address);
 
@@ -361,7 +360,7 @@ export async function main(): Promise<void> {
     console.log(`Add collateral and payable currency to V3 OriginationController...`);
     const addCollateral = await originationController.setAllowedCollateralAddresses([LOAN_COLLATERAL_ADDRESS], [true]);
     await addCollateral.wait();
-    const addPayableCurrency = await originationController.setAllowedPayableCurrencies([WETH_ADDRESS], [true]);
+    const addPayableCurrency = await originationController.setAllowedPayableCurrencies([USDC_ADDRESS], [true]);
     await addPayableCurrency.wait();
 
     // Deploy v2 -> v3 rollover contract and set the flash loan fee value
@@ -397,17 +396,11 @@ export async function main(): Promise<void> {
         method: "hardhat_impersonateAccount",
         params: [BORROWER],
     });
-    await hre.network.provider.request({
-        method: "hardhat_impersonateAccount",
-        params: [LENDER],
-    });
-    
-    const lender = await hre.ethers.getSigner(LENDER);
     const whale = await hre.ethers.getSigner(WHALE);
     const borrower = await hre.ethers.getSigner(BORROWER);
 
     const erc20Factory = await ethers.getContractFactory("ERC20");
-    const weth = <ERC20>erc20Factory.attach(WETH_ADDRESS);
+    const weth = <ERC20>erc20Factory.attach(USDC_ADDRESS);
 
     const erc721Factory = await ethers.getContractFactory("ERC721");
     const bNoteV2 = <PromissoryNote>erc721Factory.attach(BORROWER_NOTE_ADDRESS);
@@ -415,7 +408,6 @@ export async function main(): Promise<void> {
     // Distribute WETH by impersonating a large account
     console.log("Whale distributes ETH and WETH...");
     await whale.sendTransaction({ to: borrower.address, value: ethers.utils.parseEther("10") });
-    await whale.sendTransaction({ to: lender.address, value: ethers.utils.parseEther("10") });
     await whale.sendTransaction({ to: newLender.address, value: ethers.utils.parseEther("10") });
     await weth.connect(whale).transfer(newLender.address, newLoanAmount)
 
@@ -444,7 +436,7 @@ export async function main(): Promise<void> {
         principal: newLoanAmount, // V3 loan, principal
         collateralAddress: LOAN_COLLATERAL_ADDRESS,
         collateralId: COLLATERAL_ID,
-        payableCurrency: WETH_ADDRESS,
+        payableCurrency: USDC_ADDRESS,
         affiliateCode: ethers.constants.HashZero
     };
 
