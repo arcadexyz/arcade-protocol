@@ -333,7 +333,7 @@ export async function main(): Promise<void> {
     // const USDC_ADDRESS = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
     const WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
     const WHALE = "0x54BE3a794282C030b15E43aE2bB182E14c409C5e"; // dingaling.eth
-    const VAULT_FACTORY_ADDRESS = "0x6e9B4c2f6Bd57b7b924d29b5dcfCa1273Ecc94A2";
+    const LOAN_COLLATERAL_ADDRESS = "0x6e9B4c2f6Bd57b7b924d29b5dcfCa1273Ecc94A2"; // vault factory
     const ADDRESSES_PROVIDER_ADDRESS = "0xB53C1a33016B2DC2fF3653530bfF1848a515c8c5"; // AAVE
     const BALANCER_ADDRESS = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"; // Balancer
     const BORROWER_NOTE_ADDRESS = "0x337104A4f06260Ff327d6734C555A0f5d8F863aa";
@@ -359,7 +359,7 @@ export async function main(): Promise<void> {
     // Whitelist collateral and payable currency used in the new loan terms
     console.log(SUBSECTION_SEPARATOR);
     console.log(`Add collateral and payable currency to V3 OriginationController...`);
-    const addCollateral = await originationController.setAllowedCollateralAddresses([VAULT_FACTORY_ADDRESS], [true]);
+    const addCollateral = await originationController.setAllowedCollateralAddresses([LOAN_COLLATERAL_ADDRESS], [true]);
     await addCollateral.wait();
     const addPayableCurrency = await originationController.setAllowedPayableCurrencies([WETH_ADDRESS], [true]);
     await addPayableCurrency.wait();
@@ -442,7 +442,7 @@ export async function main(): Promise<void> {
         deadline: Math.floor(Date.now() / 1000) + 100_000,
         proratedInterestRate: newLoanInterestRate,
         principal: newLoanAmount, // V3 loan, principal
-        collateralAddress: VAULT_FACTORY_ADDRESS,
+        collateralAddress: LOAN_COLLATERAL_ADDRESS,
         collateralId: COLLATERAL_ID,
         payableCurrency: WETH_ADDRESS,
         affiliateCode: ethers.constants.HashZero
@@ -465,7 +465,7 @@ export async function main(): Promise<void> {
         targetLoanCore: LOAN_CORE_ADDRESS,
         sourceRepaymentController: SOURCE_REPAYMENT_CONTROLLER_ADDRESS,
         targetOriginationController: ORIGINATION_CONTROLLER_ADDRESS,
-        vaultFactory: VAULT_FACTORY_ADDRESS
+        collateral: LOAN_COLLATERAL_ADDRESS
     };
 
     // encode rollover

@@ -47,7 +47,7 @@ interface IV2ToV3AAVERollover is IFlashLoanReceiver {
         ILoanCore targetLoanCore;
         IRepaymentControllerV2 sourceRepaymentController;
         IOriginationController targetOriginationController;
-        IVaultFactory vaultFactory;
+        IERC721 collateral;
     }
 
     /**
@@ -75,7 +75,7 @@ interface IV2ToV3AAVERollover is IFlashLoanReceiver {
         IERC721 borrowerNote;
         IERC721 lenderNote;
         IFeeController feeController;
-        IVaultFactory vaultFactory;
+        IERC721 collateral;
         IRepaymentControllerV2 repaymentController;
         IOriginationController originationController;
         ILoanCore targetLoanCore;

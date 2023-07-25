@@ -17,7 +17,8 @@ import "../interfaces/IRepaymentController.sol";
  * @title V2ToV3BalancerRollover
  * @author Non-Fungible Technologies, Inc.
  *
- * It is required that the V2 protocol has zero fees enabled.
+ * It is required that the V2 protocol has zero fees enabled. This contract only works with
+ * ERC721 collateral.
  */
 contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC721Holder, Ownable {
     using SafeERC20 for IERC20;
@@ -59,7 +60,7 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
         {
             _validateRollover(
                 contracts.sourceLoanCore,
-                contracts.vaultFactory,
+                contracts.collateral,
                 loanTerms,
                 newLoanTerms,
                 loanId // same as borrowerNoteId
@@ -260,7 +261,7 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
 
         // contract now has collateral but has lost funds
         require(
-            IERC721(address(contracts.vaultFactory)).ownerOf(loanData.terms.collateralId) == address(this),
+            IERC721(address(contracts.collateral)).ownerOf(loanData.terms.collateralId) == address(this),
             "collateral ownership"
         );
     }
@@ -286,7 +287,7 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
         uint256 collateralId = opData.newLoanTerms.collateralId;
 
         // approve originationController
-        IERC721(address(contracts.vaultFactory)).approve(address(contracts.targetLoanCore), collateralId);
+        IERC721(address(contracts.collateral)).approve(address(contracts.targetLoanCore), collateralId);
 
         // start new loan
         // stand in for borrower to meet OriginationController's requirements
@@ -323,7 +324,7 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
                 borrowerNote: contracts.sourceLoanCore.borrowerNote(),
                 lenderNote: contracts.sourceLoanCore.lenderNote(),
                 feeController: contracts.targetOriginationController.feeController(),
-                vaultFactory: contracts.vaultFactory,
+                collateral: contracts.collateral,
                 repaymentController: contracts.sourceRepaymentController,
                 originationController: contracts.targetOriginationController,
                 targetLoanCore: contracts.targetLoanCore,
@@ -338,21 +339,22 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
      *         transaction will revert.
      *
      * @param sourceLoanCore          The LoanCore contract for the old loan.
-     * @param vaultFactory            The VaultFactory contract used by both loans.
+     * @param collateral              The collateral contract used by both loans.
      * @param sourceLoanTerms         The terms of the old loan.
      * @param newLoanTerms            The terms of the new loan.
      * @param borrowerNoteId          The ID of the borrowerNote for the old loan.
      */
     function _validateRollover(
         ILoanCoreV2 sourceLoanCore,
-        IVaultFactory vaultFactory,
+        IERC721 collateral,
         LoanLibraryV2.LoanTerms memory sourceLoanTerms,
         LoanLibrary.LoanTerms calldata newLoanTerms,
         uint256 borrowerNoteId
     ) internal {
         require(sourceLoanCore.borrowerNote().ownerOf(borrowerNoteId) == msg.sender, "caller not borrower");
         require(newLoanTerms.payableCurrency == sourceLoanTerms.payableCurrency, "currency mismatch");
-        require(newLoanTerms.collateralAddress == address(vaultFactory), "must use vault");
+        require(newLoanTerms.collateralAddress == address(collateral), "new terms collateral mismatch");
+        require(sourceLoanTerms.collateralAddress == address(collateral), "old terms collateralAddress mismatch");
     }
 
     /**
