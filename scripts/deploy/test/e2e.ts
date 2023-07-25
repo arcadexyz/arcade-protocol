@@ -148,7 +148,7 @@ describe("Deployment", function() {
         );
     });
 
-    it.only("correctly sets up all roles and permissions", async () => {
+    it("correctly sets up all roles and permissions", async () => {
         const filename = getLatestDeploymentFile();
         const deployment = getLatestDeployment();
         const [deployer] = await ethers.getSigners();
