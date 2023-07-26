@@ -325,42 +325,47 @@ export async function main(): Promise<void> {
 
     // ================================== Execute V2 -> V3 Rollover ==================================
 
+    // ======= Mainnet state for forking =======
+
     ///////////////////////////////
     // MAINNET STATE FOR FORKING //
     ///////////////////////////////
-    const BORROWER = "0x3df8bcb3c65016e25ae0f7a72f0edc91ce9c01cf";
+    const BORROWER = "0xa390baf0840b52aa57e97cd06c69459bea974947";
     const USDC_ADDRESS = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
-    // const WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
-    const WHALE = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"; // vitalik.eth
-    const LOAN_COLLATERAL_ADDRESS = "0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D"; // BAYC
+    const WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+    const DAI_ADDRESS = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
+    const WHALE = "0x1Cb17a66DC606a52785f69F08F4256526aBd4943";
+    const LOAN_COLLATERAL_ADDRESS = "0x6e9b4c2f6bd57b7b924d29b5dcfca1273ecc94a2"; // Vault Factory
     const ADDRESSES_PROVIDER_ADDRESS = "0xB53C1a33016B2DC2fF3653530bfF1848a515c8c5"; // AAVE
     const BALANCER_ADDRESS = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"; // Balancer
     const BORROWER_NOTE_ADDRESS = "0x337104A4f06260Ff327d6734C555A0f5d8F863aa";
-    const SOURCE_LOAN_CORE_ADDRESS = "0x81b2F8Fc75Bab64A6b144aa6d2fAa127B4Fa7fD9"; // v2 loan core mainnet
-    const SOURCE_REPAYMENT_CONTROLLER_ADDRESS = "0xb39dAB85FA05C381767FF992cCDE4c94619993d4"; // v2 repayment controller mainnet
+    const SOURCE_LOAN_CORE_ADDRESS = "0x81b2F8Fc75Bab64A6b144aa6d2fAa127B4Fa7fD9"; // v2 Loan Core mainnet
+    const SOURCE_REPAYMENT_CONTROLLER_ADDRESS = "0xb39dAB85FA05C381767FF992cCDE4c94619993d4"; // v2 Repayment Controller mainnet
 
     ///////////////////////////////
     //////// V2 LOAN DATA /////////
     ///////////////////////////////
-    const LOAN_ID = 2343; // active loanId on mainnet
-    const COLLATERAL_ID = 6435 // BigNumber.from("32675882429474081022340835984931386905292101387"); // vault id on mainnet
+    const LOAN_ID = 2193; // active loanId on mainnet
+    const COLLATERAL_ID = BigNumber.from("163815819589138376285603138916992491026957408231"); // vault id on mainnet
 
     ///////////////////////////////
     //////// V3 LOAN DATA /////////
     ///////////////////////////////
     const NONCE = 1; // Nonce to use in new lender's bid
-    const newLoanAmount = ethers.utils.parseUnits("3.00", 6); // no fees
-    const newLoanInterestRate = ethers.utils.parseUnits("2.66666666666666666700", 18); // 2.67% interest
-    const oldLoanRepaymentAmount = ethers.utils.parseUnits("83000", 6); // no fees
+    const newLoanAmount = ethers.utils.parseUnits("13000.00", 18); // no fees
+    const newLoanInterestRate = ethers.utils.parseUnits("3.75", 18); // 2.67% interest
+    const oldLoanRepaymentAmount = ethers.utils.parseUnits("25679", 18); // no fees
     const [newLender] = await hre.ethers.getSigners();
     console.log("New lender address:", newLender.address);
+
+    // ============= Setup ==============
 
     // Whitelist collateral and payable currency used in the new loan terms
     console.log(SUBSECTION_SEPARATOR);
     console.log(`Add collateral and payable currency to V3 OriginationController...`);
     const addCollateral = await originationController.setAllowedCollateralAddresses([LOAN_COLLATERAL_ADDRESS], [true]);
     await addCollateral.wait();
-    const addPayableCurrency = await originationController.setAllowedPayableCurrencies([USDC_ADDRESS], [true]);
+    const addPayableCurrency = await originationController.setAllowedPayableCurrencies([DAI_ADDRESS], [true]);
     await addPayableCurrency.wait();
 
     // Deploy v2 -> v3 rollover contract and set the flash loan fee value
@@ -400,7 +405,7 @@ export async function main(): Promise<void> {
     const borrower = await hre.ethers.getSigner(BORROWER);
 
     const erc20Factory = await ethers.getContractFactory("ERC20");
-    const weth = <ERC20>erc20Factory.attach(USDC_ADDRESS);
+    const payableCurrency = <ERC20>erc20Factory.attach(DAI_ADDRESS);
 
     const erc721Factory = await ethers.getContractFactory("ERC721");
     const bNoteV2 = <PromissoryNote>erc721Factory.attach(BORROWER_NOTE_ADDRESS);
@@ -409,11 +414,11 @@ export async function main(): Promise<void> {
     console.log("Whale distributes ETH and WETH...");
     await whale.sendTransaction({ to: borrower.address, value: ethers.utils.parseEther("10") });
     await whale.sendTransaction({ to: newLender.address, value: ethers.utils.parseEther("10") });
-    await weth.connect(whale).transfer(newLender.address, newLoanAmount)
+    await payableCurrency.connect(whale).transfer(newLender.address, newLoanAmount)
 
     console.log(SUBSECTION_SEPARATOR);
     console.log("New lender approves WETH to V3 LoanCore...");
-    await weth.connect(newLender).approve(LOAN_CORE_ADDRESS, newLoanAmount);
+    await payableCurrency.connect(newLender).approve(LOAN_CORE_ADDRESS, newLoanAmount);
 
     console.log(SUBSECTION_SEPARATOR);
     console.log("Borrower approves V2 borrowerNote to rollover contract...");
@@ -423,8 +428,8 @@ export async function main(): Promise<void> {
     const flashLoanAmountDue = oldLoanRepaymentAmount.add(oldLoanRepaymentAmount.mul(flashLoanFee).div(10000));
     if (newLoanAmount.lt(flashLoanAmountDue)) {
         const difference = flashLoanAmountDue.sub(newLoanAmount);
-        await weth.connect(whale).transfer(borrower.address, difference)
-        await weth.connect(borrower).approve(flashRollover.address, difference);
+        await payableCurrency.connect(whale).transfer(borrower.address, difference)
+        await payableCurrency.connect(borrower).approve(flashRollover.address, difference);
     }
     console.log(SUBSECTION_SEPARATOR);
 
@@ -436,7 +441,7 @@ export async function main(): Promise<void> {
         principal: newLoanAmount, // V3 loan, principal
         collateralAddress: LOAN_COLLATERAL_ADDRESS,
         collateralId: COLLATERAL_ID,
-        payableCurrency: USDC_ADDRESS,
+        payableCurrency: DAI_ADDRESS,
         affiliateCode: ethers.constants.HashZero
     };
 
@@ -450,6 +455,8 @@ export async function main(): Promise<void> {
         "l",
     );
     console.log(SUBSECTION_SEPARATOR);
+
+    // ============= Execute ==============
 
     console.log("Execute V2 -> V3 rollover...");
     const contracts = {
