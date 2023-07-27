@@ -338,7 +338,7 @@ export async function main(): Promise<void> {
     const LOAN_COLLATERAL_ADDRESS = "0x6e9b4c2f6bd57b7b924d29b5dcfca1273ecc94a2"; // Vault Factory
     const ADDRESSES_PROVIDER_ADDRESS = "0xB53C1a33016B2DC2fF3653530bfF1848a515c8c5"; // AAVE
     const BALANCER_ADDRESS = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"; // Balancer
-    const BORROWER_NOTE_ADDRESS = "0x337104A4f06260Ff327d6734C555A0f5d8F863aa";
+    const SOURCE_BORROWER_NOTE_ADDRESS = "0x337104A4f06260Ff327d6734C555A0f5d8F863aa"; // v2 Borrower Note mainnet
     const SOURCE_LOAN_CORE_ADDRESS = "0x81b2F8Fc75Bab64A6b144aa6d2fAa127B4Fa7fD9"; // v2 Loan Core mainnet
     const SOURCE_REPAYMENT_CONTROLLER_ADDRESS = "0xb39dAB85FA05C381767FF992cCDE4c94619993d4"; // v2 Repayment Controller mainnet
 
@@ -351,10 +351,10 @@ export async function main(): Promise<void> {
     ///////////////////////////////
     //////// V3 LOAN DATA /////////
     ///////////////////////////////
-    const NONCE = 1; // Nonce to use in new lender's bid
-    const newLoanAmount = ethers.utils.parseUnits("13000.00", 18); // no fees
-    const newLoanInterestRate = ethers.utils.parseUnits("3.75", 18); // 2.67% interest
-    const oldLoanRepaymentAmount = ethers.utils.parseUnits("25679", 18); // no fees
+    const NONCE = 1; // nonce to use in new lender's bid
+    const newLoanAmount = ethers.utils.parseUnits("13000.00", 18); // new loan amount with out fees
+    const newLoanInterestRate = ethers.utils.parseUnits("3.75", 18); // new loan interest
+    const oldLoanRepaymentAmount = ethers.utils.parseUnits("25679", 18); // old repayment amount with interest amount included
     const [newLender] = await hre.ethers.getSigners();
     console.log("New lender address:", newLender.address);
 
@@ -408,16 +408,16 @@ export async function main(): Promise<void> {
     const payableCurrency = <ERC20>erc20Factory.attach(DAI_ADDRESS);
 
     const erc721Factory = await ethers.getContractFactory("ERC721");
-    const bNoteV2 = <PromissoryNote>erc721Factory.attach(BORROWER_NOTE_ADDRESS);
+    const bNoteV2 = <PromissoryNote>erc721Factory.attach(SOURCE_BORROWER_NOTE_ADDRESS);
 
-    // Distribute WETH by impersonating a large account
-    console.log("Whale distributes ETH and WETH...");
+    // Distribute ETH and payable currency by impersonating a whale account
+    console.log("Whale distributes ETH and payable currency...");
     await whale.sendTransaction({ to: borrower.address, value: ethers.utils.parseEther("10") });
     await whale.sendTransaction({ to: newLender.address, value: ethers.utils.parseEther("10") });
     await payableCurrency.connect(whale).transfer(newLender.address, newLoanAmount)
 
     console.log(SUBSECTION_SEPARATOR);
-    console.log("New lender approves WETH to V3 LoanCore...");
+    console.log("New lender approves payable currency to V3 LoanCore...");
     await payableCurrency.connect(newLender).approve(LOAN_CORE_ADDRESS, newLoanAmount);
 
     console.log(SUBSECTION_SEPARATOR);

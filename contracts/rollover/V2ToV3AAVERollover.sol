@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.11;
+pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -22,7 +22,6 @@ import "../interfaces/IRepaymentController.sol";
  */
 contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holder, Ownable {
     using SafeERC20 for IERC20;
-
     
     // AAVE Contracts
     // Variable names are in upper case to fulfill IFlashLoanReceiver interface
@@ -227,7 +226,7 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
         uint256 premium,
         uint256 originationFee,
         uint256 newPrincipal
-    ) internal view returns (uint256 flashAmountDue, uint256 needFromBorrower, uint256 leftoverPrincipal) {
+    ) internal pure returns (uint256 flashAmountDue, uint256 needFromBorrower, uint256 leftoverPrincipal) {
         // total amount due to flash loan contract
         flashAmountDue = amount + premium;
         // amount that will be recieved when starting the new loan
@@ -301,7 +300,7 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
     ) internal returns (uint256) {
         uint256 collateralId = opData.newLoanTerms.collateralId;
 
-        // approve originationController
+        // approve targetLoanCore to take collateral
         IERC721(address(contracts.collateral)).approve(address(contracts.targetLoanCore), collateralId);
 
         // start new loan
@@ -319,7 +318,7 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
             opData.nonce
         );
 
-        // send the borrowerNote from the new loan to the borrower
+        // send the borrowerNote for the new V3 loan to the borrower
         contracts.targetBorrowerNote.safeTransferFrom(address(this), borrower, newLoanId);
 
         return newLoanId;

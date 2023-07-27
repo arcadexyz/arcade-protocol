@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.11;
+pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "./ILoanCore.sol";
 import "./IOriginationController.sol";
-import "./IVaultFactory.sol";
 import "./IFeeController.sol";
 
 import "../rollover/v2-contracts/v2-interfaces/ILoanCoreV2.sol";
