@@ -31,23 +31,8 @@ interface IFlashLoanReceiver {
 }
 
 interface IV2ToV3AAVERollover is IFlashLoanReceiver {
-    event Rollover(address indexed lender, address indexed borrower, uint256 collateralTokenId, uint256 newLoanId);
-
-    event Migration(address indexed oldLoanCore, address indexed newLoanCore, uint256 newLoanId);
-
-    /**
-     * The contract references needed to roll
-     * over the loan. Other dependent contracts
-     * (fee controller, promissory notes) can
-     * be fetched from these contracts.
-     */
-    struct RolloverContractParams {
-        ILoanCoreV2 sourceLoanCore;
-        ILoanCore targetLoanCore;
-        IRepaymentControllerV2 sourceRepaymentController;
-        IOriginationController targetOriginationController;
-        IERC721 collateral;
-    }
+    event V2V3Rollover(address indexed lender, address indexed borrower, uint256 collateralTokenId, uint256 newLoanId);
+    event Migration(address indexed oldLoanCore, uint256 oldLoanId, address indexed newLoanCore, uint256 newLoanId);
 
     /**
      * Holds parameters passed through flash loan
@@ -55,7 +40,6 @@ interface IV2ToV3AAVERollover is IFlashLoanReceiver {
      * Contains a signature by lender for same terms.
      */
     struct OperationData {
-        RolloverContractParams contracts;
         uint256 loanId;
         LoanLibrary.LoanTerms newLoanTerms;
         address lender;
@@ -70,19 +54,17 @@ interface IV2ToV3AAVERollover is IFlashLoanReceiver {
      * flash loan operation.
      */
     struct OperationContracts {
-        ILoanCoreV2 loanCore;
-        IERC721 borrowerNote;
-        IERC721 lenderNote;
-        IFeeController feeController;
-        IERC721 collateral;
-        IRepaymentControllerV2 repaymentController;
-        IOriginationController originationController;
-        ILoanCore targetLoanCore;
-        IERC721 targetBorrowerNote;
+        ILoanCoreV2 loanCoreV2;
+        IERC721 borrowerNoteV2;
+        IERC721 lenderNoteV2;
+        IRepaymentControllerV2 repaymentControllerV2;
+        IFeeController feeControllerV3;
+        IOriginationController originationControllerV3;
+        ILoanCore loanCoreV3;
+        IERC721 borrowerNoteV3;
     }
 
     function rolloverLoan(
-        RolloverContractParams calldata contracts,
         uint256 loanId,
         LoanLibrary.LoanTerms calldata newLoanTerms,
         address lender,

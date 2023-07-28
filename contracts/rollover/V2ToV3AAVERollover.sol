@@ -17,6 +17,9 @@ import "../interfaces/IRepaymentController.sol";
  * @title V2ToV3AAVERollover
  * @author Non-Fungible Technologies, Inc.
  *
+ * This contract is used to rollover a loan from V2 to V3. It takes out a flash loan for the
+ * principal + interest of the old loan, repays the old loan, and starts a new loan on V3.
+ *
  * It is required that the V2 protocol has zero fees enabled. This contract only works with
  * ERC721 collateral.
  */
@@ -30,9 +33,33 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
     ILendingPoolAddressesProvider public immutable override ADDRESSES_PROVIDER;
     ILendingPool public immutable override LENDING_POOL;
 
-    constructor(ILendingPoolAddressesProvider _addressesProvider) {
+    /// @notice contract references needed to rollover the loan from V2 to V3
+    ILoanCoreV2 public immutable loanCoreV2;
+    IERC721 public immutable borrowerNoteV2;
+    IERC721 public immutable lenderNoteV2;
+    IRepaymentControllerV2 public immutable repaymentControllerV2;
+    IFeeController public immutable feeControllerV3;
+    IOriginationController public immutable originationControllerV3;
+    ILoanCore public immutable loanCoreV3;
+    IERC721 public immutable borrowerNoteV3;
+
+    /// @notice state variable for pausing the contract
+    bool public paused;
+
+    constructor(ILendingPoolAddressesProvider _addressesProvider, OperationContracts memory _opContracts) {
+        // Set AAVE contracts
         ADDRESSES_PROVIDER = _addressesProvider;
         LENDING_POOL = ILendingPool(_addressesProvider.getLendingPool());
+
+        // Set lending protocol contract references
+        loanCoreV2 = ILoanCoreV2(_opContracts.loanCoreV2);
+        borrowerNoteV2 = IERC721(_opContracts.borrowerNoteV2);
+        lenderNoteV2 = IERC721(_opContracts.lenderNoteV2);
+        repaymentControllerV2 = IRepaymentControllerV2(_opContracts.repaymentControllerV2);
+        feeControllerV3 = IFeeController(_opContracts.feeControllerV3);
+        originationControllerV3 = IOriginationController(_opContracts.originationControllerV3);
+        loanCoreV3 = ILoanCore(_opContracts.loanCoreV3);
+        borrowerNoteV3 = IERC721(_opContracts.borrowerNoteV3);
     }
 
     /**
@@ -40,7 +67,6 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
      *         Takes out Flash Loan for principal + interest, repays old loan, and starts new 
      *         loan on V3.
      *
-     * @param contracts              The contract references needed to rollover the loan.
      * @param loanId                 The ID of the loan to be rolled over.
      * @param newLoanTerms           The terms of the new loan.
      * @param lender                 The address of the lender.
@@ -50,7 +76,6 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
      * @param s                      The s value of signature for new loan.
      */
     function rolloverLoan(
-        RolloverContractParams calldata contracts,
         uint256 loanId,
         LoanLibrary.LoanTerms calldata newLoanTerms,
         address lender,
@@ -59,12 +84,10 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
         bytes32 r,
         bytes32 s
     ) external override {
-        LoanLibraryV2.LoanTerms memory loanTerms = contracts.sourceLoanCore.getLoan(loanId).terms;
+        LoanLibraryV2.LoanTerms memory loanTerms = loanCoreV2.getLoan(loanId).terms;
 
         {
             _validateRollover(
-                contracts.sourceLoanCore,
-                contracts.collateral,
                 loanTerms,
                 newLoanTerms,
                 loanId // same as borrowerNoteId
@@ -84,7 +107,6 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
             bytes memory params = abi.encode(
                 OperationData(
                     {
-                        contracts: contracts,
                         loanId: loanId,
                         newLoanTerms: newLoanTerms,
                         lender: lender,
@@ -142,22 +164,19 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
         uint256[] memory premiums,
         OperationData memory opData
     ) internal returns (bool) {
-        OperationContracts memory opContracts = _getContracts(opData.contracts);
-
         // Get loan details
-        LoanLibraryV2.LoanData memory loanData = opContracts.loanCore.getLoan(opData.loanId);
-
-        address borrower = opContracts.borrowerNote.ownerOf(opData.loanId);
-        address lender = opContracts.lenderNote.ownerOf(opData.loanId);
+        LoanLibraryV2.LoanData memory loanData = loanCoreV2.getLoan(opData.loanId);
+        address borrower = borrowerNoteV2.ownerOf(opData.loanId);
+        address lender = lenderNoteV2.ownerOf(opData.loanId);
 
         // Do accounting to figure out amount each party needs to receive
         (uint256 flashAmountDue, uint256 needFromBorrower, uint256 leftoverPrincipal) = _ensureFunds(
             amounts[0], // principal + interest
             premiums[0], // flash loan fee
             uint256(
-                opContracts.feeController.getLendingFee(
+                feeControllerV3.getLendingFee(
                     // FL_01 - borrower origination fee
-                    0xdef20ef7dab5e9af36ad3807764d39a61642c6cf31d02729a44c376041189449
+                    keccak256("BORROWER_ORIGINATION_FEE")
                 )
             ),
             opData.newLoanTerms.principal // new loan terms principal
@@ -170,26 +189,23 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
             require(asset.allowance(borrower, address(this)) >= needFromBorrower, "lacks borrower approval");
         }
 
-        _repayLoan(opContracts, loanData, opData.loanId, borrower);
+        _repayLoan(loanData, opData.loanId, borrower);
 
         {            
             uint256 newLoanId = _initializeNewLoan(
-                opContracts,
                 borrower,
                 opData.lender,
                 opData
             );
 
-            emit Rollover(
+            emit V2V3Rollover(
                 lender,
                 borrower,
                 loanData.terms.collateralId,
                 newLoanId
             );
 
-            if (address(opData.contracts.sourceLoanCore) != address(opData.contracts.targetLoanCore)) {
-                emit Migration(address(opContracts.loanCore), address(opContracts.targetLoanCore), newLoanId);
-            }
+            emit Migration(address(loanCoreV2), opData.loanId, address(loanCoreV3), newLoanId);
         }
 
         if (leftoverPrincipal > 0) {
@@ -249,33 +265,31 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
      *         the V2 repayment controller to spend the payable currency recieved from flash loan.
      *         Repays the loan, and ensures this contract holds the collateral after the loan is repaid.
      *
-     * @param contracts                Contract references needed to repay the loan.
      * @param loanData                 The loan data for the loan to be repaid.
      * @param borrowerNoteId           ID of the borrowerNote for the loan to be repaid.
      * @param borrower                 The address of the borrower.
      */
     function _repayLoan(
-        OperationContracts memory contracts,
         LoanLibraryV2.LoanData memory loanData,
         uint256 borrowerNoteId,
         address borrower
     ) internal {
         // take BorrowerNote from borrower so that this contract recieves collateral
         // borrower must approve this withdrawal
-        contracts.borrowerNote.transferFrom(borrower, address(this), borrowerNoteId);
+        borrowerNoteV2.transferFrom(borrower, address(this), borrowerNoteId);
 
         // approve repayment
         IERC20(loanData.terms.payableCurrency).approve(
-            address(contracts.repaymentController),
+            address(repaymentControllerV2),
             loanData.terms.principal + loanData.terms.principal * loanData.terms.interestRate / 1 ether
         );
 
         // repay loan
-        contracts.repaymentController.repay(borrowerNoteId);
+        repaymentControllerV2.repay(borrowerNoteId);
 
         // contract now has collateral but has lost funds
         require(
-            IERC721(address(contracts.collateral)).ownerOf(loanData.terms.collateralId) == address(this),
+            IERC721(loanData.terms.collateralAddress).ownerOf(loanData.terms.collateralId) == address(this),
             "collateral ownership"
         );
     }
@@ -285,7 +299,6 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
      *         approves the origination controller to spend the collateral, and starts the new loan.
      *         Once the new loan is started, the borrowerNote is sent to the borrower.
      *
-     * @param contracts                Contract references needed to rollover the loan.
      * @param borrower                 The address of the borrower.
      * @param lender                   The address of the new lender.
      * @param opData                   The data used to execute new V3 loan.
@@ -293,19 +306,19 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
      * @return newLoanId               V3 loanId for the new loan that is started.
      */
     function _initializeNewLoan(
-        OperationContracts memory contracts,
         address borrower,
         address lender,
         OperationData memory opData
     ) internal returns (uint256) {
-        uint256 collateralId = opData.newLoanTerms.collateralId;
-
         // approve targetLoanCore to take collateral
-        IERC721(address(contracts.collateral)).approve(address(contracts.targetLoanCore), collateralId);
+        IERC721(address(opData.newLoanTerms.collateralAddress)).approve(
+            address(loanCoreV3),
+            opData.newLoanTerms.collateralId
+        );
 
         // start new loan
         // stand in for borrower to meet OriginationController's requirements
-        uint256 newLoanId = contracts.originationController.initializeLoan(
+        uint256 newLoanId = originationControllerV3.initializeLoan(
             opData.newLoanTerms,
             address(this),
             lender,
@@ -319,31 +332,9 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
         );
 
         // send the borrowerNote for the new V3 loan to the borrower
-        contracts.targetBorrowerNote.safeTransferFrom(address(this), borrower, newLoanId);
+        borrowerNoteV3.safeTransferFrom(address(this), borrower, newLoanId);
 
         return newLoanId;
-    }
-
-    /**
-     * @notice Helper function to get all contracts needed for rollover operations.
-     *
-     * @param contracts                Contract references needed to rollover the loan.
-     *
-     * @return OperationContracts      All contracts needed for rollover operations.
-     */
-    function _getContracts(RolloverContractParams memory contracts) internal returns (OperationContracts memory) {
-        return
-            OperationContracts({
-                loanCore: contracts.sourceLoanCore,
-                borrowerNote: contracts.sourceLoanCore.borrowerNote(),
-                lenderNote: contracts.sourceLoanCore.lenderNote(),
-                feeController: contracts.targetOriginationController.feeController(),
-                collateral: contracts.collateral,
-                repaymentController: contracts.sourceRepaymentController,
-                originationController: contracts.targetOriginationController,
-                targetLoanCore: contracts.targetLoanCore,
-                targetBorrowerNote: contracts.targetLoanCore.borrowerNote()
-            });
     }
 
     /**
@@ -352,23 +343,28 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
      *         vault factory contract as collateral. If any of these conditionals are not met, the
      *         transaction will revert.
      *
-     * @param sourceLoanCore          The LoanCore contract for the old loan.
-     * @param collateral              The collateral contract used by both loans.
      * @param sourceLoanTerms         The terms of the old loan.
      * @param newLoanTerms            The terms of the new loan.
      * @param borrowerNoteId          The ID of the borrowerNote for the old loan.
      */
     function _validateRollover(
-        ILoanCoreV2 sourceLoanCore,
-        IERC721 collateral,
         LoanLibraryV2.LoanTerms memory sourceLoanTerms,
         LoanLibrary.LoanTerms calldata newLoanTerms,
         uint256 borrowerNoteId
     ) internal {
-        require(sourceLoanCore.borrowerNote().ownerOf(borrowerNoteId) == msg.sender, "caller not borrower");
+        require(borrowerNoteV2.ownerOf(borrowerNoteId) == msg.sender, "caller not borrower");
         require(newLoanTerms.payableCurrency == sourceLoanTerms.payableCurrency, "currency mismatch");
-        require(newLoanTerms.collateralAddress == address(collateral), "new terms collateral mismatch");
-        require(sourceLoanTerms.collateralAddress == address(collateral), "old terms collateralAddress mismatch");
+        require(newLoanTerms.collateralAddress == sourceLoanTerms.collateralAddress, "collateral mismatch");
+    }
+
+    /**
+     * @notice Function to be used by the contract owner to pause the contract.
+     *
+     * @dev This function is only to be used if a vulnerability is found or the contract
+     *      is no longer being used.
+     */
+    function togglePause() external onlyOwner {
+        paused = !paused;
     }
 
     /**

@@ -339,6 +339,7 @@ export async function main(): Promise<void> {
     const ADDRESSES_PROVIDER_ADDRESS = "0xB53C1a33016B2DC2fF3653530bfF1848a515c8c5"; // AAVE
     const BALANCER_ADDRESS = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"; // Balancer
     const SOURCE_BORROWER_NOTE_ADDRESS = "0x337104A4f06260Ff327d6734C555A0f5d8F863aa"; // v2 Borrower Note mainnet
+    const SOURCE_LENDER_NOTE_ADDRESS = "0x349A026A43FFA8e2Ab4c4e59FCAa93F87Bd8DdeE"; // v2 Lender Note mainnet
     const SOURCE_LOAN_CORE_ADDRESS = "0x81b2F8Fc75Bab64A6b144aa6d2fAa127B4Fa7fD9"; // v2 Loan Core mainnet
     const SOURCE_REPAYMENT_CONTROLLER_ADDRESS = "0xb39dAB85FA05C381767FF992cCDE4c94619993d4"; // v2 Repayment Controller mainnet
 
@@ -371,18 +372,29 @@ export async function main(): Promise<void> {
     // Deploy v2 -> v3 rollover contract and set the flash loan fee value
     console.log(SUBSECTION_SEPARATOR);
     console.log("Deploying rollover contract...");
+    const contracts = {
+        loanCoreV2: SOURCE_LOAN_CORE_ADDRESS,
+        borrowerNoteV2: SOURCE_BORROWER_NOTE_ADDRESS,
+        lenderNoteV2: SOURCE_LENDER_NOTE_ADDRESS,
+        repaymentControllerV2: SOURCE_REPAYMENT_CONTROLLER_ADDRESS,
+        feeControllerV3: feeController.address,
+        originationControllerV3: originationController.address,
+        loanCoreV3: loanCore.address,
+        borrowerNoteV3: borrowerNote.address,
+    };
+
     let flashRollover: V2ToV3BalancerRollover | V2ToV3AAVERollover;
     let flashLoanFee: BigNumber;
     if (flashSource === "balancer") {
         const factory = await ethers.getContractFactory("V2ToV3BalancerRollover")
-        flashRollover = <V2ToV3BalancerRollover>await factory.deploy(BALANCER_ADDRESS);
+        flashRollover = <V2ToV3BalancerRollover>await factory.deploy(BALANCER_ADDRESS, contracts);
         await flashRollover.deployed();
         console.log("V2ToV3BalancerRollover deployed to:", flashRollover.address);
 
         flashLoanFee = BigNumber.from("0");
     } else if (flashSource === "AAVE") {
         const factory = await ethers.getContractFactory("V2ToV3AAVERollover")
-        flashRollover = <V2ToV3AAVERollover>await factory.deploy(ADDRESSES_PROVIDER_ADDRESS);
+        flashRollover = <V2ToV3AAVERollover>await factory.deploy(ADDRESSES_PROVIDER_ADDRESS, contracts);
         await flashRollover.deployed();
         console.log("V2ToV3AAVERollover deployed to:", flashRollover.address);
 
@@ -459,17 +471,7 @@ export async function main(): Promise<void> {
     // ============= Execute ==============
 
     console.log("Execute V2 -> V3 rollover...");
-    const contracts = {
-        sourceLoanCore: SOURCE_LOAN_CORE_ADDRESS,
-        targetLoanCore: LOAN_CORE_ADDRESS,
-        sourceRepaymentController: SOURCE_REPAYMENT_CONTROLLER_ADDRESS,
-        targetOriginationController: ORIGINATION_CONTROLLER_ADDRESS,
-        collateral: LOAN_COLLATERAL_ADDRESS
-    };
-
-    // encode rollover
     const tx = await flashRollover.connect(borrower).rolloverLoan(
-        contracts,
         LOAN_ID,
         newLoanTerms,
         newLender.address,
