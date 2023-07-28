@@ -41,7 +41,7 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
     IERC721 public immutable borrowerNoteV3;
 
     /// @notice state variable for pausing the contract
-    bool public paused;
+    bool public paused = false;
 
     constructor(IVault _vault, OperationContracts memory _opContracts) {
         // Set Balancer vault address

@@ -44,7 +44,7 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
     IERC721 public immutable borrowerNoteV3;
 
     /// @notice state variable for pausing the contract
-    bool public paused;
+    bool public paused = false;
 
     constructor(ILendingPoolAddressesProvider _addressesProvider, OperationContracts memory _opContracts) {
         // Set AAVE contracts
