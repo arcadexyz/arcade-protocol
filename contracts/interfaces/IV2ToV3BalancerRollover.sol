@@ -8,8 +8,8 @@ import "./ILoanCore.sol";
 import "./IOriginationController.sol";
 import "./IFeeController.sol";
 
-import "../rollover/v2-contracts/v2-interfaces/ILoanCoreV2.sol";
-import "../rollover/v2-contracts/v2-interfaces/IRepaymentControllerV2.sol";
+import "../v2-rollover/v2-contracts/v2-interfaces/ILoanCoreV2.sol";
+import "../v2-rollover/v2-contracts/v2-interfaces/IRepaymentControllerV2.sol";
 
 interface IFlashLoanRecipient {
     /**

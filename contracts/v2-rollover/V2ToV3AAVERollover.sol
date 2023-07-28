@@ -10,11 +10,24 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "../external/interfaces/ILendingPool.sol";
-import "../interfaces/IV2ToV3BalancerRollover.sol";
+import "../interfaces/IV2ToV3AAVERollover.sol";
 import "../interfaces/IRepaymentController.sol";
 
+import {
+    R_UnknownCaller,
+    R_UnknownInitiator,
+    R_InsufficientFunds,
+    R_InsufficientAllowance,
+    R_FundsConflict,
+    R_NotCollateralOwner,
+    R_CallerNotBorrower,
+    R_CurrencyMismatch,
+    R_CollateralMismatch,
+    R_NoTokenBalance
+} from "./RolloverErrors.sol";
+
 /**
- * @title V2ToV3BalancerRollover
+ * @title V2ToV3AAVERollover
  * @author Non-Fungible Technologies, Inc.
  *
  * This contract is used to rollover a loan from V2 to V3. It takes out a flash loan for the
@@ -23,12 +36,15 @@ import "../interfaces/IRepaymentController.sol";
  * It is required that the V2 protocol has zero fees enabled. This contract only works with
  * ERC721 collateral.
  */
-contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC721Holder, Ownable {
+contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holder, Ownable {
     using SafeERC20 for IERC20;
-
-    // Balancer vault contract
+    
+    // AAVE Contracts
+    // Variable names are in upper case to fulfill IFlashLoanReceiver interface
+    // Mainnet AAVE AddressProvider- 0xB53C1a33016B2DC2fF3653530bfF1848a515c8c5
     /* solhint-disable var-name-mixedcase */
-    IVault public immutable VAULT; // 0xBA12222222228d8Ba445958a75a0704d566BF2C8
+    ILendingPoolAddressesProvider public immutable override ADDRESSES_PROVIDER;
+    ILendingPool public immutable override LENDING_POOL;
 
     /// @notice contract references needed to rollover the loan from V2 to V3
     ILoanCoreV2 public immutable loanCoreV2;
@@ -43,9 +59,10 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
     /// @notice state variable for pausing the contract
     bool public paused = false;
 
-    constructor(IVault _vault, OperationContracts memory _opContracts) {
-        // Set Balancer vault address
-        VAULT = _vault;
+    constructor(ILendingPoolAddressesProvider _addressesProvider, OperationContracts memory _opContracts) {
+        // Set AAVE contracts
+        ADDRESSES_PROVIDER = _addressesProvider;
+        LENDING_POOL = ILendingPool(_addressesProvider.getLendingPool());
 
         // Set lending protocol contract references
         loanCoreV2 = ILoanCoreV2(_opContracts.loanCoreV2);
@@ -91,11 +108,14 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
         }
 
         {
-            IERC20[] memory assets = new IERC20[](1);
-            assets[0] = IERC20(loanTerms.payableCurrency);
+            address[] memory assets = new address[](1);
+            assets[0] = loanTerms.payableCurrency;
 
             uint256[] memory amounts = new uint256[](1);
             amounts[0] = loanTerms.principal + (loanTerms.principal * loanTerms.interestRate / 1 ether / 1e4);
+
+            uint256[] memory modes = new uint256[](1);
+            modes[0] = 0;
 
             bytes memory params = abi.encode(
                 OperationData(
@@ -112,7 +132,7 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
             );
 
             // Flash loan based on principal + interest
-            VAULT.flashLoan(this, assets, amounts, params);
+            LENDING_POOL.flashLoan(address(this), assets, amounts, modes, address(this), params, 0);
         }
     }
 
@@ -122,18 +142,22 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
      *
      * @param assets                 The ERC20 address that was borrowed in Flash Loan.
      * @param amounts                The amount that was borrowed in Flash Loan.
-     * @param feeAmounts             The fees that are due to the lending pool.
+     * @param premiums               The fees that are due to the lending pool.
      * @param params                 The data to be executed after receiving Flash Loan.
+     *
+     * @return bool                  Returns true if all operations were successful. 
      */
-    function receiveFlashLoan(
-        IERC20[] calldata assets,
+    function executeOperation(
+        address[] calldata assets,
         uint256[] calldata amounts,
-        uint256[] calldata feeAmounts,
+        uint256[] calldata premiums,
+        address initiator,
         bytes calldata params
-    ) external override nonReentrant {
-        require(msg.sender == address(VAULT), "unknown callback sender");
+    ) external override nonReentrant returns (bool) {
+        if (msg.sender != address(LENDING_POOL)) revert R_UnknownCaller(msg.sender, address(LENDING_POOL));
+        if (initiator != address(this)) revert R_UnknownInitiator(initiator, address(this));
 
-        _executeOperation(assets, amounts, feeAmounts, abi.decode(params, (OperationData)));
+        return _executeOperation(assets, amounts, premiums, abi.decode(params, (OperationData)));
     }
 
     /**
@@ -143,17 +167,18 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
      * @param assets                 The ERC20 address that was borrowed in Flash Loan.
      * @param amounts                The amount that was borrowed in Flash Loan.
      * @param premiums               The fees that are due back to the lending pool.
-     * @param opData                 The data to be executed after receiving Flash Loan.                 
+     * @param opData                 The data to be executed after receiving Flash Loan.
+     *
+     * @return bool                  Returns true if all operations were successful.                    
      */
     function _executeOperation(
-        IERC20[] calldata assets,
+        address[] calldata assets,
         uint256[] calldata amounts,
         uint256[] memory premiums,
         OperationData memory opData
-    ) internal {
+    ) internal returns (bool) {
         // Get loan details
         LoanLibraryV2.LoanData memory loanData = loanCoreV2.getLoan(opData.loanId);
-
         address borrower = borrowerNoteV2.ownerOf(opData.loanId);
         address lender = lenderNoteV2.ownerOf(opData.loanId);
 
@@ -170,11 +195,15 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
             opData.newLoanTerms.principal // new loan terms principal
         );
 
-        IERC20 asset = assets[0];
+        IERC20 asset = IERC20(assets[0]);
 
         if (needFromBorrower > 0) {
-            require(asset.balanceOf(borrower) >= needFromBorrower, "borrower cannot pay");
-            require(asset.allowance(borrower, address(this)) >= needFromBorrower, "lacks borrower approval");
+            if (asset.balanceOf(borrower) < needFromBorrower) {
+                revert R_InsufficientFunds(borrower, needFromBorrower, asset.balanceOf(borrower));
+            }
+            if (asset.allowance(borrower, address(this)) < needFromBorrower) {
+                revert R_InsufficientAllowance(borrower, needFromBorrower, asset.allowance(borrower, address(this)));
+            }
         }
 
         _repayLoan(loanData, opData.loanId, borrower);
@@ -202,9 +231,10 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
             asset.safeTransferFrom(borrower, address(this), needFromBorrower);
         }
 
-        // Make flash loan repayment
-        // Unlike for AAVE, Balancer requires a transfer
-        asset.transfer(address(VAULT), flashAmountDue);
+        // Approve all amounts for flash loan repayment
+        asset.approve(address(LENDING_POOL), flashAmountDue);
+
+        return true;
     }
 
     /**
@@ -232,7 +262,7 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
     ) internal pure returns (uint256 flashAmountDue, uint256 needFromBorrower, uint256 leftoverPrincipal) {
         // total amount due to flash loan contract
         flashAmountDue = amount + premium;
-        // amount that will be recieved when starting the new loan
+        // amount that will be received when starting the new loan
         uint256 willReceive = newPrincipal - ((newPrincipal * originationFee) / 1e4);
 
         if (flashAmountDue > willReceive) {
@@ -244,12 +274,14 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
         }
 
         // Either leftoverPrincipal or needFromBorrower should be 0
-        require(leftoverPrincipal == 0 || needFromBorrower == 0, "funds conflict");
+        if (leftoverPrincipal != 0 && needFromBorrower != 0) {
+            revert R_FundsConflict(leftoverPrincipal, needFromBorrower);
+        }
     }
 
     /**
      * @notice Helper function to repay the loan. Takes the borrowerNote from the borrower, approves
-     *         the V2 repayment controller to spend the payable currency recieved from flash loan.
+     *         the V2 repayment controller to spend the payable currency received from flash loan.
      *         Repays the loan, and ensures this contract holds the collateral after the loan is repaid.
      *
      * @param loanData                 The loan data for the loan to be repaid.
@@ -261,7 +293,7 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
         uint256 borrowerNoteId,
         address borrower
     ) internal {
-        // take BorrowerNote from borrower so that this contract recieves collateral
+        // take BorrowerNote from borrower so that this contract receives collateral
         // borrower must approve this withdrawal
         borrowerNoteV2.transferFrom(borrower, address(this), borrowerNoteId);
 
@@ -275,10 +307,8 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
         repaymentControllerV2.repay(borrowerNoteId);
 
         // contract now has collateral but has lost funds
-        require(
-            IERC721(loanData.terms.collateralAddress).ownerOf(loanData.terms.collateralId) == address(this),
-            "collateral ownership"
-        );
+        address collateralOwner = IERC721(loanData.terms.collateralAddress).ownerOf(loanData.terms.collateralId);
+        if (collateralOwner != address(this)) revert R_NotCollateralOwner(collateralOwner);
     }
 
     /**
@@ -297,10 +327,11 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
         address lender,
         OperationData memory opData
     ) internal returns (uint256) {
-        uint256 collateralId = opData.newLoanTerms.collateralId;
-
         // approve targetLoanCore to take collateral
-        IERC721(opData.newLoanTerms.collateralAddress).approve(address(loanCoreV3), collateralId);
+        IERC721(address(opData.newLoanTerms.collateralAddress)).approve(
+            address(loanCoreV3),
+            opData.newLoanTerms.collateralId
+        );
 
         // start new loan
         // stand in for borrower to meet OriginationController's requirements
@@ -338,9 +369,19 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
         LoanLibrary.LoanTerms calldata newLoanTerms,
         uint256 borrowerNoteId
     ) internal {
-        require(borrowerNoteV2.ownerOf(borrowerNoteId) == msg.sender, "caller not borrower");
-        require(newLoanTerms.payableCurrency == sourceLoanTerms.payableCurrency, "currency mismatch");
-        require(newLoanTerms.collateralAddress == sourceLoanTerms.collateralAddress, "collateral mismatch");
+        address borrower = borrowerNoteV2.ownerOf(borrowerNoteId);
+        address sourcePayableCurrency = sourceLoanTerms.payableCurrency;
+        address sourceCollateralAddress = sourceLoanTerms.collateralAddress;
+        address newCollateralAddress = newLoanTerms.collateralAddress;
+        address newPayableCurrency = newLoanTerms.payableCurrency;
+
+        if (borrower != msg.sender) revert R_CallerNotBorrower(msg.sender, borrower);
+        if (sourcePayableCurrency != newPayableCurrency) {
+            revert R_CurrencyMismatch(sourcePayableCurrency, newPayableCurrency);
+        }
+        if (sourceCollateralAddress != newCollateralAddress) {
+            revert R_CollateralMismatch(sourceCollateralAddress, newCollateralAddress);
+        }
     }
 
     /**
@@ -359,7 +400,7 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
      */
     function flushToken(IERC20 token, address to) external override onlyOwner {
         uint256 balance = token.balanceOf(address(this));
-        require(balance > 0, "no balance");
+        if (balance == 0) revert R_NoTokenBalance();
 
         token.transfer(to, balance);
     }
