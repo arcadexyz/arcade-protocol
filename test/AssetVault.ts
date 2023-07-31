@@ -22,6 +22,7 @@ import { mintToAddress as mintERC721 } from "./utils/erc721";
 import { mint as mintERC1155 } from "./utils/erc1155";
 import { deploy } from "./utils/contracts";
 import { BASE_URI } from "./utils/constants";
+import { LogDescription } from "ethers/lib/utils";
 
 type Signer = SignerWithAddress;
 
@@ -108,6 +109,19 @@ describe("AssetVault", () => {
             const vault = <AssetVault>await deploy("AssetVault", user, []);
 
             await expect(vault.initialize(whitelist.address)).to.be.revertedWith("AV_AlreadyInitialized");
+        });
+
+        it("should deploy and set an ownership token", async () => {
+            const { user } = await loadFixture(fixture);
+
+            const vault = <AssetVault>await deploy("AssetVault", user, []);
+
+            const txid = vault.deployTransaction.hash;
+            const receipt = await ethers.provider.getTransactionReceipt(txid);
+            const events = receipt.logs.map((log: { topics: string[]; data: string; }) => vault.interface.parseLog(log));
+
+            const ownershipTokenSetEvent = events.find((e: LogDescription) => e.name === "SetOwnershipToken");
+            expect(ownershipTokenSetEvent).to.not.be.undefined;
         });
     });
 
