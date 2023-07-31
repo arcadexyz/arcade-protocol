@@ -6,7 +6,7 @@ import "../external/interfaces/IDelegationRegistry.sol";
 
 import "./CallWhitelist.sol";
 
-import { CWD_RegistryAlreadySet } from "../errors/Vault.sol";
+import { CWD_RegistryAlreadySet, CWD_ZeroAddress } from "../errors/Vault.sol";
 
 /**
  * @title CallWhitelistDelegation
@@ -46,6 +46,8 @@ contract CallWhitelistDelegation is CallWhitelist {
      * @dev Initializes values so initialize cannot be called on template.
      */
     constructor(address _registry) {
+        if (_registry == address(0)) revert CWD_ZeroAddress();
+
         registry = IDelegationRegistry(_registry);
     }
 
