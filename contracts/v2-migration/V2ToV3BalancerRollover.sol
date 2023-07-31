@@ -113,7 +113,7 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
             assets[0] = IERC20(loanTerms.payableCurrency);
 
             uint256[] memory amounts = new uint256[](1);
-            amounts[0] = loanTerms.principal + (loanTerms.principal * loanTerms.interestRate / 1 ether / 1e4);
+            amounts[0] = repaymentControllerV2.getFullInterestAmount(loanTerms.principal, loanTerms.interestRate);
 
             bytes memory params = abi.encode(
                 OperationData(
@@ -178,7 +178,7 @@ contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC
             assets[0] = IERC20(loanTerms.payableCurrency);
 
             uint256[] memory amounts = new uint256[](1);
-            amounts[0] = loanTerms.principal + (loanTerms.principal * loanTerms.interestRate / 1 ether / 1e4);
+            amounts[0] = repaymentControllerV2.getFullInterestAmount(loanTerms.principal, loanTerms.interestRate);
 
             bytes memory params = abi.encode(
                 OperationDataWithItems(
