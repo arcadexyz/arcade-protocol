@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
 import "../interfaces/IVaultFactory.sol";
 import "../interfaces/IAssetVault.sol";
@@ -42,6 +43,8 @@ import {
  */
 contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC721Enumerable {
     using Strings for uint256;
+    using Address for address payable;
+
     // ============================================ STATE ==============================================
 
     // =================== Constants =====================
@@ -168,7 +171,10 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
 
         _safeMint(to, uint256(uint160(vault)));
 
-        if (msg.value > mintFee) payable(msg.sender).transfer(msg.value - mintFee);
+        // Sends remaining value back to the sender,
+        // with no gas restrictions - acceptable because msg.sender has no reason
+        // to incur extra gas cost on their own transaction
+        if (msg.value > mintFee) payable(msg.sender).sendValue(msg.value - mintFee);
 
         emit VaultCreated(vault, to);
         return uint256(uint160(vault));
