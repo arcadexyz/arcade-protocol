@@ -8,8 +8,8 @@ import "./ILoanCore.sol";
 import "./IOriginationController.sol";
 import "./IFeeController.sol";
 
-import "../v2-rollover/v2-contracts/v2-interfaces/ILoanCoreV2.sol";
-import "../v2-rollover/v2-contracts/v2-interfaces/IRepaymentControllerV2.sol";
+import "../v2-migration/v2-contracts/v2-interfaces/ILoanCoreV2.sol";
+import "../v2-migration/v2-contracts/v2-interfaces/IRepaymentControllerV2.sol";
 
 interface IFlashLoanRecipient {
     /**
@@ -45,17 +45,11 @@ interface IVault {
 
 interface IV2ToV3BalancerRollover is IFlashLoanRecipient {
     event V2V3Rollover(address indexed lender, address indexed borrower, uint256 collateralTokenId, uint256 newLoanId);
-    event Migration(address indexed oldLoanCore, uint256 oldLoanId, address indexed newLoanCore, uint256 newLoanId);
 
     /**
-     * Defines the contracts that should be used for a
-     * flash loan operation.
+     * Defines the V3 contracts that will facilitate new V3 loan.
      */
     struct OperationContracts {
-        ILoanCoreV2 loanCoreV2;
-        IERC721 borrowerNoteV2;
-        IERC721 lenderNoteV2;
-        IRepaymentControllerV2 repaymentControllerV2;
         IFeeController feeControllerV3;
         IOriginationController originationControllerV3;
         ILoanCore loanCoreV3;
@@ -63,9 +57,7 @@ interface IV2ToV3BalancerRollover is IFlashLoanRecipient {
     }
 
     /**
-     * Holds parameters passed through flash loan
-     * control flow that dictate terms of the new loan.
-     * Contains a signature by lender for same terms.
+     * Data needed to perform a V2 -> V3 rollover without collection wide offer.
      */
     struct OperationData {
         uint256 loanId;
@@ -77,6 +69,20 @@ interface IV2ToV3BalancerRollover is IFlashLoanRecipient {
         bytes32 s;
     }
 
+    /**
+     * Data needed to perform a V2 -> V3 rollover with collection wide offer.
+     */
+    struct OperationDataWithItems {
+        uint256 loanId;
+        LoanLibrary.LoanTerms newLoanTerms;
+        address lender;
+        uint160 nonce;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+        LoanLibrary.Predicate[] itemPredicates;
+    }
+
     function rolloverLoan(
         uint256 loanId,
         LoanLibrary.LoanTerms calldata newLoanTerms,
@@ -85,6 +91,17 @@ interface IV2ToV3BalancerRollover is IFlashLoanRecipient {
         uint8 v,
         bytes32 r,
         bytes32 s
+    ) external;
+
+    function rolloverLoanWithItems(
+        uint256 loanId,
+        LoanLibrary.LoanTerms calldata newLoanTerms,
+        address lender,
+        uint160 nonce,
+        uint8 v,
+        bytes32 r,
+        bytes32 s,
+        LoanLibrary.Predicate[] calldata itemPredicates
     ) external;
 
     function flushToken(IERC20 token, address to) external;

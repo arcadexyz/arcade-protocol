@@ -33,8 +33,9 @@ import {
     PUNKS_ADDRESS,
 } from "./utils/constants";
 
-import { createLoanTermsSignature } from "../test/utils/eip712";
-import { LoanTerms } from "../test/utils/types";
+import { createLoanItemsSignature } from "../test/utils/eip712";
+import { ItemsPredicate, LoanTerms, SignatureItem } from "../test/utils/types";
+import { encodeSignatureItems } from "../test/utils/loans";
 
 /**
  * This script deploys V3 lending protocol and sets up roles and permissions. Deploys
@@ -326,14 +327,16 @@ export async function main(): Promise<void> {
     const DAI_ADDRESS = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
     const WHALE = "0x1Cb17a66DC606a52785f69F08F4256526aBd4943";
     const LOAN_COLLATERAL_ADDRESS = "0x6e9b4c2f6bd57b7b924d29b5dcfca1273ecc94a2"; // Vault Factory
+    const LENDER_SPECIFIED_COLLATERAL = "0xb072114151f32D85223aE7B00Ac0528d1F56aa6E" // Collection wide offer
     const BALANCER_ADDRESS = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"; // Balancer vault
-    const SOURCE_BORROWER_NOTE_ADDRESS = "0x337104A4f06260Ff327d6734C555A0f5d8F863aa"; // v2 Borrower Note mainnet
+    const SOURCE_BORROWER_NOTE_ADDRESS = "0x337104A4f06260Ff327d6734C555A0f5d8F863aa"; // v2 Borrower Note
 
     ///////////////////////////////
     //////// V2 LOAN DATA /////////
     ///////////////////////////////
-    const LOAN_ID = 2193; // active loanId on mainnet
-    const COLLATERAL_ID = BigNumber.from("163815819589138376285603138916992491026957408231"); // vault id on mainnet
+    const LOAN_ID = 2193; // active loanId
+    const COLLATERAL_ID = BigNumber.from("163815819589138376285603138916992491026957408231"); // Arcade Vault id
+    const LENDER_SPECIFIED_COLLATERAL_ID = 88; // specific collection wide offer id
 
     ///////////////////////////////
     //////// V3 LOAN DATA /////////
@@ -400,7 +403,7 @@ export async function main(): Promise<void> {
     await payableCurrency.connect(newLender).approve(LOAN_CORE_ADDRESS, newLoanAmount);
 
     console.log(SUBSECTION_SEPARATOR);
-    console.log("Borrower approves V2 BorrowerNote to rollover contract...");
+    console.log("Borrower approves V2 borrowerNote to rollover contract...");
     await bNoteV2.connect(borrower).approve(flashRollover.address, LOAN_ID);
 
     // if new loan will not cover flash loan repayment, then borrower needs to cover the difference
@@ -424,13 +427,31 @@ export async function main(): Promise<void> {
         affiliateCode: ethers.constants.HashZero
     };
 
-    const sig = await createLoanTermsSignature(
+    const signatureItems: SignatureItem[] = [
+        {
+            cType: 0,
+            asset: LENDER_SPECIFIED_COLLATERAL,
+            tokenId: LENDER_SPECIFIED_COLLATERAL_ID,
+            amount: 1,
+            anyIdAllowed: false
+        },
+    ];
+
+    const predicates: ItemsPredicate[] = [
+        {
+            verifier: verifier.address,
+            data: encodeSignatureItems(signatureItems),
+        },
+    ];
+
+    const sig = await createLoanItemsSignature(
         ORIGINATION_CONTROLLER_ADDRESS,
         "OriginationController",
         newLoanTerms,
+        predicates,
         newLender,
         "3",
-        NONCE,
+        NONCE.toString(),
         "l",
     );
     console.log(SUBSECTION_SEPARATOR);
@@ -438,7 +459,7 @@ export async function main(): Promise<void> {
     // ============= Execute ==============
 
     console.log("Execute V2 -> V3 rollover...");
-    const tx = await flashRollover.connect(borrower).rolloverLoan(
+    const tx = await flashRollover.connect(borrower).rolloverLoanWithItems(
         LOAN_ID,
         newLoanTerms,
         newLender.address,
@@ -446,6 +467,7 @@ export async function main(): Promise<void> {
         sig.v,
         sig.r,
         sig.s,
+        predicates
     );       
 
     // send transaction

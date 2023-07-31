@@ -27,4 +27,6 @@ interface IRepaymentControllerV2 {
         );
 
     function amountToCloseLoan(uint256 loanId) external returns (uint256, uint256);
+
+    function getFullInterestAmount(uint256 principal, uint256 interestRate) external pure returns (uint256);
 }

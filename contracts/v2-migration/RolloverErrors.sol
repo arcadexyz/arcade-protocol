@@ -101,6 +101,19 @@ error R_CurrencyMismatch(address v2Currency, address v3Currency);
 error R_CollateralMismatch(address v2Collateral, address v3Collateral);
 
 /**
+ * @notice The V2 and V3 collateral token IDs must be the same.
+ *
+ * @param v2CollateralId          The V2 collateral token ID.
+ * @param v3CollateralId          The V3 collateral token ID.
+ */
+error R_CollateralIdMismatch(uint256 v2CollateralId, uint256 v3CollateralId);
+
+/**
  * @notice The rollover contract does not hold a balance for the token specified to flush.
  */
 error R_NoTokenBalance();
+
+/**
+ * @notice Contract is pause, rollover operations are blocked.
+ */
+error R_Paused();

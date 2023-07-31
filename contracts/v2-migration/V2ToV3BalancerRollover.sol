@@ -10,12 +10,11 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "../external/interfaces/ILendingPool.sol";
-import "../interfaces/IV2ToV3AAVERollover.sol";
+import "../interfaces/IV2ToV3BalancerRollover.sol";
 import "../interfaces/IRepaymentController.sol";
 
 import {
     R_UnknownCaller,
-    R_UnknownInitiator,
     R_InsufficientFunds,
     R_InsufficientAllowance,
     R_FundsConflict,
@@ -23,34 +22,39 @@ import {
     R_CallerNotBorrower,
     R_CurrencyMismatch,
     R_CollateralMismatch,
-    R_NoTokenBalance
+    R_CollateralIdMismatch,
+    R_NoTokenBalance,
+    R_Paused
 } from "./RolloverErrors.sol";
 
 /**
- * @title V2ToV3AAVERollover
+ * @title V2ToV3BalancerRollover
  * @author Non-Fungible Technologies, Inc.
  *
- * This contract is used to rollover a loan from V2 to V3. It takes out a flash loan for the
- * principal + interest of the old loan, repays the old loan, and starts a new loan on V3.
+ * This contract is used to rollover a loan from the legacy V2 lending protocol to the new
+ * V3 lending protocol. The rollover mechanism takes out a flash loan for the principal +
+ * interest of the old loan from Balancer pool, repays the V2 loan, and starts a new loan on V3.
+ * The V3 loan can be started with either specific loan terms signed by a lender or from a
+ * collection wide offer signed by a lender.
  *
  * It is required that the V2 protocol has zero fees enabled. This contract only works with
  * ERC721 collateral.
  */
-contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holder, Ownable {
+contract V2ToV3BalancerRollover is IV2ToV3BalancerRollover, ReentrancyGuard, ERC721Holder, Ownable {
     using SafeERC20 for IERC20;
-    
-    // AAVE Contracts
-    // Variable names are in upper case to fulfill IFlashLoanReceiver interface
-    // Mainnet AAVE AddressProvider- 0xB53C1a33016B2DC2fF3653530bfF1848a515c8c5
-    /* solhint-disable var-name-mixedcase */
-    ILendingPoolAddressesProvider public immutable override ADDRESSES_PROVIDER;
-    ILendingPool public immutable override LENDING_POOL;
 
-    /// @notice contract references needed to rollover the loan from V2 to V3
-    ILoanCoreV2 public immutable loanCoreV2;
-    IERC721 public immutable borrowerNoteV2;
-    IERC721 public immutable lenderNoteV2;
-    IRepaymentControllerV2 public immutable repaymentControllerV2;
+    // Balancer vault contract
+    /* solhint-disable var-name-mixedcase */
+    IVault public immutable VAULT; // 0xBA12222222228d8Ba445958a75a0704d566BF2C8
+
+    /// @notice V2 lending protocol contract references
+    ILoanCoreV2 public constant loanCoreV2 = ILoanCoreV2(0x81b2F8Fc75Bab64A6b144aa6d2fAa127B4Fa7fD9);
+    IERC721 public constant borrowerNoteV2 = IERC721(0x337104A4f06260Ff327d6734C555A0f5d8F863aa);
+    IERC721 public constant lenderNoteV2 = IERC721(0x349A026A43FFA8e2Ab4c4e59FCAa93F87Bd8DdeE);
+    IRepaymentControllerV2 public constant repaymentControllerV2 =
+        IRepaymentControllerV2(0xb39dAB85FA05C381767FF992cCDE4c94619993d4);
+
+    /// @notice V3 lending protocol contract references
     IFeeController public immutable feeControllerV3;
     IOriginationController public immutable originationControllerV3;
     ILoanCore public immutable loanCoreV3;
@@ -59,16 +63,11 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
     /// @notice state variable for pausing the contract
     bool public paused = false;
 
-    constructor(ILendingPoolAddressesProvider _addressesProvider, OperationContracts memory _opContracts) {
-        // Set AAVE contracts
-        ADDRESSES_PROVIDER = _addressesProvider;
-        LENDING_POOL = ILendingPool(_addressesProvider.getLendingPool());
+    constructor(IVault _vault, OperationContracts memory _opContracts) {
+        // Set Balancer vault address
+        VAULT = _vault;
 
         // Set lending protocol contract references
-        loanCoreV2 = ILoanCoreV2(_opContracts.loanCoreV2);
-        borrowerNoteV2 = IERC721(_opContracts.borrowerNoteV2);
-        lenderNoteV2 = IERC721(_opContracts.lenderNoteV2);
-        repaymentControllerV2 = IRepaymentControllerV2(_opContracts.repaymentControllerV2);
         feeControllerV3 = IFeeController(_opContracts.feeControllerV3);
         originationControllerV3 = IOriginationController(_opContracts.originationControllerV3);
         loanCoreV3 = ILoanCore(_opContracts.loanCoreV3);
@@ -97,6 +96,8 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
         bytes32 r,
         bytes32 s
     ) external override {
+        if(paused == true) revert R_Paused();
+
         LoanLibraryV2.LoanTerms memory loanTerms = loanCoreV2.getLoan(loanId).terms;
 
         {
@@ -108,14 +109,11 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
         }
 
         {
-            address[] memory assets = new address[](1);
-            assets[0] = loanTerms.payableCurrency;
+            IERC20[] memory assets = new IERC20[](1);
+            assets[0] = IERC20(loanTerms.payableCurrency);
 
             uint256[] memory amounts = new uint256[](1);
             amounts[0] = loanTerms.principal + (loanTerms.principal * loanTerms.interestRate / 1 ether / 1e4);
-
-            uint256[] memory modes = new uint256[](1);
-            modes[0] = 0;
 
             bytes memory params = abi.encode(
                 OperationData(
@@ -131,52 +129,126 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
                 )
             );
 
+            // encode packed with items trigger - false
+            params = abi.encodePacked(params, uint(0));
+
             // Flash loan based on principal + interest
-            LENDING_POOL.flashLoan(address(this), assets, amounts, modes, address(this), params, 0);
+            VAULT.flashLoan(this, assets, amounts, params);
         }
     }
 
     /**
-     * @notice Callback function for flash loan. Calls _executeOperation to rollover loan from V2 to V3.
-     *         The caller of this function must be the lending pool.
+     * @notice Rollover a loan from V2 to V3 using a collection wide offer. Validates new
+     *         loan terms against the old terms. Takes out Flash Loan for principal + interest,
+     *         repays old loan, and starts new loan on V3.
+     *
+     * @param loanId                 The ID of the V2 loan to be rolled over.
+     * @param newLoanTerms           The terms of the new loan.
+     * @param lender                 The address of the lender.
+     * @param nonce                  The nonce for the signature.
+     * @param v                      The v value of signature for new loan.
+     * @param r                      The r value of signature for new loan.
+     * @param s                      The s value of signature for new loan.
+     * @param itemPredicates         The item predicates specified by lender for new loan.
+     */
+    function rolloverLoanWithItems(
+        uint256 loanId,
+        LoanLibrary.LoanTerms calldata newLoanTerms,
+        address lender,
+        uint160 nonce,
+        uint8 v,
+        bytes32 r,
+        bytes32 s,
+        LoanLibrary.Predicate[] calldata itemPredicates
+    ) external override {
+        if(paused == true) revert R_Paused();
+
+        LoanLibraryV2.LoanTerms memory loanTerms = loanCoreV2.getLoan(loanId).terms;
+
+        {
+            _validateRollover(
+                loanTerms,
+                newLoanTerms,
+                loanId // same as borrowerNoteId
+            );
+        }
+
+        {
+            IERC20[] memory assets = new IERC20[](1);
+            assets[0] = IERC20(loanTerms.payableCurrency);
+
+            uint256[] memory amounts = new uint256[](1);
+            amounts[0] = loanTerms.principal + (loanTerms.principal * loanTerms.interestRate / 1 ether / 1e4);
+
+            bytes memory params = abi.encode(
+                OperationDataWithItems(
+                    {
+                        loanId: loanId,
+                        newLoanTerms: newLoanTerms,
+                        lender: lender,
+                        nonce: nonce,
+                        v: v,
+                        r: r,
+                        s: s,
+                        itemPredicates: itemPredicates
+                    }
+                )
+            );
+
+            // encode packed with items trigger - true
+            params = abi.encodePacked(params, uint(1));
+
+            // Flash loan based on principal + interest
+            VAULT.flashLoan(this, assets, amounts, params);
+        }
+    }
+
+    /**
+     * @notice Callback function for flash loan. This function looks at the last byte in
+     *         the encoded params to determine which _executeOperation function to use to
+     *         rollover loan from V2 to V3. The caller of this function must be the lending pool.
      *
      * @param assets                 The ERC20 address that was borrowed in Flash Loan.
      * @param amounts                The amount that was borrowed in Flash Loan.
-     * @param premiums               The fees that are due to the lending pool.
+     * @param feeAmounts             The fees that are due to the lending pool.
      * @param params                 The data to be executed after receiving Flash Loan.
-     *
-     * @return bool                  Returns true if all operations were successful. 
      */
-    function executeOperation(
-        address[] calldata assets,
+    function receiveFlashLoan(
+        IERC20[] calldata assets,
         uint256[] calldata amounts,
-        uint256[] calldata premiums,
-        address initiator,
+        uint256[] calldata feeAmounts,
         bytes calldata params
-    ) external override nonReentrant returns (bool) {
-        if (msg.sender != address(LENDING_POOL)) revert R_UnknownCaller(msg.sender, address(LENDING_POOL));
-        if (initiator != address(this)) revert R_UnknownInitiator(initiator, address(this));
+    ) external override nonReentrant {
+        if (msg.sender != address(VAULT)) revert R_UnknownCaller(msg.sender, address(VAULT));
 
-        return _executeOperation(assets, amounts, premiums, abi.decode(params, (OperationData)));
+        // Extract the last byte from params and convert it to boolean
+        bool withItemsBool = params[params.length - 1] == 0x01; 
+
+        // Call the appropriate _executeOperation function based on with items boolean
+        if (withItemsBool == true) {
+            (OperationDataWithItems memory opData, ) = abi.decode(params, (OperationDataWithItems, uint));
+            _executeOperationWithItems(assets, amounts, feeAmounts, opData);
+        } else {
+            (OperationData memory opData, ) = abi.decode(params, (OperationData, uint));
+            _executeOperation(assets, amounts, feeAmounts, opData);
+        }
     }
 
     /**
      * @notice Executes repayment of old loan and initialization of new loan. Any funds
      *         that are not covered by closing out the old loan must be covered by the borrower.
      *
-     * @param assets                 The ERC20 address that was borrowed in Flash Loan.
+     * @param assets                 The ERC20 that was borrowed in Flash Loan.
      * @param amounts                The amount that was borrowed in Flash Loan.
      * @param premiums               The fees that are due back to the lending pool.
-     * @param opData                 The data to be executed after receiving Flash Loan.
-     *
-     * @return bool                  Returns true if all operations were successful.                    
+     * @param opData                 The data to be executed after receiving Flash Loan.                 
      */
     function _executeOperation(
-        address[] calldata assets,
+        IERC20[] calldata assets,
         uint256[] calldata amounts,
         uint256[] memory premiums,
         OperationData memory opData
-    ) internal returns (bool) {
+    ) internal {
         // Get loan details
         LoanLibraryV2.LoanData memory loanData = loanCoreV2.getLoan(opData.loanId);
         address borrower = borrowerNoteV2.ownerOf(opData.loanId);
@@ -195,7 +267,7 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
             opData.newLoanTerms.principal // new loan terms principal
         );
 
-        IERC20 asset = IERC20(assets[0]);
+        IERC20 asset = assets[0];
 
         if (needFromBorrower > 0) {
             if (asset.balanceOf(borrower) < needFromBorrower) {
@@ -208,7 +280,7 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
 
         _repayLoan(loanData, opData.loanId, borrower);
 
-        {            
+        {
             uint256 newLoanId = _initializeNewLoan(
                 borrower,
                 opData.lender,
@@ -221,8 +293,6 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
                 loanData.terms.collateralId,
                 newLoanId
             );
-
-            emit Migration(address(loanCoreV2), opData.loanId, address(loanCoreV3), newLoanId);
         }
 
         if (leftoverPrincipal > 0) {
@@ -231,10 +301,82 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
             asset.safeTransferFrom(borrower, address(this), needFromBorrower);
         }
 
-        // Approve all amounts for flash loan repayment
-        asset.approve(address(LENDING_POOL), flashAmountDue);
+        // Make flash loan repayment
+        // Balancer requires a transfer back the vault
+        asset.transfer(address(VAULT), flashAmountDue);
+    }
 
-        return true;
+    /**
+     * @notice Executes repayment of old loan and initialization of new loan with lender
+     *         specified item predicates. Any funds that are not covered by closing out
+     *         the old loan must be covered by the borrower.
+     *
+     * @param assets                 The ERC20 that was borrowed in Flash Loan.
+     * @param amounts                The amount that was borrowed in Flash Loan.
+     * @param premiums               The fees that are due back to the lending pool.
+     * @param opData                 The data to be executed after receiving Flash Loan.                 
+     */
+    function _executeOperationWithItems(
+        IERC20[] calldata assets,
+        uint256[] calldata amounts,
+        uint256[] memory premiums,
+        OperationDataWithItems memory opData
+    ) internal {
+        // Get loan details
+        LoanLibraryV2.LoanData memory loanData = loanCoreV2.getLoan(opData.loanId);
+        address borrower = borrowerNoteV2.ownerOf(opData.loanId);
+        address lender = lenderNoteV2.ownerOf(opData.loanId);
+
+        // Do accounting to figure out amount each party needs to receive
+        (uint256 flashAmountDue, uint256 needFromBorrower, uint256 leftoverPrincipal) = _ensureFunds(
+            amounts[0], // principal + interest
+            premiums[0], // flash loan fee
+            uint256(
+                feeControllerV3.getLendingFee(
+                    // FL_01 - borrower origination fee
+                    keccak256("BORROWER_ORIGINATION_FEE")
+                )
+            ),
+            opData.newLoanTerms.principal // new loan terms principal
+        );
+
+        IERC20 asset = assets[0];
+
+        if (needFromBorrower > 0) {
+            if (asset.balanceOf(borrower) < needFromBorrower) {
+                revert R_InsufficientFunds(borrower, needFromBorrower, asset.balanceOf(borrower));
+            }
+            if (asset.allowance(borrower, address(this)) < needFromBorrower) {
+                revert R_InsufficientAllowance(borrower, needFromBorrower, asset.allowance(borrower, address(this)));
+            }
+        }
+
+        _repayLoan(loanData, opData.loanId, borrower);
+
+        {
+            uint256 newLoanId = _initializeNewLoanWithItems(
+                borrower,
+                opData.lender,
+                opData
+            );
+
+            emit V2V3Rollover(
+                lender,
+                borrower,
+                loanData.terms.collateralId,
+                newLoanId
+            );
+        }
+
+        if (leftoverPrincipal > 0) {
+            asset.safeTransfer(borrower, leftoverPrincipal);
+        } else if (needFromBorrower > 0) {
+            asset.safeTransferFrom(borrower, address(this), needFromBorrower);
+        }
+
+        // Make flash loan repayment
+        // Balancer requires a transfer back to the vault
+        asset.transfer(address(VAULT), flashAmountDue);
     }
 
     /**
@@ -298,9 +440,13 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
         borrowerNoteV2.transferFrom(borrower, address(this), borrowerNoteId);
 
         // approve repayment
+        uint256 totalRepayment = repaymentControllerV2.getFullInterestAmount(
+            loanData.terms.principal,
+            loanData.terms.interestRate
+        );
         IERC20(loanData.terms.payableCurrency).approve(
             address(repaymentControllerV2),
-            loanData.terms.principal + loanData.terms.principal * loanData.terms.interestRate / 1 ether
+            totalRepayment
         );
 
         // repay loan
@@ -312,13 +458,13 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
     }
 
     /**
-     * @notice Helper function to initialize the new loan. Withdraws the collateral from the borrower,
-     *         approves the origination controller to spend the collateral, and starts the new loan.
-     *         Once the new loan is started, the borrowerNote is sent to the borrower.
+     * @notice Helper function to initialize the new loan. Approves the V3 Loan Core contract
+     *         to take the collateral, then starts the new loan. Once the new loan is started,
+     *         the borrowerNote is sent to the borrower.
      *
      * @param borrower                 The address of the borrower.
      * @param lender                   The address of the new lender.
-     * @param opData                   The data used to execute new V3 loan.
+     * @param opData                   The data used to initiate new V3 loan.
      *
      * @return newLoanId               V3 loanId for the new loan that is started.
      */
@@ -327,11 +473,10 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
         address lender,
         OperationData memory opData
     ) internal returns (uint256) {
+        uint256 collateralId = opData.newLoanTerms.collateralId;
+
         // approve targetLoanCore to take collateral
-        IERC721(address(opData.newLoanTerms.collateralAddress)).approve(
-            address(loanCoreV3),
-            opData.newLoanTerms.collateralId
-        );
+        IERC721(opData.newLoanTerms.collateralAddress).approve(address(loanCoreV3), collateralId);
 
         // start new loan
         // stand in for borrower to meet OriginationController's requirements
@@ -355,32 +500,74 @@ contract V2ToV3AAVERollover is IV2ToV3AAVERollover, ReentrancyGuard, ERC721Holde
     }
 
     /**
+     * @notice Helper function to initialize the new loan using a collection wide offer. Approves
+     *         the V3 Loan Core contract to take the collateral, then starts the new loan. Once
+     *         the new loan is started, the borrowerNote is sent to the borrower.
+     *
+     * @param borrower                 The address of the borrower.
+     * @param lender                   The address of the new lender.
+     * @param opData                   The data used to initialize new V3 loan with items.
+     *
+     * @return newLoanId               V3 loanId for the new loan that is started.
+     */
+    function _initializeNewLoanWithItems(
+        address borrower,
+        address lender,
+        OperationDataWithItems memory opData
+    ) internal returns (uint256) {
+        uint256 collateralId = opData.newLoanTerms.collateralId;
+
+        // approve targetLoanCore to take collateral
+        IERC721(opData.newLoanTerms.collateralAddress).approve(address(loanCoreV3), collateralId);
+
+        // start new loan
+        // stand in for borrower to meet OriginationController's requirements
+        uint256 newLoanId = originationControllerV3.initializeLoanWithItems(
+            opData.newLoanTerms,
+            address(this),
+            lender,
+            IOriginationController.Signature({
+                v: opData.v,
+                r: opData.r,
+                s: opData.s,
+                extraData: "0x"
+            }),
+            opData.nonce,
+            opData.itemPredicates
+        );
+
+        // send the borrowerNote for the new V3 loan to the borrower
+        borrowerNoteV3.safeTransferFrom(address(this), borrower, newLoanId);
+
+        return newLoanId;
+    }
+
+    /**
      * @notice Validates that the rollover is valid. The borrower from the old loan must be the caller.
      *         The new loan must have the same currency as the old loan. The new loan must use the same
-     *         vault factory contract as collateral. If any of these conditionals are not met, the
+     *         collateral as the old loan. If any of these conditionals are not met, the
      *         transaction will revert.
      *
-     * @param sourceLoanTerms         The terms of the old loan.
-     * @param newLoanTerms            The terms of the new loan.
-     * @param borrowerNoteId          The ID of the borrowerNote for the old loan.
+     * @param sourceLoanTerms           The terms of the V2 loan.
+     * @param newLoanTerms              The terms of the V3 loan.
+     * @param borrowerNoteId            The ID of the borrowerNote for the old loan.
      */
     function _validateRollover(
         LoanLibraryV2.LoanTerms memory sourceLoanTerms,
-        LoanLibrary.LoanTerms calldata newLoanTerms,
+        LoanLibrary.LoanTerms memory newLoanTerms,
         uint256 borrowerNoteId
-    ) internal {
+    ) internal view {
         address borrower = borrowerNoteV2.ownerOf(borrowerNoteId);
-        address sourcePayableCurrency = sourceLoanTerms.payableCurrency;
-        address sourceCollateralAddress = sourceLoanTerms.collateralAddress;
-        address newCollateralAddress = newLoanTerms.collateralAddress;
-        address newPayableCurrency = newLoanTerms.payableCurrency;
 
         if (borrower != msg.sender) revert R_CallerNotBorrower(msg.sender, borrower);
-        if (sourcePayableCurrency != newPayableCurrency) {
-            revert R_CurrencyMismatch(sourcePayableCurrency, newPayableCurrency);
+        if (sourceLoanTerms.payableCurrency != newLoanTerms.payableCurrency) {
+            revert R_CurrencyMismatch(sourceLoanTerms.payableCurrency, newLoanTerms.payableCurrency);
         }
-        if (sourceCollateralAddress != newCollateralAddress) {
-            revert R_CollateralMismatch(sourceCollateralAddress, newCollateralAddress);
+        if (sourceLoanTerms.collateralAddress != newLoanTerms.collateralAddress) {
+            revert R_CollateralMismatch(sourceLoanTerms.collateralAddress, newLoanTerms.collateralAddress);
+        }
+        if (sourceLoanTerms.collateralId != newLoanTerms.collateralId) {
+            revert R_CollateralIdMismatch(sourceLoanTerms.collateralId, newLoanTerms.collateralId);
         }
     }
 
