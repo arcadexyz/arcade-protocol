@@ -6,7 +6,7 @@ import "../external/interfaces/IArtBlocks.sol";
 import "../interfaces/ISignatureVerifier.sol";
 import "../interfaces/IVaultFactory.sol";
 
-import { IV_NoAmount, IV_ItemMissingAddress, IV_InvalidProjectId } from "../errors/Lending.sol";
+import { IV_NoAmount, IV_ItemMissingAddress, IV_InvalidProjectId, IV_NoPredicates } from "../errors/Lending.sol";
 
 /**
  * @title ArtBlocksVerifier
@@ -80,8 +80,10 @@ contract ArtBlocksVerifier is ISignatureVerifier {
         bytes calldata predicates
     ) external view override returns (bool) {
         address vault = IVaultFactory(collateralAddress).instanceAt(collateralId);
+
         // Unpack items
         SignatureItem[] memory items = abi.decode(predicates, (SignatureItem[]));
+        if (items.length == 0) revert IV_NoPredicates();
 
         for (uint256 i = 0; i < items.length; ++i) {
             SignatureItem memory item = items[i];

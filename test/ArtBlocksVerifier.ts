@@ -82,6 +82,22 @@ describe("ArtBlocksVerifier", () => {
             ctx = await loadFixture(fixture);
         });
 
+        it("fails when the list of predicates is empty", async () => {
+            const { vaultFactory, user, artblocks, verifier, deployer, minter } = ctx;
+
+            const bundleId = await initializeBundle(vaultFactory, user);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            const tx = await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);;
+            const receipt = await tx.wait();
+            const tokenId = receipt.events?.[0].args?.tokenId;
+
+            // No encoded predicates
+            const signatureItems: ABSignatureItem[] = [];
+
+            await expect(verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems)))
+                .to.be.revertedWith("IV_NoPredicates");
+        });
+
         it("fails for an item with zero address", async () => {
             const { vaultFactory, user, artblocks, verifier, deployer, minter } = ctx;
 

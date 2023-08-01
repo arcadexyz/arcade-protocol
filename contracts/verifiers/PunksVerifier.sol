@@ -8,7 +8,7 @@ import "../interfaces/ISignatureVerifier.sol";
 import "../interfaces/IVaultFactory.sol";
 import "../external/interfaces/IPunks.sol";
 
-import { IV_InvalidTokenId } from "../errors/Lending.sol";
+import { IV_InvalidTokenId, IV_NoPredicates } from "../errors/Lending.sol";
 
 /**
  * @title PunksVerifier
@@ -65,6 +65,7 @@ contract PunksVerifier is ISignatureVerifier {
 
         // Unpack items
         int256[] memory tokenIds = abi.decode(predicates, (int256[]));
+        if (tokenIds.length == 0) revert IV_NoPredicates();
 
         for (uint256 i = 0; i < tokenIds.length; i++) {
             int256 tokenId = tokenIds[i];

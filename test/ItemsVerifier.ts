@@ -75,6 +75,23 @@ describe("ItemsVerifier", () => {
             ctx = await loadFixture(fixture);
         });
 
+        it("fails when the list of predicates is empty", async () => {
+            const { vaultFactory, user, mockERC721, verifier } = ctx;
+
+            const bundleId = await initializeBundle(vaultFactory, user);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            const tokenId = await mint721(mockERC721, user);
+            await mockERC721.connect(user).transferFrom(user.address, bundleAddress, tokenId);
+
+            // Create predicate for a single ID
+            const signatureItems: SignatureItem[] = [];
+
+            // Will revert because 4 can't be parsed as an enum
+            await expect(
+                verifier.verifyPredicates(user.address, user.address, vaultFactory.address, bundleId, encodeSignatureItems(signatureItems))
+            ).to.be.revertedWith("IV_NoPredicates");
+        });
+
         it("fails for an invalid collateral type", async () => {
             const { vaultFactory, user, mockERC721, verifier } = ctx;
 

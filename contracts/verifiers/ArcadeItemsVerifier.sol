@@ -13,7 +13,8 @@ import {
     IV_NoAmount,
     IV_InvalidWildcard,
     IV_ItemMissingAddress,
-    IV_InvalidCollateralType
+    IV_InvalidCollateralType,
+    IV_NoPredicates
 } from "../errors/Lending.sol";
 
 /**
@@ -98,6 +99,7 @@ contract ArcadeItemsVerifier is ISignatureVerifier {
 
         // Unpack items
         SignatureItem[] memory items = abi.decode(predicates, (SignatureItem[]));
+        if (items.length == 0) revert IV_NoPredicates();
 
         for (uint256 i = 0; i < items.length; i++) {
             SignatureItem memory item = items[i];

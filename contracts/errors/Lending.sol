@@ -183,6 +183,11 @@ error OC_ArrayTooManyElements();
 /// @notice All errors prefixed with IV_, to separate from other contracts in the protocol.
 
 /**
+ * @notice The predicate payload was decoded successfully, but list of predicates is empty.
+ */
+error IV_NoPredicates();
+
+/**
  * @notice Provided SignatureItem is missing an address.
  */
 error IV_ItemMissingAddress();

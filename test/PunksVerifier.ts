@@ -65,6 +65,15 @@ describe("PunksVerifier", () => {
             ctx = await loadFixture(fixture);
         });
 
+        it("fails when the list of predicates is empty", async () => {
+            const { vaultFactory, user, verifier } = ctx;
+
+            const bundleId = await initializeBundle(vaultFactory, user);
+
+            // Will revert because encodeInts argument is empty
+            await expect(verifier.verifyPredicates(user.address, user.address, vaultFactory.address, bundleId, encodeInts([]))).to.be.revertedWith("IV_NoPredicates");
+        });
+
         it("fails for an invalid tokenId", async () => {
             const { vaultFactory, user, verifier } = ctx;
 
