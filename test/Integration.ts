@@ -184,8 +184,8 @@ const createLoanTerms = (
 const createWnft = async (vaultFactory: VaultFactory, user: SignerWithAddress) => {
     const tx = await vaultFactory.initializeBundle(user.address);
     const receipt = await tx.wait();
-    if (receipt && receipt.events && receipt.events.length === 2 && receipt.events[1].args) {
-        return receipt.events[1].args.vault;
+    if (receipt && receipt.events && receipt.events.length === 3 && receipt.events[2].args) {
+        return receipt.events[2].args.vault;
     } else {
         throw new Error("Unable to initialize bundle");
     }
@@ -613,7 +613,7 @@ describe("Integration", () => {
 
             await blockchainTime.increaseTime(3600); // increase past loan duration
             await blockchainTime.increaseTime(600); // increase past grace period
-            
+
             await expect(repaymentController.connect(borrower).claim(loanId)).to.be.revertedWith("RC_OnlyLender");
         });
     });
