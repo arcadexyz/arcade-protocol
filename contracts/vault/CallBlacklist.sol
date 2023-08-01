@@ -29,10 +29,13 @@ abstract contract CallBlacklist {
     bytes4 private constant ERC20_ERC721_APPROVE = IERC20.approve.selector;
     bytes4 private constant ERC20_ERC721_TRANSFER_FROM = IERC20.transferFrom.selector;
     bytes4 private constant ERC20_INCREASE_ALLOWANCE = bytes4(keccak256("increaseAllowance(address,uint256)"));
+    bytes4 private constant ERC20_BURN = bytes4(keccak256("burn(address,uint256)"));
+    bytes4 private constant ERC20_BURN_FROM = bytes4(keccak256("burnFrom(address, uint256)"));
 
     bytes4 private constant ERC721_SAFE_TRANSFER_FROM = bytes4(keccak256("safeTransferFrom(address,address,uint256)"));
     bytes4 private constant ERC721_SAFE_TRANSFER_FROM_DATA = bytes4(keccak256("safeTransferFrom(address,address,uint256,bytes)"));
     bytes4 private constant ERC721_ERC1155_SET_APPROVAL = IERC721.setApprovalForAll.selector;
+    bytes4 private constant ERC721_BURN = bytes4(keccak256("burn(uint256)"));
 
     bytes4 private constant ERC1155_SAFE_TRANSFER_FROM = IERC1155.safeTransferFrom.selector;
     bytes4 private constant ERC1155_SAFE_BATCH_TRANSFER_FROM = IERC1155.safeBatchTransferFrom.selector;
