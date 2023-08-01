@@ -2,13 +2,14 @@
 
 pragma solidity 0.8.18;
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
-import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
-import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
-import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/utils/ERC721HolderUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155HolderUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 
 import "../interfaces/IAssetVault.sol";
 import "../interfaces/ICallDelegator.sol";
@@ -54,10 +55,17 @@ import {
  * In practice, LoanCore delegates to the borrower during the period of an open loan.
  * Arcade.xyz maintains an allowed and restricted list of calls to balance between utility and security.
  */
-contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder, ERC721Holder, ReentrancyGuard {
-    using Address for address;
-    using Address for address payable;
-    using SafeERC20 for IERC20;
+contract AssetVault is
+    IAssetVault,
+    OwnableERC721,
+    Initializable,
+    ERC1155HolderUpgradeable,
+    ERC721HolderUpgradeable,
+    ReentrancyGuardUpgradeable
+{
+    using AddressUpgradeable for address;
+    using AddressUpgradeable for address payable;
+    using SafeERC20Upgradeable for IERC20Upgradeable;
 
     // ============================================ STATE ==============================================
 
@@ -97,6 +105,8 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         // whose owner has ownership control over this contract
         OwnableERC721._setNFT(msg.sender);
         whitelist = _whitelist;
+
+        __ReentrancyGuard_init();
     }
 
     // ========================================= VIEW FUNCTIONS =========================================
@@ -135,7 +145,7 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         if (to == address(0)) revert AV_ZeroAddress("to");
 
         uint256 balance = IERC20(token).balanceOf(address(this));
-        IERC20(token).safeTransfer(to, balance);
+        IERC20Upgradeable(token).safeTransfer(to, balance);
         emit WithdrawERC20(msg.sender, token, to, balance);
     }
 
@@ -296,7 +306,7 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         }
 
         // Do approval
-        IERC20(token).safeApprove(spender, amount);
+        IERC20Upgradeable(token).safeApprove(spender, amount);
 
         emit Approve(msg.sender, token, spender, amount);
     }
@@ -320,7 +330,7 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         }
 
         // increase spender allowance
-        IERC20(token).safeIncreaseAllowance(spender, amount);
+        IERC20Upgradeable(token).safeIncreaseAllowance(spender, amount);
 
         emit IncreaseAllowance(msg.sender, token, spender, amount);
     }
@@ -344,7 +354,7 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         }
 
         // decrease spender allowance
-        IERC20(token).safeDecreaseAllowance(spender, amount);
+        IERC20Upgradeable(token).safeDecreaseAllowance(spender, amount);
 
         emit DecreaseAllowance(msg.sender, token, spender, amount);
     }
@@ -426,7 +436,7 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
     ) private {
         if (to == address(0)) revert AV_ZeroAddress("to");
 
-        IERC721(token).safeTransferFrom(address(this), to, tokenId);
+        IERC721Upgradeable(token).safeTransferFrom(address(this), to, tokenId);
 
         emit WithdrawERC721(msg.sender, token, to, tokenId);
     }
@@ -446,7 +456,7 @@ contract AssetVault is IAssetVault, OwnableERC721, Initializable, ERC1155Holder,
         if (to == address(0)) revert AV_ZeroAddress("to");
 
         uint256 balance = IERC1155(token).balanceOf(address(this), tokenId);
-        IERC1155(token).safeTransferFrom(address(this), to, tokenId, balance, "");
+        IERC1155Upgradeable(token).safeTransferFrom(address(this), to, tokenId, balance, "");
 
         emit WithdrawERC1155(msg.sender, token, to, tokenId, balance);
     }
