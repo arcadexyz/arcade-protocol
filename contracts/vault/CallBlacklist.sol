@@ -30,7 +30,7 @@ abstract contract CallBlacklist {
     bytes4 private constant ERC20_ERC721_TRANSFER_FROM = IERC20.transferFrom.selector;
     bytes4 private constant ERC20_INCREASE_ALLOWANCE = bytes4(keccak256("increaseAllowance(address,uint256)"));
     bytes4 private constant ERC20_BURN = bytes4(keccak256("burn(address,uint256)"));
-    bytes4 private constant ERC20_BURN_FROM = bytes4(keccak256("burnFrom(address, uint256)"));
+    bytes4 private constant ERC20_BURN_FROM = bytes4(keccak256("burnFrom(address,uint256)"));
 
     bytes4 private constant ERC721_SAFE_TRANSFER_FROM = bytes4(keccak256("safeTransferFrom(address,address,uint256)"));
     bytes4 private constant ERC721_SAFE_TRANSFER_FROM_DATA = bytes4(keccak256("safeTransferFrom(address,address,uint256,bytes)"));
@@ -39,6 +39,8 @@ abstract contract CallBlacklist {
 
     bytes4 private constant ERC1155_SAFE_TRANSFER_FROM = IERC1155.safeTransferFrom.selector;
     bytes4 private constant ERC1155_SAFE_BATCH_TRANSFER_FROM = IERC1155.safeBatchTransferFrom.selector;
+    bytes4 private constant ERC1155_BURN = bytes4(keccak256("burn(address,uint256,uint256)"));
+    bytes4 private constant ERC1155_BURN_BATCH = bytes4(keccak256("burn(address,uint256[],uint256[])"));
 
     bytes4 private constant PUNKS_TRANSFER = bytes4(keccak256("transferPunk(address,uint256)"));
     bytes4 private constant PUNKS_OFFER = bytes4(keccak256("offerPunkForSale(uint256,uint256)"));
@@ -61,11 +63,16 @@ abstract contract CallBlacklist {
             selector == ERC20_ERC721_APPROVE ||
             selector == ERC20_ERC721_TRANSFER_FROM ||
             selector == ERC20_INCREASE_ALLOWANCE ||
+            selector == ERC20_BURN ||
+            selector == ERC20_BURN_FROM ||
             selector == ERC721_SAFE_TRANSFER_FROM ||
             selector == ERC721_SAFE_TRANSFER_FROM_DATA ||
             selector == ERC721_ERC1155_SET_APPROVAL ||
+            selector == ERC721_BURN ||
             selector == ERC1155_SAFE_TRANSFER_FROM ||
             selector == ERC1155_SAFE_BATCH_TRANSFER_FROM ||
+            selector == ERC1155_BURN ||
+            selector == ERC1155_BURN_BATCH ||
             selector == PUNKS_TRANSFER ||
             selector == PUNKS_OFFER ||
             selector == PUNKS_OFFER_TO_ADDRESS ||
