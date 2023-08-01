@@ -94,10 +94,10 @@ contract ArtBlocksVerifier is ISignatureVerifier {
             uint256 nextProjectId = IArtBlocks(item.asset).nextProjectId();
             if (item.projectId >= nextProjectId) revert IV_InvalidProjectId(item.projectId, nextProjectId);
 
-            // No amount provided
-            if (item.amount == 0) revert IV_NoAmount(item.asset, item.amount);
-
             if (item.anyIdAllowed) {
+                // No amount provided - required for wildcard predicates
+                if (item.amount == 0) revert IV_NoAmount(item.asset, item.amount);
+
                 // Iterate through tokens
                 uint256 tokenCount = IArtBlocks(item.asset).balanceOf(vault);
                 uint256 found;

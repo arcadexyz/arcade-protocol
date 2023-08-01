@@ -151,18 +151,16 @@ describe("ArtBlocksVerifier", () => {
 
             const bundleId = await initializeBundle(vaultFactory, user);
             const bundleAddress = await vaultFactory.instanceAt(bundleId);
-            const tx = await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);;
-            const receipt = await tx.wait();
-            const tokenId = receipt.events?.[0].args?.tokenId;
+            await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);;
 
-            // Set to specific token ID, but mark amount as 0
+            // Use anyIdAllowed, but mark amount as 0
             const signatureItems: ABSignatureItem[] = [
                 {
                     asset: artblocks.address,
                     projectId: 3,
-                    tokenId,
+                    tokenId: 0,
                     amount: 0,
-                    anyIdAllowed: false
+                    anyIdAllowed: true
                 },
             ];
 
@@ -179,12 +177,13 @@ describe("ArtBlocksVerifier", () => {
             const receipt = await tx.wait();
             const tokenId = receipt.events?.[0].args?.tokenId.sub(1_000_000 * 3);
 
+            // Amount marked as 0 - will be ignored
             const signatureItems: ABSignatureItem[] = [
                 {
                     asset: artblocks.address,
                     projectId: 3,
                     tokenId,
-                    amount: 1,
+                    amount: 0,
                     anyIdAllowed: false
                 },
             ];
