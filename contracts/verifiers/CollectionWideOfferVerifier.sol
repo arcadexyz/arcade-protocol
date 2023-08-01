@@ -7,12 +7,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "../interfaces/ISignatureVerifier.sol";
 import "../interfaces/IVaultFactory.sol";
 
-import {
-    IV_NoAmount,
-    IV_InvalidWildcard,
-    IV_ItemMissingAddress,
-    IV_InvalidCollateralType
-} from "../errors/Lending.sol";
+import { IV_InvalidCollateralId } from "../errors/Lending.sol";
 
 /**
  * @title CollectionWideOfferVerifier
@@ -54,7 +49,12 @@ contract CollectionWideOfferVerifier is ISignatureVerifier {
         if (collateralAddress == token) return true;
 
         // Do vault check
-        address vaultAddress = address(uint160(collateralId));
+        address vaultAddress = IVaultFactory(collateralAddress).instanceAt(collateralId);
+
+        // Make sure vault address, converted back into uint256, matches the original
+        // collateralId. An arbitrary collateralId could theoretically collide with the
+        // another vault's address, meaning the wrong vault would be checked.
+        if (collateralId != uint256(uint160(vaultAddress))) revert IV_InvalidCollateralId(collateralId);
 
         if (!IVaultFactory(collateralAddress).isInstance(vaultAddress)) return false;
 

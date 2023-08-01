@@ -232,6 +232,13 @@ error IV_InvalidTokenId(int256 tokenId);
  */
 error IV_InvalidProjectId(uint256 projectId, uint256 nextProjectId);
 
+/**
+ * @notice The provided collateralId converts to a vault, but
+ *         the vault's address does not convert back to the provided collateralId
+ *         when casted to a uint256.
+ */
+error IV_InvalidCollateralId(uint256 collateralId);
+
 // ==================================== REPAYMENT CONTROLLER ======================================
 /// @notice All errors prefixed with RC_, to separate from other contracts in the protocol.
 

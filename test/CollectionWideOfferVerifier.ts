@@ -88,15 +88,15 @@ describe("CollectionWideOfferVerifier", () => {
             const bundleId = await initializeBundle(vaultFactory, deployer);
             await mockERC721.mint(await vaultFactory.instanceAt(bundleId));
 
-            expect(
-                await verifier.verifyPredicates(
+            await expect(
+                verifier.verifyPredicates(
                     mockERC721.address,
                     mockERC721.address,
                     vaultFactory.address,
                     1010101010101, // diff bundle that has not been registered
                     ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address])
                 )
-            ).to.eq(false);
+            ).to.be.revertedWith("VF_TokenIdOutOfBounds");
         });
 
         it("returns false if the vault does not hold the token", async () => {
