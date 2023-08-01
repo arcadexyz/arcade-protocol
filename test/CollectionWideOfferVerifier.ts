@@ -17,7 +17,6 @@ import {
 import { deploy } from "./utils/contracts";
 import { initializeBundle } from "./utils/loans";
 import { BASE_URI } from "./utils/constants";
-import { BigNumber } from "ethers";
 
 type Signer = SignerWithAddress;
 
