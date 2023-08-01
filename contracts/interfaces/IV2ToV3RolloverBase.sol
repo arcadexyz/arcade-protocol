@@ -3,6 +3,7 @@
 pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import "./ILoanCore.sol";
 import "./IOriginationController.sol";
@@ -43,12 +44,14 @@ interface IVault {
     ) external;
 }
 
-interface IV2ToV3BalancerRollover is IFlashLoanRecipient {
-    event V2V3Rollover(address indexed lender, address indexed borrower, uint256 collateralTokenId, uint256 newLoanId);
+interface IV2ToV3RolloverBase is IFlashLoanRecipient {
+    event V2V3Rollover(
+        address indexed lender,
+        address indexed borrower,
+        uint256 collateralTokenId,
+        uint256 newLoanId
+    );
 
-    /**
-     * Defines the V3 contracts that will facilitate new V3 loan.
-     */
     struct OperationContracts {
         IFeeController feeControllerV3;
         IOriginationController originationControllerV3;
@@ -56,53 +59,7 @@ interface IV2ToV3BalancerRollover is IFlashLoanRecipient {
         IERC721 borrowerNoteV3;
     }
 
-    /**
-     * Data needed to perform a V2 -> V3 rollover without collection wide offer.
-     */
-    struct OperationData {
-        uint256 loanId;
-        LoanLibrary.LoanTerms newLoanTerms;
-        address lender;
-        uint160 nonce;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
-
-    /**
-     * Data needed to perform a V2 -> V3 rollover with collection wide offer.
-     */
-    struct OperationDataWithItems {
-        uint256 loanId;
-        LoanLibrary.LoanTerms newLoanTerms;
-        address lender;
-        uint160 nonce;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-        LoanLibrary.Predicate[] itemPredicates;
-    }
-
-    function rolloverLoan(
-        uint256 loanId,
-        LoanLibrary.LoanTerms calldata newLoanTerms,
-        address lender,
-        uint160 nonce,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external;
-
-    function rolloverLoanWithItems(
-        uint256 loanId,
-        LoanLibrary.LoanTerms calldata newLoanTerms,
-        address lender,
-        uint160 nonce,
-        uint8 v,
-        bytes32 r,
-        bytes32 s,
-        LoanLibrary.Predicate[] calldata itemPredicates
-    ) external;
-
     function flushToken(IERC20 token, address to) external;
+
+    function togglePause() external;
 }

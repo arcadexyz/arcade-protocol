@@ -3,11 +3,11 @@ import "@nomiclabs/hardhat-ethers";
 import hre, { ethers } from "hardhat";
 import { BigNumber } from "ethers";
 
-import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "./utils/bootstrap-tools";
+import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../utils/bootstrap-tools";
 import {
     ERC20,
     PromissoryNote,
-    V2ToV3BalancerRollover,
+    V2ToV3Rollover,
     CallWhitelist,
     BaseURIDescriptor,
     FeeController,
@@ -22,7 +22,7 @@ import {
     CallWhitelistApprovals,
     DelegationRegistry,
     CallWhitelistDelegation,
-} from "../typechain";
+} from "../../typechain";
 import {
     ADMIN_ROLE,
     FEE_CLAIMER_ROLE,
@@ -31,22 +31,33 @@ import {
     WHITELIST_MANAGER_ROLE,
     BASE_URI,
     PUNKS_ADDRESS,
-} from "./utils/constants";
+} from "../utils/constants";
+import {
+    BORROWER,
+    PAYABLE_CURRENCY,
+    WHALE,
+    LOAN_COLLATERAL_ADDRESS,
+    BALANCER_ADDRESS,
+    V2_BORROWER_NOTE_ADDRESS,
+    LOAN_ID,
+    COLLATERAL_ID,
+    V2_TOTAL_REPAYMENT_AMOUNT,
+    NONCE,
+    V3_LOAN_PRINCIPAL,
+    V3_LOAN_INTEREST_RATE
+} from "./config";
 
-import { createLoanItemsSignature } from "../test/utils/eip712";
-import { ItemsPredicate, LoanTerms, SignatureItem } from "../test/utils/types";
-import { encodeSignatureItems } from "../test/utils/loans";
+import { createLoanTermsSignature } from "../../test/utils/eip712";
+import { LoanTerms } from "../../test/utils/types";
 
 /**
  * This script deploys V3 lending protocol and sets up roles and permissions. Deploys
- * V2ToV3BalancerRollover contract. Then, executes a V2 -> V3 rollover using active
- * loan on mainnet. Before running this script, make sure the MAINNET STATE FOR FORKING
- * section is updated with the valid values from mainnet. Also ensure that the collateral
- * and payable currency used in the loan terms are added to the OriginationController in
- * the setup section.
+ * V2ToV3Rollover contract. Then, executes a V2 -> V3 rollover using an active loan
+ * on mainnet. Before running this script, make sure the v2-migration/config.ts test
+ * file is updated with valid values from mainnet.
  *
  * Run this script with the following command:
- * `FORK_MAINNET=true npx hardhat run scripts/test-v2-v3-rollover.ts`
+ * `FORK_MAINNET=true npx hardhat run scripts/v2-migration/test-v2-v3-rollover.ts`
  */
 export async function main(): Promise<void> {
     // ================================== Deploy V3 Lending Protocol ==================================
@@ -316,46 +327,17 @@ export async function main(): Promise<void> {
 
     // ================================== Execute V2 -> V3 Rollover ==================================
 
-    // ======= Mainnet state for forking =======
-
-    ///////////////////////////////
-    // MAINNET STATE FOR FORKING //
-    ///////////////////////////////
-    const BORROWER = "0xa390baf0840b52aa57e97cd06c69459bea974947";
-    const USDC_ADDRESS = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
-    const WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
-    const DAI_ADDRESS = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
-    const WHALE = "0x1Cb17a66DC606a52785f69F08F4256526aBd4943";
-    const LOAN_COLLATERAL_ADDRESS = "0x6e9b4c2f6bd57b7b924d29b5dcfca1273ecc94a2"; // Vault Factory
-    const LENDER_SPECIFIED_COLLATERAL = "0xb072114151f32D85223aE7B00Ac0528d1F56aa6E" // Collection wide offer
-    const BALANCER_ADDRESS = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"; // Balancer vault
-    const SOURCE_BORROWER_NOTE_ADDRESS = "0x337104A4f06260Ff327d6734C555A0f5d8F863aa"; // v2 Borrower Note
-
-    ///////////////////////////////
-    //////// V2 LOAN DATA /////////
-    ///////////////////////////////
-    const LOAN_ID = 2193; // active loanId
-    const COLLATERAL_ID = BigNumber.from("163815819589138376285603138916992491026957408231"); // Arcade Vault id
-    const LENDER_SPECIFIED_COLLATERAL_ID = 88; // specific collection wide offer id
-
-    ///////////////////////////////
-    //////// V3 LOAN DATA /////////
-    ///////////////////////////////
-    const NONCE = 1; // nonce to use in new lender's bid
-    const newLoanAmount = ethers.utils.parseUnits("13000.00", 18); // new loan amount with out fees
-    const newLoanInterestRate = ethers.utils.parseUnits("3.75", 18); // new loan interest
-    const oldLoanRepaymentAmount = ethers.utils.parseUnits("25679", 18); // old repayment amount with interest amount included
+    // ============= Setup ==============
+    // use accounts[0] as new lender
     const [newLender] = await hre.ethers.getSigners();
     console.log("New lender address:", newLender.address);
-
-    // ============= Setup ==============
 
     // Whitelist collateral and payable currency used in the new loan terms
     console.log(SUBSECTION_SEPARATOR);
     console.log(`Add collateral and payable currency to V3 OriginationController...`);
     const addCollateral = await originationController.setAllowedCollateralAddresses([LOAN_COLLATERAL_ADDRESS], [true]);
     await addCollateral.wait();
-    const addPayableCurrency = await originationController.setAllowedPayableCurrencies([DAI_ADDRESS], [true]);
+    const addPayableCurrency = await originationController.setAllowedPayableCurrencies([PAYABLE_CURRENCY], [true]);
     await addPayableCurrency.wait();
 
     // Deploy v2 -> v3 rollover contract
@@ -367,10 +349,10 @@ export async function main(): Promise<void> {
         loanCoreV3: loanCore.address,
         borrowerNoteV3: borrowerNote.address,
     };
-    const factory = await ethers.getContractFactory("V2ToV3BalancerRollover")
-    const flashRollover = <V2ToV3BalancerRollover>await factory.deploy(BALANCER_ADDRESS, contracts);
+    const factory = await ethers.getContractFactory("V2ToV3Rollover")
+    const flashRollover = <V2ToV3Rollover>await factory.deploy(BALANCER_ADDRESS, contracts);
     await flashRollover.deployed();
-    console.log("V2ToV3BalancerRollover deployed to:", flashRollover.address);
+    console.log("V2ToV3Rollover deployed to:", flashRollover.address);
     const flashLoanFee: BigNumber = BigNumber.from("0"); // 0% flash loan fee on Balancer
 
     // impersonate accounts
@@ -387,29 +369,29 @@ export async function main(): Promise<void> {
     const borrower = await hre.ethers.getSigner(BORROWER);
 
     const erc20Factory = await ethers.getContractFactory("ERC20");
-    const payableCurrency = <ERC20>erc20Factory.attach(DAI_ADDRESS);
+    const payableCurrency = <ERC20>erc20Factory.attach(PAYABLE_CURRENCY);
 
     const erc721Factory = await ethers.getContractFactory("ERC721");
-    const bNoteV2 = <PromissoryNote>erc721Factory.attach(SOURCE_BORROWER_NOTE_ADDRESS);
+    const bNoteV2 = <PromissoryNote>erc721Factory.attach(V2_BORROWER_NOTE_ADDRESS);
 
     // Distribute ETH and payable currency by impersonating a whale account
     console.log("Whale distributes ETH and payable currency...");
     await whale.sendTransaction({ to: borrower.address, value: ethers.utils.parseEther("10") });
     await whale.sendTransaction({ to: newLender.address, value: ethers.utils.parseEther("10") });
-    await payableCurrency.connect(whale).transfer(newLender.address, newLoanAmount)
+    await payableCurrency.connect(whale).transfer(newLender.address, V3_LOAN_PRINCIPAL)
 
     console.log(SUBSECTION_SEPARATOR);
     console.log("New lender approves payable currency to V3 LoanCore...");
-    await payableCurrency.connect(newLender).approve(LOAN_CORE_ADDRESS, newLoanAmount);
+    await payableCurrency.connect(newLender).approve(LOAN_CORE_ADDRESS, V3_LOAN_PRINCIPAL);
 
     console.log(SUBSECTION_SEPARATOR);
-    console.log("Borrower approves V2 borrowerNote to rollover contract...");
+    console.log("Borrower approves V2 BorrowerNote to rollover contract...");
     await bNoteV2.connect(borrower).approve(flashRollover.address, LOAN_ID);
 
     // if new loan will not cover flash loan repayment, then borrower needs to cover the difference
-    const flashLoanAmountDue = oldLoanRepaymentAmount.add(oldLoanRepaymentAmount.mul(flashLoanFee).div(10000));
-    if (newLoanAmount.lt(flashLoanAmountDue)) {
-        const difference = flashLoanAmountDue.sub(newLoanAmount);
+    const flashLoanAmountDue = V2_TOTAL_REPAYMENT_AMOUNT.add(V2_TOTAL_REPAYMENT_AMOUNT.mul(flashLoanFee).div(10000));
+    if (V3_LOAN_PRINCIPAL.lt(flashLoanAmountDue)) {
+        const difference = flashLoanAmountDue.sub(V3_LOAN_PRINCIPAL);
         await payableCurrency.connect(whale).transfer(borrower.address, difference)
         await payableCurrency.connect(borrower).approve(flashRollover.address, difference);
     }
@@ -419,39 +401,21 @@ export async function main(): Promise<void> {
     const newLoanTerms: LoanTerms = {
         durationSecs: 86400,
         deadline: Math.floor(Date.now() / 1000) + 100_000,
-        proratedInterestRate: newLoanInterestRate,
-        principal: newLoanAmount, // V3 loan, principal
+        proratedInterestRate: V3_LOAN_INTEREST_RATE,
+        principal: V3_LOAN_PRINCIPAL,
         collateralAddress: LOAN_COLLATERAL_ADDRESS,
         collateralId: COLLATERAL_ID,
-        payableCurrency: DAI_ADDRESS,
+        payableCurrency: PAYABLE_CURRENCY,
         affiliateCode: ethers.constants.HashZero
     };
 
-    const signatureItems: SignatureItem[] = [
-        {
-            cType: 0,
-            asset: LENDER_SPECIFIED_COLLATERAL,
-            tokenId: LENDER_SPECIFIED_COLLATERAL_ID,
-            amount: 1,
-            anyIdAllowed: false
-        },
-    ];
-
-    const predicates: ItemsPredicate[] = [
-        {
-            verifier: verifier.address,
-            data: encodeSignatureItems(signatureItems),
-        },
-    ];
-
-    const sig = await createLoanItemsSignature(
+    const sig = await createLoanTermsSignature(
         ORIGINATION_CONTROLLER_ADDRESS,
         "OriginationController",
         newLoanTerms,
-        predicates,
         newLender,
         "3",
-        NONCE.toString(),
+        NONCE,
         "l",
     );
     console.log(SUBSECTION_SEPARATOR);
@@ -459,7 +423,7 @@ export async function main(): Promise<void> {
     // ============= Execute ==============
 
     console.log("Execute V2 -> V3 rollover...");
-    const tx = await flashRollover.connect(borrower).rolloverLoanWithItems(
+    const tx = await flashRollover.connect(borrower).rolloverLoan(
         LOAN_ID,
         newLoanTerms,
         newLender.address,
@@ -467,7 +431,6 @@ export async function main(): Promise<void> {
         sig.v,
         sig.r,
         sig.s,
-        predicates
     );       
 
     // send transaction
