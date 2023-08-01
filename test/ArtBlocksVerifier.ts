@@ -11,7 +11,8 @@ import {
     GenArt721Core,
     ArtBlocksVerifier,
     FeeController,
-    BaseURIDescriptor
+    BaseURIDescriptor,
+    CollisionVaultFactory
 } from "../typechain";
 import { deploy } from "./utils/contracts";
 
@@ -25,6 +26,7 @@ interface TestContext {
     verifier: ArtBlocksVerifier;
     artblocks: GenArt721Core;
     vaultFactory: VaultFactory;
+    collisionFactory: CollisionVaultFactory;
     deployer: Signer;
     user: Signer;
     minter: Signer;
@@ -49,6 +51,7 @@ describe("ArtBlocksVerifier", () => {
         const feeController = <FeeController>await deploy("FeeController", signers[0], []);
         const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
         const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address])
+        const collisionFactory = <CollisionVaultFactory>await deploy("CollisionVaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address])
 
         // Mint a few projects - will start with ID 3
         await artblocks.addProject("Project 1", user.address, price, false);
@@ -72,6 +75,7 @@ describe("ArtBlocksVerifier", () => {
             user,
             minter,
             signers: signers.slice(2),
+            collisionFactory
         };
     };
 
@@ -144,6 +148,40 @@ describe("ArtBlocksVerifier", () => {
 
             await expect(verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems)))
                 .to.be.revertedWith("IV_InvalidProjectId");
+        });
+
+        it("fails if the vault address does not convert into the collateralId", async () => {
+            const { user, artblocks, verifier, deployer, minter, collisionFactory } = ctx;
+
+            const bundleId = await initializeBundle(collisionFactory, user);
+            const bundleAddress = await collisionFactory.instanceAt(bundleId);
+            const tx = await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);;
+            const receipt = await tx.wait();
+            const tokenId = receipt.events?.[0].args?.tokenId.sub(1_000_000 * 3);
+
+            const signatureItems: ABSignatureItem[] = [
+                {
+                    asset: artblocks.address,
+                    projectId: 3,
+                    tokenId,
+                    amount: 1,
+                    anyIdAllowed: false
+                },
+            ];
+
+            // Create tokenId that will collide with existing vault
+            const collidingId = await collisionFactory.callStatic.initializeCollision(bundleAddress, user.address);
+            await collisionFactory.initializeCollision(bundleAddress, user.address);
+
+            await expect(
+                verifier.verifyPredicates(
+                    deployer.address,
+                    minter.address,
+                    collisionFactory.address,
+                    collidingId,
+                    encodeArtBlocksItems(signatureItems)
+                )
+            ).to.be.revertedWith("IV_InvalidCollateralId");
         });
 
         it("fails if the amount is not specified", async () => {

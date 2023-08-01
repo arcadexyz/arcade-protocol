@@ -56,8 +56,6 @@ contract CollectionWideOfferVerifier is ISignatureVerifier {
         // another vault's address, meaning the wrong vault would be checked.
         if (collateralId != uint256(uint160(vaultAddress))) revert IV_InvalidCollateralId(collateralId);
 
-        if (!IVaultFactory(collateralAddress).isInstance(vaultAddress)) return false;
-
         return IERC721(token).balanceOf(vaultAddress) > 0;
     }
 }
