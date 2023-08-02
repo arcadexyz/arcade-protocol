@@ -30,7 +30,8 @@ import {
     ORIGINATOR_ROLE,
     REPAYER_ROLE,
     AFFILIATE_MANAGER_ROLE,
-    BASE_URI
+    BASE_URI,
+    MIN_LOAN_PRINCIPAL
 } from "./utils/constants";
 
 interface TestContext {
@@ -108,10 +109,11 @@ const fixture = async (): Promise<TestContext> => {
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController
-    await originationController.setAllowedPayableCurrencies([mockERC20.address], [true]);
+    await originationController.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
     // verify the currency is whitelisted
     const isWhitelisted = await originationController.allowedCurrencies(mockERC20.address);
-    expect(isWhitelisted).to.be.true;
+    expect(isWhitelisted.isAllowed).to.be.true;
+    expect(isWhitelisted.minPrincipal).to.eq(MIN_LOAN_PRINCIPAL);
 
     // admin whitelists MockERC721 and vaultFactory on OriginationController
     await originationController.setAllowedCollateralAddresses(
@@ -312,7 +314,7 @@ describe("Rollovers", () => {
             const { loanId, loanTerms } = loan;
 
             const otherERC20 = <MockERC20>await deploy("MockERC20", admin, ["Mock ERC20", "MOCK"]);
-            await originationController.setAllowedPayableCurrencies([otherERC20.address], [true]);
+            await originationController.setAllowedPayableCurrencies([otherERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
 
             // create new terms for rollover and sign them
             const newTerms = createLoanTerms(

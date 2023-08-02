@@ -36,7 +36,8 @@ import {
     ORIGINATOR_ROLE,
     ADMIN_ROLE,
     WHITELIST_MANAGER_ROLE,
-    BASE_URI
+    BASE_URI,
+    MIN_LOAN_PRINCIPAL
 } from "./utils/constants";
 
 type Signer = SignerWithAddress;
@@ -111,7 +112,7 @@ const fixture = async (): Promise<TestContext> => {
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController
-    const whitelistCurrency = await originationController.setAllowedPayableCurrencies([mockERC20.address], [true]);
+    const whitelistCurrency = await originationController.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
     await whitelistCurrency.wait();
     // verify the currency is whitelisted
     const isWhitelisted = await originationController.isAllowedCurrency(mockERC20.address);
@@ -2902,10 +2903,10 @@ describe("OriginationController", () => {
             const { originationController, user: admin, mockERC20 } = ctx;
 
             const addresses: string[] = [];
-            const bools: boolean[] = [];
+            const bools: { isAllowed: boolean, minPrincipal: number }[] = [];
             for (let i = 0; i < 51; i++) {
                 addresses.push(mockERC20.address);
-                bools.push(true);
+                bools.push({ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL });
             }
 
             await expect(originationController.connect(admin).setAllowedPayableCurrencies(addresses, bools))
@@ -2916,9 +2917,9 @@ describe("OriginationController", () => {
             const { originationController, user: admin, mockERC20 } = ctx;
 
             const addresses: string[] = [];
-            const bools: boolean[] = [];
+            const bools: { isAllowed: boolean, minPrincipal: number }[] = [];
             for (let i = 0; i < 30; i++) addresses.push(mockERC20.address);
-            for (let i = 0; i < 16; i++) bools.push(true);
+            for (let i = 0; i < 16; i++) bools.push({ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL });
 
             await expect(originationController.connect(admin).setAllowedPayableCurrencies(addresses, bools))
                 .to.be.revertedWith("OC_BatchLengthMismatch");
@@ -2927,7 +2928,7 @@ describe("OriginationController", () => {
         it("Reverts when user without whitelist manager role tries to whitelist a currency", async () => {
             const { originationController, other, mockERC20 } = ctx;
 
-            await expect(originationController.connect(other).setAllowedPayableCurrencies([mockERC20.address], [true]))
+            await expect(originationController.connect(other).setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]))
                 .to.be.revertedWith("AccessControl");
         });
 
@@ -2935,10 +2936,10 @@ describe("OriginationController", () => {
             const { originationController, user: admin, mockERC721 } = ctx;
 
             const addresses: string[] = [];
-            const bools: boolean[] = [];
+            const bools: { isAllowed: boolean, minPrincipal: number }[] = [];
             for (let i = 0; i < 51; i++) {
                 addresses.push(mockERC721.address);
-                bools.push(true);
+                bools.push({ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL });
             }
 
             await expect(originationController.connect(admin).setAllowedPayableCurrencies(addresses, bools))
@@ -2949,7 +2950,7 @@ describe("OriginationController", () => {
             const { originationController, user: admin } = ctx;
 
             await expect(
-                originationController.connect(admin).setAllowedPayableCurrencies([ZERO_ADDRESS], [true]),
+                originationController.connect(admin).setAllowedPayableCurrencies([ZERO_ADDRESS], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]),
             ).to.be.revertedWith(`OC_ZeroAddress("token")`);
         });
 
@@ -2957,7 +2958,7 @@ describe("OriginationController", () => {
             const { originationController, user: admin } = ctx;
 
             await expect(
-                originationController.connect(admin).setAllowedPayableCurrencies([ZERO_ADDRESS], [false]),
+                originationController.connect(admin).setAllowedPayableCurrencies([ZERO_ADDRESS], [{ isAllowed: false, minPrincipal: 0 }]),
             ).to.be.revertedWith(`OC_ZeroAddress("token")`);
         });
 
@@ -2965,10 +2966,10 @@ describe("OriginationController", () => {
             const { originationController, user: admin, mockERC20 } = ctx;
 
             const addresses: string[] = [];
-            const bools: boolean[] = [];
+            const bools: { isAllowed: boolean, minPrincipal: number }[] = [];
             for (let i = 0; i < 51; i++) {
                 addresses.push(mockERC20.address);
-                bools.push(false);
+                bools.push({ isAllowed: false, minPrincipal: 0 });
             }
 
             await expect(originationController.connect(admin).setAllowedPayableCurrencies(addresses, bools))
@@ -2978,7 +2979,7 @@ describe("OriginationController", () => {
         it("Reverts when user without whitelist manager role tries to remove a whitelisted currency", async () => {
             const { originationController,  other, mockERC20 } = ctx;
 
-            await expect(originationController.connect(other).setAllowedPayableCurrencies([mockERC20.address], [false]))
+            await expect(originationController.connect(other).setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: false, minPrincipal: 0 }]))
                 .to.be.revertedWith("AccessControl");
         });
 
@@ -3025,7 +3026,7 @@ describe("OriginationController", () => {
         it("Reverts when user without whitelist manager role tries to remove a whitelisted currency", async () => {
             const { originationController, other, mockERC20 } = ctx;
 
-            await expect(originationController.connect(other).setAllowedPayableCurrencies([mockERC20.address], [true]))
+            await expect(originationController.connect(other).setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]))
                 .to.be.revertedWith("AccessControl");
         });
 
@@ -3033,14 +3034,14 @@ describe("OriginationController", () => {
             const { originationController, user: admin, mockERC20 } = ctx;
 
             await expect(
-                originationController.connect(admin).setAllowedPayableCurrencies([mockERC20.address], [true])
-            ).to.emit(originationController, "SetAllowedCurrency").withArgs(mockERC20.address, true);
+                originationController.connect(admin).setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }])
+            ).to.emit(originationController, "SetAllowedCurrency").withArgs(mockERC20.address, true, MIN_LOAN_PRINCIPAL);
 
             expect(await originationController.isAllowedCurrency(mockERC20.address)).to.be.true;
 
             await expect(
-                originationController.connect(admin).setAllowedPayableCurrencies([mockERC20.address], [false])
-            ).to.emit(originationController, "SetAllowedCurrency").withArgs(mockERC20.address, false);
+                originationController.connect(admin).setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: false, minPrincipal: 0 }])
+            ).to.emit(originationController, "SetAllowedCurrency").withArgs(mockERC20.address, false, 0);
 
             expect(await originationController.isAllowedCurrency(mockERC20.address)).to.be.false;
         });
