@@ -51,6 +51,8 @@ interface IV2ToV3RolloverBase is IFlashLoanRecipient {
         uint256 collateralTokenId,
         uint256 newLoanId
     );
+    
+    event PausedStateChanged(bool isPaused);
 
     struct OperationContracts {
         IFeeController feeControllerV3;

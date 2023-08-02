@@ -6,9 +6,9 @@ pragma solidity 0.8.18;
  * @title RolloverErrors
  * @author Non-Fungible Technologies, Inc.
  *
- * This file contains all custom errors for v2 -> v3 rollover contracts. All errors are
+ * This file contains all custom errors for V2 -> V3 rollover contracts. All errors are
  * prefixed by "_R" for Rollover. Errors are located in one place to make it possible to
- * holistically look at all v2 -> V3 rollover failure cases.
+ * holistically look at all V2 -> V3 rollover failure cases.
  */
 
 // ================================== V2 To V3 Rollover ====================================
@@ -101,6 +101,6 @@ error R_CollateralIdMismatch(uint256 v2CollateralId, uint256 v3CollateralId);
 error R_NoTokenBalance();
 
 /**
- * @notice Contract is pause, rollover operations are blocked.
+ * @notice Contract is paused, rollover operations are blocked.
  */
 error R_Paused();

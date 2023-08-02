@@ -180,6 +180,8 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
      */
     function togglePause() external override onlyOwner {
         paused = !paused;
+
+        emit PausedStateChanged(paused);
     }
 
     /**
