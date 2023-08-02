@@ -23,7 +23,7 @@ import {
  * @title PromissoryNote
  * @author Non-Fungible Technologies, Inc.
  *
- * Built off Openzeppelin's ERC721PresetMinterPauserAutoId. Used for
+ * Built off Openzeppelin's ERC721Enumerable. Used for
  * representing rights and obligations in the context of a loan - the
  * right to claim collateral for lenders (instantiated as LenderNote),
  * and the right to recover collateral upon repayment for borrowers
@@ -200,8 +200,6 @@ contract PromissoryNote is
     /**
      * @dev Hook that is called before any token transfer.
      *      This notifies the promissory note about the ownership transfer.
-     *
-     * @dev Does not let tokens be transferred when contract is paused.
      *
      * @param from                  The previous owner of the token.
      * @param to                    The owner of the token after transfer.
