@@ -318,11 +318,11 @@ contract LoanCore is
         address lender = lenderNote.ownerOf(loanId);
         _burnLoanNotes(loanId);
 
-        // Collect claim fee from lender
-        _collectIfNonzero(IERC20(data.terms.payableCurrency), lender, _amountFromLender);
-
         // Collateral redistribution
         IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), lender, data.terms.collateralId);
+
+        // Collect claim fee from lender
+        _collectIfNonzero(IERC20(data.terms.payableCurrency), lender, _amountFromLender);
 
         emit LoanClaimed(loanId);
     }
