@@ -53,11 +53,11 @@ contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase {
         bytes32 r,
         bytes32 s
     ) external override {
-        if(paused == true) revert R_Paused();
+        if(paused) revert R_Paused();
 
         LoanLibraryV2.LoanTerms memory loanTerms = loanCoreV2.getLoan(loanId).terms;
 
-        ( address borrower ) = _validateRollover(
+        (address borrower) = _validateRollover(
             loanTerms,
             newLoanTerms,
             loanId // same as borrowerNoteId

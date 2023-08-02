@@ -3,7 +3,6 @@
 pragma solidity 0.8.18;
 
 import "../libraries/LoanLibrary.sol";
-import "./IFeeController.sol";
 
 interface IOriginationController {
     // ================ Data Types =============
@@ -137,6 +136,4 @@ interface IOriginationController {
     function isAllowedCollateral(address token) external view returns (bool);
 
     function isAllowedVerifier(address verifier) external view returns (bool);
-
-    function feeController() external returns (IFeeController);
 }

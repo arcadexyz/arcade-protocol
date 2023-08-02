@@ -97,7 +97,7 @@ contract OriginationController is
     // =============== Contract References ===============
 
     ILoanCore private immutable loanCore;
-    IFeeController public immutable feeController;
+    IFeeController private immutable feeController;
 
     // ================= Approval State ==================
 

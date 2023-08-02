@@ -23,19 +23,6 @@ pragma solidity 0.8.18;
 error R_UnknownCaller(address caller, address lendingPool);
 
 /**
- * @notice The flash loan callback initiator is not recognized. The initiator must be the
- *         rollover contract.
- *
- * @dev AAVE flash loans return the initiator of the flash loan, in the callback interface.
- *      This is not provided in the Balancer callback interface. The initiator is the
- *      rollover contract, calling for the flash loan to repay V2 loan.
- *
- * @param initiator               The address of the initiator.
- * @param rolloverContract        Address of the v2 -> v3 rollover contract.
- */
-error R_UnknownInitiator(address initiator, address rolloverContract);
-
-/**
  * @notice The balance of the borrower is insufficient to repay the difference between
  *         the V2 loan and the V3 loan principal minus fees.
  *

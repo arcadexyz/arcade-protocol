@@ -124,6 +124,7 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
             loanData.terms.principal,
             loanData.terms.interestRate
         );
+
         IERC20(loanData.terms.payableCurrency).approve(
             address(repaymentControllerV2),
             totalRepayment
@@ -157,12 +158,15 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
         borrower = borrowerNoteV2.ownerOf(borrowerNoteId);
 
         if (borrower != msg.sender) revert R_CallerNotBorrower(msg.sender, borrower);
+
         if (sourceLoanTerms.payableCurrency != newLoanTerms.payableCurrency) {
             revert R_CurrencyMismatch(sourceLoanTerms.payableCurrency, newLoanTerms.payableCurrency);
         }
+
         if (sourceLoanTerms.collateralAddress != newLoanTerms.collateralAddress) {
             revert R_CollateralMismatch(sourceLoanTerms.collateralAddress, newLoanTerms.collateralAddress);
         }
+        
         if (sourceLoanTerms.collateralId != newLoanTerms.collateralId) {
             revert R_CollateralIdMismatch(sourceLoanTerms.collateralId, newLoanTerms.collateralId);
         }
