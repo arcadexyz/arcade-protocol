@@ -42,6 +42,8 @@ import {
     OC_ArrayTooManyElements
 } from "./errors/Lending.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title OriginationController
  * @author Non-Fungible Technologies, Inc.
@@ -219,10 +221,13 @@ contract OriginationController is
         );
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
-        _runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
 
         loanCore.consumeNonce(externalSigner, nonce);
         loanId = _initialize(loanTerms, borrower, lender);
+
+        // Run predicates check at the end of the function, after vault is in escrow. This makes sure
+        // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
+        _runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
     }
 
     /**
@@ -400,11 +405,14 @@ contract OriginationController is
         );
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
-        _runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
 
         loanCore.consumeNonce(externalSigner, nonce);
 
         newLoanId = _rollover(oldLoanId, loanTerms, borrower, lender);
+
+        // Run predicates check at the end of the function, after vault is in escrow. This makes sure
+        // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
+        _runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
     }
 
     // ==================================== PERMISSION MANAGEMENT =======================================

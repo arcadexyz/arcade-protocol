@@ -887,9 +887,10 @@ describe("OriginationController", () => {
         });
 
         it("Reverts if the collateralAddress does not fit the vault factory interface", async () => {
-            const { originationController, mockERC20, mockERC721, user: lender, other: borrower } = ctx;
+            const { originationController, loanCore, mockERC20, mockERC721, user: lender, other: borrower } = ctx;
 
             const tokenId = await mint721(mockERC721, borrower);
+            await mockERC721.connect(borrower).approve(loanCore.address, tokenId);
 
             const loanTerms = createLoanTerms(mockERC20.address, mockERC721.address, { collateralId: tokenId });
 
@@ -911,6 +912,7 @@ describe("OriginationController", () => {
             ];
 
             await mint(mockERC20, lender, loanTerms.principal);
+            await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
 
             const sig = await createLoanItemsSignature(
                 originationController.address,

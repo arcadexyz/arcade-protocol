@@ -762,6 +762,12 @@ describe("Rollovers", () => {
             // create new terms for rollover and sign them
             const newTerms = createLoanTerms(mockERC20.address, vaultFactory.address, loanTerms);
 
+            await mint(mockERC20, newLender, newTerms.principal);
+            await approve(mockERC20, newLender, originationController.address, newTerms.principal);
+
+            await mint(mockERC20, borrower, ethers.utils.parseEther("12"));
+            await approve(mockERC20, borrower, originationController.address, ethers.utils.parseEther("12"));
+
             const signatureItems: SignatureItem[] = [
                 {
                     cType: 0,
@@ -860,11 +866,6 @@ describe("Rollovers", () => {
             )
                 .to.be.revertedWith("OC_InvalidState");
         });
-
-        it("should not allow rollover a with items on an already closed laon", async () => {
-
-        });
-
 
         it("should roll over to a different lender using an items signature", async () => {
             const {
