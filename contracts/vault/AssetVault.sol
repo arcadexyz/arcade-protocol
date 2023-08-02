@@ -54,6 +54,12 @@ import {
  * This is to enable airdrop claims by borrowers during loans and other forms of NFT utility.
  * In practice, LoanCore delegates to the borrower during the period of an open loan.
  * Arcade.xyz maintains an allowed and restricted list of calls to balance between utility and security.
+ *
+ * Implementation warning: AssetVault is an OwnableERC721, which means that ownership of this contract
+ * is tracked by a separate ERC721 contract defined by calling `_setNFT()`. In the current implementation,
+ * the deployer is the VaultFactory, an ERC721 contract whose token ownership corresponds to vault ownership.
+ * If this contract is modified or extended, or the deployer of a given AssetVault is not an ERC721 contract,
+ * ownership will not work as intended.
  */
 contract AssetVault is
     IAssetVault,
