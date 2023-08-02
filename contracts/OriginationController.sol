@@ -42,8 +42,6 @@ import {
     OC_ArrayTooManyElements
 } from "./errors/Lending.sol";
 
-import "hardhat/console.sol";
-
 /**
  * @title OriginationController
  * @author Non-Fungible Technologies, Inc.
