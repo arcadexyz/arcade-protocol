@@ -347,6 +347,45 @@ describe("VaultFactory", () => {
             expect(await factory.DOMAIN_SEPARATOR());
         });
 
+        it("should accept signature from approved operator", async () => {
+            const { factory, user, other, signers } = await loadFixture(fixture);
+            const vault = await createVault(factory, user);
+            const bundleId = vault.address;
+            const data = buildData(
+                chainId,
+                factory.address,
+                await factory.name(),
+                "1",
+                other.address,
+                signers[0].address,
+                vault.address,
+                0,
+            );
+
+            const signature = await other._signTypedData(data.domain, data.types, data.message);
+            const { v, r, s } = fromRpcSig(signature);
+
+            let approved = await factory.getApproved(bundleId);
+            expect(approved).to.equal(hre.ethers.constants.AddressZero);
+
+            await factory.connect(user).setApprovalForAll(other.address, true);
+
+            await expect(
+                factory.permit(other.address, signers[0].address, bundleId, maxDeadline, v, r, s),
+            )
+                .to.emit(factory, "Approval")
+                .withArgs(user.address, signers[0].address, bundleId);
+
+            approved = await factory.getApproved(bundleId);
+            expect(approved).to.equal(signers[0].address);
+
+            //check nonce was incremented to one
+            expect(await factory.nonces(user.address)).to.equal(0);
+            expect(await factory.nonces(other.address)).to.equal(1);
+            //test coverage checking domain separator
+            expect(await factory.DOMAIN_SEPARATOR());
+        });
+
         it("rejects if given owner is not real owner", async () => {
             const { factory, user, other } = await loadFixture(fixture);
             const vault = await createVault(factory, user);

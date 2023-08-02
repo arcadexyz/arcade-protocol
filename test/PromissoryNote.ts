@@ -248,6 +248,7 @@ describe("PromissoryNote", () => {
         let promissoryNote: PromissoryNote;
         let user: Signer;
         let other: Signer;
+        let signers: Signer[];
         let promissoryNoteId: BigNumberish;
         let signature: string;
         let v: number;
@@ -255,7 +256,7 @@ describe("PromissoryNote", () => {
         let s: Buffer;
 
         beforeEach(async () => {
-            ({ borrowerPromissoryNote: promissoryNote, user, other } = await loadFixture(fixture));
+            ({ borrowerPromissoryNote: promissoryNote, user, other, signers } = await loadFixture(fixture));
             promissoryNoteId = await mintPromissoryNote(promissoryNote, user);
 
             const data = buildData(
@@ -295,6 +296,49 @@ describe("PromissoryNote", () => {
             expect(approved).to.equal(other.address);
             //check nonce was incremented to one
             expect(await promissoryNote.nonces(user.address)).to.equal(1);
+            //test coverage checking domain separator
+            expect(await promissoryNote.DOMAIN_SEPARATOR());
+        });
+
+        it("should accept signature from approved operator", async () => {
+            let approved = await promissoryNote.getApproved(promissoryNoteId);
+            expect(approved).to.equal(ethers.constants.AddressZero);
+
+            await promissoryNote.connect(user).setApprovalForAll(other.address, true);
+
+            const data = buildData(
+                chainId,
+                promissoryNote.address,
+                await promissoryNote.name(),
+                "1",
+                other.address,
+                signers[0].address,
+                promissoryNoteId,
+                0,
+            );
+
+            signature = await other._signTypedData(data.domain, data.types, data.message);
+            ({ v, r, s } = fromRpcSig(signature));
+
+            await expect(
+                promissoryNote.permit(
+                    other.address,
+                    signers[0].address,
+                    promissoryNoteId,
+                    maxDeadline,
+                    v,
+                    r,
+                    s,
+                ),
+            )
+                .to.emit(promissoryNote, "Approval")
+                .withArgs(user.address, signers[0].address, promissoryNoteId);
+
+            approved = await promissoryNote.getApproved(promissoryNoteId);
+            expect(approved).to.equal(signers[0].address);
+            //check nonce was incremented to one
+            expect(await promissoryNote.nonces(user.address)).to.equal(0);
+            expect(await promissoryNote.nonces(other.address)).to.equal(1);
             //test coverage checking domain separator
             expect(await promissoryNote.DOMAIN_SEPARATOR());
         });

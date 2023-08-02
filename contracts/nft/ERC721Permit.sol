@@ -92,7 +92,9 @@ abstract contract ERC721Permit is ERC721, IERC721Permit, EIP712 {
         bytes32 s
     ) public virtual override {
         if (block.timestamp > deadline) revert ERC721P_DeadlineExpired(deadline);
-        if (owner != ERC721.ownerOf(tokenId)) revert ERC721P_NotTokenOwner(owner);
+
+        address tokenOwner = ownerOf(tokenId);
+        if (owner != tokenOwner && !isApprovedForAll(tokenOwner, owner)) revert ERC721P_NotTokenOwner(owner);
 
         bytes32 structHash = keccak256(
             abi.encode(_PERMIT_TYPEHASH, owner, spender, tokenId, _useNonce(owner), deadline)
