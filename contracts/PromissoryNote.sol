@@ -51,7 +51,6 @@ contract PromissoryNote is
 {
     using Counters for Counters.Counter;
 
-
     // ============================================ STATE ==============================================
 
     // =================== Constants =====================
@@ -65,8 +64,6 @@ contract PromissoryNote is
 
     /// @dev Contract for returning tokenURI resources.
     INFTDescriptor public descriptor;
-
-    Counters.Counter private _tokenIdTracker;
 
     // ========================================= CONSTRUCTOR ===========================================
 
@@ -98,9 +95,6 @@ contract PromissoryNote is
         // Do not set role admin for admin role.
         _setRoleAdmin(MINT_BURN_ROLE, ADMIN_ROLE);
         _setRoleAdmin(RESOURCE_MANAGER_ROLE, RESOURCE_MANAGER_ROLE);
-
-        // We don't want token IDs of 0
-        _tokenIdTracker.increment();
     }
 
     /**
