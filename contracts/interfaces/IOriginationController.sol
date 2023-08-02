@@ -7,6 +7,11 @@ import "../libraries/LoanLibrary.sol";
 interface IOriginationController {
     // ================ Data Types =============
 
+    struct Currency {
+        bool isAllowed;
+        uint256 minPrincipal;
+    }
+
     enum Side {
         BORROW,
         LEND
@@ -32,7 +37,7 @@ interface IOriginationController {
 
     event Approval(address indexed owner, address indexed signer, bool isApproved);
     event SetAllowedVerifier(address indexed verifier, bool isAllowed);
-    event SetAllowedCurrency(address indexed currency, bool isAllowed);
+    event SetAllowedCurrency(address indexed currency, bool isAllowed, uint256 minPrincipal);
     event SetAllowedCollateral(address indexed collateral, bool isAllowed);
 
     // ============== Origination Operations ==============
@@ -125,7 +130,7 @@ interface IOriginationController {
 
     // ============== Admin Operations ==============
 
-    function setAllowedPayableCurrencies(address[] memory _tokenAddress, bool[] calldata isAllowed) external;
+    function setAllowedPayableCurrencies(address[] memory _tokenAddress, Currency[] calldata allowanceData) external;
 
     function setAllowedCollateralAddresses(address[] memory _tokenAddress, bool[] calldata isAllowed) external;
 

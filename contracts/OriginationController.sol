@@ -71,9 +71,6 @@ contract OriginationController is
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
     bytes32 public constant WHITELIST_MANAGER_ROLE = keccak256("WHITELIST_MANAGER");
 
-    /// @notice The minimum principal amount allowed to start a loan.
-    uint256 public constant MIN_LOAN_PRINCIPAL = 1_000_000;
-
     /// @notice EIP712 type hash for bundle-based signatures.
     bytes32 private constant _TOKEN_ID_TYPEHASH =
         keccak256(
@@ -105,8 +102,8 @@ contract OriginationController is
     mapping(address => mapping(address => bool)) private _signerApprovals;
     /// @notice Mapping from address to whether that verifier contract has been whitelisted
     mapping(address => bool) public allowedVerifiers;
-    /// @notice Mapping from ERC20 token address to boolean indicating allowed payable currencies
-    mapping(address => bool) public allowedCurrencies;
+    /// @notice Mapping from ERC20 token address to boolean indicating allowed payable currencies and set minimums
+    mapping(address => Currency) public allowedCurrencies;
     /// @notice Mapping from ERC721 or ERC1155 token address to boolean indicating allowed collateral types
     mapping(address => bool) public allowedCollateral;
 
@@ -570,21 +567,21 @@ contract OriginationController is
      *      function is limited to 50 elements.
      *
      * @param tokens                     Array of token addresses to add.
-     * @param isAllowed                  Whether the token is allowed or not.
+     * @param allowanceData              Whether the token is allowed or not, and the minimum loan size.
      */
     function setAllowedPayableCurrencies(
         address[] calldata tokens,
-        bool[] calldata isAllowed
+        Currency[] calldata allowanceData
     ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
         if (tokens.length == 0) revert OC_ZeroArrayElements();
         if (tokens.length > 50) revert OC_ArrayTooManyElements();
-        if (tokens.length != isAllowed.length) revert OC_BatchLengthMismatch();
+        if (tokens.length != allowanceData.length) revert OC_BatchLengthMismatch();
 
         for (uint256 i = 0; i < tokens.length; ++i) {
             if (tokens[i] == address(0)) revert OC_ZeroAddress("token");
 
-            allowedCurrencies[tokens[i]] = isAllowed[i];
-            emit SetAllowedCurrency(tokens[i], isAllowed[i]);
+            allowedCurrencies[tokens[i]] = allowanceData[i];
+            emit SetAllowedCurrency(tokens[i], allowanceData[i].isAllowed, allowanceData[i].minPrincipal);
         }
     }
 
@@ -596,7 +593,7 @@ contract OriginationController is
      * @return isAllowed          Whether the contract is verified.
      */
     function isAllowedCurrency(address verifier) public view override returns (bool) {
-        return allowedCurrencies[verifier];
+        return allowedCurrencies[verifier].isAllowed;
     }
 
     /**
@@ -679,8 +676,11 @@ contract OriginationController is
      */
     // solhint-disable-next-line code-complexity
     function _validateLoanTerms(LoanLibrary.LoanTerms memory terms) internal virtual view {
-        // principal must be greater than or equal to the MIN_LOAN_PRINCIPAL constant
-        if (terms.principal < MIN_LOAN_PRINCIPAL) revert OC_PrincipalTooLow(terms.principal);
+        // validate payable currency
+        if (!allowedCurrencies[terms.payableCurrency].isAllowed) revert OC_InvalidCurrency(terms.payableCurrency);
+
+        // principal must be greater than or equal to the configured minimum
+        if (terms.principal < allowedCurrencies[terms.payableCurrency].minPrincipal) revert OC_PrincipalTooLow(terms.principal);
 
         // loan duration must be greater or equal to 1 hr and less or equal to 3 years
         if (terms.durationSecs < 3600 || terms.durationSecs > 94_608_000) revert OC_LoanDuration(terms.durationSecs);
@@ -691,9 +691,6 @@ contract OriginationController is
 
         // signature must not have already expired
         if (terms.deadline < block.timestamp) revert OC_SignatureIsExpired(terms.deadline);
-
-        // validate payable currency
-        if (!allowedCurrencies[terms.payableCurrency]) revert OC_InvalidCurrency(terms.payableCurrency);
 
         // validate collateral
         if (!allowedCollateral[terms.collateralAddress]) revert OC_InvalidCollateral(terms.collateralAddress);
