@@ -166,12 +166,12 @@ export async function vaultAssetsAndMakeLoans(
     const loan1Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(oneWeekMs),
         principal: ethers.utils.parseEther("10"),
-        interestRate: ethers.utils.parseEther("1.5"),
+        proratedInterestRate: ethers.utils.parseEther("1.5"),
         collateralAddress: factory.address,
         collateralId: av1A.address,
         payableCurrency: weth.address,
-        numInstallments: 0,
         deadline: 1754884800,
+        affiliateCode: "0x",
     };
 
     const sig = await createLoanTermsSignature(
@@ -200,12 +200,12 @@ export async function vaultAssetsAndMakeLoans(
     const loan2Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(oneWeekMs) - 10,
         principal: ethers.utils.parseEther("10000"),
-        interestRate: ethers.utils.parseEther("500"),
+        proratedInterestRate: ethers.utils.parseEther("0.5"),
         collateralAddress: factory.address,
         collateralId: av1B.address,
         payableCurrency: pawnToken.address,
-        numInstallments: 0,
         deadline: 1754884800,
+        affiliateCode: "0x",
     };
 
     const sig2 = await createLoanTermsSignature(
@@ -232,12 +232,12 @@ export async function vaultAssetsAndMakeLoans(
     const loan3Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(oneDayMs) - 10,
         principal: ethers.utils.parseUnits("1000", 6),
-        interestRate: ethers.utils.parseUnits("80"),
+        proratedInterestRate: ethers.utils.parseUnits("80"),
         collateralAddress: factory.address,
         collateralId: av3A.address,
         payableCurrency: usd.address,
-        numInstallments: 0,
         deadline: 1754884800,
+        affiliateCode: "0x",
     };
 
     const sig3 = await createLoanTermsSignature(
@@ -264,12 +264,12 @@ export async function vaultAssetsAndMakeLoans(
     const loan4Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(oneMonthMs),
         principal: ethers.utils.parseUnits("1000", 6),
-        interestRate: ethers.utils.parseUnits("140"),
+        proratedInterestRate: ethers.utils.parseUnits("140"),
         collateralAddress: factory.address,
         collateralId: av3B.address,
         payableCurrency: usd.address,
-        numInstallments: 0,
         deadline: 1754884800,
+        affiliateCode: "0x",
     };
 
     const sig4 = await createLoanTermsSignature(
@@ -296,12 +296,12 @@ export async function vaultAssetsAndMakeLoans(
     const loan5Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(9000000),
         principal: ethers.utils.parseEther("20"),
-        interestRate: ethers.utils.parseEther("2.0"),
+        proratedInterestRate: ethers.utils.parseEther("2.0"),
         collateralAddress: factory.address,
         collateralId: av3C.address,
         payableCurrency: weth.address,
-        numInstallments: 0,
         deadline: 1754884800,
+        affiliateCode: "0x",
     };
 
     const sig5 = await createLoanTermsSignature(
@@ -328,12 +328,12 @@ export async function vaultAssetsAndMakeLoans(
     const loan6Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(oneWeekMs),
         principal: ethers.utils.parseEther("300.33"),
-        interestRate: ethers.utils.parseEther("18.0198"),
+        proratedInterestRate: ethers.utils.parseEther("18.0198"),
         collateralAddress: factory.address,
         collateralId: av4A.address,
         payableCurrency: pawnToken.address,
-        numInstallments: 0,
         deadline: 1754884800,
+        affiliateCode: "0x",
     };
 
     const sig6 = await createLoanTermsSignature(
