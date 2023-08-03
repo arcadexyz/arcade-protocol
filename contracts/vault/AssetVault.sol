@@ -219,13 +219,18 @@ contract AssetVault is
         if (tokensLength != tokenIds.length) revert AV_LengthMismatch("tokenId");
         if (tokensLength != tokenTypes.length) revert AV_LengthMismatch("tokenType");
 
-        for (uint256 i = 0; i < tokensLength; i++) {
+        for (uint256 i = 0; i < tokensLength;) {
             if (tokens[i] == address(0)) revert AV_ZeroAddress("token");
 
             if (tokenTypes[i] == TokenType.ERC721) {
                 _withdrawERC721(tokens[i], tokenIds[i], to);
             } else if (tokenTypes[i] == TokenType.ERC1155) {
                 _withdrawERC1155(tokens[i], tokenIds[i], to);
+            }
+
+            // Can never overflow because length is bounded by MAX_WITHDRAW_ITEMS
+            unchecked {
+                i++;
             }
         }
     }

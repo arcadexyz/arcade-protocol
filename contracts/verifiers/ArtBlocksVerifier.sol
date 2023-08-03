@@ -90,7 +90,7 @@ contract ArtBlocksVerifier is ISignatureVerifier {
         SignatureItem[] memory items = abi.decode(predicates, (SignatureItem[]));
         if (items.length == 0) revert IV_NoPredicates();
 
-        for (uint256 i = 0; i < items.length; ++i) {
+        for (uint256 i = 0; i < items.length;) {
             SignatureItem memory item = items[i];
 
             // No asset provided
@@ -107,7 +107,7 @@ contract ArtBlocksVerifier is ISignatureVerifier {
                 uint256 tokenCount = IArtBlocks(item.asset).balanceOf(vault);
                 uint256 found;
 
-                for (uint256 j = 0; j < tokenCount; j++) {
+                for (uint256 j = 0; j < tokenCount;) {
                     uint256 fullTokenId = IArtBlocks(item.asset).tokenOfOwnerByIndex(vault, j);
                     uint256 ownedProjectId = fullTokenId / PROJECT_ID_BASE;
 
@@ -117,6 +117,11 @@ contract ArtBlocksVerifier is ISignatureVerifier {
                         found++;
 
                         if (found >= item.amount) break;
+                    }
+
+                    // Cannot overflow because tokenCount comes from balanceOf call
+                    unchecked {
+                        j++;
                     }
                 }
 
@@ -132,6 +137,11 @@ contract ArtBlocksVerifier is ISignatureVerifier {
                 }
             }
 
+            // Predicates is calldata, overflow is impossible bc of calldata
+            // size limits vis-a-vis gas
+            unchecked {
+                i++;
+            }
         }
 
         // Loop completed - all items found

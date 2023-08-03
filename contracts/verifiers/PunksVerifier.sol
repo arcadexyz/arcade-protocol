@@ -72,7 +72,7 @@ contract PunksVerifier is ISignatureVerifier {
         int256[] memory tokenIds = abi.decode(predicates, (int256[]));
         if (tokenIds.length == 0) revert IV_NoPredicates();
 
-        for (uint256 i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length;) {
             int256 tokenId = tokenIds[i];
 
             if (tokenId > 9999) revert IV_InvalidTokenId(tokenId);
@@ -80,6 +80,12 @@ contract PunksVerifier is ISignatureVerifier {
             if (tokenId < 0 && punks.balanceOf(vault) == 0) return false;
             // Does not own specifically specified asset
             else if (tokenId >= 0 && punks.punkIndexToAddress(tokenId.toUint256()) != vault) return false;
+
+            // Predicates is calldata, overflow is impossible bc of calldata
+            // size limits vis-a-vis gas
+            unchecked {
+                i++;
+            }
         }
 
         // Loop completed - all items found

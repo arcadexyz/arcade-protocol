@@ -583,14 +583,17 @@ contract OriginationController is
         if (tokens.length > 50) revert OC_ArrayTooManyElements();
         if (tokens.length != currencyData.length) revert OC_BatchLengthMismatch();
 
-        for (uint256 i = 0; i < tokens.length; ++i) {
+        for (uint256 i = 0; i < tokens.length;) {
             if (tokens[i] == address(0)) revert OC_ZeroAddress("token");
 
             allowedCurrencies[tokens[i]] = currencyData[i];
             emit SetAllowedCurrency(tokens[i], currencyData[i].isAllowed, currencyData[i].minPrincipal);
-        }
-    }
 
+            // Can never overflow because length is bounded by 50
+            unchecked {
+                i++;
+            }
+        }
     /**
      * @notice Return whether the address can be used as a loan funding currency.
      *
@@ -620,11 +623,16 @@ contract OriginationController is
         if (tokens.length > 50) revert OC_ArrayTooManyElements();
         if (tokens.length != isAllowed.length) revert OC_BatchLengthMismatch();
 
-        for (uint256 i = 0; i < tokens.length; ++i) {
+        for (uint256 i = 0; i < tokens.length;) {
             if (tokens[i] == address(0)) revert OC_ZeroAddress("token");
 
             allowedCollateral[tokens[i]] = isAllowed[i];
             emit SetAllowedCollateral(tokens[i], isAllowed[i]);
+
+            // Can never overflow because length is bounded by 50
+            unchecked {
+                i++;
+            }
         }
     }
 
@@ -654,11 +662,16 @@ contract OriginationController is
         if (verifiers.length > 50) revert OC_ArrayTooManyElements();
         if (verifiers.length != isAllowed.length) revert OC_BatchLengthMismatch();
 
-        for (uint256 i = 0; i < verifiers.length; ++i) {
+        for (uint256 i = 0; i < verifiers.length;) {
             if (verifiers[i] == address(0)) revert OC_ZeroAddress("verifier");
 
             allowedVerifiers[verifiers[i]] = isAllowed[i];
             emit SetAllowedVerifier(verifiers[i], isAllowed[i]);
+
+            // Can never overflow because length is bounded by 50
+            unchecked {
+                i++;
+            }
         }
     }
 
@@ -784,7 +797,7 @@ contract OriginationController is
     function _encodePredicates(LoanLibrary.Predicate[] memory predicates) public pure returns (bytes32 itemsHash) {
        bytes32[] memory itemHashes = new bytes32[](predicates.length);
 
-        for(uint i = 0; i < predicates.length; ++i){
+        for (uint i = 0; i < predicates.length;){
             itemHashes[i] = keccak256(
                 abi.encode(
                     _PREDICATE_TYPEHASH,
@@ -792,6 +805,12 @@ contract OriginationController is
                     predicates[i].verifier
                 )
             );
+
+            // Predicates is calldata, overflow is impossible bc of calldata
+            // size limits vis-a-vis gas
+            unchecked {
+                i++;
+            }
         }
 
         // concatenate all predicate hashes
@@ -814,7 +833,7 @@ contract OriginationController is
         LoanLibrary.LoanTerms memory loanTerms,
         LoanLibrary.Predicate[] calldata itemPredicates
     ) internal view {
-        for (uint256 i = 0; i < itemPredicates.length; ++i) {
+        for (uint256 i = 0; i < itemPredicates.length;) {
             // Verify items are held in the wrapper
             address verifier = itemPredicates[i].verifier;
             if (!isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
@@ -834,6 +853,12 @@ contract OriginationController is
                     loanTerms.collateralId,
                     itemPredicates[i].data
                 );
+            }
+
+            // Predicates is calldata, overflow is impossible bc of calldata
+            // size limits vis-a-vis gas
+            unchecked {
+                i++;
             }
         }
     }
