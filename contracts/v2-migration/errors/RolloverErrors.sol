@@ -7,7 +7,7 @@ pragma solidity 0.8.18;
  * @author Non-Fungible Technologies, Inc.
  *
  * This file contains all custom errors for V2 -> V3 rollover contracts. All errors are
- * prefixed by "_R" for Rollover. Errors are located in one place to make it possible to
+ * prefixed by "R_" for Rollover. Errors are located in one place to make it possible to
  * holistically look at all V2 -> V3 rollover failure cases.
  */
 
