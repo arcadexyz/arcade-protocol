@@ -310,8 +310,9 @@ contract LoanCore is
             (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
                 _getAffiliateSplit(_amountFromLender, data.terms.affiliateCode);
 
-            feesWithdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
-            feesWithdrawable[data.terms.payableCurrency][affiliate] += affiliateFee;
+            mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[data.terms.payableCurrency];
+            _feesWithdrawable[address(this)] += protocolFee;
+            _feesWithdrawable[affiliate] += affiliateFee;
         }
 
         // Get promissory notes from two parties involved, then burn
@@ -352,8 +353,9 @@ contract LoanCore is
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
             _getAffiliateSplit(_amountFromLender, loans[loanId].terms.affiliateCode);
 
-        feesWithdrawable[token][address(this)] += protocolFee;
-        feesWithdrawable[token][affiliate] += affiliateFee;
+        mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[token];
+        _feesWithdrawable[address(this)] += protocolFee;
+        _feesWithdrawable[affiliate] += affiliateFee;
 
         // Delete the receipt
         delete noteReceipts[loanId];
@@ -419,8 +421,9 @@ contract LoanCore is
                 _getAffiliateSplit(feesEarned, terms.affiliateCode);
 
             // Assign fees for withdrawal
-            feesWithdrawable[address(payableCurrency)][address(this)] += protocolFee;
-            feesWithdrawable[address(payableCurrency)][affiliate] += affiliateFee;
+            mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[address(payableCurrency)];
+            _feesWithdrawable[address(this)] += protocolFee;
+            _feesWithdrawable[affiliate] += affiliateFee;
         }
 
         // Set up new loan
@@ -498,7 +501,8 @@ contract LoanCore is
      * @return amount               The amount of the note.
      */
     function getNoteReceipt(uint256 loanId) external view override returns (address, uint256) {
-        return (noteReceipts[loanId].token, noteReceipts[loanId].amount);
+        NoteReceipt memory receipt = noteReceipts[loanId];
+        return (receipt.token, receipt.amount);
     }
 
     /**
@@ -522,12 +526,13 @@ contract LoanCore is
         uint256 noteCount = borrowerNote.balanceOf(caller);
         for (uint256 i = 0; i < noteCount;) {
             uint256 loanId = borrowerNote.tokenOfOwnerByIndex(caller, i);
+            LoanLibrary.LoanTerms memory terms = loans[loanId].terms;
 
             // if the borrower is currently borrowing against this vault,
             // return true
             if (
-                loans[loanId].terms.collateralAddress == OwnableERC721(vault).ownershipToken() &&
-                loans[loanId].terms.collateralId == uint256(uint160(vault))
+                terms.collateralAddress == OwnableERC721(vault).ownershipToken() &&
+                terms.collateralId == uint256(uint160(vault))
             ) {
                 return true;
             }
@@ -681,8 +686,9 @@ contract LoanCore is
             _getAffiliateSplit(feesEarned, data.terms.affiliateCode);
 
         // Assign fees for withdrawal
-        feesWithdrawable[data.terms.payableCurrency][address(this)] += protocolFee;
-        feesWithdrawable[data.terms.payableCurrency][affiliate] += affiliateFee;
+        mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[data.terms.payableCurrency];
+        _feesWithdrawable[address(this)] += protocolFee;
+        _feesWithdrawable[affiliate] += affiliateFee;
 
         // State changes and cleanup
         loans[loanId].state = LoanLibrary.LoanState.Repaid;
