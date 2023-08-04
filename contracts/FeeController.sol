@@ -125,15 +125,13 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
      * @return FeesOrigination              Applicable fees for loan origination.
      */
     function getFeesOrigination() external view override returns (FeesOrigination memory) {
-        return (
-            FeesOrigination (
-                loanFees[FL_01],
-                loanFees[FL_02],
-                loanFees[FL_05],
-                loanFees[FL_06],
-                loanFees[FL_07]
-            )
-        );
+        return FeesOrigination({
+            borrowerOriginationFee: loanFees[FL_01],
+            lenderOriginationFee: loanFees[FL_02],
+            lenderDefaultFee: loanFees[FL_05],
+            lenderInterestFee: loanFees[FL_06],
+            lenderPrincipalFee: loanFees[FL_07]
+        });
     }
 
     /**
@@ -143,12 +141,10 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
      * @return FeesRollover              Applicable fees for a loan rollover.
      */
     function getFeesRollover() external view override returns (FeesRollover memory) {
-        return (
-            FeesRollover (
-                loanFees[FL_03],
-                loanFees[FL_04]
-            )
-        );
+        return FeesRollover({
+            borrowerRolloverFee: loanFees[FL_03],
+            lenderRolloverFee: loanFees[FL_04]
+        });
     }
 
     /**
