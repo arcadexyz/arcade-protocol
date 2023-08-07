@@ -130,7 +130,7 @@ interface IOriginationController {
 
     // ============== Admin Operations ==============
 
-    function setAllowedPayableCurrencies(address[] memory _tokenAddress, Currency[] calldata allowanceData) external;
+    function setAllowedPayableCurrencies(address[] memory _tokenAddress, Currency[] calldata currencyData) external;
 
     function setAllowedCollateralAddresses(address[] memory _tokenAddress, bool[] calldata isAllowed) external;
 

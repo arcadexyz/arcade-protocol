@@ -567,21 +567,21 @@ contract OriginationController is
      *      function is limited to 50 elements.
      *
      * @param tokens                     Array of token addresses to add.
-     * @param allowanceData              Whether the token is allowed or not, and the minimum loan size.
+     * @param currencyData               Whether the token is allowed or not, and the minimum loan size.
      */
     function setAllowedPayableCurrencies(
         address[] calldata tokens,
-        Currency[] calldata allowanceData
+        Currency[] calldata currencyData
     ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
         if (tokens.length == 0) revert OC_ZeroArrayElements();
         if (tokens.length > 50) revert OC_ArrayTooManyElements();
-        if (tokens.length != allowanceData.length) revert OC_BatchLengthMismatch();
+        if (tokens.length != currencyData.length) revert OC_BatchLengthMismatch();
 
         for (uint256 i = 0; i < tokens.length; ++i) {
             if (tokens[i] == address(0)) revert OC_ZeroAddress("token");
 
-            allowedCurrencies[tokens[i]] = allowanceData[i];
-            emit SetAllowedCurrency(tokens[i], allowanceData[i].isAllowed, allowanceData[i].minPrincipal);
+            allowedCurrencies[tokens[i]] = currencyData[i];
+            emit SetAllowedCurrency(tokens[i], currencyData[i].isAllowed, currencyData[i].minPrincipal);
         }
     }
 
