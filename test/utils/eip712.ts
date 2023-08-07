@@ -35,13 +35,13 @@ const typedPermitData: TypeData = {
 const typedLoanTermsData: TypeData = {
     types: {
         LoanTerms: [
-            { name: "durationSecs", type: "uint32" },
-            { name: "deadline", type: "uint32" },
-            { name: "proratedInterestRate", type: "uint160" },
+            { name: "proratedInterestRate", type: "uint256" },
             { name: "principal", type: "uint256" },
             { name: "collateralAddress", type: "address" },
+            { name: "durationSecs", type: "uint96" },
             { name: "collateralId", type: "uint256" },
             { name: "payableCurrency", type: "address" },
+            { name: "deadline", type: "uint96" },
             { name: "affiliateCode", type: "bytes32" },
             { name: "nonce", type: "uint160" },
             { name: "side", type: "uint8" },
@@ -53,13 +53,13 @@ const typedLoanTermsData: TypeData = {
 const typedLoanItemsData: TypeData = {
     types: {
         LoanTermsWithItems: [
-            { name: "durationSecs", type: "uint32" },
-            { name: "deadline", type: "uint32" },
-            { name: "proratedInterestRate", type: "uint160" },
+            { name: "proratedInterestRate", type: "uint256" },
             { name: "principal", type: "uint256" },
             { name: "collateralAddress", type: "address" },
+            { name: "durationSecs", type: "uint96" },
             { name: "items", type: "Predicate[]" },
             { name: "payableCurrency", type: "address" },
+            { name: "deadline", type: "uint96" },
             { name: "affiliateCode", type: "bytes32" },
             { name: "nonce", type: "uint160" },
             { name: "side", type: "uint8" },

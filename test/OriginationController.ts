@@ -2611,7 +2611,7 @@ describe("OriginationController", () => {
                 // ethers encode
                 const calldata = ethers.utils.defaultAbiCoder.encode(
                     [ // types
-                        "tuple(uint32, uint32, uint160, uint256, address, uint256, address, bytes32)", // loan terms
+                        "tuple(uint256, uint256, address, uint96, uint256, address, uint96, bytes32)", // loan terms
                         "address", // borrower
                         "address", // lender
                         "tuple(uint8, bytes32, bytes32, bytes)", // signature
@@ -2619,13 +2619,13 @@ describe("OriginationController", () => {
                     ],
                     [ // values
                         [
-                            loanTerms.durationSecs,
-                            loanTerms.deadline,
                             loanTerms.proratedInterestRate,
                             loanTerms.principal,
                             loanTerms.collateralAddress,
+                            loanTerms.durationSecs,
                             loanTerms.collateralId,
                             loanTerms.payableCurrency,
+                            loanTerms.deadline,
                             loanTerms.affiliateCode
                         ],
                         borrower.address,

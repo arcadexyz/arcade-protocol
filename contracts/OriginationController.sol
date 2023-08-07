@@ -75,14 +75,14 @@ contract OriginationController is
     bytes32 private constant _TOKEN_ID_TYPEHASH =
         keccak256(
             // solhint-disable-next-line max-line-length
-            "LoanTerms(uint32 durationSecs,uint32 deadline,uint160 proratedInterestRate,uint256 principal,address collateralAddress,uint256 collateralId,address payableCurrency,bytes32 affiliateCode,uint160 nonce,uint8 side)"
+            "LoanTerms(uint256 proratedInterestRate,uint256 principal,address collateralAddress,uint96 durationSecs,uint256 collateralId,address payableCurrency,uint96 deadline,bytes32 affiliateCode,uint160 nonce,uint8 side)"
         );
 
     /// @notice EIP712 type hash for item-based signatures.
     bytes32 private constant _ITEMS_TYPEHASH =
         keccak256(
             // solhint-disable max-line-length
-            "LoanTermsWithItems(uint32 durationSecs,uint32 deadline,uint160 proratedInterestRate,uint256 principal,address collateralAddress,Predicate[] items,address payableCurrency,bytes32 affiliateCode,uint160 nonce,uint8 side)Predicate(bytes data,address verifier)"
+            "LoanTermsWithItems(uint256 proratedInterestRate,uint256 principal,address collateralAddress,uint96 durationSecs,Predicate[] items,address payableCurrency,uint96 deadline,bytes32 affiliateCode,uint160 nonce,uint8 side)Predicate(bytes data,address verifier)"
         );
 
     /// @notice EIP712 type hash for Predicate.
@@ -505,13 +505,13 @@ contract OriginationController is
         bytes32 loanHash = keccak256(
             abi.encode(
                 _TOKEN_ID_TYPEHASH,
-                loanTerms.durationSecs,
-                loanTerms.deadline,
                 loanTerms.proratedInterestRate,
                 loanTerms.principal,
                 loanTerms.collateralAddress,
+                loanTerms.durationSecs,
                 loanTerms.collateralId,
                 loanTerms.payableCurrency,
+                loanTerms.deadline,
                 loanTerms.affiliateCode,
                 nonce,
                 uint8(side)
@@ -546,13 +546,13 @@ contract OriginationController is
         bytes32 loanHash = keccak256(
             abi.encode(
                 _ITEMS_TYPEHASH,
-                loanTerms.durationSecs,
-                loanTerms.deadline,
                 loanTerms.proratedInterestRate,
                 loanTerms.principal,
                 loanTerms.collateralAddress,
+                loanTerms.durationSecs,
                 itemsHash,
                 loanTerms.payableCurrency,
+                loanTerms.deadline,
                 loanTerms.affiliateCode,
                 nonce,
                 uint8(side)

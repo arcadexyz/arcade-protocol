@@ -30,28 +30,27 @@ library LoanLibrary {
      * @dev The raw terms of a loan.
      */
     struct LoanTerms {
-        /// @dev Packed variables
-        // The number of seconds representing relative due date of the loan.
-        /// @dev Max is 94,608,000, fits in 32 bits
-        uint32 durationSecs;
-        // Timestamp for when signature for terms expires
-        uint32 deadline;
         // Interest expressed as a rate, unlike V1 gross value.
         // Input conversion: 0.01% = (1 * 10**18) ,  10.00% = (1000 * 10**18)
         // This represents the rate over the lifetime of the loan, not APR.
         // 0.01% is the minimum interest rate allowed by the protocol.
-        /// @dev Max is 10,000%, fits in 160 bits
-        uint160 proratedInterestRate;
+        uint256 proratedInterestRate;
         /// @dev Full-slot variables
         // The amount of principal in terms of the payableCurrency.
         uint256 principal;
         // The token ID of the address holding the collateral.
         /// @dev Can be an AssetVault, or the NFT contract for unbundled collateral
         address collateralAddress;
+        /// @dev Packed variables
+        // The number of seconds representing relative due date of the loan.
+        /// @dev Max is 94,608,000, fits in 96 bits
+        uint96 durationSecs;
         // The token ID of the collateral.
         uint256 collateralId;
         // The payable currency for the loan principal and interest.
         address payableCurrency;
+        // Timestamp for when signature for terms expires
+        uint96 deadline;
         // Affiliate code used to start the loan.
         bytes32 affiliateCode;
     }
@@ -62,27 +61,26 @@ library LoanLibrary {
      *      is defined by 'bytes' in items.
      */
     struct LoanTermsWithItems {
-        /// @dev Packed variables
-        // The number of seconds representing relative due date of the loan.
-        /// @dev Max is 94,608,000, fits in 32 bits
-        uint32 durationSecs;
-        // Timestamp for when signature for terms expires.
-        uint32 deadline;
         // Interest expressed as a rate, unlike V1 gross value.
         // Input conversion: 0.01% = (1 * 10**18) ,  10.00% = (1000 * 10**18)
         // This represents the rate over the lifetime of the loan, not APR.
         // 0.01% is the minimum interest rate allowed by the protocol.
-        /// @dev Max is 10,000%, fits in 160 bits
-        uint160 proratedInterestRate;
+        uint256 proratedInterestRate;
         /// @dev Full-slot variables
         // The amount of principal in terms of the payableCurrency.
         uint256 principal;
         // The tokenID of the address holding the collateral
         address collateralAddress;
+        /// @dev Packed variables
+        // The number of seconds representing relative due date of the loan.
+        /// @dev Max is 94,608,000, fits in 96 bits
+        uint96 durationSecs;
         // An encoded list of predicates, along with their verifiers.
         bytes items;
         // The payable currency for the loan principal and interest.
         address payableCurrency;
+        // Timestamp for when signature for terms expires
+        uint96 deadline;
         // Affiliate code used to start the loan.
         bytes32 affiliateCode;
     }
