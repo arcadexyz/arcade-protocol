@@ -132,7 +132,7 @@ contract ArcadeItemsVerifier is ISignatureVerifier {
 
                 // Does not own specifically specified asset
                 if (asset.balanceOf(vault, item.tokenId) < item.amount) return false;
-            } else if (item.cType == CollateralType.ERC_20) {
+            } else {
                 IERC20 asset = IERC20(item.asset);
 
                 // Wildcard not allowed, since nonsensical
