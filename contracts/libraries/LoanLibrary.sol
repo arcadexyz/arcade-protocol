@@ -34,7 +34,6 @@ library LoanLibrary {
         // Input conversion: 0.01% = (1 * 10**18) ,  10.00% = (1000 * 10**18)
         // This represents the rate over the lifetime of the loan, not APR.
         // 0.01% is the minimum interest rate allowed by the protocol.
-        /// @dev Max is 10,000%, fits in 160 bits
         uint256 proratedInterestRate;
         /// @dev Full-slot variables
         // The amount of principal in terms of the payableCurrency.
@@ -44,7 +43,7 @@ library LoanLibrary {
         address collateralAddress;
         /// @dev Packed variables
         // The number of seconds representing relative due date of the loan.
-        /// @dev Max is 94,608,000, fits in 32 bits
+        /// @dev Max is 94,608,000, fits in 96 bits
         uint96 durationSecs;
         // The token ID of the collateral.
         uint256 collateralId;
@@ -66,7 +65,6 @@ library LoanLibrary {
         // Input conversion: 0.01% = (1 * 10**18) ,  10.00% = (1000 * 10**18)
         // This represents the rate over the lifetime of the loan, not APR.
         // 0.01% is the minimum interest rate allowed by the protocol.
-        /// @dev Max is 10,000%, fits in 160 bits
         uint256 proratedInterestRate;
         /// @dev Full-slot variables
         // The amount of principal in terms of the payableCurrency.
@@ -75,7 +73,7 @@ library LoanLibrary {
         address collateralAddress;
         /// @dev Packed variables
         // The number of seconds representing relative due date of the loan.
-        /// @dev Max is 94,608,000, fits in 32 bits
+        /// @dev Max is 94,608,000, fits in 96 bits
         uint96 durationSecs;
         // An encoded list of predicates, along with their verifiers.
         bytes items;
