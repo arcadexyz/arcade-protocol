@@ -224,7 +224,7 @@ contract AssetVault is
 
             if (tokenTypes[i] == TokenType.ERC721) {
                 _withdrawERC721(tokens[i], tokenIds[i], to);
-            } else if (tokenTypes[i] == TokenType.ERC1155) {
+            } else {
                 _withdrawERC1155(tokens[i], tokenIds[i], to);
             }
 
