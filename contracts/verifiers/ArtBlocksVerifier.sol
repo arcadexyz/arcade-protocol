@@ -114,7 +114,7 @@ contract ArtBlocksVerifier is ISignatureVerifier {
                     // If project is owned, increment num found
                     // If we've found enough, break
                     if (ownedProjectId == item.projectId) {
-                        found++;
+                        unchecked { found++; }
 
                         if (found >= item.amount) break;
                     }
