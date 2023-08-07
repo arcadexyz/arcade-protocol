@@ -594,6 +594,8 @@ contract OriginationController is
                 i++;
             }
         }
+    }
+
     /**
      * @notice Return whether the address can be used as a loan funding currency.
      *
