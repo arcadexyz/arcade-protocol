@@ -26,7 +26,8 @@ import {
     ORIGINATOR_ROLE,
     REPAYER_ROLE,
     AFFILIATE_MANAGER_ROLE,
-    BASE_URI
+    BASE_URI,
+    MIN_LOAN_PRINCIPAL
 } from "./utils/constants";
 
 interface TestContext {
@@ -99,10 +100,11 @@ const fixture = async (): Promise<TestContext> => {
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController
-    await originationController.setAllowedPayableCurrencies([mockERC20.address], [true]);
+    await originationController.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
     // verify the currency is whitelisted
     const isWhitelisted = await originationController.allowedCurrencies(mockERC20.address);
-    expect(isWhitelisted).to.be.true;
+    expect(isWhitelisted.isAllowed).to.be.true;
+    expect(isWhitelisted.minPrincipal).to.eq(MIN_LOAN_PRINCIPAL);
 
     // admin whitelists MockERC721 and vaultFactory on OriginationController
     await originationController.setAllowedCollateralAddresses([vaultFactory.address], [true]);
@@ -334,7 +336,7 @@ describe("RepaymentController", () => {
 
             // Set up a new origination controller, that does not validate loan terms
             const mockOC = <MockNoValidationOC>await deploy("MockNoValidationOC", admin, [loanCore.address, feeController.address]);
-            await mockOC.setAllowedPayableCurrencies([mockERC20.address], [true]);
+            await mockOC.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
             await mockOC.setAllowedCollateralAddresses([vaultFactory.address], [true]);
 
             await loanCore.grantRole(
