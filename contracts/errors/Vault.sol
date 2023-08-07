@@ -155,6 +155,11 @@ error CW_NotWhitelisted(address callee, bytes4 selector);
 // ================================== Call Whitelist Delegation ======================================
 
 /**
+ * @notice Zero address passed in the constructor.
+ */
+error CWD_ZeroAddress();
+
+/**
  * @notice The registry address provided is currently set as the registry.
  */
 error CWD_RegistryAlreadySet();

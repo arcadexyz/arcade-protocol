@@ -46,6 +46,16 @@ describe("CallWhitelistDelegation", () => {
         };
     };
 
+    describe("constructor", () => {
+        it("fails to deploy if the delegate registry is the zero address", async () => {
+            const factory = await hre.ethers.getContractFactory("CallWhitelistDelegation");
+
+            await expect(factory.deploy(hre.ethers.constants.AddressZero)).to.be.revertedWith(
+                "CWD_ZeroAddress"
+            );
+        });
+    });
+
     describe("setDelegationApproval", () => {
         it("should succeed from owner", async () => {
             const { whitelist, mockERC20, user } = await loadFixture(fixture);
