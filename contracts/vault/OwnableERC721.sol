@@ -15,6 +15,8 @@ import { OERC721_CallerNotOwner } from "../errors/Vault.sol";
  * where the token ID converts to an on-chain address.
  */
 abstract contract OwnableERC721 {
+    event SetOwnershipToken(address indexed caller, address indexed ownershipToken);
+
     // ============================================ STATE ==============================================
 
     /// @dev The ERC721 token that contract owners should have ownership of.
@@ -43,6 +45,8 @@ abstract contract OwnableERC721 {
      */
     function _setNFT(address _ownershipToken) internal {
         ownershipToken = _ownershipToken;
+
+        emit SetOwnershipToken(msg.sender, _ownershipToken);
     }
 
     /**
