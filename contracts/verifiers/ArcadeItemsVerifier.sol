@@ -107,7 +107,7 @@ contract ArcadeItemsVerifier is ISignatureVerifier {
         SignatureItem[] memory items = abi.decode(predicates, (SignatureItem[]));
         if (items.length == 0) revert IV_NoPredicates();
 
-        for (uint256 i = 0; i < items.length; i++) {
+        for (uint256 i = 0; i < items.length;) {
             SignatureItem memory item = items[i];
 
             // No asset provided
@@ -140,6 +140,12 @@ contract ArcadeItemsVerifier is ISignatureVerifier {
 
                 // Does not own specifically specified asset
                 if (asset.balanceOf(vault) < item.amount) return false;
+            }
+
+            // Predicates is calldata, overflow is impossible bc of calldata
+            // size limits vis-a-vis gas
+            unchecked {
+                i++;
             }
         }
 

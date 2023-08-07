@@ -518,7 +518,9 @@ contract LoanCore is
         if (!collateralInUse[keccak256(abi.encode(OwnableERC721(vault).ownershipToken(), uint256(uint160(vault))))]) {
             return false;
         }
-        for (uint256 i = 0; i < borrowerNote.balanceOf(caller); i++) {
+
+        uint256 noteCount = borrowerNote.balanceOf(caller);
+        for (uint256 i = 0; i < noteCount;) {
             uint256 loanId = borrowerNote.tokenOfOwnerByIndex(caller, i);
 
             // if the borrower is currently borrowing against this vault,
@@ -528,6 +530,11 @@ contract LoanCore is
                 loans[loanId].terms.collateralId == uint256(uint160(vault))
             ) {
                 return true;
+            }
+
+            // Can never overflow bc balanceOf is bounded by uint256
+            unchecked {
+                i++;
             }
         }
         return false;
@@ -608,7 +615,7 @@ contract LoanCore is
     ) external override onlyRole(AFFILIATE_MANAGER_ROLE) {
         if (codes.length != splits.length) revert LC_ArrayLengthMismatch();
 
-        for (uint256 i = 0; i < codes.length; ++i) {
+        for (uint256 i = 0; i < codes.length;) {
             if (splits[i].splitBps > MAX_AFFILIATE_SPLIT)
                 revert LC_OverMaxSplit(splits[i].splitBps, MAX_AFFILIATE_SPLIT);
 
@@ -617,6 +624,12 @@ contract LoanCore is
 
             affiliateSplits[codes[i]] = splits[i];
             emit AffiliateSet(codes[i], splits[i].affiliate, splits[i].splitBps);
+
+            // codes is calldata, overflow is impossible bc of calldata
+            // size limits vis-a-vis gas
+            unchecked {
+                i++;
+            }
         }
     }
 
