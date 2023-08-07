@@ -7,7 +7,6 @@ import "../interfaces/IVaultFactory.sol";
 
 import { IV_NoAmount, IV_InvalidWildcard, IV_ItemMissingAddress, IV_InvalidCollateralType } from "../errors/Lending.sol";
 
-
 /**
  * @title UnvaultedItemsVerifier
  * @author Non-Fungible Technologies, Inc.
@@ -68,7 +67,7 @@ contract UnvaultedItemsVerifier is ISignatureVerifier {
         address collateralAddress,
         uint256 collateralId,
         bytes calldata predicates
-    ) external pure override returns (bool) {
+    ) external view override returns (bool) {
         // Unpack items
         (address token, uint256 tokenId, bool anyIdAllowed) = decodeData(predicates);
 

@@ -1503,10 +1503,20 @@ describe("OriginationController", () => {
 
             const loanTerms = createLoanTerms(mockERC20.address, mockERC721.address, { collateralId: tokenId });
 
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 0, // ERC721
+                    asset: mockERC721.address,
+                    tokenId: 0,
+                    amount: 1,
+                    anyIdAllowed: true,
+                },
+            ];
+
             const predicates: ItemsPredicate[] = [
                 {
                     verifier: uvVerifier.address,
-                    data: encodeItemCheck(mockERC721.address, 0, true),
+                    data: encodeSignatureItems(signatureItems),
                 },
             ];
 
@@ -1542,10 +1552,20 @@ describe("OriginationController", () => {
 
             const loanTerms = createLoanTerms(mockERC20.address, mockERC721.address, { collateralId: tokenId });
 
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 0, // ERC721
+                    asset: mockERC721.address,
+                    tokenId: tokenId,
+                    amount: 1,
+                    anyIdAllowed: false,
+                },
+            ];
+
             const predicates: ItemsPredicate[] = [
                 {
                     verifier: uvVerifier.address,
-                    data: encodeItemCheck(mockERC721.address, tokenId, false),
+                    data: encodeSignatureItems(signatureItems),
                 },
             ];
 
@@ -1581,10 +1601,20 @@ describe("OriginationController", () => {
 
             const loanTerms = createLoanTerms(mockERC20.address, mockERC721.address, { collateralId: tokenId });
 
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 0, // ERC721
+                    asset: mockERC20.address,
+                    tokenId: 0,
+                    amount: 1,
+                    anyIdAllowed: true,
+                },
+            ];
+
             const predicates: ItemsPredicate[] = [
                 {
                     verifier: uvVerifier.address,
-                    data: encodeItemCheck(mockERC20.address, 0, true),
+                    data: encodeSignatureItems(signatureItems),
                 },
             ];
 
@@ -1618,10 +1648,20 @@ describe("OriginationController", () => {
 
             const loanTerms = createLoanTerms(mockERC20.address, mockERC721.address, { collateralId: tokenId });
 
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 0, // ERC721
+                    asset: mockERC721.address,
+                    tokenId: tokenId.mul(2),
+                    amount: 1,
+                    anyIdAllowed: false,
+                },
+            ];
+
             const predicates: ItemsPredicate[] = [
                 {
                     verifier: uvVerifier.address,
-                    data: encodeItemCheck(mockERC721.address, tokenId.mul(2), false),
+                    data: encodeSignatureItems(signatureItems),
                 },
             ];
 
