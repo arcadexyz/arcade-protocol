@@ -8,7 +8,7 @@ import "../interfaces/ISignatureVerifier.sol";
 import "../interfaces/IVaultFactory.sol";
 import "../external/interfaces/IPunks.sol";
 
-import { IV_InvalidTokenId, IV_NoPredicates } from "../errors/Lending.sol";
+import { IV_InvalidTokenId, IV_NoPredicates, IV_InvalidCollateralId } from "../errors/Lending.sol";
 
 /**
  * @title PunksVerifier
@@ -62,6 +62,11 @@ contract PunksVerifier is ISignatureVerifier {
         bytes calldata predicates
     ) external view override returns (bool) {
         address vault = IVaultFactory(collateralAddress).instanceAt(collateralId);
+
+        // Make sure vault address, converted back into uint256, matches the original
+        // collateralId. An arbitrary collateralId could theoretically collide with the
+        // another vault's address, meaning the wrong vault would be checked.
+        if (collateralId != uint256(uint160(vault))) revert IV_InvalidCollateralId(collateralId);
 
         // Unpack items
         int256[] memory tokenIds = abi.decode(predicates, (int256[]));

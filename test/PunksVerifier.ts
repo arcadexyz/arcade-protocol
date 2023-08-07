@@ -11,7 +11,8 @@ import {
     VaultFactory,
     CryptoPunksMarket,
     FeeController,
-    BaseURIDescriptor
+    BaseURIDescriptor,
+    CollisionVaultFactory
 } from "../typechain";
 import { deploy } from "./utils/contracts";
 
@@ -24,6 +25,7 @@ interface TestContext {
     verifier: PunksVerifier;
     punks: CryptoPunksMarket;
     vaultFactory: VaultFactory;
+    collisionFactory: CollisionVaultFactory;
     deployer: Signer;
     user: Signer;
     signers: Signer[];
@@ -45,6 +47,7 @@ describe("PunksVerifier", () => {
         const feeController = <FeeController>await deploy("FeeController", signers[0], []);
         const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
         const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address]);
+        const collisionFactory = <CollisionVaultFactory>await deploy("CollisionVaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address])
 
         await punks.allInitialOwnersAssigned();
 
@@ -55,6 +58,7 @@ describe("PunksVerifier", () => {
             deployer,
             user,
             signers: signers.slice(2),
+            collisionFactory
         };
     };
 
@@ -81,6 +85,31 @@ describe("PunksVerifier", () => {
 
             // Will revert because 20000 is not a valid punk token Id
             await expect(verifier.verifyPredicates(user.address, user.address, vaultFactory.address, bundleId, encodeInts([20000]))).to.be.revertedWith("IV_InvalidTokenId");
+        });
+
+        it("reverts if the vault address does not convert into the collateralId", async () => {
+            const { verifier, user, collisionFactory, punks } = ctx;
+
+            const bundleId = await initializeBundle(collisionFactory, user);
+            const bundleAddress = await collisionFactory.instanceAt(bundleId);
+
+            const tokenId = 5555;
+            await punks.connect(user).getPunk(tokenId);
+            await punks.connect(user).transferPunk(bundleAddress, tokenId);
+
+            // Create tokenId that will collide with existing vault
+            const collidingId = await collisionFactory.callStatic.initializeCollision(bundleAddress, user.address);
+            await collisionFactory.initializeCollision(bundleAddress, user.address);
+
+            await expect(
+                verifier.verifyPredicates(
+                    user.address,
+                    user.address,
+                    collisionFactory.address,
+                    collidingId,
+                    encodeInts([tokenId])
+                )
+            ).to.be.revertedWith("IV_InvalidCollateralId");
         });
 
         it("verifies a specific punk token id", async () => {

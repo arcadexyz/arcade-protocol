@@ -11,7 +11,8 @@ import {
     CallWhitelist,
     AssetVault,
     FeeController,
-    BaseURIDescriptor
+    BaseURIDescriptor,
+    CollisionVaultFactory
 } from "../typechain";
 import { deploy } from "./utils/contracts";
 import { initializeBundle } from "./utils/loans";
@@ -24,6 +25,7 @@ interface TestContext {
     mockERC721: MockERC721;
     deployer: SignerWithAddress;
     vaultFactory: VaultFactory;
+    collisionFactory: CollisionVaultFactory;
 }
 
 describe("CollectionWideOfferVerifier", () => {
@@ -42,9 +44,9 @@ describe("CollectionWideOfferVerifier", () => {
         const feeController = <FeeController>await deploy("FeeController", signers[0], []);
         const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
         const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address])
+        const collisionFactory = <CollisionVaultFactory>await deploy("CollisionVaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address])
 
-
-        return { verifier, mockERC721, deployer, vaultFactory };
+        return { verifier, mockERC721, deployer, vaultFactory, collisionFactory };
     };
 
     describe("verifyPredicates", () => {
@@ -88,15 +90,36 @@ describe("CollectionWideOfferVerifier", () => {
             const bundleId = await initializeBundle(vaultFactory, deployer);
             await mockERC721.mint(await vaultFactory.instanceAt(bundleId));
 
-            expect(
-                await verifier.verifyPredicates(
+            await expect(
+                verifier.verifyPredicates(
                     mockERC721.address,
                     mockERC721.address,
                     vaultFactory.address,
                     1010101010101, // diff bundle that has not been registered
                     ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address])
                 )
-            ).to.eq(false);
+            ).to.be.revertedWith("VF_TokenIdOutOfBounds");
+        });
+
+        it("reverts if the vault address does not convert into the collateralId", async () => {
+            const { verifier, mockERC721, deployer, collisionFactory } = ctx;
+
+            const bundleId = await initializeBundle(collisionFactory, deployer);
+            await mockERC721.mint(await collisionFactory.instanceAt(bundleId));
+
+            // Create tokenId that will collide with existing vault
+            const collidingId = await collisionFactory.callStatic.initializeCollision(bundleId.toString(), deployer.address);
+            await collisionFactory.initializeCollision(bundleId.toString(), deployer.address);
+
+            await expect(
+                verifier.verifyPredicates(
+                    mockERC721.address,
+                    mockERC721.address,
+                    collisionFactory.address,
+                    collidingId,
+                    ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address])
+                )
+            ).to.be.revertedWith("IV_InvalidCollateralId");
         });
 
         it("returns false if the vault does not hold the token", async () => {

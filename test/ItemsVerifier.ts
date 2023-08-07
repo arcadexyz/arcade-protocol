@@ -13,7 +13,8 @@ import {
     MockERC721,
     MockERC1155,
     FeeController,
-    BaseURIDescriptor
+    BaseURIDescriptor,
+    CollisionVaultFactory
 } from "../typechain";
 import { deploy } from "./utils/contracts";
 
@@ -32,6 +33,7 @@ interface TestContext {
     mockERC721: MockERC721;
     mockERC1155: MockERC1155;
     vaultFactory: VaultFactory;
+    collisionFactory: CollisionVaultFactory;
     deployer: Signer;
     user: Signer;
     signers: Signer[];
@@ -55,6 +57,7 @@ describe("ItemsVerifier", () => {
         const feeController = <FeeController>await deploy("FeeController", signers[0], []);
         const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
         const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address]);
+        const collisionFactory = <CollisionVaultFactory>await deploy("CollisionVaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address])
 
         return {
             verifier,
@@ -65,6 +68,7 @@ describe("ItemsVerifier", () => {
             deployer,
             user,
             signers: signers.slice(2),
+            collisionFactory
         };
     };
 
@@ -113,6 +117,40 @@ describe("ItemsVerifier", () => {
 
             // Will revert because 4 can't be parsed as an enum
             await expect(verifier.verifyPredicates(user.address, user.address, vaultFactory.address, bundleId, encodeSignatureItems(signatureItems))).to.be.reverted;
+        });
+
+        it("fails if the vault address does not convert into the collateralId", async () => {
+            const { user, mockERC721, verifier, deployer, collisionFactory } = ctx;
+
+            const bundleId = await initializeBundle(collisionFactory, user);
+            const bundleAddress = await collisionFactory.instanceAt(bundleId);
+            const tokenId = await mint721(mockERC721, user);
+            await mockERC721.connect(user).transferFrom(user.address, bundleAddress, tokenId);
+
+            // Create predicate for a single ID
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 0,
+                    asset: mockERC721.address,
+                    tokenId,
+                    amount: 1,
+                    anyIdAllowed: false
+                },
+            ];
+
+            // Create tokenId that will collide with existing vault
+            const collidingId = await collisionFactory.callStatic.initializeCollision(bundleAddress, user.address);
+            await collisionFactory.initializeCollision(bundleAddress, user.address);
+
+            await expect(
+                verifier.verifyPredicates(
+                    deployer.address,
+                    deployer.address,
+                    collisionFactory.address,
+                    collidingId,
+                    encodeSignatureItems(signatureItems)
+                )
+            ).to.be.revertedWith("IV_InvalidCollateralId");
         });
 
         it("fails if a signature item is missing an address", async () => {
