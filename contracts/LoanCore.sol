@@ -164,6 +164,7 @@ contract LoanCore is
     ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 loanId) {
         // Check collateral is not already used in a loan
         bytes32 collateralKey = keccak256(abi.encode(terms.collateralAddress, terms.collateralId));
+
         if (collateralInUse[collateralKey]) revert LC_CollateralInUse(terms.collateralAddress, terms.collateralId);
 
         // Check that we will not net lose tokens
@@ -193,8 +194,6 @@ contract LoanCore is
         });
 
         // Distribute notes and principal
-        _mintLoanNotes(loanId, borrower, lender);
-
         // Collect collateral from borrower
         IERC721(terms.collateralAddress).transferFrom(borrower, address(this), terms.collateralId);
 

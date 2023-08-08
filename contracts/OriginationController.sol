@@ -203,6 +203,7 @@ contract OriginationController is
         LoanLibrary.Predicate[] calldata itemPredicates
     ) public override returns (uint256 loanId) {
         _validateLoanTerms(loanTerms);
+
         if (itemPredicates.length == 0) revert OC_PredicatesArrayEmpty();
 
         bytes32 encodedPredicates = _encodePredicates(itemPredicates);

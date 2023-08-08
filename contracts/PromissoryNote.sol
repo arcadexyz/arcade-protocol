@@ -18,7 +18,7 @@ import {
     PN_BurningRole,
     PN_DoesNotExist
 } from "./errors/Lending.sol";
-
+import "hardhat/console.sol";
 /**
  * @title PromissoryNote
  * @author Non-Fungible Technologies, Inc.
@@ -131,7 +131,7 @@ contract PromissoryNote is
         if (!hasRole(MINT_BURN_ROLE, msg.sender)) revert PN_MintingRole(msg.sender);
 
         _safeMint(to, loanId);
-
+console.log("140 PNOTE MINTED ++++++++++++++++++++++++++");
         return loanId;
     }
 

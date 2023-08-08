@@ -42,7 +42,7 @@ export async function vaultAssetsAndMakeLoans(
         loanCore,
         feeController,
         whitelist,
-        verifier
+        verifier,
     );
 
     // Connect the first signer with the

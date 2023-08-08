@@ -147,7 +147,7 @@ export const config: HardhatUserConfig = {
                     optimizer: {
                         enabled: optimizerEnabled,
                         runs: 200,
-                    },
+                    }
                 },
             },
             {
@@ -155,6 +155,9 @@ export const config: HardhatUserConfig = {
             },
             {
                 version: "0.4.12",
+            },
+            {
+                version: "0.8.4",
             },
         ],
     },
@@ -166,7 +169,7 @@ export const config: HardhatUserConfig = {
         apiKey: process.env.ETHERSCAN_API_KEY,
     },
     mocha: {
-        timeout: 100000
+        timeout: 100000,
     },
 };
 
