@@ -23,9 +23,9 @@ import { BlockchainTime } from "./utils/time";
 import { deploy } from "./utils/contracts";
 import { approve, mint } from "./utils/erc20";
 import { mint as mint721 } from "./utils/erc721";
-import { LoanTerms, LoanData, ItemsPredicate } from "./utils/types";
+import { LoanTerms, LoanData, ItemsPredicate, SignatureItem } from "./utils/types";
 import { createLoanItemsSignature, createLoanTermsSignature } from "./utils/eip712";
-import { encodeItemCheck } from "./utils/loans";
+import { encodeItemCheck, encodeSignatureItems } from "./utils/loans";
 
 import {
     ADMIN_ROLE,
@@ -853,10 +853,20 @@ describe("Integration", () => {
             const lenderFee = loanTerms.principal.mul(lenderFeeBps).div(10_000);
             const lenderWillSend = loanTerms.principal.add(lenderFee);
 
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 0, // ERC721
+                    asset: mockERC721.address,
+                    tokenId: 0,
+                    amount: 1,
+                    anyIdAllowed: true,
+                },
+            ];
+
             const predicates: ItemsPredicate[] = [
                 {
                     verifier: uvVerifier.address,
-                    data: encodeItemCheck(mockERC721.address, 0, true),
+                    data: encodeSignatureItems(signatureItems)
                 },
             ];
 
@@ -893,10 +903,20 @@ describe("Integration", () => {
                 throw new Error("Unable to initialize loan");
             }
 
+            const signatureItems2: SignatureItem[] = [
+                {
+                    cType: 0, // ERC721
+                    asset: mockERC721.address,
+                    tokenId: tokenId,
+                    amount: 1,
+                    anyIdAllowed: false,
+                },
+            ];
+
             const rolloverPredicates: ItemsPredicate[] = [
                 {
                     verifier: uvVerifier.address,
-                    data: encodeItemCheck(mockERC721.address, tokenId, false),
+                    data: encodeSignatureItems(signatureItems2),
                 },
             ];
 
