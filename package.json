@@ -95,5 +95,8 @@
         "bootstrap-no-loans": "npx hardhat --network localhost run scripts/bootstrap-state-no-loans.ts",
         "verify-contracts": "ts-node scripts/verify-contracts.ts",
         "setup-roles": "ts-node scripts/utils/setup-roles.ts"
+    },
+    "dependencies": {
+        "@openzeppelin/upgrades": "^2.8.0"
     }
 }

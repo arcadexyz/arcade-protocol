@@ -4,7 +4,6 @@ import { ethers, BigNumber } from "ethers";
 ////// MAINNET ADDRESSES //////
 ///////////////////////////////
 export const BORROWER = "0x2B6C7d09C6c28a027b38A2721C3f4bD3C61Af964"; // user calling the rollover function
-export const LOAN_COLLATERAL_ADDRESS = "0x6e9b4c2f6bd57b7b924d29b5dcfca1273ecc94a2"; // Vault Factory
 export const BALANCER_ADDRESS = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"; // Balancer vault
 
 // USDC - 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48
@@ -20,14 +19,12 @@ export const WHALE = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"; // WETH Whale
 ///////////////////////////////
 //////// NFTFI LOAN DATA //////
 ///////////////////////////////
-export const LOAN_ID = 42595; // active nftfi loanId on mainnet: https://etherscan.io/address/0xE52Cec0E90115AbeB3304BaA36bc2655731f7934#readContract
-export const NFTFI_REPAYMENT_AMOUNT = ethers.utils.parseUnits("22.37304553045859", 18);
+export const LOAN_ID = 42595; // nftfi loanId on mainnet: https://etherscan.io/address/0xE52Cec0E90115AbeB3304BaA36bc2655731f7934#readContract
 export const NFTFI_OBLIGATION_RECEIPT_TOKEN_ADDRESS = "0xe73ECe5988FfF33a012CEA8BB6Fd5B27679fC481";
-export const NFTFI_LENDER = "0x12e6ad13e280779264e2c4Ee0B40B312d4B97142";
-export const NFTFI_LENDER_PROMISSORY_NOTE_TOKEN_ADDRESS = "0x5660E206496808F7b5cDB8C56A696a96AE5E9b23";
 export const NFTFI_SMARTNFT_ID = "7887776219097948710"; // https://etherscan.io/nft/0x5660e206496808f7b5cdb8c56a696a96ae5e9b23/8367243638575900279
 export const NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS = "0xE52Cec0E90115AbeB3304BaA36bc2655731f7934"; // https://etherscan.io/address/0x8252df1d8b29057d1afe3062bf5a64d503152bc8#code
 export const NFTFI_DIRECT_LOAN_COORDINATOR_ADDRESS = "0x0c90c8b4aa8549656851964d5fb787f0e4f54082";
+export const NFTFI_REPAYMENT_AMOUNT = ethers.utils.parseUnits("22.37304553045859", 18);
 
 ///////////////////////////////
 //////// V3 LOAN DATA /////////
@@ -38,6 +35,7 @@ export const V3_LOAN_INTEREST_RATE = ethers.utils.parseUnits("2.75", 18); // new
 // collection wide offer parameters
 export const LENDER_SPECIFIED_COLLATERAL_ID = 8170;
 export const LENDER_SPECIFIED_COLLATERAL = "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d"; // BAYC
+export const MIN_LOAN_PRINCIPAL = ethers.utils.parseUnits("22.0", 18);;
 
 ///////////////////////////////
 //// NFTFI CONTRACT ABIS /////

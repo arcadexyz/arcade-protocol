@@ -34,6 +34,7 @@ import {
     DIRECT_LOAN_FIXED_OFFER_ABI,
     NFTFI_OBLIGATION_RECEIPT_TOKEN_ABI,
     NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS,
+    MIN_LOAN_PRINCIPAL
 } from "./config";
 
 import { createLoanItemsSignature } from "../../test/utils/eip712";
@@ -42,26 +43,19 @@ import { encodeSignatureItems } from "../../test/utils/loans";
 
 /**
  * This script deploys V3 lending protocol and sets up roles and permissions. Deploys
- * FlashRolloverNftFiToV3 contract. Then, executes a NftFi -> V3 rollover using active
- * loan on mainnet. Before running this script, make sure the MAINNET STATE FOR FORKING
- * section is updated with the valid values from mainnet. Also ensure that the collateral
- * and payable currency used in the loan terms are added to the OriginationController in
- * the setup section. Lastly, choose which flash loan provider to use by setting the
- * FLASH_SOURCE env variable to either 'balancer' or 'AAVE'.
+ * the FlashRolloverNftFiToV3 contract, then, executes a NftFi -> V3 rollover using a
+ * Balancer Flashloan to rollover an active NFTFI loan on mainnet. Before running this
+ * script, make sure the nftfi-rollover/config.ts file is updated with valid values
+ * from mainnet.
+ *
+ * This script defaults to using the ArcadeUnvaultedItemsVerifier for the rollover. The
+ * verifier contract is set to an allowed verifier in the OriginationController.
  *
  * Run this script with the following command:
- * `FORK_MAINNET=true npx hardhat run scripts/test-nftfi-rollover.ts`
+ * `FORK_MAINNET=true npx hardhat run scripts/nftfi-rollover/test-nftfi-rollover.ts`
  */
 
 export async function main(): Promise<void> {
-    // check the flash loan provider is set
-    let flashSource: string;
-    if (!process.env.FLASH_SOURCE) {
-        throw new Error("FLASH_SOURCE env variable not set");
-    } else {
-        flashSource = process.env.FLASH_SOURCE;
-    }
-
     // ================================== Deploy V3 Lending Protocol ==================================
     // Deploy V3 contracts
     console.log(SECTION_SEPARATOR);
@@ -153,16 +147,16 @@ export async function main(): Promise<void> {
 
     // ============= BorrowerNote ==============
 
-    const initBorrowerNote = await borrowerNote.initialize(loanCore.address);
+    const initBorrowerNote = await borrowerNote.initialize(LOAN_CORE_ADDRESS);
     await initBorrowerNote.wait();
-    console.log(`BorrowerNote: initialized loanCore at address ${loanCore.address}`);
+    console.log(`BorrowerNote: initialized loanCore at address ${LOAN_CORE_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
     // ============= LenderNote ==============
 
-    const initLenderNote = await lenderNote.initialize(loanCore.address);
+    const initLenderNote = await lenderNote.initialize(LOAN_CORE_ADDRESS);
     await initLenderNote.wait();
-    console.log(`LenderNote: initialized loanCore at address ${loanCore.address}`);
+    console.log(`LenderNote: initialized loanCore at address ${LOAN_CORE_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
     // ============= LoanCore ==============
@@ -212,7 +206,7 @@ export async function main(): Promise<void> {
         [true],
     );
     await addCollateral.wait();
-    const addPayableCurrency = await originationController.setAllowedPayableCurrencies([PAYABLE_CURRENCY], [true]);
+    const addPayableCurrency = await originationController.setAllowedPayableCurrencies([PAYABLE_CURRENCY], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
     await addPayableCurrency.wait();
 
     // Deploy NftFI -> v3 rollover contract and set the flash loan fee value
@@ -232,6 +226,7 @@ export async function main(): Promise<void> {
     console.log("FlashRolloverNftfiToV3 deployed to:", flashRollover.address);
     const flashLoanFee: BigNumber = BigNumber.from("0"); // 0% flash loan fee on Balancer
     console.log("Owner:", await flashRollover.owner());
+
     // impersonate accounts
     console.log(SUBSECTION_SEPARATOR);
     await hre.network.provider.request({
@@ -242,17 +237,11 @@ export async function main(): Promise<void> {
         method: "hardhat_impersonateAccount",
         params: [BORROWER],
     });
-    await hre.network.provider.request({
-        method: "hardhat_setBalance",
-        params: [WHALE, "0x3635C9ADC5DEA000000"], // 10000 ETH
-    });
-
     const whale = await hre.ethers.getSigner(WHALE);
     const borrower = await hre.ethers.getSigner(BORROWER);
 
     const erc20Factory = await ethers.getContractFactory("ERC20");
     const payableCurrency = <ERC20>erc20Factory.attach(`${PAYABLE_CURRENCY}`);
-    console.log("Payable currency address:", payableCurrency.address);
 
     // Distribute ETH and payable currency by impersonating a whale account
     console.log("Whale distributes ETH and payable currency...");

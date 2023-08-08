@@ -5,23 +5,23 @@ pragma solidity 0.8.18;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-import "../../interfaces/IOriginationController.sol";
-import "../../interfaces/IFeeController.sol";
-import "../../interfaces/ILoanCore.sol";
+import "./IOriginationController.sol";
+import "./IFeeController.sol";
+import "./ILoanCore.sol";
 
-import "../../libraries/LoanLibrary.sol";
+import "../libraries/LoanLibrary.sol";
 
-import "../../external/interfaces/IFlashLoanRecipient.sol";
-import "../../external/NFTFI/loans/direct/loanTypes/DirectLoanFixedOffer.sol";
+import "../external/interfaces/IFlashLoanRecipient.sol";
+import "../external/NFTFI/loans/direct/loanTypes/DirectLoanFixedOffer.sol";
 
 interface INftfiRollover is IFlashLoanRecipient {
-    event RolloverNftfi(address indexed lender, address indexed borrower, uint256 nftfiLoanId, uint256 newLoanId);
+    event NftfiRollover(
+        address indexed lender,
+        address indexed borrower,
+        uint256 nftfiLoanId,
+        uint256 newLoanId
+    );
 
-    /**
-     * Holds parameters passed through flash loan
-     * control flow that dictate terms of the new loan.
-     * Contains a signature by lender for same terms.
-     */
     struct OperationDataWithItems {
         uint256 loanId;
         address borrower;
@@ -34,10 +34,6 @@ interface INftfiRollover is IFlashLoanRecipient {
         LoanLibrary.Predicate[] itemPredicates;
     }
 
-    /**
-     * Defines the contracts that should be used for a
-     * flash loan operation.
-     */
     struct OperationContracts {
         IFeeController feeController;
         IOriginationController originationController;

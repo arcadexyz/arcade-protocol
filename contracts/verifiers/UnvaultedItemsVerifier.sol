@@ -69,7 +69,7 @@ contract UnvaultedItemsVerifier is ISignatureVerifier {
         bytes calldata predicates
     ) external view override returns (bool) {
         // Unpack items
-        (address token, uint256 tokenId, bool anyIdAllowed) = decodeData(predicates);
+        (address token, uint256 tokenId, bool anyIdAllowed) = _decodeData(predicates);
 
         //No asset provided
         if (token == address(0)) revert IV_ItemMissingAddress();
@@ -85,17 +85,15 @@ contract UnvaultedItemsVerifier is ISignatureVerifier {
     }
 
     /**
-     * @notice TODO: add natspce
+     * @notice Helper function to decode the predicate calldata.
+     *
+     * @param data                          The encoded data to decode.
+     *
+     * @return asset                        The address of the lender specified collateral.
+     * @return tokenId                      The tokenId of the lender specified collateral.
+     * @return anyIdAllowed                 Whether any id is allowed.
      */
-    function decodeData(bytes memory data)
-        public
-        pure
-        returns (
-            address,
-            uint256,
-            bool
-        )
-    {
+    function _decodeData(bytes memory data) internal pure returns (address, uint256, bool){
         SignatureItem[] memory items = abi.decode(data, (SignatureItem[]));
 
         require(items.length > 0, "No items to decode");
