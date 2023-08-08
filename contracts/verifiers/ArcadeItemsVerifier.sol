@@ -91,7 +91,8 @@ contract ArcadeItemsVerifier is ISignatureVerifier {
      */
     // solhint-disable-next-line code-complexity
     function verifyPredicates(
-        address, address,
+        address,
+        address,
         address collateralAddress,
         uint256 collateralId,
         bytes calldata predicates
@@ -115,7 +116,6 @@ contract ArcadeItemsVerifier is ISignatureVerifier {
 
             // No amount provided
             if (item.amount == 0) revert IV_NoAmount(item.asset, item.amount);
-
 
             if (item.cType == CollateralType.ERC_721) {
                 IERC721 asset = IERC721(item.asset);

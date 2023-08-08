@@ -6,12 +6,7 @@ import "./base/V2ToV3RolloverBase.sol";
 
 import "../interfaces/IV2ToV3Rollover.sol";
 
-import {
-    R_UnknownCaller,
-    R_InsufficientFunds,
-    R_InsufficientAllowance,
-    R_Paused
-} from "./errors/RolloverErrors.sol";
+import { R_UnknownCaller, R_InsufficientFunds, R_InsufficientAllowance, R_Paused } from "./errors/RolloverErrors.sol";
 
 /**
  * @title V2ToV3Rollover
@@ -33,7 +28,7 @@ contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase {
 
     /**
      * @notice Rollover a loan from V2 to V3. Validates new loan terms against the old terms.
-     *         Takes out Flash Loan for principal + interest, repays old loan, and starts new 
+     *         Takes out Flash Loan for principal + interest, repays old loan, and starts new
      *         loan on V3.
      *
      * @param loanId                 The ID of the loan to be rolled over.
@@ -57,7 +52,7 @@ contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase {
 
         LoanLibraryV2.LoanTerms memory loanTerms = loanCoreV2.getLoan(loanId).terms;
 
-        (address borrower) = _validateRollover(
+        address borrower = _validateRollover(
             loanTerms,
             newLoanTerms,
             loanId // same as borrowerNoteId
@@ -70,18 +65,16 @@ contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase {
         amounts[0] = repaymentControllerV2.getFullInterestAmount(loanTerms.principal, loanTerms.interestRate);
 
         bytes memory params = abi.encode(
-            OperationData(
-                {
-                    loanId: loanId,
-                    borrower: borrower,
-                    newLoanTerms: newLoanTerms,
-                    lender: lender,
-                    nonce: nonce,
-                    v: v,
-                    r: r,
-                    s: s
-                }
-            )
+            OperationData({
+                loanId: loanId,
+                borrower: borrower,
+                newLoanTerms: newLoanTerms,
+                lender: lender,
+                nonce: nonce,
+                v: v,
+                r: r,
+                s: s
+            })
         );
 
         // Flash loan based on principal + interest
@@ -90,7 +83,7 @@ contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase {
 
     /**
      * @notice Callback function for flash loan.
-     * 
+     *
      * @dev The caller of this function must be the lending pool.
      *
      * @param assets                 The ERC20 address that was borrowed in Flash Loan.
@@ -117,7 +110,7 @@ contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase {
      * @param assets                 The ERC20 that was borrowed in Flash Loan.
      * @param amounts                The amount that was borrowed in Flash Loan.
      * @param premiums               The fees that are due back to the lending pool.
-     * @param opData                 The data to be executed after receiving Flash Loan.                 
+     * @param opData                 The data to be executed after receiving Flash Loan.
      */
     function _executeOperation(
         IERC20[] calldata assets,
@@ -159,18 +152,9 @@ contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase {
         _repayLoan(loanData, opData.loanId, opData.borrower);
 
         {
-            uint256 newLoanId = _initializeNewLoan(
-                opData.borrower,
-                opData.lender,
-                opData
-            );
+            uint256 newLoanId = _initializeNewLoan(opData.borrower, opData.lender, opData);
 
-            emit V2V3Rollover(
-                opData.lender,
-                opData.borrower,
-                loanData.terms.collateralId,
-                newLoanId
-            );
+            emit V2V3Rollover(opData.lender, opData.borrower, loanData.terms.collateralId, newLoanId);
         }
 
         if (leftoverPrincipal > 0) {
@@ -211,12 +195,7 @@ contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase {
             opData.newLoanTerms,
             address(this),
             lender,
-            IOriginationController.Signature({
-                v: opData.v,
-                r: opData.r,
-                s: opData.s,
-                extraData: "0x"
-            }),
+            IOriginationController.Signature({ v: opData.v, r: opData.r, s: opData.s, extraData: "0x" }),
             opData.nonce
         );
 

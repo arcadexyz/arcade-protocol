@@ -1,9 +1,7 @@
 import hre, { ethers } from "hardhat";
 import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../utils/bootstrap-tools";
 
-import {
-    CryptoPunksMarket
-} from "../../typechain";
+import { CryptoPunksMarket } from "../../typechain";
 
 export interface DeployedResources {
     punks: CryptoPunksMarket;

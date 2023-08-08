@@ -14,7 +14,7 @@ import {
     AssetVault,
     FeeController,
     RepaymentController,
-    BaseURIDescriptor
+    BaseURIDescriptor,
 } from "../typechain";
 
 import { deploy } from "./utils/contracts";
@@ -23,12 +23,7 @@ import { fromRpcSig } from "ethereumjs-util";
 
 type Signer = SignerWithAddress;
 
-import {
-    ORIGINATOR_ROLE,
-    REPAYER_ROLE,
-    BASE_URI,
-    RESOURCE_MANAGER_ROLE
-} from "./utils/constants";
+import { ORIGINATOR_ROLE, REPAYER_ROLE, BASE_URI, RESOURCE_MANAGER_ROLE } from "./utils/constants";
 import { ZERO_ADDRESS } from "./utils/erc20";
 import { Test } from "mocha";
 
@@ -54,11 +49,17 @@ const fixture = async (): Promise<TestContext> => {
     const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
     const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
     const feeController = <FeeController>await deploy("FeeController", signers[0], []);
-    const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
-    const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address]);
+    const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI]);
+    const vaultFactory = <VaultFactory>(
+        await deploy("VaultFactory", signers[0], [
+            vaultTemplate.address,
+            whitelist.address,
+            feeController.address,
+            descriptor.address,
+        ])
+    );
 
     const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
-
 
     const borrowerNote = <PromissoryNote>(
         await deploy("PromissoryNote", signers[0], ["Arcade.xyz BorrowerNote", "aBN", descriptor.address])
@@ -75,9 +76,9 @@ const fixture = async (): Promise<TestContext> => {
         await note.connect(signers[0]).initialize(signers[0].address);
     }
 
-    const originationController = <OriginationController>await deploy(
-        "OriginationController", signers[0], [loanCore.address, feeController.address]
-    )
+    const originationController = <OriginationController>(
+        await deploy("OriginationController", signers[0], [loanCore.address, feeController.address])
+    );
     await originationController.deployed();
 
     const originator = signers[0];
@@ -90,10 +91,7 @@ const fixture = async (): Promise<TestContext> => {
         await deploy("RepaymentController", signers[0], [loanCore.address, feeController.address])
     );
     await repaymentController.deployed();
-    const updateRepaymentControllerPermissions = await loanCore.grantRole(
-        REPAYER_ROLE,
-        repaymentController.address,
-    );
+    const updateRepaymentControllerPermissions = await loanCore.grantRole(REPAYER_ROLE, repaymentController.address);
     await updateRepaymentControllerPermissions.wait();
 
     return {
@@ -108,7 +106,7 @@ const fixture = async (): Promise<TestContext> => {
         originator,
         user: signers[0],
         other: signers[1],
-        signers: signers.slice(2)
+        signers: signers.slice(2),
     };
 };
 
@@ -129,14 +127,18 @@ describe("PromissoryNote", () => {
     describe("constructor", () => {
         it("Reverts if descriptor address not provided", async () => {
             const RepaymentController = await ethers.getContractFactory("PromissoryNote");
-            await expect(RepaymentController.deploy("PromissoryNote", "BN", ZERO_ADDRESS)).to.be.revertedWith("PN_ZeroAddress");
+            await expect(RepaymentController.deploy("PromissoryNote", "BN", ZERO_ADDRESS)).to.be.revertedWith(
+                "PN_ZeroAddress",
+            );
         });
 
         it("Creates a PromissoryNote", async () => {
             const signers: Signer[] = await ethers.getSigners();
-            const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
+            const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI]);
 
-            const promissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN", descriptor.address]);
+            const promissoryNote = <PromissoryNote>(
+                await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN", descriptor.address])
+            );
 
             expect(promissoryNote).to.exist;
         });
@@ -144,9 +146,11 @@ describe("PromissoryNote", () => {
         it("fails to initialize if not called by the deployer", async () => {
             const { loanCore } = await loadFixture(fixture);
             const signers: Signer[] = await ethers.getSigners();
-            const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
+            const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI]);
 
-            const promissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN", descriptor.address]);
+            const promissoryNote = <PromissoryNote>(
+                await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN", descriptor.address])
+            );
 
             await expect(promissoryNote.connect(signers[1]).initialize(loanCore.address)).to.be.revertedWith(
                 "AccessControl",
@@ -156,9 +160,11 @@ describe("PromissoryNote", () => {
         it("fails to initialize if already initialized", async () => {
             const { loanCore } = await loadFixture(fixture);
             const signers: Signer[] = await ethers.getSigners();
-            const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
+            const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI]);
 
-            const promissoryNote = <PromissoryNote>await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN", descriptor.address]);
+            const promissoryNote = <PromissoryNote>(
+                await deploy("PromissoryNote", signers[0], ["PromissoryNote", "BN", descriptor.address])
+            );
 
             await expect(promissoryNote.connect(signers[0]).initialize(loanCore.address)).to.not.be.reverted;
 
@@ -278,17 +284,7 @@ describe("PromissoryNote", () => {
             let approved = await promissoryNote.getApproved(promissoryNoteId);
             expect(approved).to.equal(ethers.constants.AddressZero);
 
-            await expect(
-                promissoryNote.permit(
-                    user.address,
-                    other.address,
-                    promissoryNoteId,
-                    maxDeadline,
-                    v,
-                    r,
-                    s,
-                ),
-            )
+            await expect(promissoryNote.permit(user.address, other.address, promissoryNoteId, maxDeadline, v, r, s))
                 .to.emit(promissoryNote, "Approval")
                 .withArgs(user.address, other.address, promissoryNoteId);
 
@@ -348,15 +344,7 @@ describe("PromissoryNote", () => {
             expect(approved).to.equal(ethers.constants.AddressZero);
 
             await expect(
-                promissoryNote.permit(
-                    other.address,
-                    other.address,
-                    promissoryNoteId,
-                    maxDeadline,
-                    v,
-                    r,
-                    s,
-                ),
+                promissoryNote.permit(other.address, other.address, promissoryNoteId, maxDeadline, v, r, s),
             ).to.be.revertedWith("ERC721P_NotTokenOwner");
         });
 
@@ -366,43 +354,17 @@ describe("PromissoryNote", () => {
             const otherNoteId = await mintPromissoryNote(promissoryNote, user);
 
             await expect(
-                promissoryNote.permit(
-                    other.address,
-                    other.address,
-                    otherNoteId,
-                    maxDeadline,
-                    v,
-                    r,
-                    s,
-                ),
+                promissoryNote.permit(other.address, other.address, otherNoteId, maxDeadline, v, r, s),
             ).to.be.revertedWith("ERC721P_NotTokenOwner");
         });
 
         it("rejects reused signature", async () => {
-            await expect(
-                promissoryNote.permit(
-                    user.address,
-                    other.address,
-                    promissoryNoteId,
-                    maxDeadline,
-                    v,
-                    r,
-                    s,
-                ),
-            )
+            await expect(promissoryNote.permit(user.address, other.address, promissoryNoteId, maxDeadline, v, r, s))
                 .to.emit(promissoryNote, "Approval")
                 .withArgs(user.address, other.address, promissoryNoteId);
 
             await expect(
-                promissoryNote.permit(
-                    user.address,
-                    other.address,
-                    promissoryNoteId,
-                    maxDeadline,
-                    v,
-                    r,
-                    s,
-                ),
+                promissoryNote.permit(user.address, other.address, promissoryNoteId, maxDeadline, v, r, s),
             ).to.be.revertedWith("ERC721P_InvalidSignature");
         });
 
@@ -422,15 +384,7 @@ describe("PromissoryNote", () => {
             const { v, r, s } = fromRpcSig(signature);
 
             await expect(
-                promissoryNote.permit(
-                    user.address,
-                    other.address,
-                    promissoryNoteId,
-                    maxDeadline,
-                    v,
-                    r,
-                    s,
-                ),
+                promissoryNote.permit(user.address, other.address, promissoryNoteId, maxDeadline, v, r, s),
             ).to.be.revertedWith("ERC721P_InvalidSignature");
         });
 
@@ -454,15 +408,7 @@ describe("PromissoryNote", () => {
             expect(approved).to.equal(ethers.constants.AddressZero);
 
             await expect(
-                promissoryNote.permit(
-                    user.address,
-                    other.address,
-                    promissoryNoteId,
-                    "1234",
-                    v,
-                    r,
-                    s,
-                ),
+                promissoryNote.permit(user.address, other.address, promissoryNoteId, "1234", v, r, s),
             ).to.be.revertedWith("ERC721P_DeadlineExpired");
         });
     });
@@ -475,13 +421,13 @@ describe("PromissoryNote", () => {
 
         beforeEach(async () => {
             ctx = await loadFixture(fixture);
-            const [deployer] = await ethers.getSigners()
+            const [deployer] = await ethers.getSigners();
 
             newDescriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", deployer, [otherBaseURI]);
             await newDescriptor.deployed();
 
             expect(await newDescriptor.baseURI()).to.be.eq(otherBaseURI);
-        })
+        });
 
         it("gets the tokenURI", async () => {
             const { lenderPromissoryNote: promissoryNote, user, other } = ctx;
@@ -500,8 +446,9 @@ describe("PromissoryNote", () => {
         it("reverts if non-admin tries to change the descriptor", async () => {
             const { lenderPromissoryNote: promissoryNote, other } = ctx;
 
-            await expect(promissoryNote.connect(other).setDescriptor(newDescriptor.address))
-                .to.be.revertedWith("AccessControl");
+            await expect(promissoryNote.connect(other).setDescriptor(newDescriptor.address)).to.be.revertedWith(
+                "AccessControl",
+            );
         });
 
         it("reverts if descriptor is set to 0 address", async () => {
@@ -509,7 +456,7 @@ describe("PromissoryNote", () => {
             await promissoryNote.grantRole(RESOURCE_MANAGER_ROLE, other.address);
 
             await expect(promissoryNote.connect(other).setDescriptor(ZERO_ADDRESS)).to.be.revertedWith(
-                `PN_ZeroAddress("descriptor")`
+                `PN_ZeroAddress("descriptor")`,
             );
         });
 

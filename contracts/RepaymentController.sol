@@ -13,12 +13,7 @@ import "./libraries/InterestCalculator.sol";
 import "./libraries/FeeLookups.sol";
 import "./libraries/LoanLibrary.sol";
 
-import {
-    RC_ZeroAddress,
-    RC_CannotDereference,
-    RC_InvalidState,
-    RC_OnlyLender
-} from "./errors/Lending.sol";
+import { RC_ZeroAddress, RC_CannotDereference, RC_InvalidState, RC_OnlyLender } from "./errors/Lending.sol";
 
 /**
  * @title RepaymentController

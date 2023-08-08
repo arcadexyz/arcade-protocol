@@ -6,7 +6,6 @@ import "../libraries/LoanLibrary.sol";
 import "./IPromissoryNote.sol";
 
 interface ILoanCore {
-
     // ================ Data Types =================
 
     struct AffiliateSplit {
@@ -26,7 +25,13 @@ interface ILoanCore {
     event ForceRepay(uint256 loanId);
     event LoanRolledOver(uint256 oldLoanId, uint256 newLoanId);
     event LoanClaimed(uint256 loanId);
-    event NoteRedeemed(address indexed token, address indexed caller, address indexed to, uint256 tokenId, uint256 amount);
+    event NoteRedeemed(
+        address indexed token,
+        address indexed caller,
+        address indexed to,
+        uint256 tokenId,
+        uint256 amount
+    );
     event NonceUsed(address indexed user, uint160 nonce);
 
     event FeesWithdrawn(address indexed token, address indexed caller, address indexed to, uint256 amount);
@@ -57,10 +62,7 @@ interface ILoanCore {
         uint256 _amountToLender
     ) external;
 
-    function claim(
-        uint256 loanId,
-        uint256 _amountFromLender
-    ) external;
+    function claim(uint256 loanId, uint256 _amountFromLender) external;
 
     function redeemNote(
         uint256 loanId,
@@ -87,7 +89,11 @@ interface ILoanCore {
 
     // ============== Fee Management ==============
 
-    function withdraw(address token, uint256 amount, address to) external;
+    function withdraw(
+        address token,
+        uint256 amount,
+        address to
+    ) external;
 
     function withdrawProtocolFees(address token, address to) external;
 
@@ -106,5 +112,4 @@ interface ILoanCore {
     function borrowerNote() external view returns (IPromissoryNote);
 
     function lenderNote() external view returns (IPromissoryNote);
-
 }

@@ -37,13 +37,14 @@ contract CollectionWideOfferVerifier is ISignatureVerifier {
      * @return verified                     Whether the bundle contains the specified items.
      */
     function verifyPredicates(
-        address, address,
+        address,
+        address,
         address collateralAddress,
         uint256 collateralId,
         bytes calldata data
     ) external view override returns (bool) {
         // Unpack items
-        (address token) = abi.decode(data, (address));
+        address token = abi.decode(data, (address));
 
         // Unvaulted case - collateral will be escrowed directly
         if (collateralAddress == token) return true;

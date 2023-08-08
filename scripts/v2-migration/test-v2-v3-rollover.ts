@@ -14,11 +14,7 @@ import {
     RepaymentController,
     OriginationController,
 } from "../../typechain";
-import {
-    ORIGINATOR_ROLE,
-    REPAYER_ROLE,
-    BASE_URI,
-} from "../utils/constants";
+import { ORIGINATOR_ROLE, REPAYER_ROLE, BASE_URI } from "../utils/constants";
 import {
     BORROWER,
     PAYABLE_CURRENCY,
@@ -31,7 +27,7 @@ import {
     V2_TOTAL_REPAYMENT_AMOUNT,
     NONCE,
     V3_LOAN_PRINCIPAL,
-    V3_LOAN_INTEREST_RATE
+    V3_LOAN_INTEREST_RATE,
 } from "./config";
 
 import { createLoanTermsSignature } from "../../test/utils/eip712";
@@ -84,10 +80,7 @@ export async function main(): Promise<void> {
     console.log(SUBSECTION_SEPARATOR);
 
     const LoanCoreFactory = await ethers.getContractFactory("LoanCore");
-    const loanCore = <LoanCore>await LoanCoreFactory.deploy(
-        borrowerNote.address,
-        lenderNote.address
-    );
+    const loanCore = <LoanCore>await LoanCoreFactory.deploy(borrowerNote.address, lenderNote.address);
     await loanCore.deployed();
     console.log("LoanCore deployed to:", loanCore.address);
     console.log(SUBSECTION_SEPARATOR);
@@ -101,9 +94,8 @@ export async function main(): Promise<void> {
     console.log(SUBSECTION_SEPARATOR);
 
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationController");
-    const originationController = <OriginationController>await OriginationControllerFactory.deploy(
-        loanCore.address,
-        feeController.address
+    const originationController = <OriginationController>(
+        await OriginationControllerFactory.deploy(loanCore.address, feeController.address)
     );
     await originationController.deployed();
     console.log("OriginationController deployed to:", originationController.address);
@@ -114,7 +106,7 @@ export async function main(): Promise<void> {
 
     // ================================== Setup V3 Lending Protocol ==================================
 
-    console.log("Setting up V3 Lending Protocol...\n")
+    console.log("Setting up V3 Lending Protocol...\n");
 
     // roles addresses
     const ADMIN_ADDRESS = process.env.ADMIN ? process.env.ADMIN : (await hre.ethers.getSigners())[0].address;
@@ -181,7 +173,7 @@ export async function main(): Promise<void> {
         loanCoreV3: loanCore.address,
         borrowerNoteV3: borrowerNote.address,
     };
-    const factory = await ethers.getContractFactory("V2ToV3Rollover")
+    const factory = await ethers.getContractFactory("V2ToV3Rollover");
     const flashRollover = <V2ToV3Rollover>await factory.deploy(BALANCER_ADDRESS, contracts);
     await flashRollover.deployed();
     console.log("V2ToV3Rollover deployed to:", flashRollover.address);
@@ -210,7 +202,7 @@ export async function main(): Promise<void> {
     console.log("Whale distributes ETH and payable currency...");
     await whale.sendTransaction({ to: borrower.address, value: ethers.utils.parseEther("10") });
     await whale.sendTransaction({ to: newLender.address, value: ethers.utils.parseEther("10") });
-    await payableCurrency.connect(whale).transfer(newLender.address, V3_LOAN_PRINCIPAL)
+    await payableCurrency.connect(whale).transfer(newLender.address, V3_LOAN_PRINCIPAL);
 
     console.log(SUBSECTION_SEPARATOR);
     console.log("New lender approves payable currency to V3 LoanCore...");
@@ -224,7 +216,7 @@ export async function main(): Promise<void> {
     const flashLoanAmountDue = V2_TOTAL_REPAYMENT_AMOUNT.add(V2_TOTAL_REPAYMENT_AMOUNT.mul(flashLoanFee).div(10000));
     if (V3_LOAN_PRINCIPAL.lt(flashLoanAmountDue)) {
         const difference = flashLoanAmountDue.sub(V3_LOAN_PRINCIPAL);
-        await payableCurrency.connect(whale).transfer(borrower.address, difference)
+        await payableCurrency.connect(whale).transfer(borrower.address, difference);
         await payableCurrency.connect(borrower).approve(flashRollover.address, difference);
     }
     console.log(SUBSECTION_SEPARATOR);
@@ -238,7 +230,7 @@ export async function main(): Promise<void> {
         collateralAddress: LOAN_COLLATERAL_ADDRESS,
         collateralId: COLLATERAL_ID,
         payableCurrency: PAYABLE_CURRENCY,
-        affiliateCode: ethers.constants.HashZero
+        affiliateCode: ethers.constants.HashZero,
     };
 
     const sig = await createLoanTermsSignature(
@@ -255,15 +247,9 @@ export async function main(): Promise<void> {
     // ============= Execute ==============
 
     console.log("Execute V2 -> V3 rollover...\n");
-    const tx = await flashRollover.connect(borrower).rolloverLoan(
-        LOAN_ID,
-        newLoanTerms,
-        newLender.address,
-        NONCE,
-        sig.v,
-        sig.r,
-        sig.s,
-    );       
+    const tx = await flashRollover
+        .connect(borrower)
+        .rolloverLoan(LOAN_ID, newLoanTerms, newLender.address, NONCE, sig.v, sig.r, sig.s);
 
     // send transaction
     console.log("✅ Transaction hash:", tx.hash);

@@ -15,13 +15,8 @@ import "../interfaces/IFeeController.sol";
 import "../external/interfaces/ILendingPool.sol";
 import "../external/NFTFI/loans/direct/loanTypes/LoanData.sol";
 
-import {
-    R_UnknownCaller,
-    R_InsufficientFunds,
-    R_InsufficientAllowance,
-    R_Paused
-} from "./errors/NftfiRolloverErrors.sol";
-import "hardhat/console.sol";
+import { R_UnknownCaller, R_InsufficientFunds, R_InsufficientAllowance, R_Paused } from "./errors/NftfiRolloverErrors.sol";
+
 /**
  * @title FlashRolloverNftfiToV3
  * @author Non-Fungible Technologies, Inc.
@@ -39,8 +34,10 @@ contract FlashRolloverNftfiToV3 is INftfiRollover, ReentrancyGuard, ERC721Holder
     IVault public immutable VAULT; // 0xBA12222222228d8Ba445958a75a0704d566BF2C8
 
     /// @notice nftfi contract references
-    DirectLoanFixedOffer public constant directLoanFixedOffer = DirectLoanFixedOffer(0xE52Cec0E90115AbeB3304BaA36bc2655731f7934);
-    IDirectLoanCoordinator public constant loanCoordinator = IDirectLoanCoordinator(0x0C90C8B4aa8549656851964d5fB787F0e4F54082);
+    DirectLoanFixedOffer public constant directLoanFixedOffer =
+        DirectLoanFixedOffer(0xE52Cec0E90115AbeB3304BaA36bc2655731f7934);
+    IDirectLoanCoordinator public constant loanCoordinator =
+        IDirectLoanCoordinator(0x0C90C8B4aa8549656851964d5fB787F0e4F54082);
 
     /// @notice V3 lending protocol contract references
     IFeeController public immutable feeController;
@@ -75,11 +72,7 @@ contract FlashRolloverNftfiToV3 is INftfiRollover, ReentrancyGuard, ERC721Holder
         LoanData.LoanTerms memory loanTermsNftfi = _getLoanTermsNftfi(loanId);
 
         {
-            (address borrower) =_validateRollover(
-                loanTermsNftfi,
-                newLoanTerms,
-                loanId
-            );
+            address borrower = _validateRollover(loanTermsNftfi, newLoanTerms, loanId);
         }
 
         {
@@ -112,9 +105,9 @@ contract FlashRolloverNftfiToV3 is INftfiRollover, ReentrancyGuard, ERC721Holder
     }
 
     /**
-    * @notice TODO: add natspce
-    */
-    function _getLoanTermsNftfi(uint32 loanId) internal returns(LoanData.LoanTerms memory){
+     * @notice TODO: add natspce
+     */
+    function _getLoanTermsNftfi(uint32 loanId) internal returns (LoanData.LoanTerms memory) {
         (
             uint256 loanPrincipalAmount,
             uint256 maximumRepaymentAmount,
@@ -147,8 +140,8 @@ contract FlashRolloverNftfiToV3 is INftfiRollover, ReentrancyGuard, ERC721Holder
     }
 
     /**
-    * @notice TODO: add natspce
-    */
+     * @notice TODO: add natspce
+     */
     function receiveFlashLoan(
         IERC20[] calldata assets,
         uint256[] calldata amounts,
@@ -162,8 +155,8 @@ contract FlashRolloverNftfiToV3 is INftfiRollover, ReentrancyGuard, ERC721Holder
     }
 
     /**
-    * @notice TODO: add natspce
-    */
+     * @notice TODO: add natspce
+     */
     function _executeOperation(
         IERC20[] calldata assets,
         uint256[] calldata amounts,
@@ -171,12 +164,15 @@ contract FlashRolloverNftfiToV3 is INftfiRollover, ReentrancyGuard, ERC721Holder
         OperationDataWithItems memory opData
     ) internal returns (bool) {
         // Get smartNFTId to look up lender promissoryNote and borrower obligationReceipt
-        IDirectLoanCoordinator.Loan memory loanData = IDirectLoanCoordinator(loanCoordinator).getLoanData(uint32(opData.loanId));
+        IDirectLoanCoordinator.Loan memory loanData = IDirectLoanCoordinator(loanCoordinator).getLoanData(
+            uint32(opData.loanId)
+        );
         uint64 smartNftId = loanData.smartNftId;
 
-        address borrower = IERC721(IDirectLoanCoordinator(loanCoordinator).obligationReceiptToken()).ownerOf(smartNftId);
+        address borrower = IERC721(IDirectLoanCoordinator(loanCoordinator).obligationReceiptToken()).ownerOf(
+            smartNftId
+        );
         address lender = IERC721(IDirectLoanCoordinator(loanCoordinator).promissoryNoteToken()).ownerOf(smartNftId); // old lender
-
 
         // Do accounting to figure out amount each party needs to receive
         (uint256 flashAmountDue, uint256 needFromBorrower, uint256 leftoverPrincipal) = _ensureFunds(
@@ -198,17 +194,12 @@ contract FlashRolloverNftfiToV3 is INftfiRollover, ReentrancyGuard, ERC721Holder
             require(asset.allowance(borrower, address(this)) < needFromBorrower, "not enough allowance");
         }
 
-
         {
             LoanData.LoanTerms memory loanTermsNftfi = _getLoanTermsNftfi(uint32(opData.loanId));
 
             _repayLoan(loanTermsNftfi, borrower, uint32(opData.loanId));
 
-            uint256 newLoanId = _initializeNewLoanWithItems(
-                borrower,
-                opData.lender,
-                opData
-            );
+            uint256 newLoanId = _initializeNewLoanWithItems(borrower, opData.lender, opData);
 
             emit RolloverNftfi(
                 lender,
@@ -265,8 +256,8 @@ contract FlashRolloverNftfiToV3 is INftfiRollover, ReentrancyGuard, ERC721Holder
     }
 
     /**
-    * @notice TODO: add natspce
-    */
+     * @notice TODO: add natspce
+     */
     function _repayLoan(
         LoanData.LoanTerms memory loanTermsNftfi,
         address borrower,
@@ -277,8 +268,11 @@ contract FlashRolloverNftfiToV3 is INftfiRollover, ReentrancyGuard, ERC721Holder
         IDirectLoanCoordinator.Loan memory loanData = IDirectLoanCoordinator(loanCoordinator).getLoanData(loanId);
         uint64 smartNftId = loanData.smartNftId;
 
-        IERC721(IDirectLoanCoordinator(loanCoordinator).obligationReceiptToken())
-            .safeTransferFrom(borrower, address(this), smartNftId);
+        IERC721(IDirectLoanCoordinator(loanCoordinator).obligationReceiptToken()).safeTransferFrom(
+            borrower,
+            address(this),
+            smartNftId
+        );
 
         // Approve repayment
         IERC20(loanTermsNftfi.loanERC20Denomination).approve(
@@ -297,8 +291,8 @@ contract FlashRolloverNftfiToV3 is INftfiRollover, ReentrancyGuard, ERC721Holder
     }
 
     /**
-    * @notice TODO: add natspce
-    */
+     * @notice TODO: add natspce
+     */
     function _initializeNewLoanWithItems(
         address borrower,
         address lender,
@@ -313,35 +307,32 @@ contract FlashRolloverNftfiToV3 is INftfiRollover, ReentrancyGuard, ERC721Holder
             opData.newLoanTerms,
             address(this),
             lender,
-            IOriginationController.Signature({
-                v: opData.v,
-                r: opData.r,
-                s: opData.s,
-                extraData: "0x"
-            }),
+            IOriginationController.Signature({ v: opData.v, r: opData.r, s: opData.s, extraData: "0x" }),
             opData.nonce,
             opData.itemPredicates
         );
-console.log("SOL 343 END OF INITIALIZE NEW LOAN ====================", address(borrowerNote));
+
         IERC721(address(borrowerNote)).safeTransferFrom(address(this), borrower, newLoanId);
-console.log("SOL 343 END OF INITIALIZE NEW LOAN ====================", newLoanId);
+
         return newLoanId;
     }
 
     /**
-    * @notice TODO: add natspce
-    */
+     * @notice TODO: add natspce
+     */
     function _validateRollover(
         LoanData.LoanTerms memory sourceLoanTerms,
         LoanLibrary.LoanTerms calldata newLoanTerms,
         uint32 loanId
     ) internal view returns (address borrower) {
-
-        IDirectLoanCoordinator.Loan memory loanCoordinatorData = IDirectLoanCoordinator(loanCoordinator).getLoanData(loanId);
+        IDirectLoanCoordinator.Loan memory loanCoordinatorData = IDirectLoanCoordinator(loanCoordinator).getLoanData(
+            loanId
+        );
 
         uint256 smartNftId = loanCoordinatorData.smartNftId;
-        address borrower = IERC721(IDirectLoanCoordinator(loanCoordinator).obligationReceiptToken())
-            .ownerOf(smartNftId);
+        address borrower = IERC721(IDirectLoanCoordinator(loanCoordinator).obligationReceiptToken()).ownerOf(
+            smartNftId
+        );
 
         require(newLoanTerms.payableCurrency == sourceLoanTerms.loanERC20Denomination, "currency mismatch");
 
@@ -353,9 +344,9 @@ console.log("SOL 343 END OF INITIALIZE NEW LOAN ====================", newLoanId
     }
 
     /**
-    * @notice Function to be used by the contract owner to withdraw any ERC20 tokens that
-    *         are sent to the contract and get stuck.
-    */
+     * @notice Function to be used by the contract owner to withdraw any ERC20 tokens that
+     *         are sent to the contract and get stuck.
+     */
     function flushToken(IERC20 token, address to) external override {
         uint256 balance = token.balanceOf(address(this));
         require(balance > 0, "no balance");

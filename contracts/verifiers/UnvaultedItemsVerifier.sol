@@ -5,13 +5,9 @@ pragma solidity 0.8.18;
 import "../interfaces/ISignatureVerifier.sol";
 import "../interfaces/IVaultFactory.sol";
 
-import {
-    IV_NoAmount,
-    IV_InvalidWildcard,
-    IV_ItemMissingAddress,
-    IV_InvalidCollateralType
-} from "../errors/Lending.sol";
-import "hardhat/console.sol";
+import { IV_NoAmount, IV_InvalidWildcard, IV_ItemMissingAddress, IV_InvalidCollateralType } from "../errors/Lending.sol";
+
+
 /**
  * @title UnvaultedItemsVerifier
  * @author Non-Fungible Technologies, Inc.
@@ -67,11 +63,12 @@ contract UnvaultedItemsVerifier is ISignatureVerifier {
      * @return verified                     Whether the bundle contains the specified items.
      */
     function verifyPredicates(
-        address, address,
+        address,
+        address,
         address collateralAddress,
         uint256 collateralId,
         bytes calldata predicates
-    ) external view override returns (bool) {
+    ) external pure override returns (bool) {
         // Unpack items
         (address token, uint256 tokenId, bool anyIdAllowed) = decodeData(predicates);
 
@@ -89,9 +86,17 @@ contract UnvaultedItemsVerifier is ISignatureVerifier {
     }
 
     /**
-    * @notice TODO: add natspce
-    */
-    function decodeData(bytes memory data) public pure returns (address, uint256, bool) {
+     * @notice TODO: add natspce
+     */
+    function decodeData(bytes memory data)
+        public
+        pure
+        returns (
+            address,
+            uint256,
+            bool
+        )
+    {
         SignatureItem[] memory items = abi.decode(data, (SignatureItem[]));
 
         require(items.length > 0, "No items to decode");

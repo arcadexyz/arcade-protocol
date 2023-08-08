@@ -16,7 +16,7 @@ import {
     LoanCore,
     MockERC20,
     MockERC721,
-    BaseURIDescriptor
+    BaseURIDescriptor,
 } from "../typechain";
 import { BlockchainTime } from "./utils/time";
 import { mint as mint721 } from "./utils/erc721";
@@ -73,14 +73,25 @@ const fixture = async (): Promise<TestContext> => {
     const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
     const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
     const feeController = <FeeController>await deploy("FeeController", admin, []);
-    const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
-    const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address]);
+    const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI]);
+    const vaultFactory = <VaultFactory>(
+        await deploy("VaultFactory", signers[0], [
+            vaultTemplate.address,
+            whitelist.address,
+            feeController.address,
+            descriptor.address,
+        ])
+    );
 
     await feeController.setLendingFee(await feeController.FL_01(), 50);
     await feeController.setLendingFee(await feeController.FL_03(), 10);
 
-    const borrowerNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz BorrowerNote", "aBN", descriptor.address]);
-    const lenderNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz LenderNote", "aLN", descriptor.address]);
+    const borrowerNote = <PromissoryNote>(
+        await deploy("PromissoryNote", admin, ["Arcade.xyz BorrowerNote", "aBN", descriptor.address])
+    );
+    const lenderNote = <PromissoryNote>(
+        await deploy("PromissoryNote", admin, ["Arcade.xyz LenderNote", "aLN", descriptor.address])
+    );
 
     const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [borrowerNote.address, lenderNote.address]);
 
@@ -95,16 +106,15 @@ const fixture = async (): Promise<TestContext> => {
     const mockERC20 = <MockERC20>await deploy("MockERC20", admin, ["Mock ERC20", "MOCK"]);
     const mockERC721 = <MockERC721>await deploy("MockERC721", admin, ["Mock ERC721", "MOCK"]);
 
-    const repaymentController = <RepaymentController>await deploy("RepaymentController", admin, [loanCore.address, feeController.address]);
-    await repaymentController.deployed();
-    const updateRepaymentControllerPermissions = await loanCore.grantRole(
-        REPAYER_ROLE,
-        repaymentController.address,
+    const repaymentController = <RepaymentController>(
+        await deploy("RepaymentController", admin, [loanCore.address, feeController.address])
     );
+    await repaymentController.deployed();
+    const updateRepaymentControllerPermissions = await loanCore.grantRole(REPAYER_ROLE, repaymentController.address);
     await updateRepaymentControllerPermissions.wait();
 
-    const originationController = <OriginationController>await deploy(
-        "OriginationController", signers[0], [loanCore.address, feeController.address]
+    const originationController = <OriginationController>(
+        await deploy("OriginationController", signers[0], [loanCore.address, feeController.address])
     );
     await originationController.deployed();
 
@@ -116,10 +126,7 @@ const fixture = async (): Promise<TestContext> => {
     expect(isWhitelisted.minPrincipal).to.eq(MIN_LOAN_PRINCIPAL);
 
     // admin whitelists MockERC721 and vaultFactory on OriginationController
-    await originationController.setAllowedCollateralAddresses(
-        [mockERC721.address, vaultFactory.address],
-        [true, true]
-    );
+    await originationController.setAllowedCollateralAddresses([mockERC721.address, vaultFactory.address], [true, true]);
     // verify the collateral is whitelisted
     const isCollateralWhitelisted = await originationController.isAllowedCollateral(mockERC721.address);
     expect(isCollateralWhitelisted).to.be.true;
@@ -169,7 +176,7 @@ const createLoanTerms = (
         proratedInterestRate = ethers.utils.parseEther("1"),
         collateralId = 1,
         deadline = 1754884800,
-        affiliateCode = ethers.constants.HashZero
+        affiliateCode = ethers.constants.HashZero,
     }: Partial<LoanTerms> = {},
 ): LoanTerms => {
     return {
@@ -180,7 +187,7 @@ const createLoanTerms = (
         collateralId,
         payableCurrency,
         deadline,
-        affiliateCode
+        affiliateCode,
     };
 };
 
@@ -208,7 +215,7 @@ const initializeLoan = async (
     proratedInterestRate: BigNumber,
     deadline: BigNumberish,
     nonce = 1,
-    affiliateCode = ethers.constants.HashZero
+    affiliateCode = ethers.constants.HashZero,
 ): Promise<LoanDef> => {
     const { originationController, mockERC20, vaultFactory, loanCore, lender, borrower } = context;
     const bundleId = await initializeBundle(vaultFactory, borrower);
@@ -218,7 +225,7 @@ const initializeLoan = async (
         proratedInterestRate,
         deadline,
         collateralId: bundleId,
-        affiliateCode
+        affiliateCode,
     });
 
     await mint(mockERC20, lender, loanTerms.principal);
@@ -278,7 +285,7 @@ describe("Rollovers", () => {
             ethers.utils.parseEther("1000"), // interest
             DEADLINE,
             1,
-            affiliateCode
+            affiliateCode,
         );
     });
 
@@ -339,8 +346,16 @@ describe("Rollovers", () => {
         });
 
         it("should not allow a rollover on an already closed loan", async () => {
-            const { originationController, loanCore, repaymentController, mockERC20, vaultFactory, borrower, lender, admin } =
-                ctx;
+            const {
+                originationController,
+                loanCore,
+                repaymentController,
+                mockERC20,
+                vaultFactory,
+                borrower,
+                lender,
+                admin,
+            } = ctx;
             const { loanId, loanTerms } = loan;
 
             // Repay the loan
@@ -504,14 +519,7 @@ describe("Rollovers", () => {
         });
 
         it("should fail to roll over an already closed loan", async () => {
-            const {
-                originationController,
-                mockERC20,
-                vaultFactory,
-                borrower,
-                lender,
-                loanCore,
-            } = ctx;
+            const { originationController, mockERC20, vaultFactory, borrower, lender, loanCore } = ctx;
             const { loanId, loanTerms } = loan;
 
             // create new terms for rollover and sign them
@@ -705,14 +713,7 @@ describe("Rollovers", () => {
         });
 
         it("rollover with items signature reverts if the required predicates array is empty", async () => {
-            const {
-                originationController,
-                mockERC20,
-                mockERC721,
-                vaultFactory,
-                borrower,
-                newLender
-            } = ctx;
+            const { originationController, mockERC20, mockERC721, vaultFactory, borrower, newLender } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
             const collateralId = await mint721(mockERC721, borrower);
@@ -737,20 +738,11 @@ describe("Rollovers", () => {
                 originationController
                     .connect(borrower)
                     .rolloverLoanWithItems(loanId, newTerms, newLender.address, sig, 2, predicates),
-            )
-                .to.be.revertedWith("OC_PredicatesArrayEmpty");
+            ).to.be.revertedWith("OC_PredicatesArrayEmpty");
         });
 
         it("rollover with items signature reverts if the verifier is not approved", async () => {
-            const {
-                originationController,
-                mockERC20,
-                mockERC721,
-                vaultFactory,
-                borrower,
-                newLender,
-                verifier
-            } = ctx;
+            const { originationController, mockERC20, mockERC721, vaultFactory, borrower, newLender, verifier } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
             const collateralId = await mint721(mockERC721, borrower);
@@ -774,7 +766,7 @@ describe("Rollovers", () => {
                     asset: mockERC721.address,
                     tokenId: collateralId,
                     amount: 1,
-                    anyIdAllowed: false
+                    anyIdAllowed: false,
                 },
             ];
 
@@ -800,8 +792,7 @@ describe("Rollovers", () => {
                 originationController
                     .connect(borrower)
                     .rolloverLoanWithItems(loanId, newTerms, newLender.address, sig, 2, predicates),
-            )
-                .to.be.revertedWith("OC_InvalidVerifier");
+            ).to.be.revertedWith("OC_InvalidVerifier");
         });
 
         it("rollover with items signature reverts if the predicate fails", async () => {
@@ -815,7 +806,7 @@ describe("Rollovers", () => {
                 verifier,
                 admin,
                 loanCore,
-                repaymentController
+                repaymentController,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -837,7 +828,7 @@ describe("Rollovers", () => {
                     asset: mockERC721.address,
                     tokenId: collateralId2, // look for the other, non-vaulted collateral
                     amount: 1,
-                    anyIdAllowed: false
+                    anyIdAllowed: false,
                 },
             ];
 
@@ -895,7 +886,7 @@ describe("Rollovers", () => {
                     asset: mockERC721.address,
                     tokenId: collateralId,
                     amount: 1,
-                    anyIdAllowed: false
+                    anyIdAllowed: false,
                 },
             ];
 
@@ -996,7 +987,7 @@ describe("Rollovers", () => {
                     asset: mockERC721.address,
                     tokenId: collateralId,
                     amount: 1,
-                    anyIdAllowed: false
+                    anyIdAllowed: false,
                 },
             ];
 
@@ -1301,7 +1292,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1369,7 +1360,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1438,7 +1429,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1506,7 +1497,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1583,7 +1574,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1664,7 +1655,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1746,7 +1737,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1827,7 +1818,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1912,7 +1903,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1936,7 +1927,9 @@ describe("Rollovers", () => {
             await feeController.setLendingFee(await feeController.FL_04(), 1_00);
 
             // Add a 20% affiliate split
-            await loanCore.connect(admin).setAffiliateSplits([affiliateCode], [{ affiliate: borrower.address, splitBps: 20_00 }])
+            await loanCore
+                .connect(admin)
+                .setAffiliateSplits([affiliateCode], [{ affiliate: borrower.address, splitBps: 20_00 }]);
 
             // Figure out amounts owed
             // With same terms, borrower will have to pay interest plus 0.1%
@@ -1988,9 +1981,15 @@ describe("Rollovers", () => {
             expect(await loanCore.canCallOn(borrower.address, bundleId.toString())).to.eq(true);
 
             // Check affiliate split and withdraw
-            expect(await loanCore.feesWithdrawable(mockERC20.address, borrower.address)).to.eq(ethers.utils.parseEther("0.44"));
+            expect(await loanCore.feesWithdrawable(mockERC20.address, borrower.address)).to.eq(
+                ethers.utils.parseEther("0.44"),
+            );
 
-            await expect(loanCore.connect(borrower).withdraw(mockERC20.address, ethers.utils.parseEther("0.44"), borrower.address))
+            await expect(
+                loanCore
+                    .connect(borrower)
+                    .withdraw(mockERC20.address, ethers.utils.parseEther("0.44"), borrower.address),
+            )
                 .to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, borrower.address, borrower.address, ethers.utils.parseEther("0.44"))
                 .to.emit(mockERC20, "Transfer")
@@ -2009,7 +2008,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -2017,7 +2016,7 @@ describe("Rollovers", () => {
             const newTerms = createLoanTerms(mockERC20.address, vaultFactory.address, {
                 ...loanTerms,
                 principal: ethers.utils.parseEther("200"),
-                affiliateCode: affiliateCode2
+                affiliateCode: affiliateCode2,
             });
 
             const sig = await createLoanTermsSignature(
@@ -2035,14 +2034,12 @@ describe("Rollovers", () => {
 
             // Add a 20% affiliate split for both codes
             await loanCore.connect(admin).setAffiliateSplits(
-                [
-                    affiliateCode,
-                    affiliateCode2
-                ],
+                [affiliateCode, affiliateCode2],
                 [
                     { affiliate: borrower.address, splitBps: 20_00 },
-                    { affiliate: lender.address, splitBps: 20_00 }
-                ])
+                    { affiliate: lender.address, splitBps: 20_00 },
+                ],
+            );
 
             // Figure out amounts owed
             // With same terms, borrower will have to pay interest plus 0.1%
@@ -2094,9 +2091,13 @@ describe("Rollovers", () => {
             expect(await loanCore.canCallOn(borrower.address, bundleId.toString())).to.eq(true);
 
             // Check affiliate split and withdraw
-            expect(await loanCore.feesWithdrawable(mockERC20.address, lender.address)).to.eq(ethers.utils.parseEther("0.44"));
+            expect(await loanCore.feesWithdrawable(mockERC20.address, lender.address)).to.eq(
+                ethers.utils.parseEther("0.44"),
+            );
 
-            await expect(loanCore.connect(lender).withdraw(mockERC20.address, ethers.utils.parseEther("0.44"), lender.address))
+            await expect(
+                loanCore.connect(lender).withdraw(mockERC20.address, ethers.utils.parseEther("0.44"), lender.address),
+            )
                 .to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, lender.address, lender.address, ethers.utils.parseEther("0.44"))
                 .to.emit(mockERC20, "Transfer")
@@ -2113,7 +2114,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 

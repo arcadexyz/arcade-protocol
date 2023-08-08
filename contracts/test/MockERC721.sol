@@ -25,7 +25,6 @@ contract MockERC721 is ERC721Enumerable {
         _tokenIdTracker.increment();
     }
 
-
     /**
      * @dev Creates a new token for `to`. Public for any test to call.
      *

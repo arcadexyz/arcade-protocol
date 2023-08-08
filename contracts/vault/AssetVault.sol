@@ -19,18 +19,7 @@ import "./CallWhitelistDelegation.sol";
 import "./CallWhitelistApprovals.sol";
 import "./OwnableERC721.sol";
 
-import {
-    AV_WithdrawsDisabled,
-    AV_WithdrawsEnabled,
-    AV_AlreadyInitialized,
-    AV_MissingAuthorization,
-    AV_NonWhitelistedCall,
-    AV_NonWhitelistedApproval,
-    AV_TooManyItems,
-    AV_LengthMismatch,
-    AV_ZeroAddress,
-    AV_NonWhitelistedDelegation
-} from "../errors/Vault.sol";
+import { AV_WithdrawsDisabled, AV_WithdrawsEnabled, AV_AlreadyInitialized, AV_MissingAuthorization, AV_NonWhitelistedCall, AV_NonWhitelistedApproval, AV_TooManyItems, AV_LengthMismatch, AV_ZeroAddress, AV_NonWhitelistedDelegation } from "../errors/Vault.sol";
 
 /**
  * @title AssetVault
@@ -285,10 +274,13 @@ contract AssetVault is
      * @param to                    The contract address to call.
      * @param data                  The data to call the contract with.
      */
-    function call(
-        address to,
-        bytes calldata data
-    ) external override onlyAllowedCallers onlyWithdrawDisabled nonReentrant {
+    function call(address to, bytes calldata data)
+        external
+        override
+        onlyAllowedCallers
+        onlyWithdrawDisabled
+        nonReentrant
+    {
         if (!ICallWhitelist(whitelist).isWhitelisted(to, bytes4(data[:4]))) {
             revert AV_NonWhitelistedCall(to, bytes4(data[:4]));
         }
@@ -425,11 +417,11 @@ contract AssetVault is
      *         revocations per-contract and perToken, use callDelegateForContract and callDelegateForToken
      *         with enabled set to false.
      */
-     function callRevokeAllDelegates() external override onlyAllowedCallers onlyWithdrawDisabled nonReentrant {
+    function callRevokeAllDelegates() external override onlyAllowedCallers onlyWithdrawDisabled nonReentrant {
         CallWhitelistDelegation(whitelist).registry().revokeAllDelegates();
 
         emit DelegateRevoke(msg.sender);
-     }
+    }
 
     // ============================================ HELPERS =============================================
 

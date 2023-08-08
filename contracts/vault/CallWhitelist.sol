@@ -9,10 +9,7 @@ import "../interfaces/ICallWhitelist.sol";
 
 import "./CallBlacklist.sol";
 
-import {
-    CW_AlreadyWhitelisted,
-    CW_NotWhitelisted
-} from "../errors/Vault.sol";
+import { CW_AlreadyWhitelisted, CW_NotWhitelisted } from "../errors/Vault.sol";
 
 /**
  * @title CallWhitelist

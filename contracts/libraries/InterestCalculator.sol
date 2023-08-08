@@ -33,6 +33,6 @@ abstract contract InterestCalculator {
      * @return interest                             The amount of interest due.
      */
     function getInterestAmount(uint256 principal, uint256 proratedInterestRate) public pure returns (uint256) {
-        return principal * proratedInterestRate / (INTEREST_RATE_DENOMINATOR * BASIS_POINTS_DENOMINATOR);
+        return (principal * proratedInterestRate) / (INTEREST_RATE_DENOMINATOR * BASIS_POINTS_DENOMINATOR);
     }
 }

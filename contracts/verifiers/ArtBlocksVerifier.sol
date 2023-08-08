@@ -74,7 +74,8 @@ contract ArtBlocksVerifier is ISignatureVerifier {
      */
     // solhint-disable-next-line code-complexity
     function verifyPredicates(
-        address, address,
+        address,
+        address,
         address collateralAddress,
         uint256 collateralId,
         bytes calldata predicates

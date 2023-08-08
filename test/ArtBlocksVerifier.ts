@@ -107,7 +107,7 @@ describe("ArtBlocksVerifier", () => {
 
             const bundleId = await initializeBundle(vaultFactory, user);
             const bundleAddress = await vaultFactory.instanceAt(bundleId);
-            const tx = await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);;
+            const tx = await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);
             const receipt = await tx.wait();
             const tokenId = receipt.events?.[0].args?.tokenId;
 
@@ -118,12 +118,19 @@ describe("ArtBlocksVerifier", () => {
                     projectId: 3,
                     tokenId,
                     amount: 1,
-                    anyIdAllowed: false
+                    anyIdAllowed: false,
                 },
             ];
 
-            await expect(verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems)))
-                .to.be.revertedWith("IV_ItemMissingAddress");
+            await expect(
+                verifier.verifyPredicates(
+                    deployer.address,
+                    minter.address,
+                    vaultFactory.address,
+                    bundleId,
+                    encodeArtBlocksItems(signatureItems),
+                ),
+            ).to.be.revertedWith("IV_ItemMissingAddress");
         });
 
         it("fails if the project ID is out of bounds", async () => {
@@ -131,7 +138,7 @@ describe("ArtBlocksVerifier", () => {
 
             const bundleId = await initializeBundle(vaultFactory, user);
             const bundleAddress = await vaultFactory.instanceAt(bundleId);
-            const tx = await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);;
+            const tx = await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);
             const receipt = await tx.wait();
             const tokenId = receipt.events?.[0].args?.tokenId;
 
@@ -142,12 +149,19 @@ describe("ArtBlocksVerifier", () => {
                     projectId: 10, // No project with this ID
                     tokenId,
                     amount: 1,
-                    anyIdAllowed: false
+                    anyIdAllowed: false,
                 },
             ];
 
-            await expect(verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems)))
-                .to.be.revertedWith("IV_InvalidProjectId");
+            await expect(
+                verifier.verifyPredicates(
+                    deployer.address,
+                    minter.address,
+                    vaultFactory.address,
+                    bundleId,
+                    encodeArtBlocksItems(signatureItems),
+                ),
+            ).to.be.revertedWith("IV_InvalidProjectId");
         });
 
         it("fails if the vault address does not convert into the collateralId", async () => {
@@ -211,7 +225,7 @@ describe("ArtBlocksVerifier", () => {
 
             const bundleId = await initializeBundle(vaultFactory, user);
             const bundleAddress = await vaultFactory.instanceAt(bundleId);
-            const tx = await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);;
+            const tx = await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);
             const receipt = await tx.wait();
             const tokenId = receipt.events?.[0].args?.tokenId.sub(1_000_000 * 3);
 
@@ -226,7 +240,15 @@ describe("ArtBlocksVerifier", () => {
                 },
             ];
 
-            expect(await verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems))).to.be.true;
+            expect(
+                await verifier.verifyPredicates(
+                    deployer.address,
+                    minter.address,
+                    vaultFactory.address,
+                    bundleId,
+                    encodeArtBlocksItems(signatureItems),
+                ),
+            ).to.be.true;
         });
 
         it("returns true for a project wildcard", async () => {
@@ -236,7 +258,7 @@ describe("ArtBlocksVerifier", () => {
             const bundleAddress = await vaultFactory.instanceAt(bundleId);
             const bundleId2 = await initializeBundle(vaultFactory, user);
 
-            await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);;
+            await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);
 
             const signatureItems: ABSignatureItem[] = [
                 {
@@ -244,12 +266,28 @@ describe("ArtBlocksVerifier", () => {
                     projectId: 3,
                     tokenId: 0,
                     amount: 1,
-                    anyIdAllowed: true
+                    anyIdAllowed: true,
                 },
             ];
 
-            expect(await verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems))).to.be.true;
-            expect(await verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId2, encodeArtBlocksItems(signatureItems))).to.be.false;
+            expect(
+                await verifier.verifyPredicates(
+                    deployer.address,
+                    minter.address,
+                    vaultFactory.address,
+                    bundleId,
+                    encodeArtBlocksItems(signatureItems),
+                ),
+            ).to.be.true;
+            expect(
+                await verifier.verifyPredicates(
+                    deployer.address,
+                    minter.address,
+                    vaultFactory.address,
+                    bundleId2,
+                    encodeArtBlocksItems(signatureItems),
+                ),
+            ).to.be.false;
         });
 
         it("returns false for a specific token id which is not owned", async () => {
@@ -266,11 +304,19 @@ describe("ArtBlocksVerifier", () => {
                     projectId: 3,
                     tokenId: 1, // Different token ID than minted
                     amount: 1,
-                    anyIdAllowed: false
+                    anyIdAllowed: false,
                 },
             ];
 
-            expect(await verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems))).to.be.false;
+            expect(
+                await verifier.verifyPredicates(
+                    deployer.address,
+                    minter.address,
+                    vaultFactory.address,
+                    bundleId,
+                    encodeArtBlocksItems(signatureItems),
+                ),
+            ).to.be.false;
         });
 
         it("returns false for an project wildcard which is not owned", async () => {
@@ -279,7 +325,7 @@ describe("ArtBlocksVerifier", () => {
             const bundleId = await initializeBundle(vaultFactory, user);
             const bundleAddress = await vaultFactory.instanceAt(bundleId);
 
-            await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);;
+            await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);
 
             const signatureItems: ABSignatureItem[] = [
                 {
@@ -287,7 +333,7 @@ describe("ArtBlocksVerifier", () => {
                     projectId: 3,
                     tokenId: 0,
                     amount: 1,
-                    anyIdAllowed: true
+                    anyIdAllowed: true,
                 },
             ];
 
@@ -297,12 +343,28 @@ describe("ArtBlocksVerifier", () => {
                     projectId: 4,
                     tokenId: 0,
                     amount: 1,
-                    anyIdAllowed: true
+                    anyIdAllowed: true,
                 },
             ];
 
-            expect(await verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems))).to.be.true;
-            expect(await verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItemsFalse))).to.be.false;
+            expect(
+                await verifier.verifyPredicates(
+                    deployer.address,
+                    minter.address,
+                    vaultFactory.address,
+                    bundleId,
+                    encodeArtBlocksItems(signatureItems),
+                ),
+            ).to.be.true;
+            expect(
+                await verifier.verifyPredicates(
+                    deployer.address,
+                    minter.address,
+                    vaultFactory.address,
+                    bundleId,
+                    encodeArtBlocksItems(signatureItemsFalse),
+                ),
+            ).to.be.false;
         });
 
         it("returns true for a combination of multiple predicates", async () => {
@@ -311,14 +373,14 @@ describe("ArtBlocksVerifier", () => {
             const bundleId = await initializeBundle(vaultFactory, user);
             const bundleAddress = await vaultFactory.instanceAt(bundleId);
 
-            await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);;
+            await artblocks.connect(minter).mint(bundleAddress, 3, deployer.address);
 
-            const tx = await artblocks.connect(minter).mint(bundleAddress, 4, deployer.address);;
+            const tx = await artblocks.connect(minter).mint(bundleAddress, 4, deployer.address);
             const receipt = await tx.wait();
             const tokenId = receipt.events?.[0].args?.tokenId.sub(1_000_000 * 4);
 
-            await artblocks.connect(minter).mint(bundleAddress, 5, deployer.address);;
-            await artblocks.connect(minter).mint(bundleAddress, 5, deployer.address);;
+            await artblocks.connect(minter).mint(bundleAddress, 5, deployer.address);
+            await artblocks.connect(minter).mint(bundleAddress, 5, deployer.address);
 
             // Check 1 wildcard, check 1 specific ID, and check 1 wildcard of amount > 1
             const signatureItems: ABSignatureItem[] = [
@@ -327,21 +389,21 @@ describe("ArtBlocksVerifier", () => {
                     projectId: 3,
                     tokenId: 0,
                     amount: 1,
-                    anyIdAllowed: true
+                    anyIdAllowed: true,
                 },
                 {
                     asset: artblocks.address,
                     projectId: 4,
                     tokenId,
                     amount: 1,
-                    anyIdAllowed: false
+                    anyIdAllowed: false,
                 },
                 {
                     asset: artblocks.address,
                     projectId: 5,
                     tokenId: 0,
                     amount: 2,
-                    anyIdAllowed: true
+                    anyIdAllowed: true,
                 },
             ];
 
@@ -352,12 +414,28 @@ describe("ArtBlocksVerifier", () => {
                     projectId: 5,
                     tokenId: 0,
                     amount: 5,
-                    anyIdAllowed: true
+                    anyIdAllowed: true,
                 },
             ];
 
-            expect(await verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItems))).to.be.true;
-            expect(await verifier.verifyPredicates(deployer.address, minter.address, vaultFactory.address, bundleId, encodeArtBlocksItems(signatureItemsFalse))).to.be.false;
+            expect(
+                await verifier.verifyPredicates(
+                    deployer.address,
+                    minter.address,
+                    vaultFactory.address,
+                    bundleId,
+                    encodeArtBlocksItems(signatureItems),
+                ),
+            ).to.be.true;
+            expect(
+                await verifier.verifyPredicates(
+                    deployer.address,
+                    minter.address,
+                    vaultFactory.address,
+                    bundleId,
+                    encodeArtBlocksItems(signatureItemsFalse),
+                ),
+            ).to.be.false;
         });
     });
 });

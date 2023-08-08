@@ -35,7 +35,6 @@ contract MockERC20 is ERC20Burnable {
         require(!blacklisted[to], "Blacklisted");
         super._beforeTokenTransfer(from, to, amount);
     }
-
 }
 
 contract MockERC20WithDecimals is ERC20PresetMinterPauser {

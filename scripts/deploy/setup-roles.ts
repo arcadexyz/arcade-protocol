@@ -1,16 +1,11 @@
-import fs from "fs"
+import fs from "fs";
 import hre, { ethers } from "hardhat";
 import { Contract } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 import { SUBSECTION_SEPARATOR, SECTION_SEPARATOR } from "../utils/bootstrap-tools";
 
-import {
-    ORIGINATOR_ROLE,
-    ADMIN_ROLE,
-    FEE_CLAIMER_ROLE,
-    REPAYER_ROLE,
-} from "../utils/constants";
+import { ORIGINATOR_ROLE, ADMIN_ROLE, FEE_CLAIMER_ROLE, REPAYER_ROLE } from "../utils/constants";
 
 const jsonContracts: { [key: string]: string } = {
     CallWhitelist: "whitelist",
@@ -22,7 +17,7 @@ const jsonContracts: { [key: string]: string } = {
     LoanCore: "loanCore",
     RepaymentController: "repaymentController",
     OriginationController: "originationController",
-    ArcadeItemsVerifier: "verifier"
+    ArcadeItemsVerifier: "verifier",
 };
 
 type ContractArgs = {
@@ -47,7 +42,7 @@ export async function main(
     loanCore: Contract,
     feeController: Contract,
     whitelist: Contract,
-    verifier: Contract
+    verifier: Contract,
 ): Promise<void> {
     const signers: SignerWithAddress[] = await hre.ethers.getSigners();
     const [deployer] = signers;
@@ -119,8 +114,7 @@ export async function main(
     console.log(SUBSECTION_SEPARATOR);
 
     // grant repaymentContoller the REPAYER_ROLE
-    const updateRepaymentControllerAdmin = await loanCore
-        .grantRole(REPAYER_ROLE, REPAYMENT_CONTROLLER_ADDRESS);
+    const updateRepaymentControllerAdmin = await loanCore.grantRole(REPAYER_ROLE, REPAYMENT_CONTROLLER_ADDRESS);
     await updateRepaymentControllerAdmin.wait();
 
     console.log(`LoanCore: repayer role granted to ${REPAYMENT_CONTROLLER_ADDRESS}`);
@@ -162,7 +156,7 @@ export async function main(
 }
 
 async function attachAddresses(jsonFile: string): Promise<ContractArgs> {
-    const readData = fs.readFileSync(jsonFile, 'utf-8');
+    const readData = fs.readFileSync(jsonFile, "utf-8");
     const jsonData = JSON.parse(readData);
     const contracts: { [key: string]: Contract } = {};
 
@@ -187,7 +181,7 @@ async function attachAddresses(jsonFile: string): Promise<ContractArgs> {
 
 if (require.main === module) {
     // retrieve command line args array
-    const [,,file] = process.argv;
+    const [, , file] = process.argv;
 
     console.log("File:", file);
 
@@ -202,7 +196,7 @@ if (require.main === module) {
             loanCore,
             feeController,
             whitelist,
-            verifier
+            verifier,
         } = res;
 
         main(
@@ -214,7 +208,7 @@ if (require.main === module) {
             loanCore,
             feeController,
             whitelist,
-            verifier
+            verifier,
         )
             .then(() => process.exit(0))
             .catch((error: Error) => {

@@ -16,11 +16,7 @@ import {
     FlashRolloverNftfiToV3,
     CallWhitelistAllExtensions,
 } from "../../typechain";
-import {
-    ORIGINATOR_ROLE,
-    REPAYER_ROLE,
-    BASE_URI
-} from "../utils/constants";
+import { ORIGINATOR_ROLE, REPAYER_ROLE, BASE_URI } from "../utils/constants";
 import {
     BORROWER,
     PAYABLE_CURRENCY,
@@ -235,7 +231,7 @@ export async function main(): Promise<void> {
     await flashRollover.deployed();
     console.log("FlashRolloverNftfiToV3 deployed to:", flashRollover.address);
     const flashLoanFee: BigNumber = BigNumber.from("0"); // 0% flash loan fee on Balancer
-console.log("Owner:", await flashRollover.owner());
+    console.log("Owner:", await flashRollover.owner());
     // impersonate accounts
     console.log(SUBSECTION_SEPARATOR);
     await hre.network.provider.request({

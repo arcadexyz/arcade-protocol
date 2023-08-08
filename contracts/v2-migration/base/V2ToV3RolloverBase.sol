@@ -9,15 +9,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "../../interfaces/IV2ToV3RolloverBase.sol";
 
-import {
-    R_FundsConflict,
-    R_NotCollateralOwner,
-    R_CallerNotBorrower,
-    R_CurrencyMismatch,
-    R_CollateralMismatch,
-    R_CollateralIdMismatch,
-    R_NoTokenBalance
-} from "../errors/RolloverErrors.sol";
+import { R_FundsConflict, R_NotCollateralOwner, R_CallerNotBorrower, R_CurrencyMismatch, R_CollateralMismatch, R_CollateralIdMismatch, R_NoTokenBalance } from "../errors/RolloverErrors.sol";
 
 /**
  * @title V2ToV3RolloverBase
@@ -81,7 +73,15 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
         uint256 premium,
         uint256 originationFee,
         uint256 newPrincipal
-    ) internal pure returns (uint256 flashAmountDue, uint256 needFromBorrower, uint256 leftoverPrincipal) {
+    )
+        internal
+        pure
+        returns (
+            uint256 flashAmountDue,
+            uint256 needFromBorrower,
+            uint256 leftoverPrincipal
+        )
+    {
         // total amount due to flash loan contract
         flashAmountDue = amount + premium;
         // amount that will be received when starting the new loan
@@ -125,10 +125,7 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
             loanData.terms.interestRate
         );
 
-        IERC20(loanData.terms.payableCurrency).approve(
-            address(repaymentControllerV2),
-            totalRepayment
-        );
+        IERC20(loanData.terms.payableCurrency).approve(address(repaymentControllerV2), totalRepayment);
 
         // repay loan
         repaymentControllerV2.repay(borrowerNoteId);
@@ -166,7 +163,7 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
         if (sourceLoanTerms.collateralAddress != newLoanTerms.collateralAddress) {
             revert R_CollateralMismatch(sourceLoanTerms.collateralAddress, newLoanTerms.collateralAddress);
         }
-        
+
         if (sourceLoanTerms.collateralId != newLoanTerms.collateralId) {
             revert R_CollateralIdMismatch(sourceLoanTerms.collateralId, newLoanTerms.collateralId);
         }

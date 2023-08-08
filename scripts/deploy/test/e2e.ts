@@ -3,19 +3,9 @@ import { expect } from "chai";
 import { ethers, artifacts } from "hardhat";
 import assert from "assert";
 
-import {
-    NETWORK,
-    getLatestDeploymentFile,
-    getLatestDeployment,
-    getVerifiedABI
-} from "./utils";
+import { NETWORK, getLatestDeploymentFile, getLatestDeployment, getVerifiedABI } from "./utils";
 
-import {
-    ORIGINATOR_ROLE,
-    ADMIN_ROLE,
-    FEE_CLAIMER_ROLE,
-    REPAYER_ROLE,
-} from "../../utils/constants";
+import { ORIGINATOR_ROLE, ADMIN_ROLE, FEE_CLAIMER_ROLE, REPAYER_ROLE } from "../../utils/constants";
 
 import { ZERO_ADDRESS } from "../../../test/utils/erc20";
 
@@ -25,7 +15,7 @@ import {
     LoanCore,
     PromissoryNote,
     OriginationController,
-    VaultFactory
+    VaultFactory,
 } from "../../../typechain";
 
 /**
@@ -34,7 +24,7 @@ import {
  */
 assert(NETWORK !== "hardhat", "Must use a long-lived network!");
 
-describe("Deployment", function() {
+describe("Deployment", function () {
     this.timeout(0);
     this.bail();
 
@@ -42,7 +32,7 @@ describe("Deployment", function() {
         if (process.env.EXEC) {
             // Deploy everything, via command-line
             console.log(); // whitespace
-            execSync(`npx hardhat --network ${NETWORK} run scripts/deploy/deploy.ts`, { stdio: 'inherit' });
+            execSync(`npx hardhat --network ${NETWORK} run scripts/deploy/deploy.ts`, { stdio: "inherit" });
         }
 
         // Make sure JSON file exists
@@ -65,7 +55,9 @@ describe("Deployment", function() {
         // Make sure VaultFactory initialized correctly
         const vaultFactoryFactory = await ethers.getContractFactory("VaultFactory");
         const factoryProxy = <VaultFactory>await vaultFactoryFactory.attach(deployment["VaultFactory"].contractAddress);
-        const factoryImpl = <VaultFactory>await vaultFactoryFactory.attach(deployment["VaultFactory"].contractImplementationAddress);
+        const factoryImpl = <VaultFactory>(
+            await vaultFactoryFactory.attach(deployment["VaultFactory"].contractImplementationAddress)
+        );
 
         // Proxy initialized, impl not
         expect(await factoryProxy.template()).to.eq(deployment["AssetVault"].contractAddress);
@@ -97,7 +89,9 @@ describe("Deployment", function() {
         // Make sure LoanCore initialized correctly
         const loanCoreFactory = await ethers.getContractFactory("LoanCore");
         const loanCoreProxy = <LoanCore>await loanCoreFactory.attach(deployment["LoanCore"].contractAddress);
-        const loanCoreImpl = <LoanCore>await loanCoreFactory.attach(deployment["LoanCore"].contractImplementationAddress);
+        const loanCoreImpl = <LoanCore>(
+            await loanCoreFactory.attach(deployment["LoanCore"].contractImplementationAddress)
+        );
 
         // Proxy initialized, impl not
         expect(await loanCoreProxy.feeController()).to.eq(deployment["FeeController"].contractAddress);
@@ -123,8 +117,12 @@ describe("Deployment", function() {
 
         // Make sure OriginationController initialized correctly
         const ocFactory = await ethers.getContractFactory("OriginationController");
-        const ocProxy = <OriginationController>await ocFactory.attach(deployment["OriginationController"].contractAddress);
-        const ocImpl = <OriginationController>await ocFactory.attach(deployment["OriginationController"].contractImplementationAddress);
+        const ocProxy = <OriginationController>(
+            await ocFactory.attach(deployment["OriginationController"].contractAddress)
+        );
+        const ocImpl = <OriginationController>(
+            await ocFactory.attach(deployment["OriginationController"].contractImplementationAddress)
+        );
 
         expect(await ocProxy.loanCore()).to.eq(deployment["LoanCore"].contractAddress);
         expect(await ocImpl.loanCore()).to.eq(ZERO_ADDRESS);
@@ -146,7 +144,10 @@ describe("Deployment", function() {
         if (process.env.EXEC) {
             // Run setup, via command-line
             console.log(); // whitespace
-            execSync(`HARDHAT_NETWORK=${NETWORK} ADMIN=${ADMIN_ADDRESS} ts-node scripts/deploy/setup-roles.ts ${filename}`, { stdio: 'inherit' });
+            execSync(
+                `HARDHAT_NETWORK=${NETWORK} ADMIN=${ADMIN_ADDRESS} ts-node scripts/deploy/setup-roles.ts ${filename}`,
+                { stdio: "inherit" },
+            );
         }
 
         // Check role setup contract by contract
@@ -194,7 +195,8 @@ describe("Deployment", function() {
 
         expect(await loanCore.hasRole(FEE_CLAIMER_ROLE, deployer.address)).to.be.false;
         expect(await loanCore.hasRole(FEE_CLAIMER_ROLE, ADMIN_ADDRESS)).to.be.true;
-        expect(await loanCore.hasRole(FEE_CLAIMER_ROLE, deployment["OriginationController"].contractAddress)).to.be.false;
+        expect(await loanCore.hasRole(FEE_CLAIMER_ROLE, deployment["OriginationController"].contractAddress)).to.be
+            .false;
         expect(await loanCore.hasRole(FEE_CLAIMER_ROLE, deployment["RepaymentController"].contractAddress)).to.be.false;
         expect(await loanCore.getRoleMemberCount(FEE_CLAIMER_ROLE)).to.eq(1);
 
@@ -211,7 +213,9 @@ describe("Deployment", function() {
         expect(await loanCore.getRoleMemberCount(REPAYER_ROLE)).to.eq(1);
 
         const ocFactory = await ethers.getContractFactory("OriginationController");
-        const originationController = <OriginationController>await ocFactory.attach(deployment["OriginationController"].contractAddress);
+        const originationController = <OriginationController>(
+            await ocFactory.attach(deployment["OriginationController"].contractAddress)
+        );
 
         expect(await originationController.hasRole(ADMIN_ROLE, ADMIN_ADDRESS)).to.be.true;
         expect(await originationController.hasRole(ADMIN_ROLE, deployer.address)).to.be.false;
@@ -225,7 +229,9 @@ describe("Deployment", function() {
         if (process.env.EXEC) {
             // Run setup, via command-line
             console.log(); // whitespace
-            execSync(`HARDHAT_NETWORK=${NETWORK} ts-node scripts/deploy/verify-contracts.ts ${filename}`, { stdio: 'inherit' });
+            execSync(`HARDHAT_NETWORK=${NETWORK} ts-node scripts/deploy/verify-contracts.ts ${filename}`, {
+                stdio: "inherit",
+            });
         }
 
         const proxyArtifact = await artifacts.readArtifact("ERC1967Proxy");
@@ -250,5 +256,5 @@ describe("Deployment", function() {
         }
     });
 
-    it.skip("can run sample loans")
+    it.skip("can run sample loans");
 });

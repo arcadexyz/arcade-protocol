@@ -38,10 +38,10 @@ async function verifyArtifacts(
 // get data from deployments json to run verify artifacts
 export async function main(): Promise<void> {
     // retrieve command line args array
-    const [,,file] = process.argv;
+    const [, , file] = process.argv;
 
     // read deployment json to get contract addresses and constructor arguments
-    const readData = fs.readFileSync(file, 'utf-8');
+    const readData = fs.readFileSync(file, "utf-8");
     const jsonData = JSON.parse(readData);
 
     // loop through jsonData to run verifyArtifacts function

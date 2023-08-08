@@ -5,9 +5,7 @@ import { BigNumberish } from "ethers";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 
-import {
-    BaseURIDescriptor, MockERC721
-} from "../typechain";
+import { BaseURIDescriptor, MockERC721 } from "../typechain";
 import { deploy } from "./utils/contracts";
 
 import { ZERO_ADDRESS } from "./utils/erc20";
@@ -27,7 +25,7 @@ const fixture = async (): Promise<TestContext> => {
     const [deployer] = signers;
 
     const mockERC721 = <MockERC721>await deploy("MockERC721", deployer, ["Mock ERC721", "MOCK"]);
-    const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
+    const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI]);
 
     return { mockERC721, deployer, descriptor };
 };
@@ -55,7 +53,6 @@ describe("BaseURIDescriptor", () => {
             expect(await descriptor.tokenURI(deployer.address, 55)).to.equal(`${BASE_URI}55`);
         });
 
-
         it("returns an empty string if baseURI is not set", async () => {
             const { descriptor, mockERC721, deployer } = ctx;
 
@@ -74,15 +71,16 @@ describe("BaseURIDescriptor", () => {
             const { descriptor } = ctx;
             const [, other] = await ethers.getSigners();
 
-            await expect(descriptor.connect(other).setBaseURI(OTHER_BASE_URI)).to.be.revertedWith("Ownable: caller is not the owner");
+            await expect(descriptor.connect(other).setBaseURI(OTHER_BASE_URI)).to.be.revertedWith(
+                "Ownable: caller is not the owner",
+            );
         });
 
         it("sets a new baseURI", async () => {
             const { descriptor, deployer, mockERC721 } = ctx;
 
-            await expect(
-                descriptor.setBaseURI(OTHER_BASE_URI)
-            ).to.emit(descriptor, "SetBaseURI")
+            await expect(descriptor.setBaseURI(OTHER_BASE_URI))
+                .to.emit(descriptor, "SetBaseURI")
                 .withArgs(deployer.address, OTHER_BASE_URI);
 
             expect(await descriptor.baseURI()).to.equal(OTHER_BASE_URI);
@@ -92,10 +90,7 @@ describe("BaseURIDescriptor", () => {
         it("sets an empty baseURI", async () => {
             const { descriptor, deployer, mockERC721 } = ctx;
 
-            await expect(
-                descriptor.setBaseURI("")
-            ).to.emit(descriptor, "SetBaseURI")
-                .withArgs(deployer.address, "");
+            await expect(descriptor.setBaseURI("")).to.emit(descriptor, "SetBaseURI").withArgs(deployer.address, "");
 
             expect(await descriptor.baseURI()).to.equal("");
             expect(await descriptor.tokenURI(mockERC721.address, 55)).to.equal("");

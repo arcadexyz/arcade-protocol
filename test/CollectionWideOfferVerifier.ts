@@ -65,8 +65,8 @@ describe("CollectionWideOfferVerifier", () => {
                     mockERC721.address,
                     mockERC721.address,
                     101,
-                    ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address])
-                )
+                    ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address]),
+                ),
             ).to.eq(true);
         });
 
@@ -80,8 +80,8 @@ describe("CollectionWideOfferVerifier", () => {
                     mockERC721.address,
                     otherMockERC721.address,
                     101,
-                    ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address])
-                )
+                    ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address]),
+                ),
             ).to.be.revertedWith("function selector was not recognized and there's no fallback function");
         });
 
@@ -133,8 +133,8 @@ describe("CollectionWideOfferVerifier", () => {
                     mockERC721.address,
                     vaultFactory.address,
                     bundleId,
-                    ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address])
-                )
+                    ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address]),
+                ),
             ).to.eq(false);
         });
 
@@ -150,8 +150,8 @@ describe("CollectionWideOfferVerifier", () => {
                     mockERC721.address,
                     vaultFactory.address,
                     bundleId,
-                    ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address])
-                )
+                    ethers.utils.defaultAbiCoder.encode(["address"], [mockERC721.address]),
+                ),
             ).to.eq(true);
         });
     });

@@ -1,9 +1,7 @@
 import hre, { ethers } from "hardhat";
 import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../utils/bootstrap-tools";
 
-import {
-    ArcadeItemsVerifier
-} from "../../typechain";
+import { ArcadeItemsVerifier } from "../../typechain";
 
 export interface DeployedResources {
     verifier: ArcadeItemsVerifier;

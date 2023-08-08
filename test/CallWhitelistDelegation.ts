@@ -29,7 +29,9 @@ describe("CallWhitelistDelegation", () => {
     const fixture = async (): Promise<TestContext> => {
         const signers: Signer[] = await hre.ethers.getSigners();
         const registry = <DelegationRegistry>await deploy("DelegationRegistry", signers[0], []);
-        const whitelist = <CallWhitelistDelegation>await deploy("CallWhitelistDelegation", signers[0], [registry.address]);
+        const whitelist = <CallWhitelistDelegation>(
+            await deploy("CallWhitelistDelegation", signers[0], [registry.address])
+        );
         const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
         const mockERC721 = <MockERC721>await deploy("MockERC721", signers[0], ["Mock ERC721", "MOCK"]);
         const mockERC1155 = <MockERC1155>await deploy("MockERC1155", signers[0], []);
@@ -68,8 +70,9 @@ describe("CallWhitelistDelegation", () => {
         it("should fail from non-owner", async () => {
             const { whitelist, mockERC20, other } = await loadFixture(fixture);
 
-            await expect(whitelist.connect(other).setDelegationApproval(mockERC20.address, true))
-                .to.be.revertedWith("Ownable: caller is not the owner");
+            await expect(whitelist.connect(other).setDelegationApproval(mockERC20.address, true)).to.be.revertedWith(
+                "Ownable: caller is not the owner",
+            );
         });
 
         it("should succeed after ownership transferred", async () => {
@@ -91,8 +94,9 @@ describe("CallWhitelistDelegation", () => {
                 .to.emit(whitelist, "OwnershipTransferred")
                 .withArgs(user.address, other.address);
 
-            await expect(whitelist.connect(user).setDelegationApproval(mockERC20.address, true))
-                .to.be.revertedWith("Ownable: caller is not the owner");
+            await expect(whitelist.connect(user).setDelegationApproval(mockERC20.address, true)).to.be.revertedWith(
+                "Ownable: caller is not the owner",
+            );
         });
     });
 
@@ -108,8 +112,9 @@ describe("CallWhitelistDelegation", () => {
         it("should fail from non-owner", async () => {
             const { whitelist, other } = await loadFixture(fixture);
 
-            await expect(whitelist.connect(other).setRegistry(other.address))
-                .to.be.revertedWith("Ownable: caller is not the owner");
+            await expect(whitelist.connect(other).setRegistry(other.address)).to.be.revertedWith(
+                "Ownable: caller is not the owner",
+            );
         });
 
         it("should fail if same address is used", async () => {
@@ -119,8 +124,9 @@ describe("CallWhitelistDelegation", () => {
                 .to.emit(whitelist, "RegistryChanged")
                 .withArgs(user.address, other.address);
 
-            await expect(whitelist.connect(user).setRegistry(other.address))
-                .to.be.revertedWith("CWD_RegistryAlreadySet()");
+            await expect(whitelist.connect(user).setRegistry(other.address)).to.be.revertedWith(
+                "CWD_RegistryAlreadySet()",
+            );
         });
 
         it("should succeed after ownership transferred", async () => {
@@ -142,8 +148,9 @@ describe("CallWhitelistDelegation", () => {
                 .to.emit(whitelist, "OwnershipTransferred")
                 .withArgs(user.address, other.address);
 
-            await expect(whitelist.connect(user).setRegistry(other.address))
-                .to.be.revertedWith("Ownable: caller is not the owner");
+            await expect(whitelist.connect(user).setRegistry(other.address)).to.be.revertedWith(
+                "Ownable: caller is not the owner",
+            );
         });
     });
 

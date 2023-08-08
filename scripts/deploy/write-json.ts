@@ -56,10 +56,7 @@ export async function writeJson(
         lNoteSymbol,
     );
 
-    fs.writeFileSync(
-        path.join(networkFolderPath, jsonFile),
-        JSON.stringify(contractInfo, undefined, 2)
-    );
+    fs.writeFileSync(path.join(networkFolderPath, jsonFile), JSON.stringify(contractInfo, undefined, 2));
 
     console.log("Contract info written to: ", path.join(networkFolderPath, jsonFile));
 }
@@ -84,32 +81,32 @@ export async function createInfo(
 
     contractInfo["CallWhitelist"] = {
         contractAddress: whitelistAddress,
-        constructorArgs: []
+        constructorArgs: [],
     };
 
     contractInfo["AssetVault"] = {
         contractAddress: assetVaultAddress,
-        constructorArgs: []
+        constructorArgs: [],
     };
 
     contractInfo["VaultFactory"] = {
         contractAddress: vaultFactoryAddress,
-        constructorArgs: []
+        constructorArgs: [],
     };
 
     contractInfo["FeeController"] = {
         contractAddress: feeControllerAddress,
-        constructorArgs: []
+        constructorArgs: [],
     };
 
     contractInfo["BorrowerNote"] = {
         contractAddress: borrowerNoteAddress,
-        constructorArgs: [bNoteName, bNoteSymbol]
+        constructorArgs: [bNoteName, bNoteSymbol],
     };
 
     contractInfo["LenderNote"] = {
         contractAddress: lenderNoteAddress,
-        constructorArgs: [lNoteName, lNoteSymbol]
+        constructorArgs: [lNoteName, lNoteSymbol],
     };
 
     contractInfo["LoanCore"] = {
@@ -119,17 +116,17 @@ export async function createInfo(
 
     contractInfo["RepaymentController"] = {
         contractAddress: repaymentContAddress,
-        constructorArgs: [loanCoreAddress]
+        constructorArgs: [loanCoreAddress],
     };
 
     contractInfo["OriginationController"] = {
         contractAddress: originationContAddress,
-        constructorArgs: []
+        constructorArgs: [],
     };
 
     contractInfo["ArcadeItemsVerifier"] = {
         contractAddress: verifierAddress,
-        constructorArgs: []
+        constructorArgs: [],
     };
 
     return contractInfo;

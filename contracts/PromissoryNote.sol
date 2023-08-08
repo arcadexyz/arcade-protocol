@@ -12,13 +12,8 @@ import "./interfaces/ILoanCore.sol";
 import "./interfaces/INFTDescriptor.sol";
 import "./nft/ERC721Permit.sol";
 
-import {
-    PN_ZeroAddress,
-    PN_MintingRole,
-    PN_BurningRole,
-    PN_DoesNotExist
-} from "./errors/Lending.sol";
-import "hardhat/console.sol";
+import { PN_ZeroAddress, PN_MintingRole, PN_BurningRole, PN_DoesNotExist } from "./errors/Lending.sol";
+
 /**
  * @title PromissoryNote
  * @author Non-Fungible Technologies, Inc.
@@ -42,13 +37,7 @@ import "hardhat/console.sol";
  * roles, as well as the admin role, which will let it grant both minter
  * and pauser roles to other accounts.
  */
-contract PromissoryNote is
-    Context,
-    AccessControl,
-    ERC721Enumerable,
-    ERC721Permit,
-    IPromissoryNote
-{
+contract PromissoryNote is Context, AccessControl, ERC721Enumerable, ERC721Permit, IPromissoryNote {
     using Counters for Counters.Counter;
 
     // ============================================ STATE ==============================================
@@ -131,7 +120,7 @@ contract PromissoryNote is
         if (!hasRole(MINT_BURN_ROLE, msg.sender)) revert PN_MintingRole(msg.sender);
 
         _safeMint(to, loanId);
-console.log("140 PNOTE MINTED ++++++++++++++++++++++++++");
+
         return loanId;
     }
 

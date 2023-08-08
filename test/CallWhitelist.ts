@@ -275,8 +275,9 @@ describe("CallWhitelist", () => {
             await whitelist.add(mockERC20.address, selector);
             expect(await whitelist.isWhitelisted(mockERC20.address, selector)).to.be.true;
 
-            await expect(whitelist.add(mockERC20.address, selector))
-                .to.be.revertedWith(`CW_AlreadyWhitelisted("${mockERC20.address}", "${selector}")`);
+            await expect(whitelist.add(mockERC20.address, selector)).to.be.revertedWith(
+                `CW_AlreadyWhitelisted("${mockERC20.address}", "${selector}")`,
+            );
         });
 
         it("removing twice is a noop", async () => {
@@ -291,11 +292,11 @@ describe("CallWhitelist", () => {
             await whitelist.remove(mockERC20.address, selector);
             expect(await whitelist.isWhitelisted(mockERC20.address, selector)).to.be.false;
 
-            await expect(whitelist.remove(mockERC20.address, selector))
-                .to.be.revertedWith(`CW_NotWhitelisted("${mockERC20.address}", "${selector}")`);
-            
+            await expect(whitelist.remove(mockERC20.address, selector)).to.be.revertedWith(
+                `CW_NotWhitelisted("${mockERC20.address}", "${selector}")`,
+            );
         });
-        
+
         it("add again after removing", async () => {
             const { whitelist, mockERC20 } = await loadFixture(fixture);
             const selector = mockERC20.interface.getSighash("mint");

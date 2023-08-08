@@ -111,7 +111,7 @@ export async function createLoanTermsSignature(
     const data = buildData(verifyingContract, name, version, { ...terms, nonce, side }, typedLoanTermsData);
     const signature = await signer._signTypedData(data.domain, data.types, data.message);
 
-    const sig: ECDSASignature =  fromRpcSig(signature);
+    const sig: ECDSASignature = fromRpcSig(signature);
 
     return { v: sig.v, r: sig.r, s: sig.s, extraData };
 }
@@ -149,7 +149,7 @@ export async function createLoanItemsSignature(
         nonce,
         side,
         deadline: terms.deadline,
-        affiliateCode: terms.affiliateCode
+        affiliateCode: terms.affiliateCode,
     };
 
     const data = buildData(verifyingContract, name, version, message, typedLoanItemsData);
@@ -157,7 +157,7 @@ export async function createLoanItemsSignature(
     // console.log(JSON.stringify(data, null, 4));
     const signature = await signer._signTypedData(data.domain, data.types, data.message);
 
-    const sig: ECDSASignature =  fromRpcSig(signature);
+    const sig: ECDSASignature = fromRpcSig(signature);
 
     return { v: sig.v, r: sig.r, s: sig.s, extraData };
 }
@@ -179,7 +179,7 @@ export async function createPermitSignature(
     const data = buildData(verifyingContract, name, "1", permitData, typedPermitData);
     const signature = await signer._signTypedData(data.domain, data.types, data.message);
 
-    const sig: ECDSASignature =  fromRpcSig(signature);
+    const sig: ECDSASignature = fromRpcSig(signature);
 
     return { v: sig.v, r: sig.r, s: sig.s, extraData };
 }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: MIT
 
 pragma solidity 0.8.18;
 
@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 
 import "../interfaces/INftfiHub.sol";
 import "../utils/ContractKeys.sol";
-import "../utils/Ownable.sol";
 
 import "./AirdropReceiver.sol";
 import "./IAirdropReceiverFactory.sol";

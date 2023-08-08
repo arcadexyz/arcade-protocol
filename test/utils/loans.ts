@@ -33,7 +33,7 @@ export const encodeInts = (ints: BigNumberish[]): string => {
     const types = ["int256[]"];
 
     return ethers.utils.defaultAbiCoder.encode(types, [ints]);
-}
+};
 
 export const encodeArtBlocksItems = (items: ABSignatureItem[]): string => {
     const types = ["(address,uint256,uint256,uint256,bool)[]"];
@@ -46,7 +46,7 @@ export const encodeItemCheck = (addr: string, id: BigNumberish, anyIdAllowed = f
     const types = ["address", "uint256", "bool"];
 
     return ethers.utils.defaultAbiCoder.encode(types, [addr, id, anyIdAllowed]);
-}
+};
 
 export const feeSnapshot: FeeSnapshot = {
     lenderDefaultFee: BigNumber.from(0),
@@ -63,7 +63,9 @@ export const startLoan = async (
     amountFromLender: BigNumberish,
     amountToBorrower: BigNumberish,
 ): Promise<BigNumber> => {
-    const tx = await loanCore.connect(originator).startLoan(lender, borrower, terms, amountFromLender, amountToBorrower, feeSnapshot);
+    const tx = await loanCore
+        .connect(originator)
+        .startLoan(lender, borrower, terms, amountFromLender, amountToBorrower, feeSnapshot);
     const receipt = await tx.wait();
 
     const loanStartedEvent = receipt?.events?.find(e => e.event === "LoanStarted");

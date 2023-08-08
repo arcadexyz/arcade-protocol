@@ -31,11 +31,16 @@ describe("VaultFactory", () => {
         const signers: Signer[] = await hre.ethers.getSigners();
         const whitelist = <CallWhitelist>await deploy("CallWhitelist", signers[0], []);
         const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
-        const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
+        const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI]);
         const feeController = <FeeController>await deploy("FeeController", signers[0], []);
 
         const factory = <VaultFactory>(
-            await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address])
+            await deploy("VaultFactory", signers[0], [
+                vaultTemplate.address,
+                whitelist.address,
+                feeController.address,
+                descriptor.address,
+            ])
         );
 
         return {
@@ -46,7 +51,7 @@ describe("VaultFactory", () => {
             descriptor,
             user: signers[0],
             other: signers[1],
-            signers: signers.slice(2)
+            signers: signers.slice(2),
         };
     };
 
@@ -197,9 +202,7 @@ describe("VaultFactory", () => {
         it("should fail to mint if the required fee is not provided", async () => {
             const { user, factory } = ctx;
 
-            await expect(
-                factory.initializeBundle(user.address)
-            ).to.be.revertedWith("VF_InsufficientMintFee");
+            await expect(factory.initializeBundle(user.address)).to.be.revertedWith("VF_InsufficientMintFee");
         });
 
         it("mints and reserves a fee for later collection", async () => {
@@ -207,9 +210,7 @@ describe("VaultFactory", () => {
 
             const userBalanceBefore = await ethers.provider.getBalance(user.address);
 
-            await expect(
-                factory.initializeBundle(user.address, { value: MINT_FEE })
-            ).to.emit(factory, "VaultCreated");
+            await expect(factory.initializeBundle(user.address, { value: MINT_FEE })).to.emit(factory, "VaultCreated");
 
             const userBalanceAfter = await ethers.provider.getBalance(user.address);
 
@@ -223,7 +224,7 @@ describe("VaultFactory", () => {
             const userBalanceBefore = await ethers.provider.getBalance(user.address);
 
             await expect(
-                factory.initializeBundle(user.address, { value: MINT_FEE.mul(10) }) // extra large fee paid
+                factory.initializeBundle(user.address, { value: MINT_FEE.mul(10) }), // extra large fee paid
             ).to.emit(factory, "VaultCreated");
 
             const userBalanceAfter = await ethers.provider.getBalance(user.address);
@@ -235,9 +236,7 @@ describe("VaultFactory", () => {
         it("mint fee cannot be collected by non-admin", async () => {
             const { user, other, factory } = ctx;
 
-            await expect(
-                factory.initializeBundle(user.address, { value: MINT_FEE })
-            ).to.emit(factory, "VaultCreated");
+            await expect(factory.initializeBundle(user.address, { value: MINT_FEE })).to.emit(factory, "VaultCreated");
 
             await expect(factory.connect(other).claimFees(other.address)).to.be.revertedWith(
                 `AccessControl: account ${other.address.toLowerCase()} is missing role ${FEE_CLAIMER_ROLE}`,
@@ -247,9 +246,7 @@ describe("VaultFactory", () => {
         it("collects the mint fee", async () => {
             const { user, factory } = ctx;
 
-            await expect(
-                factory.initializeBundle(user.address, { value: MINT_FEE })
-            ).to.emit(factory, "VaultCreated");
+            await expect(factory.initializeBundle(user.address, { value: MINT_FEE })).to.emit(factory, "VaultCreated");
 
             expect(await ethers.provider.getBalance(factory.address)).to.eq(MINT_FEE);
 
@@ -266,10 +263,10 @@ describe("VaultFactory", () => {
             expect(await ethers.provider.getBalance(factory.address)).to.eq(MINT_FEE);
 
             await expect(factory.connect(user).claimFees(ethers.constants.AddressZero)).to.be.revertedWith(
-                `VF_ZeroAddress("to")`
+                `VF_ZeroAddress("to")`,
             );
         });
-    })
+    });
 
     describe("Permit", () => {
         const typedData = {
@@ -332,9 +329,7 @@ describe("VaultFactory", () => {
             let approved = await factory.getApproved(bundleId);
             expect(approved).to.equal(hre.ethers.constants.AddressZero);
 
-            await expect(
-                factory.permit(user.address, other.address, bundleId, maxDeadline, v, r, s),
-            )
+            await expect(factory.permit(user.address, other.address, bundleId, maxDeadline, v, r, s))
                 .to.emit(factory, "Approval")
                 .withArgs(user.address, other.address, bundleId);
 
@@ -454,9 +449,7 @@ describe("VaultFactory", () => {
             const signature = await user._signTypedData(data.domain, data.types, data.message);
             const { v, r, s } = fromRpcSig(signature);
 
-            await expect(
-                factory.permit(user.address, other.address, bundleId, maxDeadline, v, r, s),
-            )
+            await expect(factory.permit(user.address, other.address, bundleId, maxDeadline, v, r, s))
                 .to.emit(factory, "Approval")
                 .withArgs(user.address, other.address, bundleId);
 
@@ -510,9 +503,9 @@ describe("VaultFactory", () => {
             const approved = await factory.getApproved(bundleId);
             expect(approved).to.equal(hre.ethers.constants.AddressZero);
 
-            await expect(
-                factory.permit(user.address, other.address, bundleId, "1234", v, r, s),
-            ).to.be.revertedWith("ERC721P_DeadlineExpired");
+            await expect(factory.permit(user.address, other.address, bundleId, "1234", v, r, s)).to.be.revertedWith(
+                "ERC721P_DeadlineExpired",
+            );
         });
     });
 
@@ -591,9 +584,7 @@ describe("VaultFactory", () => {
                     ) => {
                         const preSenderBalance = await token.balanceOf(from.address);
                         const preRecipientBalance = await token.balanceOf(to.address);
-                        await expect(
-                            token.connect(caller).transferFrom(from.address, to.address, tokenId),
-                        )
+                        await expect(token.connect(caller).transferFrom(from.address, to.address, tokenId))
                             .to.emit(token, "Transfer")
                             .withArgs(from.address, to.address, tokenId)
                             .to.emit(token, "Approval")
@@ -647,11 +638,7 @@ describe("VaultFactory", () => {
 
                         beforeEach(async () => {
                             tokenId = await initializeBundle(token, user);
-                            await expect(
-                                token
-                                    .connect(user)
-                                    .transferFrom(user.address, user.address, tokenId),
-                            )
+                            await expect(token.connect(user).transferFrom(user.address, user.address, tokenId))
                                 .to.emit(token, "Transfer")
                                 .withArgs(user.address, user.address, tokenId)
                                 .to.emit(token, "Approval")
@@ -674,27 +661,21 @@ describe("VaultFactory", () => {
                     it("fails when the owner address is incorrect", async () => {
                         const tokenId = await initializeBundle(token, user);
                         await expect(
-                            token
-                                .connect(user)
-                                .transferFrom(other.address, other.address, tokenId),
+                            token.connect(user).transferFrom(other.address, other.address, tokenId),
                         ).to.be.revertedWith("ERC721: transfer of token that is not own");
                     });
 
                     it("fails when the sender is not authorized", async () => {
                         const tokenId = await initializeBundle(token, user);
                         await expect(
-                            token
-                                .connect(other)
-                                .transferFrom(user.address, other.address, tokenId),
+                            token.connect(other).transferFrom(user.address, other.address, tokenId),
                         ).to.be.revertedWith("ERC721: transfer caller is not owner nor approved");
                     });
 
                     it("fails when the token id does not exist", async () => {
                         const nonexistentTokenId = 123412341243;
                         await expect(
-                            token
-                                .connect(user)
-                                .transferFrom(user.address, other.address, nonexistentTokenId),
+                            token.connect(user).transferFrom(user.address, other.address, nonexistentTokenId),
                         ).to.be.revertedWith("ERC721: operator query for nonexistent token");
                     });
 
@@ -716,13 +697,13 @@ describe("VaultFactory", () => {
 
             beforeEach(async () => {
                 ctx = await loadFixture(fixture);
-                const [deployer] = await ethers.getSigners()
+                const [deployer] = await ethers.getSigners();
 
                 newDescriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", deployer, [otherBaseURI]);
                 await newDescriptor.deployed();
 
                 expect(await newDescriptor.baseURI()).to.be.eq(otherBaseURI);
-            })
+            });
 
             it("gets the tokenURI", async () => {
                 const { factory, user } = ctx;
@@ -736,8 +717,9 @@ describe("VaultFactory", () => {
             it("reverts if non-admin tries to change the descriptor", async () => {
                 const { factory, other } = ctx;
 
-                await expect(factory.connect(other).setDescriptor(newDescriptor.address))
-                    .to.be.revertedWith("AccessControl");
+                await expect(factory.connect(other).setDescriptor(newDescriptor.address)).to.be.revertedWith(
+                    "AccessControl",
+                );
             });
 
             it("reverts if descriptor is set to 0 address", async () => {
@@ -745,7 +727,7 @@ describe("VaultFactory", () => {
                 await factory.grantRole(RESOURCE_MANAGER_ROLE, other.address);
 
                 await expect(factory.connect(other).setDescriptor(ZERO_ADDRESS)).to.be.revertedWith(
-                    `VF_ZeroAddress("descriptor")`
+                    `VF_ZeroAddress("descriptor")`,
                 );
             });
 

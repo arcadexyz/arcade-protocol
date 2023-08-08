@@ -33,7 +33,8 @@ abstract contract CallBlacklist {
     bytes4 private constant ERC20_BURN_FROM = bytes4(keccak256("burnFrom(address,uint256)"));
 
     bytes4 private constant ERC721_SAFE_TRANSFER_FROM = bytes4(keccak256("safeTransferFrom(address,address,uint256)"));
-    bytes4 private constant ERC721_SAFE_TRANSFER_FROM_DATA = bytes4(keccak256("safeTransferFrom(address,address,uint256,bytes)"));
+    bytes4 private constant ERC721_SAFE_TRANSFER_FROM_DATA =
+        bytes4(keccak256("safeTransferFrom(address,address,uint256,bytes)"));
     bytes4 private constant ERC721_ERC1155_SET_APPROVAL = IERC721.setApprovalForAll.selector;
     bytes4 private constant ERC721_BURN = bytes4(keccak256("burn(uint256)"));
 
@@ -44,7 +45,8 @@ abstract contract CallBlacklist {
 
     bytes4 private constant PUNKS_TRANSFER = bytes4(keccak256("transferPunk(address,uint256)"));
     bytes4 private constant PUNKS_OFFER = bytes4(keccak256("offerPunkForSale(uint256,uint256)"));
-    bytes4 private constant PUNKS_OFFER_TO_ADDRESS = bytes4(keccak256("offerPunkForSaleToAddress(uint256,uint256,address)"));
+    bytes4 private constant PUNKS_OFFER_TO_ADDRESS =
+        bytes4(keccak256("offerPunkForSaleToAddress(uint256,uint256,address)"));
     bytes4 private constant PUNKS_BUY = bytes4(keccak256("buyPunk(uint256)"));
 
     // ================= Blacklist State ==================

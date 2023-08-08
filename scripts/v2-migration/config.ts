@@ -33,4 +33,4 @@ export const V3_LOAN_PRINCIPAL = ethers.utils.parseUnits("7.0", 18); // new loan
 export const V3_LOAN_INTEREST_RATE = ethers.utils.parseUnits("3.75", 18); // new loan interest rate
 // collection wide offer parameters
 export const LENDER_SPECIFIED_COLLATERAL_ID = 1056; // specific collection wide offer id (VALHALLA)
-export const LENDER_SPECIFIED_COLLATERAL = "0x231d3559aa848bf10366fb9868590f01d34bf240" // Collection wide offer (VALHALLA)
+export const LENDER_SPECIFIED_COLLATERAL = "0x231d3559aa848bf10366fb9868590f01d34bf240"; // Collection wide offer (VALHALLA)

@@ -29,7 +29,7 @@ interface IFeeController {
     function setLendingFee(bytes32 id, uint16 fee) external;
 
     function setVaultMintFee(uint64 fee) external;
-    
+
     function getLendingFee(bytes32 id) external view returns (uint16);
 
     function getVaultMintFee() external view returns (uint64);

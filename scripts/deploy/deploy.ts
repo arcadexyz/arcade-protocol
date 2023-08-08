@@ -25,7 +25,7 @@ export interface DeployedResources {
     originationController: OriginationController;
     whitelist: CallWhitelist;
     vaultFactory: VaultFactory;
-    verifier: ArcadeItemsVerifier
+    verifier: ArcadeItemsVerifier;
 }
 
 export async function main(): Promise<DeployedResources> {
@@ -53,10 +53,7 @@ export async function main(): Promise<DeployedResources> {
     console.log(SUBSECTION_SEPARATOR);
 
     const VaultFactoryFactory = await ethers.getContractFactory("VaultFactory");
-    const vaultFactory = <VaultFactory>await VaultFactoryFactory.deploy(
-        assetVault.address,
-        whitelist.address
-    );
+    const vaultFactory = <VaultFactory>await VaultFactoryFactory.deploy(assetVault.address, whitelist.address);
     await vaultFactory.deployed();
 
     const vaultFactoryProxyAddress = vaultFactory.address;
@@ -90,10 +87,8 @@ export async function main(): Promise<DeployedResources> {
     console.log(SUBSECTION_SEPARATOR);
 
     const LoanCoreFactory = await ethers.getContractFactory("LoanCore");
-    const loanCore = <LoanCore>await LoanCoreFactory.deploy(
-        feeController.address,
-        borrowerNote.address,
-        lenderNote.address
+    const loanCore = <LoanCore>(
+        await LoanCoreFactory.deploy(feeController.address, borrowerNote.address, lenderNote.address)
     );
 
     await loanCore.deployed();
@@ -103,9 +98,7 @@ export async function main(): Promise<DeployedResources> {
     console.log(SUBSECTION_SEPARATOR);
 
     const RepaymentControllerFactory = await ethers.getContractFactory("RepaymentController");
-    const repaymentController = <RepaymentController>(
-        await RepaymentControllerFactory.deploy(loanCore.address)
-    );
+    const repaymentController = <RepaymentController>await RepaymentControllerFactory.deploy(loanCore.address);
     await repaymentController.deployed();
 
     const repaymentContAddress = repaymentController.address;
@@ -114,9 +107,7 @@ export async function main(): Promise<DeployedResources> {
     console.log(SUBSECTION_SEPARATOR);
 
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationController");
-    const originationController = <OriginationController>await OriginationControllerFactory.deploy(
-        loanCore.address
-    );
+    const originationController = <OriginationController>await OriginationControllerFactory.deploy(loanCore.address);
     await originationController.deployed();
 
     const originationContProxyAddress = originationController.address;
@@ -164,7 +155,7 @@ export async function main(): Promise<DeployedResources> {
         originationController,
         whitelist,
         vaultFactory,
-        verifier
+        verifier,
     };
 }
 

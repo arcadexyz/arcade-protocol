@@ -43,7 +43,7 @@ import {
     V3_LOAN_PRINCIPAL,
     V3_LOAN_INTEREST_RATE,
     LENDER_SPECIFIED_COLLATERAL_ID,
-    LENDER_SPECIFIED_COLLATERAL
+    LENDER_SPECIFIED_COLLATERAL,
 } from "./config";
 
 import { createLoanItemsSignature } from "../../test/utils/eip712";
@@ -55,7 +55,7 @@ import { encodeSignatureItems } from "../../test/utils/loans";
  * V2ToV3RolloverWithItems contract. Then, executes a V2 -> V3 rollover using an active
  * loan on mainnet. Before running this script, make sure the v2-migration/config.ts test
  * file is updated with valid values from mainnet.
- * 
+ *
  * This script defaults to using the ArcadeItemsVerifier for the rollover. To use a different
  * verifier, deploy the verifier contract and set it as an allowed verifier in the
  * OriginationController. Then, update the `predicates` const to create the lender signature
@@ -73,7 +73,9 @@ export async function main(): Promise<void> {
     const DELEGATION_REGISTRY_ADDRESS = "0x00000000000076A84feF008CDAbe6409d2FE638B";
 
     const CallWhiteListFactory = await ethers.getContractFactory("CallWhitelistAllExtensions");
-    const callWhitelistAllExtensions = <CallWhitelistAllExtensions>await CallWhiteListFactory.deploy(DELEGATION_REGISTRY_ADDRESS);
+    const callWhitelistAllExtensions = <CallWhitelistAllExtensions>(
+        await CallWhiteListFactory.deploy(DELEGATION_REGISTRY_ADDRESS)
+    );
     await callWhitelistAllExtensions.deployed();
     console.log("CallWhitelistAllExtensions deployed to:", callWhitelistAllExtensions.address);
     console.log(SUBSECTION_SEPARATOR);
@@ -110,10 +112,7 @@ export async function main(): Promise<void> {
     console.log(SUBSECTION_SEPARATOR);
 
     const LoanCoreFactory = await ethers.getContractFactory("LoanCore");
-    const loanCore = <LoanCore>await LoanCoreFactory.deploy(
-        borrowerNote.address,
-        lenderNote.address
-    );
+    const loanCore = <LoanCore>await LoanCoreFactory.deploy(borrowerNote.address, lenderNote.address);
     await loanCore.deployed();
     console.log("LoanCore deployed to:", loanCore.address);
     console.log(SUBSECTION_SEPARATOR);
@@ -127,9 +126,8 @@ export async function main(): Promise<void> {
     console.log(SUBSECTION_SEPARATOR);
 
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationController");
-    const originationController = <OriginationController>await OriginationControllerFactory.deploy(
-        loanCore.address,
-        feeController.address
+    const originationController = <OriginationController>(
+        await OriginationControllerFactory.deploy(loanCore.address, feeController.address)
     );
     await originationController.deployed();
     console.log("OriginationController deployed to:", originationController.address);
@@ -146,7 +144,7 @@ export async function main(): Promise<void> {
 
     // ================================== Setup V3 Lending Protocol ==================================
 
-    console.log("Setting up V3 Lending Protocol...\n")
+    console.log("Setting up V3 Lending Protocol...\n");
 
     // roles addresses
     const ADMIN_ADDRESS = process.env.ADMIN ? process.env.ADMIN : (await hre.ethers.getSigners())[0].address;
@@ -221,7 +219,7 @@ export async function main(): Promise<void> {
         loanCoreV3: loanCore.address,
         borrowerNoteV3: borrowerNote.address,
     };
-    const factory = await ethers.getContractFactory("V2ToV3RolloverWithItems")
+    const factory = await ethers.getContractFactory("V2ToV3RolloverWithItems");
     const flashRollover = <V2ToV3RolloverWithItems>await factory.deploy(BALANCER_ADDRESS, contracts);
     await flashRollover.deployed();
     console.log("V2ToV3RolloverWithItems deployed to:", flashRollover.address);
@@ -250,7 +248,7 @@ export async function main(): Promise<void> {
     console.log("Whale distributes ETH and payable currency...");
     await whale.sendTransaction({ to: borrower.address, value: ethers.utils.parseEther("10") });
     await whale.sendTransaction({ to: newLender.address, value: ethers.utils.parseEther("10") });
-    await payableCurrency.connect(whale).transfer(newLender.address, V3_LOAN_PRINCIPAL)
+    await payableCurrency.connect(whale).transfer(newLender.address, V3_LOAN_PRINCIPAL);
 
     console.log(SUBSECTION_SEPARATOR);
     console.log("New lender approves payable currency to V3 LoanCore...");
@@ -264,7 +262,7 @@ export async function main(): Promise<void> {
     const flashLoanAmountDue = V2_TOTAL_REPAYMENT_AMOUNT.add(V2_TOTAL_REPAYMENT_AMOUNT.mul(flashLoanFee).div(10000));
     if (V3_LOAN_PRINCIPAL.lt(flashLoanAmountDue)) {
         const difference = flashLoanAmountDue.sub(V3_LOAN_PRINCIPAL);
-        await payableCurrency.connect(whale).transfer(borrower.address, difference)
+        await payableCurrency.connect(whale).transfer(borrower.address, difference);
         await payableCurrency.connect(borrower).approve(flashRollover.address, difference);
     }
     console.log(SUBSECTION_SEPARATOR);
@@ -278,7 +276,7 @@ export async function main(): Promise<void> {
         collateralAddress: LOAN_COLLATERAL_ADDRESS,
         collateralId: COLLATERAL_ID,
         payableCurrency: PAYABLE_CURRENCY,
-        affiliateCode: ethers.constants.HashZero
+        affiliateCode: ethers.constants.HashZero,
     };
 
     const signatureItems: SignatureItem[] = [
@@ -287,7 +285,7 @@ export async function main(): Promise<void> {
             asset: LENDER_SPECIFIED_COLLATERAL,
             tokenId: LENDER_SPECIFIED_COLLATERAL_ID,
             amount: 1,
-            anyIdAllowed: false
+            anyIdAllowed: false,
         },
     ];
 
@@ -313,16 +311,9 @@ export async function main(): Promise<void> {
     // ============= Execute ==============
 
     console.log("Execute V2 -> V3 rollover...\n");
-    const tx = await flashRollover.connect(borrower).rolloverLoanWithItems(
-        LOAN_ID,
-        newLoanTerms,
-        newLender.address,
-        NONCE,
-        sig.v,
-        sig.r,
-        sig.s,
-        predicates
-    );       
+    const tx = await flashRollover
+        .connect(borrower)
+        .rolloverLoanWithItems(LOAN_ID, newLoanTerms, newLender.address, NONCE, sig.v, sig.r, sig.s, predicates);
 
     // send transaction
     console.log("✅ Transaction hash:", tx.hash);

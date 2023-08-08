@@ -10,13 +10,13 @@
 
 # Overview of Contracts
 
-### ___See natspec for technical detail.___
-
+### **_See natspec for technical detail._**
 
 The Arcade Lending protocol's smart contracts can be grouped into three main categories:
-- __Core Lending__: These smart contracts define the core lending protocol mechanics. The main features implemented include collateral escrow, the loan lifecycle state machine, on-chain storage of loan information, and protocol invariants.
-- __Vaults__: The Asset Vault is a smart contract, whose ownership is tracked by an NFT, that can be used to bundle multiple items of collateral for a single loan. Vaults also provide additional utility for escrowed assets, such as delegation.
-- __Verifiers__: The Arcade Lending Protocol uses a flexible, predicate-based ruleset for governing mutual agreement to lending terms when originating a loan. Counterparties can sign payloads, targeted towards specific verifiers, that can run custom logic express rules under which loans can be originated.
+
+- **Core Lending**: These smart contracts define the core lending protocol mechanics. The main features implemented include collateral escrow, the loan lifecycle state machine, on-chain storage of loan information, and protocol invariants.
+- **Vaults**: The Asset Vault is a smart contract, whose ownership is tracked by an NFT, that can be used to bundle multiple items of collateral for a single loan. Vaults also provide additional utility for escrowed assets, such as delegation.
+- **Verifiers**: The Arcade Lending Protocol uses a flexible, predicate-based ruleset for governing mutual agreement to lending terms when originating a loan. Counterparties can sign payloads, targeted towards specific verifiers, that can run custom logic express rules under which loans can be originated.
 
 ## CoreLending
 
@@ -66,6 +66,7 @@ The fee controller is a contract containing functions that return values for ass
 fees at different parts of the loan lifecycle. The fee amounts can be updated by the contract owner.
 
 ## Vaults
+
 ### VaultFactory
 
 The Vault Factory is an ERC721 that tracks ownership of Asset Vault contracts (see OwnableERC721). Minting a new

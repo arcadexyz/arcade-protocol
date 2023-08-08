@@ -1,4 +1,4 @@
-import { ethers } from "hardhat"
+import { ethers } from "hardhat";
 
 export const ORIGINATOR_ROLE = ethers.utils.id("ORIGINATOR");
 export const REPAYER_ROLE = ethers.utils.id("REPAYER");

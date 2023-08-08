@@ -22,7 +22,7 @@ contract MockERC1271LenderCustom is IERC1271, IERC721Receiver {
         IERC20(token).approve(target, type(uint256).max);
     }
 
-    function isValidSignature(bytes32 hash, bytes memory signature)public view override returns (bytes4) {
+    function isValidSignature(bytes32 hash, bytes memory signature) public view override returns (bytes4) {
         uint8 v;
         bytes32 r;
         bytes32 s;
@@ -50,7 +50,7 @@ contract MockERC1271LenderCustom is IERC1271, IERC721Receiver {
                 extraData := add(signature, 65) // point to memory offset of extra data
                 mstore(extraData, extraDataLength) // store extra data
             }
-            
+
             // check if the extra data is the expected data and the signer is the expected signer
             if (keccak256(extraData) == keccak256(expectedData) && recovered == signer) return MAGICVALUE;
             else return 0xFFFFFFFF;

@@ -56,20 +56,16 @@ describe("FeeController", () => {
                 const { feeController, other } = ctx;
 
                 await expect(
-                    feeController.connect(other).setLendingFee(await feeController.FL_01(), 5_00)
-                ).to.be.revertedWith(
-                    "Ownable: caller is not the owner"
-                );
+                    feeController.connect(other).setLendingFee(await feeController.FL_01(), 5_00),
+                ).to.be.revertedWith("Ownable: caller is not the owner");
             });
 
             it("reverts if new fee is over the maximum", async () => {
                 const { feeController, user } = ctx;
 
                 await expect(
-                    feeController.connect(user).setLendingFee(await feeController.FL_01(), 50_00)
-                ).to.be.revertedWith(
-                    "FC_LendingFeeOverMax"
-                );
+                    feeController.connect(user).setLendingFee(await feeController.FL_01(), 50_00),
+                ).to.be.revertedWith("FC_LendingFeeOverMax");
             });
 
             it("sets a fee", async () => {
@@ -77,9 +73,8 @@ describe("FeeController", () => {
 
                 expect(await feeController.connect(user).getLendingFee(await feeController.FL_01())).to.eq(0);
 
-                await expect(
-                    feeController.connect(user).setLendingFee(await feeController.FL_01(), 5_00)
-                ).to.emit(feeController, "SetLendingFee")
+                await expect(feeController.connect(user).setLendingFee(await feeController.FL_01(), 5_00))
+                    .to.emit(feeController, "SetLendingFee")
                     .withArgs(await feeController.FL_01(), 5_00);
 
                 expect(await feeController.connect(user).getLendingFee(await feeController.FL_01())).to.eq(5_00);
@@ -106,17 +101,13 @@ describe("FeeController", () => {
             it("gets a max fee", async () => {
                 const { feeController, user } = ctx;
 
-                expect(
-                    await feeController.connect(user).getMaxLendingFee(await feeController.FL_01())
-                ).to.eq(10_00);
+                expect(await feeController.connect(user).getMaxLendingFee(await feeController.FL_01())).to.eq(10_00);
             });
 
             it("unset max fees return 0", async () => {
                 const { feeController, user } = ctx;
 
-                expect(
-                    await feeController.connect(user).getMaxLendingFee(ethers.utils.id("UNSET_FEE"))
-                ).to.eq(0);
+                expect(await feeController.connect(user).getMaxLendingFee(ethers.utils.id("UNSET_FEE"))).to.eq(0);
             });
         });
 
@@ -125,20 +116,16 @@ describe("FeeController", () => {
                 const { feeController, other } = ctx;
 
                 await expect(
-                    feeController.connect(other).setVaultMintFee(ethers.utils.parseEther("1"))
-                ).to.be.revertedWith(
-                    "Ownable: caller is not the owner"
-                );
+                    feeController.connect(other).setVaultMintFee(ethers.utils.parseEther("1")),
+                ).to.be.revertedWith("Ownable: caller is not the owner");
             });
 
             it("reverts if new fee is over the maximum", async () => {
                 const { feeController, user } = ctx;
 
                 await expect(
-                    feeController.connect(user).setVaultMintFee(ethers.utils.parseEther("1.1"))
-                ).to.be.revertedWith(
-                    "FC_VaultMintFeeOverMax"
-                );
+                    feeController.connect(user).setVaultMintFee(ethers.utils.parseEther("1.1")),
+                ).to.be.revertedWith("FC_VaultMintFeeOverMax");
             });
 
             it("sets a fee", async () => {
@@ -146,9 +133,8 @@ describe("FeeController", () => {
 
                 expect(await feeController.connect(user).getVaultMintFee()).to.eq(0);
 
-                await expect(
-                    feeController.connect(user).setVaultMintFee(ethers.utils.parseEther("0.5"))
-                ).to.emit(feeController, "SetVaultMintFee")
+                await expect(feeController.connect(user).setVaultMintFee(ethers.utils.parseEther("0.5")))
+                    .to.emit(feeController, "SetVaultMintFee")
                     .withArgs(ethers.utils.parseEther("0.5"));
 
                 expect(await feeController.connect(user).getVaultMintFee()).to.eq(ethers.utils.parseEther("0.5"));
@@ -159,9 +145,7 @@ describe("FeeController", () => {
             it("gets max vault mint fee", async () => {
                 const { feeController, user } = ctx;
 
-                expect(
-                    await feeController.connect(user).getMaxVaultMintFee()
-                ).to.eq(ethers.utils.parseEther("1"));
+                expect(await feeController.connect(user).getMaxVaultMintFee()).to.eq(ethers.utils.parseEther("1"));
             });
         });
     });

@@ -10,7 +10,6 @@
         "max-line-length": ["error", 120],
         "not-rely-on-time": "off",
         "no-empty-blocks": "off",
-        "no-global-import": "off",
         "reentrancy": "warn",
         "state-visibility": "error",
         "prettier/prettier": [

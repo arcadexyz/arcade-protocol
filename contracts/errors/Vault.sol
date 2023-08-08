@@ -163,4 +163,3 @@ error CWD_ZeroAddress();
  * @notice The registry address provided is currently set as the registry.
  */
 error CWD_RegistryAlreadySet();
-

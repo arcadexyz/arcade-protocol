@@ -6,12 +6,7 @@ import "./base/V2ToV3RolloverBase.sol";
 
 import "../interfaces/IV2ToV3RolloverWithItems.sol";
 
-import {
-    R_UnknownCaller,
-    R_InsufficientFunds,
-    R_InsufficientAllowance,
-    R_Paused
-} from "./errors/RolloverErrors.sol";
+import { R_UnknownCaller, R_InsufficientFunds, R_InsufficientAllowance, R_Paused } from "./errors/RolloverErrors.sol";
 
 /**
  * @title V2ToV3RolloverWithItems
@@ -59,7 +54,7 @@ contract V2ToV3RolloverWithItems is IV2ToV3RolloverWithItems, V2ToV3RolloverBase
 
         LoanLibraryV2.LoanTerms memory loanTerms = loanCoreV2.getLoan(loanId).terms;
 
-        (address borrower) = _validateRollover(
+        address borrower = _validateRollover(
             loanTerms,
             newLoanTerms,
             loanId // same as borrowerNoteId
@@ -72,19 +67,17 @@ contract V2ToV3RolloverWithItems is IV2ToV3RolloverWithItems, V2ToV3RolloverBase
         amounts[0] = repaymentControllerV2.getFullInterestAmount(loanTerms.principal, loanTerms.interestRate);
 
         bytes memory params = abi.encode(
-            OperationDataWithItems(
-                {
-                    loanId: loanId,
-                    borrower: borrower,
-                    newLoanTerms: newLoanTerms,
-                    lender: lender,
-                    nonce: nonce,
-                    v: v,
-                    r: r,
-                    s: s,
-                    itemPredicates: itemPredicates
-                }
-            )
+            OperationDataWithItems({
+                loanId: loanId,
+                borrower: borrower,
+                newLoanTerms: newLoanTerms,
+                lender: lender,
+                nonce: nonce,
+                v: v,
+                r: r,
+                s: s,
+                itemPredicates: itemPredicates
+            })
         );
 
         // Flash loan based on principal + interest
@@ -121,7 +114,7 @@ contract V2ToV3RolloverWithItems is IV2ToV3RolloverWithItems, V2ToV3RolloverBase
      * @param assets                 The ERC20 that was borrowed in Flash Loan.
      * @param amounts                The amount that was borrowed in Flash Loan.
      * @param premiums               The fees that are due back to the lending pool.
-     * @param opData                 The data to be executed after receiving Flash Loan.                 
+     * @param opData                 The data to be executed after receiving Flash Loan.
      */
     function _executeOperation(
         IERC20[] calldata assets,
@@ -163,18 +156,9 @@ contract V2ToV3RolloverWithItems is IV2ToV3RolloverWithItems, V2ToV3RolloverBase
         _repayLoan(loanData, opData.loanId, opData.borrower);
 
         {
-            uint256 newLoanId = _initializeNewLoanWithItems(
-                opData.borrower,
-                opData.lender,
-                opData
-            );
+            uint256 newLoanId = _initializeNewLoanWithItems(opData.borrower, opData.lender, opData);
 
-            emit V2V3Rollover(
-                opData.lender,
-                opData.borrower,
-                loanData.terms.collateralId,
-                newLoanId
-            );
+            emit V2V3Rollover(opData.lender, opData.borrower, loanData.terms.collateralId, newLoanId);
         }
 
         if (leftoverPrincipal > 0) {
@@ -215,12 +199,7 @@ contract V2ToV3RolloverWithItems is IV2ToV3RolloverWithItems, V2ToV3RolloverBase
             opData.newLoanTerms,
             address(this),
             lender,
-            IOriginationController.Signature({
-                v: opData.v,
-                r: opData.r,
-                s: opData.s,
-                extraData: "0x"
-            }),
+            IOriginationController.Signature({ v: opData.v, r: opData.r, s: opData.s, extraData: "0x" }),
             opData.nonce,
             opData.itemPredicates
         );

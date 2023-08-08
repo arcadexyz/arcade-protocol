@@ -65,7 +65,6 @@ contract OriginationController is
 
     // ============================================ STATE ==============================================
 
-
     // =================== Constants =====================
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
@@ -86,10 +85,7 @@ contract OriginationController is
         );
 
     /// @notice EIP712 type hash for Predicate.
-    bytes32 public constant _PREDICATE_TYPEHASH =
-        keccak256(
-            "Predicate(bytes data,address verifier)"
-        );
+    bytes32 public constant _PREDICATE_TYPEHASH = keccak256("Predicate(bytes data,address verifier)");
 
     // =============== Contract References ===============
 
@@ -164,12 +160,7 @@ contract OriginationController is
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
-        (bytes32 sighash, address externalSigner) = recoverTokenSignature(
-            loanTerms,
-            sig,
-            nonce,
-            neededSide
-        );
+        (bytes32 sighash, address externalSigner) = recoverTokenSignature(loanTerms, sig, nonce, neededSide);
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
 
@@ -266,7 +257,7 @@ contract OriginationController is
         );
 
         loanId = initializeLoan(loanTerms, borrower, lender, sig, nonce);
-}
+    }
 
     /**
      * @notice Initializes a loan with Loan Core, with a permit signature instead of pre-approved collateral.
@@ -343,12 +334,7 @@ contract OriginationController is
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
-        (bytes32 sighash, address externalSigner) = recoverTokenSignature(
-            loanTerms,
-            sig,
-            nonce,
-            neededSide
-        );
+        (bytes32 sighash, address externalSigner) = recoverTokenSignature(loanTerms, sig, nonce, neededSide);
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
 
@@ -618,10 +604,11 @@ contract OriginationController is
      * @param tokens                     Array of token addresses to add.
      * @param isAllowed                  Whether the token is allowed or not.
      */
-    function setAllowedCollateralAddresses(
-        address[] calldata tokens,
-        bool[] calldata isAllowed
-    ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
+    function setAllowedCollateralAddresses(address[] calldata tokens, bool[] calldata isAllowed)
+        external
+        override
+        onlyRole(WHITELIST_MANAGER_ROLE)
+    {
         if (tokens.length == 0) revert OC_ZeroArrayElements();
         if (tokens.length > 50) revert OC_ArrayTooManyElements();
         if (tokens.length != isAllowed.length) revert OC_BatchLengthMismatch();
@@ -657,10 +644,11 @@ contract OriginationController is
      * @param verifiers             The list of specified verifier contracts, should implement ISignatureVerifier.
      * @param isAllowed             Whether the specified contracts should be allowed, respectively.
      */
-    function setAllowedVerifiers(
-        address[] calldata verifiers,
-        bool[] calldata isAllowed
-    ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
+    function setAllowedVerifiers(address[] calldata verifiers, bool[] calldata isAllowed)
+        external
+        override
+        onlyRole(WHITELIST_MANAGER_ROLE)
+    {
         if (verifiers.length == 0) revert OC_ZeroArrayElements();
         if (verifiers.length > 50) revert OC_ArrayTooManyElements();
         if (verifiers.length != isAllowed.length) revert OC_BatchLengthMismatch();
@@ -709,7 +697,8 @@ contract OriginationController is
 
         // interest rate must be greater than or equal to 0.01%
         // and less or equal to 10,000% (1e6 basis points)
-        if (terms.proratedInterestRate < 1e18 || terms.proratedInterestRate > 1e24) revert OC_InterestRate(terms.proratedInterestRate);
+        if (terms.proratedInterestRate < 1e18 || terms.proratedInterestRate > 1e24)
+            revert OC_InterestRate(terms.proratedInterestRate);
 
         // signature must not have already expired
         if (terms.deadline < block.timestamp) revert OC_SignatureIsExpired(terms.deadline);
@@ -773,12 +762,16 @@ contract OriginationController is
         // Check that caller can actually call this function - neededSide assignment
         // defaults to BORROW if the signature is not approved by the borrower, but it could
         // also not be a participant
-        if (!isSelfOrApproved(callingCounterparty, caller) && !isApprovedForContract(callingCounterparty, sig, sighash)) {
+        if (
+            !isSelfOrApproved(callingCounterparty, caller) && !isApprovedForContract(callingCounterparty, sig, sighash)
+        ) {
             revert OC_CallerNotParticipant(msg.sender);
         }
 
         // Check signature validity
-        if (!isSelfOrApproved(signingCounterparty, signer) && !isApprovedForContract(signingCounterparty, sig, sighash)) {
+        if (
+            !isSelfOrApproved(signingCounterparty, signer) && !isApprovedForContract(signingCounterparty, sig, sighash)
+        ) {
             revert OC_InvalidSignature(signingCounterparty, signer);
         }
 
@@ -798,15 +791,11 @@ contract OriginationController is
      * @return itemsHash                    The concatenated hash of all items in the Predicate array.
      */
     function _encodePredicates(LoanLibrary.Predicate[] memory predicates) public pure returns (bytes32 itemsHash) {
-       bytes32[] memory itemHashes = new bytes32[](predicates.length);
+        bytes32[] memory itemHashes = new bytes32[](predicates.length);
 
         for (uint i = 0; i < predicates.length;){
             itemHashes[i] = keccak256(
-                abi.encode(
-                    _PREDICATE_TYPEHASH,
-                    keccak256(predicates[i].data),
-                    predicates[i].verifier
-                )
+                abi.encode(_PREDICATE_TYPEHASH, keccak256(predicates[i].data), predicates[i].verifier)
             );
 
             // Predicates is calldata, overflow is impossible bc of calldata
@@ -841,13 +830,15 @@ contract OriginationController is
             address verifier = itemPredicates[i].verifier;
             if (!isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
 
-            if (!ISignatureVerifier(verifier).verifyPredicates(
-                borrower,
-                lender,
-                loanTerms.collateralAddress,
-                loanTerms.collateralId,
-                itemPredicates[i].data
-            )) {
+            if (
+                !ISignatureVerifier(verifier).verifyPredicates(
+                    borrower,
+                    lender,
+                    loanTerms.collateralAddress,
+                    loanTerms.collateralId,
+                    itemPredicates[i].data
+                )
+            ) {
                 revert OC_PredicateFailed(
                     verifier,
                     borrower,
@@ -925,12 +916,7 @@ contract OriginationController is
         IERC20 payableCurrency = IERC20(oldTerms.payableCurrency);
 
         // Calculate settle amounts
-        RolloverAmounts memory amounts = _calculateRolloverAmounts(
-            oldTerms,
-            newTerms,
-            lender,
-            oldLender
-        );
+        RolloverAmounts memory amounts = _calculateRolloverAmounts(oldTerms, newTerms, lender, oldLender);
 
         // Collect funds based on settle amounts and total them
         uint256 settledAmount;

@@ -5,7 +5,10 @@ pragma solidity 0.8.18;
 interface IAssetVault {
     // ============= Enums ==============
 
-    enum TokenType { ERC721, ERC1155 }
+    enum TokenType {
+        ERC721,
+        ERC1155
+    }
 
     // ============= Events ==============
 
@@ -28,7 +31,13 @@ interface IAssetVault {
     event IncreaseAllowance(address indexed operator, address indexed token, address indexed spender, uint256 amount);
     event DecreaseAllowance(address indexed operator, address indexed token, address indexed spender, uint256 amount);
     event DelegateContract(address indexed operator, address indexed token, address indexed target, bool enabled);
-    event DelegateToken(address indexed operator, address indexed token, address indexed target, uint256 tokenId, bool enabled);
+    event DelegateToken(
+        address indexed operator,
+        address indexed token,
+        address indexed target,
+        uint256 tokenId,
+        bool enabled
+    );
     event DelegateRevoke(address indexed operator);
 
     // ================= Initializer ==================
@@ -78,15 +87,36 @@ interface IAssetVault {
 
     function call(address to, bytes memory data) external;
 
-    function callApprove(address token, address spender, uint256 amount) external;
+    function callApprove(
+        address token,
+        address spender,
+        uint256 amount
+    ) external;
 
-    function callIncreaseAllowance(address token, address spender, uint256 amount) external;
+    function callIncreaseAllowance(
+        address token,
+        address spender,
+        uint256 amount
+    ) external;
 
-    function callDecreaseAllowance(address token, address spender, uint256 amount) external;
+    function callDecreaseAllowance(
+        address token,
+        address spender,
+        uint256 amount
+    ) external;
 
-    function callDelegateForContract(address token, address target, bool enable) external;
+    function callDelegateForContract(
+        address token,
+        address target,
+        bool enable
+    ) external;
 
-    function callDelegateForToken(address token, address target, uint256 tokenId, bool enable) external;
+    function callDelegateForToken(
+        address token,
+        address target,
+        uint256 tokenId,
+        bool enable
+    ) external;
 
     function callRevokeAllDelegates() external;
 }

@@ -5,10 +5,7 @@ import { BigNumberish } from "ethers";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 
-import {
-    UnvaultedItemsVerifier,
-    MockERC721
-} from "../typechain";
+import { UnvaultedItemsVerifier, MockERC721 } from "../typechain";
 import { deploy } from "./utils/contracts";
 import { encodeItemCheck } from "./utils/loans";
 
@@ -52,8 +49,8 @@ describe("UnvaultedItemsVerifier", () => {
                     mockERC721.address,
                     mockERC721.address,
                     100,
-                    encodeItemCheck(ZERO_ADDRESS, 100, false)
-                )
+                    encodeItemCheck(ZERO_ADDRESS, 100, false),
+                ),
             ).to.be.revertedWith("IV_ItemMissingAddress");
         });
 
@@ -66,8 +63,8 @@ describe("UnvaultedItemsVerifier", () => {
                     mockERC721.address,
                     mockERC721.address,
                     100,
-                    encodeItemCheck(mockERC721.address, 99, false)
-                )
+                    encodeItemCheck(mockERC721.address, 99, false),
+                ),
             ).to.eq(false);
 
             expect(
@@ -76,8 +73,8 @@ describe("UnvaultedItemsVerifier", () => {
                     mockERC721.address,
                     mockERC721.address,
                     99,
-                    encodeItemCheck(mockERC721.address, 100, false)
-                )
+                    encodeItemCheck(mockERC721.address, 100, false),
+                ),
             ).to.eq(false);
 
             expect(
@@ -86,8 +83,8 @@ describe("UnvaultedItemsVerifier", () => {
                     mockERC721.address,
                     mockERC721.address,
                     100,
-                    encodeItemCheck(mockERC721.address, 100, false)
-                )
+                    encodeItemCheck(mockERC721.address, 100, false),
+                ),
             ).to.eq(true);
         });
 
@@ -102,8 +99,8 @@ describe("UnvaultedItemsVerifier", () => {
                     mockERC721.address,
                     mockERC721.address,
                     100,
-                    encodeItemCheck(mockERC721.address, 100, true)
-                )
+                    encodeItemCheck(mockERC721.address, 100, true),
+                ),
             ).to.eq(true);
 
             expect(
@@ -112,8 +109,8 @@ describe("UnvaultedItemsVerifier", () => {
                     mockERC721.address,
                     mockERC721.address,
                     100,
-                    encodeItemCheck(mockERC721.address, 0, true)
-                )
+                    encodeItemCheck(mockERC721.address, 0, true),
+                ),
             ).to.eq(true);
 
             expect(
@@ -122,8 +119,8 @@ describe("UnvaultedItemsVerifier", () => {
                     mockERC721.address,
                     mockERC721.address,
                     777,
-                    encodeItemCheck(mockERC721.address, 0, true)
-                )
+                    encodeItemCheck(mockERC721.address, 0, true),
+                ),
             ).to.eq(true);
 
             expect(
@@ -132,8 +129,8 @@ describe("UnvaultedItemsVerifier", () => {
                     mockERC721.address,
                     mockERC721.address,
                     100,
-                    encodeItemCheck(otherMockERC721.address, 0, true)
-                )
+                    encodeItemCheck(otherMockERC721.address, 0, true),
+                ),
             ).to.eq(false);
 
             expect(
@@ -142,8 +139,8 @@ describe("UnvaultedItemsVerifier", () => {
                     mockERC721.address,
                     otherMockERC721.address,
                     100,
-                    encodeItemCheck(mockERC721.address, 0, true)
-                )
+                    encodeItemCheck(mockERC721.address, 0, true),
+                ),
             ).to.eq(false);
         });
     });

@@ -55,8 +55,9 @@ describe("CallWhitelistApprovals", () => {
         it("should fail from non-owner", async () => {
             const { whitelist, mockERC20, other } = await loadFixture(fixture);
 
-            await expect(whitelist.connect(other).setApproval(mockERC20.address, other.address, true))
-                .to.be.revertedWith("Ownable: caller is not the owner");
+            await expect(
+                whitelist.connect(other).setApproval(mockERC20.address, other.address, true),
+            ).to.be.revertedWith("Ownable: caller is not the owner");
         });
 
         it("should succeed after ownership transferred", async () => {
@@ -78,8 +79,9 @@ describe("CallWhitelistApprovals", () => {
                 .to.emit(whitelist, "OwnershipTransferred")
                 .withArgs(user.address, other.address);
 
-            await expect(whitelist.connect(user).setApproval(mockERC20.address, other.address, true))
-                .to.be.revertedWith("Ownable: caller is not the owner");
+            await expect(
+                whitelist.connect(user).setApproval(mockERC20.address, other.address, true),
+            ).to.be.revertedWith("Ownable: caller is not the owner");
         });
     });
 

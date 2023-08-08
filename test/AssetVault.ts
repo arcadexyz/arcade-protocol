@@ -15,7 +15,7 @@ import {
     CryptoPunksMarket,
     DelegationRegistry,
     FeeController,
-    BaseURIDescriptor
+    BaseURIDescriptor,
 } from "../typechain";
 import { mint } from "./utils/erc20";
 import { mintToAddress as mintERC721 } from "./utils/erc721";
@@ -27,7 +27,7 @@ import { LogDescription } from "ethers/lib/utils";
 type Signer = SignerWithAddress;
 
 interface TestContext {
-    registry: DelegationRegistry
+    registry: DelegationRegistry;
     vault: AssetVault;
     vaultTemplate: AssetVault;
     nft: VaultFactory;
@@ -79,8 +79,15 @@ describe("AssetVault", () => {
 
         const vaultTemplate = <AssetVault>await deploy("AssetVault", signers[0], []);
         const feeController = <FeeController>await deploy("FeeController", signers[0], []);
-        const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
-        const factory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address])
+        const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI]);
+        const factory = <VaultFactory>(
+            await deploy("VaultFactory", signers[0], [
+                vaultTemplate.address,
+                whitelist.address,
+                feeController.address,
+                descriptor.address,
+            ])
+        );
         const vault = await createVault(factory, signers[0]);
 
         const punks = <CryptoPunksMarket>await deploy("CryptoPunksMarket", signers[0], []);
@@ -311,9 +318,7 @@ describe("AssetVault", () => {
         it("should close the vault", async () => {
             const { vault, user } = await loadFixture(fixture);
             expect(await vault.withdrawEnabled()).to.equal(false);
-            await expect(vault.enableWithdraw())
-                .to.emit(vault, "WithdrawEnabled")
-                .withArgs(user.address);
+            await expect(vault.enableWithdraw()).to.emit(vault, "WithdrawEnabled").withArgs(user.address);
 
             expect(await vault.withdrawEnabled()).to.equal(true);
         });
@@ -332,10 +337,7 @@ describe("AssetVault", () => {
             const { whitelist, vault, mockERC20, user } = await loadFixture(fixture);
 
             const selector = mockERC20.interface.getSighash("mint");
-            const mintData = await mockERC20.populateTransaction.mint(
-                user.address,
-                ethers.utils.parseEther("1"),
-            );
+            const mintData = await mockERC20.populateTransaction.mint(user.address, ethers.utils.parseEther("1"));
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
 
             await whitelist.add(mockERC20.address, selector);
@@ -355,10 +357,7 @@ describe("AssetVault", () => {
             await mockCallDelegator.connect(other).setCanCall(true);
 
             const selector = mockERC20.interface.getSighash("mint");
-            const mintData = await mockERC20.populateTransaction.mint(
-                user.address,
-                ethers.utils.parseEther("1"),
-            );
+            const mintData = await mockERC20.populateTransaction.mint(user.address, ethers.utils.parseEther("1"));
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
 
             // transfer the NFT to the call delegator (like using it as loan collateral)
@@ -380,10 +379,7 @@ describe("AssetVault", () => {
             await mockCallDelegator.connect(other).setCanCall(true);
 
             const selector = mockERC20.interface.getSighash("mint");
-            const mintData = await mockERC20.populateTransaction.mint(
-                user.address,
-                ethers.utils.parseEther("1"),
-            );
+            const mintData = await mockERC20.populateTransaction.mint(user.address, ethers.utils.parseEther("1"));
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
 
             await whitelist.add(mockERC20.address, selector);
@@ -403,10 +399,7 @@ describe("AssetVault", () => {
             await mockCallDelegator.connect(other).setCanCall(false);
 
             const selector = mockERC20.interface.getSighash("mint");
-            const mintData = await mockERC20.populateTransaction.mint(
-                user.address,
-                ethers.utils.parseEther("1"),
-            );
+            const mintData = await mockERC20.populateTransaction.mint(user.address, ethers.utils.parseEther("1"));
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
 
             // transfer the NFT to the call delegator (like using it as loan collateral)
@@ -426,10 +419,7 @@ describe("AssetVault", () => {
 
             const selector = mockERC20.interface.getSighash("mint(address,uint256)");
 
-            const mintData = await mockERC20.populateTransaction.mint(
-                user.address,
-                ethers.utils.parseEther("1"),
-            );
+            const mintData = await mockERC20.populateTransaction.mint(user.address, ethers.utils.parseEther("1"));
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
 
             // transfer the vault NFT to the call delegator (like using it as loan collateral)
@@ -446,10 +436,7 @@ describe("AssetVault", () => {
             const { nft, whitelist, vault, mockERC20, user } = await loadFixture(fixture);
 
             const selector = mockERC20.interface.getSighash("mint");
-            const mintData = await mockERC20.populateTransaction.mint(
-                user.address,
-                ethers.utils.parseEther("1"),
-            );
+            const mintData = await mockERC20.populateTransaction.mint(user.address, ethers.utils.parseEther("1"));
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
 
             // transfer the NFT to the call delegator (like using it as loan collateral)
@@ -464,10 +451,7 @@ describe("AssetVault", () => {
         it("fails from current owner if not whitelisted", async () => {
             const { vault, mockERC20, user } = await loadFixture(fixture);
 
-            const mintData = await mockERC20.populateTransaction.mint(
-                user.address,
-                ethers.utils.parseEther("1"),
-            );
+            const mintData = await mockERC20.populateTransaction.mint(user.address, ethers.utils.parseEther("1"));
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
 
             await expect(vault.connect(user).call(mockERC20.address, mintData.data)).to.be.revertedWith(
@@ -481,10 +465,7 @@ describe("AssetVault", () => {
             const mockCallDelegator = <MockCallDelegator>await deploy("MockCallDelegator", other, []);
             await mockCallDelegator.connect(other).setCanCall(true);
 
-            const mintData = await mockERC20.populateTransaction.mint(
-                user.address,
-                ethers.utils.parseEther("1"),
-            );
+            const mintData = await mockERC20.populateTransaction.mint(user.address, ethers.utils.parseEther("1"));
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
 
             await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
@@ -543,10 +524,7 @@ describe("AssetVault", () => {
             const { whitelist, vault, mockERC20, mockERC1155, user } = await loadFixture(fixture);
 
             const selector = mockERC20.interface.getSighash("mint");
-            const mintData = await mockERC1155.populateTransaction.mint(
-                user.address,
-                ethers.utils.parseEther("1"),
-            );
+            const mintData = await mockERC1155.populateTransaction.mint(user.address, ethers.utils.parseEther("1"));
             if (!mintData || !mintData.data) throw new Error("Populate transaction failed");
 
             await whitelist.add(mockERC20.address, selector);
@@ -569,8 +547,7 @@ describe("AssetVault", () => {
                     .to.emit(vault, "Approve")
                     .withArgs(user.address, mockERC20.address, other.address, amount);
 
-                expect(await mockERC20.allowance(vault.address, other.address))
-                    .to.eq(amount);
+                expect(await mockERC20.allowance(vault.address, other.address)).to.eq(amount);
             });
 
             it("succeeds if delegated and on whitelist", async () => {
@@ -588,8 +565,7 @@ describe("AssetVault", () => {
                     .to.emit(vault, "Approve")
                     .withArgs(user.address, mockERC20.address, other.address, amount);
 
-                expect(await mockERC20.allowance(vault.address, other.address))
-                    .to.eq(amount);
+                expect(await mockERC20.allowance(vault.address, other.address)).to.eq(amount);
             });
 
             it("fails if withdraw enabled on vault", async () => {
@@ -601,8 +577,9 @@ describe("AssetVault", () => {
                 // enable withdraw on the vault
                 await vault.connect(user).enableWithdraw();
 
-                await expect(vault.connect(user).callApprove(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith("AV_WithdrawsEnabled");
+                await expect(
+                    vault.connect(user).callApprove(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith("AV_WithdrawsEnabled");
             });
 
             it("fails if delegator disallows", async () => {
@@ -616,8 +593,9 @@ describe("AssetVault", () => {
 
                 await whitelist.setApproval(mockERC20.address, other.address, true);
 
-                await expect(vault.connect(user).callApprove(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith("AV_MissingAuthorization");
+                await expect(
+                    vault.connect(user).callApprove(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith("AV_MissingAuthorization");
             });
 
             it("fails if delegator is EOA", async () => {
@@ -631,8 +609,9 @@ describe("AssetVault", () => {
 
                 await whitelist.setApproval(user.address, other.address, true);
 
-                await expect(vault.connect(user).callApprove(user.address, other.address, amount))
-                    .to.be.revertedWith("Transaction reverted: function returned an unexpected amount of data");
+                await expect(vault.connect(user).callApprove(user.address, other.address, amount)).to.be.revertedWith(
+                    "Transaction reverted: function returned an unexpected amount of data",
+                );
             });
 
             it("fails if delegator is contract which doesn't support interface", async () => {
@@ -647,18 +626,20 @@ describe("AssetVault", () => {
 
                 await whitelist.setApproval(mockERC20.address, other.address, true);
 
-                await expect(vault.connect(user).callApprove(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith(
-                        "Transaction reverted: function selector was not recognized and there's no fallback function",
-                    );
+                await expect(
+                    vault.connect(user).callApprove(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith(
+                    "Transaction reverted: function selector was not recognized and there's no fallback function",
+                );
             });
 
             it("fails from current owner if not whitelisted", async () => {
                 const { vault, mockERC20, user, other } = await loadFixture(fixture);
                 const amount = ethers.utils.parseEther("10");
 
-                await expect(vault.connect(user).callApprove(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+                await expect(
+                    vault.connect(user).callApprove(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith("AV_NonWhitelistedApproval");
             });
 
             it("fails if delegated and not whitelisted", async () => {
@@ -670,8 +651,9 @@ describe("AssetVault", () => {
 
                 await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
 
-                await expect(vault.connect(user).callApprove(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+                await expect(
+                    vault.connect(user).callApprove(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith("AV_NonWhitelistedApproval");
             });
 
             it("fails if token is on the whitelist but spender is not", async () => {
@@ -680,8 +662,9 @@ describe("AssetVault", () => {
 
                 await whitelist.setApproval(mockERC20.address, user.address, true);
 
-                await expect(vault.connect(user).callApprove(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+                await expect(
+                    vault.connect(user).callApprove(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith("AV_NonWhitelistedApproval");
             });
 
             it("fails if spender is on the whitelist but token is not", async () => {
@@ -690,8 +673,9 @@ describe("AssetVault", () => {
 
                 await whitelist.setApproval(mockERC20.address, other.address, true);
 
-                await expect(vault.connect(user).callApprove(mockERC1155.address, other.address, amount))
-                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+                await expect(
+                    vault.connect(user).callApprove(mockERC1155.address, other.address, amount),
+                ).to.be.revertedWith("AV_NonWhitelistedApproval");
             });
         });
 
@@ -706,8 +690,7 @@ describe("AssetVault", () => {
                     .to.emit(vault, "IncreaseAllowance")
                     .withArgs(user.address, mockERC20.address, other.address, amount);
 
-                expect(await mockERC20.allowance(vault.address, other.address))
-                    .to.eq(amount);
+                expect(await mockERC20.allowance(vault.address, other.address)).to.eq(amount);
             });
 
             it("succeeds if delegated and on whitelist", async () => {
@@ -725,8 +708,7 @@ describe("AssetVault", () => {
                     .to.emit(vault, "IncreaseAllowance")
                     .withArgs(user.address, mockERC20.address, other.address, amount);
 
-                expect(await mockERC20.allowance(vault.address, other.address))
-                    .to.eq(amount);
+                expect(await mockERC20.allowance(vault.address, other.address)).to.eq(amount);
             });
 
             it("fails if withdraw enabled on vault", async () => {
@@ -738,8 +720,9 @@ describe("AssetVault", () => {
                 // enable withdraw on the vault
                 await vault.connect(user).enableWithdraw();
 
-                await expect(vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith("AV_WithdrawsEnabled");
+                await expect(
+                    vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith("AV_WithdrawsEnabled");
             });
 
             it("fails if delegator disallows", async () => {
@@ -753,8 +736,9 @@ describe("AssetVault", () => {
 
                 await whitelist.setApproval(mockERC20.address, other.address, true);
 
-                await expect(vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith("AV_MissingAuthorization");
+                await expect(
+                    vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith("AV_MissingAuthorization");
             });
 
             it("fails if delegator is EOA", async () => {
@@ -768,8 +752,9 @@ describe("AssetVault", () => {
 
                 await whitelist.setApproval(user.address, other.address, true);
 
-                await expect(vault.connect(user).callIncreaseAllowance(user.address, other.address, amount))
-                    .to.be.revertedWith("Transaction reverted: function returned an unexpected amount of data");
+                await expect(
+                    vault.connect(user).callIncreaseAllowance(user.address, other.address, amount),
+                ).to.be.revertedWith("Transaction reverted: function returned an unexpected amount of data");
             });
 
             it("fails if delegator is contract which doesn't support interface", async () => {
@@ -784,18 +769,20 @@ describe("AssetVault", () => {
 
                 await whitelist.setApproval(mockERC20.address, other.address, true);
 
-                await expect(vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith(
-                        "Transaction reverted: function selector was not recognized and there's no fallback function",
-                    );
+                await expect(
+                    vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith(
+                    "Transaction reverted: function selector was not recognized and there's no fallback function",
+                );
             });
 
             it("fails from current owner if not whitelisted", async () => {
                 const { vault, mockERC20, user, other } = await loadFixture(fixture);
                 const amount = ethers.utils.parseEther("10");
 
-                await expect(vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+                await expect(
+                    vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith("AV_NonWhitelistedApproval");
             });
 
             it("fails if delegated and not whitelisted", async () => {
@@ -807,8 +794,9 @@ describe("AssetVault", () => {
 
                 await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
 
-                await expect(vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+                await expect(
+                    vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith("AV_NonWhitelistedApproval");
             });
 
             it("fails if token is on the whitelist but spender is not", async () => {
@@ -817,8 +805,9 @@ describe("AssetVault", () => {
 
                 await whitelist.setApproval(mockERC20.address, user.address, true);
 
-                await expect(vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+                await expect(
+                    vault.connect(user).callIncreaseAllowance(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith("AV_NonWhitelistedApproval");
             });
 
             it("fails if spender is on the whitelist but token is not", async () => {
@@ -827,8 +816,9 @@ describe("AssetVault", () => {
 
                 await whitelist.setApproval(mockERC20.address, other.address, true);
 
-                await expect(vault.connect(user).callIncreaseAllowance(mockERC1155.address, other.address, amount))
-                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+                await expect(
+                    vault.connect(user).callIncreaseAllowance(mockERC1155.address, other.address, amount),
+                ).to.be.revertedWith("AV_NonWhitelistedApproval");
             });
         });
 
@@ -847,8 +837,7 @@ describe("AssetVault", () => {
                     .to.emit(vault, "DecreaseAllowance")
                     .withArgs(user.address, mockERC20.address, other.address, amount);
 
-                expect(await mockERC20.allowance(vault.address, other.address))
-                    .to.eq(0);
+                expect(await mockERC20.allowance(vault.address, other.address)).to.eq(0);
             });
 
             it("succeeds if delegated and on whitelist", async () => {
@@ -870,8 +859,7 @@ describe("AssetVault", () => {
                     .to.emit(vault, "DecreaseAllowance")
                     .withArgs(user.address, mockERC20.address, other.address, amount);
 
-                expect(await mockERC20.allowance(vault.address, other.address))
-                    .to.eq(0);
+                expect(await mockERC20.allowance(vault.address, other.address)).to.eq(0);
             });
 
             it("fails if withdraw enabled on vault", async () => {
@@ -883,8 +871,9 @@ describe("AssetVault", () => {
                 // enable withdraw on the vault
                 await vault.connect(user).enableWithdraw();
 
-                await expect(vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith("AV_WithdrawsEnabled");
+                await expect(
+                    vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith("AV_WithdrawsEnabled");
             });
 
             it("fails if delegator disallows", async () => {
@@ -898,8 +887,9 @@ describe("AssetVault", () => {
 
                 await whitelist.setApproval(mockERC20.address, other.address, true);
 
-                await expect(vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith("AV_MissingAuthorization");
+                await expect(
+                    vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith("AV_MissingAuthorization");
             });
 
             it("fails if delegator is EOA", async () => {
@@ -913,8 +903,9 @@ describe("AssetVault", () => {
 
                 await whitelist.setApproval(user.address, other.address, true);
 
-                await expect(vault.connect(user).callDecreaseAllowance(user.address, other.address, amount))
-                    .to.be.revertedWith("Transaction reverted: function returned an unexpected amount of data");
+                await expect(
+                    vault.connect(user).callDecreaseAllowance(user.address, other.address, amount),
+                ).to.be.revertedWith("Transaction reverted: function returned an unexpected amount of data");
             });
 
             it("fails if delegator is contract which doesn't support interface", async () => {
@@ -929,18 +920,20 @@ describe("AssetVault", () => {
 
                 await whitelist.setApproval(mockERC20.address, other.address, true);
 
-                await expect(vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith(
-                        "Transaction reverted: function selector was not recognized and there's no fallback function",
-                    );
+                await expect(
+                    vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith(
+                    "Transaction reverted: function selector was not recognized and there's no fallback function",
+                );
             });
 
             it("fails from current owner if not whitelisted", async () => {
                 const { vault, mockERC20, user, other } = await loadFixture(fixture);
                 const amount = ethers.utils.parseEther("10");
 
-                await expect(vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+                await expect(
+                    vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith("AV_NonWhitelistedApproval");
             });
 
             it("fails if delegated and not whitelisted", async () => {
@@ -952,8 +945,9 @@ describe("AssetVault", () => {
 
                 await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
 
-                await expect(vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+                await expect(
+                    vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith("AV_NonWhitelistedApproval");
             });
 
             it("fails if token is on the whitelist but spender is not", async () => {
@@ -962,8 +956,9 @@ describe("AssetVault", () => {
 
                 await whitelist.setApproval(mockERC20.address, user.address, true);
 
-                await expect(vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount))
-                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+                await expect(
+                    vault.connect(user).callDecreaseAllowance(mockERC20.address, other.address, amount),
+                ).to.be.revertedWith("AV_NonWhitelistedApproval");
             });
 
             it("fails if spender is on the whitelist but token is not", async () => {
@@ -972,8 +967,9 @@ describe("AssetVault", () => {
 
                 await whitelist.setApproval(mockERC20.address, other.address, true);
 
-                await expect(vault.connect(user).callDecreaseAllowance(mockERC1155.address, other.address, amount))
-                    .to.be.revertedWith("AV_NonWhitelistedApproval");
+                await expect(
+                    vault.connect(user).callDecreaseAllowance(mockERC1155.address, other.address, amount),
+                ).to.be.revertedWith("AV_NonWhitelistedApproval");
             });
         });
     });
@@ -1041,8 +1037,9 @@ describe("AssetVault", () => {
             // enable withdraw on the vault
             await vault.connect(user).enableWithdraw();
 
-            await expect(vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true))
-                .to.be.revertedWith("AV_WithdrawsEnabled");
+            await expect(
+                vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true),
+            ).to.be.revertedWith("AV_WithdrawsEnabled");
         });
 
         it("fails if delegator disallows", async () => {
@@ -1055,8 +1052,9 @@ describe("AssetVault", () => {
 
             await whitelist.setDelegationApproval(mockERC20.address, true);
 
-            await expect(vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true))
-                .to.be.revertedWith("AV_MissingAuthorization");
+            await expect(
+                vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true),
+            ).to.be.revertedWith("AV_MissingAuthorization");
         });
 
         it("fails if delegator is contract which doesn't support interface", async () => {
@@ -1069,17 +1067,19 @@ describe("AssetVault", () => {
 
             await whitelist.setDelegationApproval(mockERC20.address, true);
 
-            await expect(vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true))
-                .to.be.revertedWith(
-                    "Transaction reverted: function selector was not recognized and there's no fallback function",
-                );
+            await expect(
+                vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true),
+            ).to.be.revertedWith(
+                "Transaction reverted: function selector was not recognized and there's no fallback function",
+            );
         });
 
         it("fails from current owner if not whitelisted", async () => {
             const { vault, mockERC20, user, other } = await loadFixture(fixture);
 
-            await expect(vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true))
-                .to.be.revertedWith("AV_NonWhitelistedDelegation");
+            await expect(
+                vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true),
+            ).to.be.revertedWith("AV_NonWhitelistedDelegation");
         });
 
         it("fails if delegated and not whitelisted", async () => {
@@ -1090,8 +1090,9 @@ describe("AssetVault", () => {
 
             await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
 
-            await expect(vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true))
-                .to.be.revertedWith("AV_NonWhitelistedDelegation");
+            await expect(
+                vault.connect(user).callDelegateForContract(mockERC20.address, other.address, true),
+            ).to.be.revertedWith("AV_NonWhitelistedDelegation");
         });
     });
 
@@ -1168,8 +1169,9 @@ describe("AssetVault", () => {
             // enable withdraw on the vault
             await vault.connect(user).enableWithdraw();
 
-            await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true))
-                .to.be.revertedWith("AV_WithdrawsEnabled");
+            await expect(
+                vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true),
+            ).to.be.revertedWith("AV_WithdrawsEnabled");
         });
 
         it("fails if delegator disallows", async () => {
@@ -1183,8 +1185,9 @@ describe("AssetVault", () => {
             await whitelist.setDelegationApproval(mockERC721.address, true);
             const tokenId = await mintERC721(mockERC721, vault.address);
 
-            await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true))
-                .to.be.revertedWith("AV_MissingAuthorization");
+            await expect(
+                vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true),
+            ).to.be.revertedWith("AV_MissingAuthorization");
         });
 
         it("fails if delegator is contract which doesn't support interface", async () => {
@@ -1199,18 +1202,20 @@ describe("AssetVault", () => {
             await whitelist.setDelegationApproval(mockERC721.address, true);
             const tokenId = await mintERC721(mockERC721, vault.address);
 
-            await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true))
-                .to.be.revertedWith(
-                    "Transaction reverted: function selector was not recognized and there's no fallback function",
-                );
+            await expect(
+                vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true),
+            ).to.be.revertedWith(
+                "Transaction reverted: function selector was not recognized and there's no fallback function",
+            );
         });
 
         it("fails from current owner if not whitelisted", async () => {
             const { vault, mockERC721, user, other } = await loadFixture(fixture);
             const tokenId = await mintERC721(mockERC721, vault.address);
 
-            await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true))
-                .to.be.revertedWith("AV_NonWhitelistedDelegation");
+            await expect(
+                vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true),
+            ).to.be.revertedWith("AV_NonWhitelistedDelegation");
         });
 
         it("fails if delegated and not whitelisted", async () => {
@@ -1222,8 +1227,9 @@ describe("AssetVault", () => {
 
             await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
 
-            await expect(vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true))
-                .to.be.revertedWith("AV_NonWhitelistedDelegation");
+            await expect(
+                vault.connect(user).callDelegateForToken(mockERC721.address, other.address, tokenId, true),
+            ).to.be.revertedWith("AV_NonWhitelistedDelegation");
         });
     });
 
@@ -1315,8 +1321,7 @@ describe("AssetVault", () => {
             // enable withdraw on the vault
             await vault.connect(user).enableWithdraw();
 
-            await expect(vault.connect(user).callRevokeAllDelegates())
-                .to.be.revertedWith("AV_WithdrawsEnabled");
+            await expect(vault.connect(user).callRevokeAllDelegates()).to.be.revertedWith("AV_WithdrawsEnabled");
         });
 
         it("fails if delegator disallows", async () => {
@@ -1327,8 +1332,7 @@ describe("AssetVault", () => {
 
             await nft.transferFrom(user.address, mockCallDelegator.address, vault.address);
 
-            await expect(vault.connect(user).callRevokeAllDelegates())
-                .to.be.revertedWith("AV_MissingAuthorization");
+            await expect(vault.connect(user).callRevokeAllDelegates()).to.be.revertedWith("AV_MissingAuthorization");
         });
 
         it("fails if delegator is contract which doesn't support interface", async () => {
@@ -1336,10 +1340,9 @@ describe("AssetVault", () => {
 
             await nft.transferFrom(user.address, mockERC20.address, vault.address);
 
-            await expect(vault.connect(user).callRevokeAllDelegates())
-                .to.be.revertedWith(
-                    "Transaction reverted: function selector was not recognized and there's no fallback function",
-                );
+            await expect(vault.connect(user).callRevokeAllDelegates()).to.be.revertedWith(
+                "Transaction reverted: function selector was not recognized and there's no fallback function",
+            );
         });
     });
 
@@ -1370,11 +1373,7 @@ describe("AssetVault", () => {
                 const { nft, bundleId, vault, mockERC20, user, other } = await loadFixture(fixture);
                 const amount = hre.ethers.utils.parseUnits("50", 18);
                 await deposit(mockERC20, vault, amount, user);
-                await nft["safeTransferFrom(address,address,uint256)"](
-                    user.address,
-                    other.address,
-                    bundleId,
-                );
+                await nft["safeTransferFrom(address,address,uint256)"](user.address, other.address, bundleId);
 
                 await expect(vault.connect(other).enableWithdraw())
                     .to.emit(vault, "WithdrawEnabled")
@@ -1428,9 +1427,9 @@ describe("AssetVault", () => {
                 const amount = hre.ethers.utils.parseUnits("50", 18);
                 await deposit(mockERC20, vault, amount, user);
 
-                await expect(
-                    vault.connect(user).withdrawERC20(mockERC20.address, user.address),
-                ).to.be.revertedWith("AV_WithdrawsDisabled");
+                await expect(vault.connect(user).withdrawERC20(mockERC20.address, user.address)).to.be.revertedWith(
+                    "AV_WithdrawsDisabled",
+                );
             });
 
             it("should fail to withdraw from non-owner", async () => {
@@ -1439,9 +1438,9 @@ describe("AssetVault", () => {
                 await deposit(mockERC20, vault, amount, user);
 
                 await vault.enableWithdraw();
-                await expect(
-                    vault.connect(other).withdrawERC20(mockERC20.address, user.address),
-                ).to.be.revertedWith("OERC721_CallerNotOwner");
+                await expect(vault.connect(other).withdrawERC20(mockERC20.address, user.address)).to.be.revertedWith(
+                    "OERC721_CallerNotOwner",
+                );
             });
 
             it("should throw when withdraw called by non-owner", async () => {
@@ -1449,18 +1448,18 @@ describe("AssetVault", () => {
                 const amount = hre.ethers.utils.parseUnits("50", 18);
                 await deposit(mockERC20, vault, amount, user);
 
-                await expect(
-                    vault.connect(other).withdrawERC20(mockERC20.address, user.address),
-                ).to.be.revertedWith("OERC721_CallerNotOwner");
+                await expect(vault.connect(other).withdrawERC20(mockERC20.address, user.address)).to.be.revertedWith(
+                    "OERC721_CallerNotOwner",
+                );
             });
 
             it("should fail when non-owner calls with approval", async () => {
                 const { nft, vault, mockERC20, user, other } = await loadFixture(fixture);
 
                 await nft.connect(user).approve(other.address, vault.address);
-                await expect(
-                    vault.connect(other).withdrawERC20(mockERC20.address, user.address),
-                ).to.be.revertedWith("OERC721_CallerNotOwner");
+                await expect(vault.connect(other).withdrawERC20(mockERC20.address, user.address)).to.be.revertedWith(
+                    "OERC721_CallerNotOwner",
+                );
             });
 
             it("should fail when recipient is address zero", async () => {
@@ -1469,8 +1468,9 @@ describe("AssetVault", () => {
                 await deposit(mockERC20, vault, amount, user);
 
                 await vault.connect(user).enableWithdraw();
-                await expect(vault.connect(user).withdrawERC20(mockERC20.address, ethers.constants.AddressZero))
-                    .to.be.revertedWith(`AV_ZeroAddress("to")`);
+                await expect(
+                    vault.connect(user).withdrawERC20(mockERC20.address, ethers.constants.AddressZero),
+                ).to.be.revertedWith(`AV_ZeroAddress("to")`);
             });
         });
 
@@ -1480,11 +1480,7 @@ describe("AssetVault", () => {
              */
             const deposit = async (token: MockERC721, vault: AssetVault, user: Signer) => {
                 const tokenId = await mintERC721(token, user.address);
-                await token["safeTransferFrom(address,address,uint256)"](
-                    user.address,
-                    vault.address,
-                    tokenId,
-                );
+                await token["safeTransferFrom(address,address,uint256)"](user.address, vault.address, tokenId);
                 return tokenId;
             };
 
@@ -1531,8 +1527,9 @@ describe("AssetVault", () => {
                 await punks.transferPunk(vault.address, punkIndex);
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawPunk(punks.address, punkIndex, ethers.constants.AddressZero))
-                    .to.be.revertedWith(`AV_ZeroAddress("to")`);
+                await expect(
+                    vault.connect(user).withdrawPunk(punks.address, punkIndex, ethers.constants.AddressZero),
+                ).to.be.revertedWith(`AV_ZeroAddress("to")`);
             });
 
             it("should throw when already withdrawn", async () => {
@@ -1575,8 +1572,9 @@ describe("AssetVault", () => {
                 const tokenId = await deposit(mockERC721, vault, user);
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawERC721(mockERC721.address, tokenId, ethers.constants.AddressZero))
-                    .to.be.revertedWith(`AV_ZeroAddress("to")`);
+                await expect(
+                    vault.connect(user).withdrawERC721(mockERC721.address, tokenId, ethers.constants.AddressZero),
+                ).to.be.revertedWith(`AV_ZeroAddress("to")`);
             });
         });
 
@@ -1643,8 +1641,9 @@ describe("AssetVault", () => {
                 const tokenId = await deposit(mockERC1155, vault, user, amount);
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawERC1155(mockERC1155.address, tokenId, ethers.constants.AddressZero))
-                    .to.be.revertedWith(`AV_ZeroAddress("to")`);
+                await expect(
+                    vault.connect(user).withdrawERC1155(mockERC1155.address, tokenId, ethers.constants.AddressZero),
+                ).to.be.revertedWith(`AV_ZeroAddress("to")`);
             });
         });
 
@@ -1657,11 +1656,7 @@ describe("AssetVault", () => {
 
             const depositERC721 = async (token: MockERC721, vault: AssetVault, user: Signer) => {
                 const tokenId = await mintERC721(token, user.address);
-                await token["safeTransferFrom(address,address,uint256)"](
-                    user.address,
-                    vault.address,
-                    tokenId,
-                );
+                await token["safeTransferFrom(address,address,uint256)"](user.address, vault.address, tokenId);
                 return tokenId;
             };
 
@@ -1692,7 +1687,7 @@ describe("AssetVault", () => {
                 const userERC1155BalanceBefore = await mockERC1155.balanceOf(user.address, tokenId1155);
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address))
+                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address));
 
                 const userERC721BalanceAfter = await mockERC721.balanceOf(user.address);
                 const userERC1155BalanceAfter = await mockERC1155.balanceOf(user.address, tokenId1155);
@@ -1715,7 +1710,7 @@ describe("AssetVault", () => {
                 const userERC721BalanceBefore = await mockERC721.balanceOf(user.address);
 
                 await vault.enableWithdraw();
-                await vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address)
+                await vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address);
 
                 const userERC721BalanceAfter = await mockERC721.balanceOf(user.address);
 
@@ -1737,7 +1732,7 @@ describe("AssetVault", () => {
                 const userERC1155BalanceBefore = await mockERC1155.balanceOf(user.address, tokenId);
 
                 await vault.enableWithdraw();
-                await vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address)
+                await vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address);
 
                 const userERC1155BalanceAfter = await mockERC1155.balanceOf(user.address, tokenId);
 
@@ -1761,8 +1756,9 @@ describe("AssetVault", () => {
                 }
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address))
-                    .to.be.revertedWith("AV_TooManyItems(26)");
+                await expect(
+                    vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address),
+                ).to.be.revertedWith("AV_TooManyItems(26)");
             });
 
             it("should revert when user specifies tokenId array length that does not match", async () => {
@@ -1784,8 +1780,9 @@ describe("AssetVault", () => {
                 tokenIds.pop();
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address))
-                    .to.be.revertedWith(`AV_LengthMismatch("tokenId")`);
+                await expect(
+                    vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address),
+                ).to.be.revertedWith(`AV_LengthMismatch("tokenId")`);
             });
 
             it("should revert when user specifies tokenType array length that does not match", async () => {
@@ -1807,8 +1804,9 @@ describe("AssetVault", () => {
                 tokenTypes.pop();
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address))
-                    .to.be.revertedWith(`AV_LengthMismatch("tokenType")`);
+                await expect(
+                    vault.connect(user).withdrawBatch(tokenAddresses, tokenIds, tokenTypes, user.address),
+                ).to.be.revertedWith(`AV_LengthMismatch("tokenType")`);
             });
 
             it("should revert when user specifies zero address as receiver", async () => {
@@ -1817,7 +1815,9 @@ describe("AssetVault", () => {
 
                 await vault.enableWithdraw();
                 await expect(
-                    vault.connect(user).withdrawBatch([mockERC721.address], [tokenId], [0], ethers.constants.AddressZero)
+                    vault
+                        .connect(user)
+                        .withdrawBatch([mockERC721.address], [tokenId], [0], ethers.constants.AddressZero),
                 ).to.be.revertedWith(`AV_ZeroAddress("to")`);
             });
 
@@ -1827,7 +1827,7 @@ describe("AssetVault", () => {
 
                 await vault.enableWithdraw();
                 await expect(
-                    vault.connect(user).withdrawBatch([ethers.constants.AddressZero], [tokenId], [0], user.address)
+                    vault.connect(user).withdrawBatch([ethers.constants.AddressZero], [tokenId], [0], user.address),
                 ).to.be.revertedWith(`AV_ZeroAddress("token")`);
             });
 
@@ -1836,9 +1836,8 @@ describe("AssetVault", () => {
                 const tokenId = await depositERC721(mockERC721, vault, user);
 
                 await vault.enableWithdraw();
-                await expect(
-                    vault.connect(user).withdrawBatch([mockERC721.address], [tokenId], [2], user.address)
-                ).to.be.reverted;
+                await expect(vault.connect(user).withdrawBatch([mockERC721.address], [tokenId], [2], user.address)).to
+                    .be.reverted;
             });
 
             it("should fail to withdrawBatch when withdraws disabled", async () => {
@@ -1890,9 +1889,7 @@ describe("AssetVault", () => {
                 const amount = hre.ethers.utils.parseEther("123");
                 await deposit(vault, user, amount);
 
-                await expect(vault.connect(user).withdrawETH(user.address)).to.be.revertedWith(
-                    "AV_WithdrawsDisabled",
-                );
+                await expect(vault.connect(user).withdrawETH(user.address)).to.be.revertedWith("AV_WithdrawsDisabled");
             });
 
             it("should throw when withdraw called by non-owner", async () => {
@@ -1912,8 +1909,9 @@ describe("AssetVault", () => {
                 const startingBalance = await vault.provider.getBalance(user.address);
 
                 await vault.enableWithdraw();
-                await expect(vault.connect(user).withdrawETH(ethers.constants.AddressZero))
-                    .to.be.revertedWith(`AV_ZeroAddress("to")`);
+                await expect(vault.connect(user).withdrawETH(ethers.constants.AddressZero)).to.be.revertedWith(
+                    `AV_ZeroAddress("to")`,
+                );
             });
         });
 
