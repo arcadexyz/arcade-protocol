@@ -5,7 +5,12 @@ pragma solidity 0.8.18;
 import "../interfaces/ISignatureVerifier.sol";
 import "../interfaces/IVaultFactory.sol";
 
-import { IV_NoAmount, IV_InvalidWildcard, IV_ItemMissingAddress, IV_InvalidCollateralType } from "../errors/Lending.sol";
+import {
+    IV_NoAmount,
+    IV_InvalidWildcard,
+    IV_ItemMissingAddress,
+    IV_InvalidCollateralType
+} from "../errors/Lending.sol";
 
 /**
  * @title UnvaultedItemsVerifier
