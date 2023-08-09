@@ -72,7 +72,7 @@ contract UnvaultedItemsVerifier is ISignatureVerifier {
         address collateralAddress,
         uint256 collateralId,
         bytes calldata predicates
-    ) external view override returns (bool) {
+    ) external pure override returns (bool) {
         // Unpack items
         (address token, uint256 tokenId, bool anyIdAllowed) = _decodeData(predicates);
 

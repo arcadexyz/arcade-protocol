@@ -24,13 +24,13 @@ import {
     MockERC1271LenderNaive,
     UnvaultedItemsVerifier,
     CollectionWideOfferVerifier,
-    BaseURIDescriptor,
+    BaseURIDescriptor
 } from "../typechain";
 import { approve, mint, ZERO_ADDRESS } from "./utils/erc20";
 import { mint as mint721 } from "./utils/erc721";
 import { ItemsPredicate, LoanTerms, SignatureItem } from "./utils/types";
 import { createLoanTermsSignature, createLoanItemsSignature, createPermitSignature } from "./utils/eip712";
-import { encodeSignatureItems, encodeItemCheck, initializeBundle } from "./utils/loans";
+import { encodeSignatureItems, initializeBundle } from "./utils/loans";
 
 import {
     ORIGINATOR_ROLE,
@@ -180,7 +180,7 @@ const createLoanTermsExpired = (
         collateralAddress,
         payableCurrency,
         deadline,
-        affiliateCode,
+        affiliateCode
     };
 };
 
@@ -193,7 +193,7 @@ const createLoanTerms = (
         proratedInterestRate = ethers.utils.parseEther("1"),
         collateralId = "1",
         deadline = 1754884800,
-        affiliateCode = ethers.constants.HashZero,
+        affiliateCode = ethers.constants.HashZero
     }: Partial<LoanTerms> = {},
 ): LoanTerms => {
     return {
@@ -204,7 +204,7 @@ const createLoanTerms = (
         collateralAddress,
         payableCurrency,
         deadline,
-        affiliateCode,
+        affiliateCode
     };
 };
 
@@ -217,7 +217,7 @@ describe("OriginationController", () => {
 
             const OriginationController = await ethers.getContractFactory("OriginationController");
             await expect(OriginationController.deploy(ZERO_ADDRESS, feeController.address)).to.be.revertedWith(
-                `OC_ZeroAddress("loanCore")`,
+                `OC_ZeroAddress("loanCore")`
             );
         });
 
@@ -226,7 +226,7 @@ describe("OriginationController", () => {
 
             const OriginationController = await ethers.getContractFactory("OriginationController");
             await expect(OriginationController.deploy(loanCore.address, ZERO_ADDRESS)).to.be.revertedWith(
-                `OC_ZeroAddress("feeController")`,
+                `OC_ZeroAddress("feeController")`
             );
         });
 
@@ -372,7 +372,7 @@ describe("OriginationController", () => {
             const bundleId = await initializeBundle(vaultFactory, borrower);
             const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, {
                 collateralId: bundleId,
-                proratedInterestRate: ethers.utils.parseEther("0.1"), // 1/10th bps
+                proratedInterestRate: ethers.utils.parseEther("0.1") // 1/10th bps
             });
             await mint(mockERC20, lender, loanTerms.principal);
 
@@ -401,7 +401,7 @@ describe("OriginationController", () => {
             const bundleId = await initializeBundle(vaultFactory, borrower);
             const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, {
                 collateralId: bundleId,
-                proratedInterestRate: ethers.utils.parseEther("10000000"), // 100,000%, 1e6 bps
+                proratedInterestRate: ethers.utils.parseEther("10000000") // 100,000%, 1e6 bps
             });
             await mint(mockERC20, lender, loanTerms.principal);
 
@@ -459,7 +459,7 @@ describe("OriginationController", () => {
                 vaultFactory,
                 user: lender,
                 other: borrower,
-                signers,
+                signers
             } = ctx;
 
             const bundleId = await initializeBundle(vaultFactory, borrower);
@@ -631,7 +631,7 @@ describe("OriginationController", () => {
                 vaultFactory,
                 user: lender,
                 other: borrower,
-                signers,
+                signers
             } = ctx;
 
             const [caller] = signers;
@@ -927,7 +927,7 @@ describe("OriginationController", () => {
                     asset: mockERC721.address,
                     tokenId,
                     amount: 1,
-                    anyIdAllowed: false,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -955,7 +955,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoanWithItems(loanTerms, borrower.address, lender.address, sig, 1, predicates),
+                    .initializeLoanWithItems(loanTerms, borrower.address, lender.address, sig, 1, predicates)
             ).to.be.revertedWith("function selector was not recognized and there's no fallback function");
         });
 
@@ -967,7 +967,7 @@ describe("OriginationController", () => {
                 mockERC721,
                 vaultFactory,
                 user: lender,
-                other: borrower,
+                other: borrower
             } = ctx;
             const bundleId = await initializeBundle(vaultFactory, borrower);
             const tokenId = await mint721(mockERC721, borrower);
@@ -979,7 +979,7 @@ describe("OriginationController", () => {
                     asset: mockERC721.address,
                     tokenId,
                     amount: 1,
-                    anyIdAllowed: false,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -1008,7 +1008,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoanWithItems(loanTerms, borrower.address, lender.address, sig, 1, predicates),
+                    .initializeLoanWithItems(loanTerms, borrower.address, lender.address, sig, 1, predicates)
             ).to.be.revertedWith("OC_PredicateFailed");
         });
 
@@ -1020,7 +1020,7 @@ describe("OriginationController", () => {
                 mockERC721,
                 vaultFactory,
                 user: lender,
-                other: borrower,
+                other: borrower
             } = ctx;
             const bundleId = await initializeBundle(vaultFactory, borrower);
             await mint721(mockERC721, borrower);
@@ -1044,7 +1044,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoanWithItems(loanTerms, borrower.address, lender.address, sig, 1, predicates),
+                    .initializeLoanWithItems(loanTerms, borrower.address, lender.address, sig, 1, predicates)
             ).to.be.revertedWith("OC_PredicatesArrayEmpty");
         });
 
@@ -1056,7 +1056,7 @@ describe("OriginationController", () => {
                 mockERC721,
                 vaultFactory,
                 user: lender,
-                other: borrower,
+                other: borrower
             } = ctx;
 
             const bundleId = await initializeBundle(vaultFactory, borrower);
@@ -1071,7 +1071,7 @@ describe("OriginationController", () => {
                     asset: mockERC721.address,
                     tokenId,
                     amount: 1,
-                    anyIdAllowed: false,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -1106,7 +1106,7 @@ describe("OriginationController", () => {
                     sig,
                     // Use nonce a nonce value that does not match the nonce in sig
                     2,
-                    predicates,
+                    predicates
                 ),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
@@ -1119,7 +1119,7 @@ describe("OriginationController", () => {
                 mockERC721,
                 vaultFactory,
                 user: lender,
-                other: borrower,
+                other: borrower
             } = ctx;
 
             const bundleId = await initializeBundle(vaultFactory, borrower);
@@ -1134,7 +1134,7 @@ describe("OriginationController", () => {
                     asset: mockERC721.address,
                     tokenId,
                     amount: 1,
-                    anyIdAllowed: false,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -1163,7 +1163,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoanWithItems(loanTerms, borrower.address, lender.address, sig, 1, predicates),
+                    .initializeLoanWithItems(loanTerms, borrower.address, lender.address, sig, 1, predicates)
             ).to.be.revertedWith("OC_InvalidSignature");
         });
 
@@ -1175,7 +1175,7 @@ describe("OriginationController", () => {
                 mockERC721,
                 vaultFactory,
                 user: lender,
-                other: borrower,
+                other: borrower
             } = ctx;
 
             // Remove verifier approval
@@ -1193,7 +1193,7 @@ describe("OriginationController", () => {
                     asset: mockERC721.address,
                     tokenId,
                     amount: 1,
-                    anyIdAllowed: false,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -1222,7 +1222,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoanWithItems(loanTerms, borrower.address, lender.address, sig, 1, predicates),
+                    .initializeLoanWithItems(loanTerms, borrower.address, lender.address, sig, 1, predicates)
             ).to.be.revertedWith("OC_InvalidVerifier");
         });
 
@@ -1246,7 +1246,7 @@ describe("OriginationController", () => {
                     asset: mockERC721.address,
                     tokenId,
                     amount: 1,
-                    anyIdAllowed: false,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -1311,7 +1311,7 @@ describe("OriginationController", () => {
                 mockERC721,
                 vaultFactory,
                 user: lender,
-                other: borrower,
+                other: borrower
             } = ctx;
 
             const bundleId = await initializeBundle(vaultFactory, borrower);
@@ -1355,7 +1355,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoanWithItems(loanTerms, borrower.address, lender.address, sig, 1, predicates),
+                    .initializeLoanWithItems(loanTerms, borrower.address, lender.address, sig, 1, predicates)
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, loanCore.address, loanTerms.principal);
@@ -1369,7 +1369,7 @@ describe("OriginationController", () => {
                 mockERC721,
                 vaultFactory,
                 user: lender,
-                other: borrower,
+                other: borrower
             } = ctx;
 
             const bundleId = await initializeBundle(vaultFactory, borrower);
@@ -1384,7 +1384,7 @@ describe("OriginationController", () => {
                     asset: mockERC721.address,
                     tokenId,
                     amount: 1,
-                    anyIdAllowed: false,
+                    anyIdAllowed: false
                 },
             ];
 
@@ -1427,7 +1427,7 @@ describe("OriginationController", () => {
                 mockERC721,
                 vaultFactory,
                 user: lender,
-                other: borrower,
+                other: borrower
             } = ctx;
 
             // Create two bundles, fund both with same items
@@ -1451,7 +1451,7 @@ describe("OriginationController", () => {
                     asset: mockERC721.address,
                     tokenId: 0,
                     amount: 1,
-                    anyIdAllowed: true,
+                    anyIdAllowed: true
                 },
             ];
 
@@ -1480,7 +1480,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoanWithItems(loanTerms, borrower.address, lender.address, sig, 1, predicates),
+                    .initializeLoanWithItems(loanTerms, borrower.address, lender.address, sig, 1, predicates)
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, loanCore.address, loanTerms.principal);
@@ -1490,7 +1490,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoanWithItems(loanTerms2, borrower.address, lender.address, sig, 1, predicates),
+                    .initializeLoanWithItems(loanTerms2, borrower.address, lender.address, sig, 1, predicates)
             ).to.be.revertedWith("LC_NonceUsed");
         });
 

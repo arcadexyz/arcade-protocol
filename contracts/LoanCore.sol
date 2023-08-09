@@ -46,7 +46,14 @@ import {
  * Also contains logic for approving Asset Vault calls using the
  * ICallDelegator interface.
  */
-contract LoanCore is ILoanCore, InterestCalculator, AccessControlEnumerable, Pausable, ReentrancyGuard, ICallDelegator {
+contract LoanCore is
+    ILoanCore,
+    InterestCalculator,
+    AccessControlEnumerable,
+    Pausable,
+    ReentrancyGuard,
+    ICallDelegator
+{
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
@@ -688,20 +695,12 @@ contract LoanCore is ILoanCore, InterestCalculator, AccessControlEnumerable, Pau
 
         // Check that we will not net lose tokens.
         if (_amountToLender > _amountFromPayer) revert LC_CannotSettle(_amountToLender, _amountFromPayer);
-<<<<<<< HEAD
 
         uint256 feesEarned;
         unchecked { feesEarned = _amountFromPayer - _amountToLender; }
 
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
             _getAffiliateSplit(feesEarned, data.terms.affiliateCode);
-=======
-        uint256 feesEarned = _amountFromPayer - _amountToLender;
-        (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(
-            feesEarned,
-            data.terms.affiliateCode
-        );
->>>>>>> 2408240 (feat(nftfi-rollovers-a): add loancore)
 
         // Assign fees for withdrawal
         mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[data.terms.payableCurrency];
@@ -727,12 +726,7 @@ contract LoanCore is ILoanCore, InterestCalculator, AccessControlEnumerable, Pau
     function _getAffiliateSplit(uint256 amount, bytes32 affiliateCode)
         internal
         view
-        returns (
-            uint256 protocolFee,
-            uint256 affiliateFee,
-            address affiliate
-        )
-    {
+        returns (uint256 protocolFee, uint256 affiliateFee, address affiliate){
         AffiliateSplit memory split = affiliateSplits[affiliateCode];
 
         if (split.affiliate == address(0)) {
@@ -740,13 +734,8 @@ contract LoanCore is ILoanCore, InterestCalculator, AccessControlEnumerable, Pau
         }
 
         affiliate = split.affiliate;
-<<<<<<< HEAD
         affiliateFee = amount * split.splitBps / BASIS_POINTS_DENOMINATOR;
         unchecked { protocolFee = amount - affiliateFee; }
-=======
-        affiliateFee = (amount * split.splitBps) / BASIS_POINTS_DENOMINATOR;
-        protocolFee = amount - affiliateFee;
->>>>>>> 2408240 (feat(nftfi-rollovers-a): add loancore)
     }
 
     /**

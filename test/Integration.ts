@@ -25,7 +25,7 @@ import { approve, mint } from "./utils/erc20";
 import { mint as mint721 } from "./utils/erc721";
 import { LoanTerms, LoanData, ItemsPredicate, SignatureItem } from "./utils/types";
 import { createLoanItemsSignature, createLoanTermsSignature } from "./utils/eip712";
-import { encodeItemCheck, encodeSignatureItems } from "./utils/loans";
+import { encodeSignatureItems } from "./utils/loans";
 
 import {
     ADMIN_ROLE,
@@ -187,7 +187,7 @@ const createLoanTerms = (
         collateralId,
         payableCurrency,
         deadline,
-        affiliateCode,
+        affiliateCode
     };
 };
 
@@ -382,9 +382,7 @@ describe("Integration", () => {
         });
 
         it("should fail to create a loan with nonexistent collateral", async () => {
-            const { loanCore, originationController, mockERC20, lender, borrower, vaultFactory } = await loadFixture(
-                fixture,
-            );
+            const { loanCore, originationController, mockERC20, lender, borrower, vaultFactory } = await loadFixture(fixture);
 
             const mockOpenVault = await deploy("MockOpenVault", borrower, []);
             const bundleId = mockOpenVault.address;
@@ -410,9 +408,7 @@ describe("Integration", () => {
         });
 
         it("should fail to create a loan with passed due date", async () => {
-            const { loanCore, originationController, mockERC20, vaultFactory, lender, borrower } = await loadFixture(
-                fixture,
-            );
+            const { loanCore, originationController, mockERC20, vaultFactory, lender, borrower } = await loadFixture(fixture);
             const bundleId = await createWnft(vaultFactory, borrower);
             const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, {
                 collateralId: bundleId,
@@ -737,7 +733,7 @@ describe("Integration", () => {
             await expect(
                 loanCore
                     .connect(borrower)
-                    .withdraw(mockERC20.address, ethers.utils.parseEther("0.15"), borrower.address),
+                    .withdraw(mockERC20.address, ethers.utils.parseEther("0.15"), borrower.address)
             )
                 .to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, borrower.address, borrower.address, ethers.utils.parseEther("0.15"));
