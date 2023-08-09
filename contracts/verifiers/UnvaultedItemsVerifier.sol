@@ -5,12 +5,7 @@ pragma solidity 0.8.18;
 import "../interfaces/ISignatureVerifier.sol";
 import "../interfaces/IVaultFactory.sol";
 
-import {
-    IV_NoAmount,
-    IV_InvalidWildcard,
-    IV_ItemMissingAddress,
-    IV_InvalidCollateralType
-} from "../errors/Lending.sol";
+import { IV_NoAmount, IV_InvalidWildcard, IV_ItemMissingAddress, IV_InvalidCollateralType } from "../errors/Lending.sol";
 
 /**
  * @title UnvaultedItemsVerifier
@@ -28,6 +23,30 @@ import {
  * If anyIdAllowed is true, then any token ID can be passed - the field will be ignored.
  */
 contract UnvaultedItemsVerifier is ISignatureVerifier {
+    /// @dev Enum describing the collateral type of a signature item
+    enum CollateralType {
+        ERC_721,
+        ERC_1155,
+        ERC_20
+    }
+
+    /// @dev Enum describing each item that should be validated
+    struct SignatureItem {
+        // The type of collateral - which interface does it implement
+        CollateralType cType;
+        // The address of the collateral contract
+        address asset;
+        // The token ID of the collateral (only applicable to 721 and 1155).
+        uint256 tokenId;
+        // The minimum amount of collateral. For ERC721 assets, pass 1 or the
+        // amount of assets needed to be held for a wildcard predicate. If the
+        // tokenId is specified, the amount is assumed to be 1.
+        uint256 amount;
+        // Whether any token ID should be allowed. Only applies to ERC721.
+        // Supersedes tokenId.
+        bool anyIdAllowed;
+    }
+
     // ==================================== COLLATERAL VERIFICATION =====================================
 
     /**
@@ -43,15 +62,16 @@ contract UnvaultedItemsVerifier is ISignatureVerifier {
      * @return verified                     Whether the bundle contains the specified items.
      */
     function verifyPredicates(
-        address, address,
+        address,
+        address,
         address collateralAddress,
         uint256 collateralId,
         bytes calldata predicates
-    ) external pure override returns (bool) {
+    ) external view override returns (bool) {
         // Unpack items
-        (address token, uint256 tokenId, bool anyIdAllowed) = abi.decode(predicates, (address, uint256, bool));
+        (address token, uint256 tokenId, bool anyIdAllowed) = _decodeData(predicates);
 
-        // No asset provided
+        //No asset provided
         if (token == address(0)) revert IV_ItemMissingAddress();
 
         // Check for collateral address match - should never happen, given that
@@ -62,5 +82,21 @@ contract UnvaultedItemsVerifier is ISignatureVerifier {
         if (!anyIdAllowed && tokenId != collateralId) return false;
 
         return true;
+    }
+
+    /**
+     * @notice Helper function to decode the predicate calldata.
+     *
+     * @param data                          The encoded data to decode.
+     *
+     * @return asset                        The address of the lender specified collateral.
+     * @return tokenId                      The tokenId of the lender specified collateral.
+     * @return anyIdAllowed                 Whether any id is allowed.
+     */
+    function _decodeData(bytes memory data) internal pure returns (address, uint256, bool){
+        SignatureItem[] memory items = abi.decode(data, (SignatureItem[]));
+
+        require(items.length > 0, "No items to decode");
+        return (items[0].asset, items[0].tokenId, items[0].anyIdAllowed);
     }
 }
