@@ -4,8 +4,8 @@ pragma solidity 0.8.18;
 
 import "./ILoanCore.sol";
 
-interface INftfiRollover {
-    struct OperationData {
+interface INftfiRolloverWithItems {
+    struct OperationDataWithItems {
             uint256 loanId;
             address borrower;
             LoanLibrary.LoanTerms newLoanTerms;
@@ -14,15 +14,17 @@ interface INftfiRollover {
             uint8 v;
             bytes32 r;
             bytes32 s;
+            LoanLibrary.Predicate[] itemPredicates;
     }
 
-    function rolloverNftfiLoan(
+    function rolloverNftfiLoanWithItems(
         uint32 loanId,
         LoanLibrary.LoanTerms calldata newLoanTerms,
         address lender,
         uint160 nonce,
         uint8 v,
         bytes32 r,
-        bytes32 s
+        bytes32 s,
+        LoanLibrary.Predicate[] calldata itemPredicates
     ) external;
 }
