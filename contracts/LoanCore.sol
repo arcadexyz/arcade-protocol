@@ -167,6 +167,7 @@ contract LoanCore is
     ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 loanId) {
         // Check collateral is not already used in a loan
         bytes32 collateralKey = keccak256(abi.encode(terms.collateralAddress, terms.collateralId));
+
         if (collateralInUse[collateralKey]) revert LC_CollateralInUse(terms.collateralAddress, terms.collateralId);
 
         // Check that we will not net lose tokens
@@ -176,10 +177,18 @@ contract LoanCore is
         collateralInUse[collateralKey] = true;
 
         // Assign fees for withdrawal
+<<<<<<< HEAD
         uint256 feesEarned;
         unchecked { feesEarned = _amountFromLender - _amountToBorrower; }
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
             _getAffiliateSplit(feesEarned, terms.affiliateCode);
+=======
+        uint256 feesEarned = _amountFromLender - _amountToBorrower;
+        (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(
+            feesEarned,
+            terms.affiliateCode
+        );
+>>>>>>> 3793c94 (feat(nftfi-rollovers-a): revert loancore changes)
 
         if (protocolFee > 0) feesWithdrawable[terms.payableCurrency][address(this)] += protocolFee;
         if (affiliateFee > 0) feesWithdrawable[terms.payableCurrency][affiliate] += affiliateFee;
@@ -197,10 +206,11 @@ contract LoanCore is
         });
 
         // Distribute notes and principal
-        _mintLoanNotes(loanId, borrower, lender);
-
         // Collect collateral from borrower
         IERC721(terms.collateralAddress).transferFrom(borrower, address(this), terms.collateralId);
+
+        // Distribute promissory notes
+        _mintLoanNotes(loanId, borrower, lender);
 
         // Collect principal from lender and send net (minus fees) amount to borrower
         _collectIfNonzero(IERC20(terms.payableCurrency), lender, _amountFromLender);
@@ -314,8 +324,10 @@ contract LoanCore is
 
         if (_amountFromLender > 0) {
             // Assign fees for withdrawal
-            (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
-                _getAffiliateSplit(_amountFromLender, data.terms.affiliateCode);
+            (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(
+                _amountFromLender,
+                data.terms.affiliateCode
+            );
 
             mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[data.terms.payableCurrency];
             if (protocolFee > 0) _feesWithdrawable[address(this)] += protocolFee;
@@ -357,8 +369,10 @@ contract LoanCore is
         amount -= _amountFromLender;
 
         // Assign fees for withdrawal
-        (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
-            _getAffiliateSplit(_amountFromLender, loans[loanId].terms.affiliateCode);
+        (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(
+            _amountFromLender,
+            loans[loanId].terms.affiliateCode
+        );
 
         mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[token];
         if (protocolFee > 0) _feesWithdrawable[address(this)] += protocolFee;
@@ -424,8 +438,10 @@ contract LoanCore is
             unchecked { feesEarned = _settledAmount - _amountToOldLender - _amountToLender - _amountToBorrower; }
 
             // Make sure split goes to affiliate code from _new_ terms
-            (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
-                _getAffiliateSplit(feesEarned, terms.affiliateCode);
+            (uint256 protocolFee, uint256 affiliateFee, address affiliate) = _getAffiliateSplit(
+                feesEarned,
+                terms.affiliateCode
+            );
 
             // Assign fees for withdrawal
             mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[address(payableCurrency)];
@@ -576,7 +592,11 @@ contract LoanCore is
      * @param amount                The amount of tokens to claim.
      * @param to                    The address to send the tokens to.
      */
-    function withdraw(address token, uint256 amount, address to) external override nonReentrant {
+    function withdraw(
+        address token,
+        uint256 amount,
+        address to
+    ) external override nonReentrant {
         if (token == address(0)) revert LC_ZeroAddress("token");
         if (amount == 0) revert LC_ZeroAmount();
         if (to == address(0)) revert LC_ZeroAddress("to");
@@ -624,18 +644,18 @@ contract LoanCore is
      * @param codes                     The affiliate code to set the split for.
      * @param splits                    The splits to set for the given codes.
      */
-    function setAffiliateSplits(
-        bytes32[] calldata codes,
-        AffiliateSplit[] calldata splits
-    ) external override onlyRole(AFFILIATE_MANAGER_ROLE) {
+    function setAffiliateSplits(bytes32[] calldata codes, AffiliateSplit[] calldata splits)
+        external
+        override
+        onlyRole(AFFILIATE_MANAGER_ROLE)
+    {
         if (codes.length != splits.length) revert LC_ArrayLengthMismatch();
 
         for (uint256 i = 0; i < codes.length;) {
             if (splits[i].splitBps > MAX_AFFILIATE_SPLIT)
                 revert LC_OverMaxSplit(splits[i].splitBps, MAX_AFFILIATE_SPLIT);
 
-            if (affiliateSplits[codes[i]].affiliate != address(0))
-                revert LC_AffiliateCodeAlreadySet(codes[i]);
+            if (affiliateSplits[codes[i]].affiliate != address(0)) revert LC_AffiliateCodeAlreadySet(codes[i]);
 
             affiliateSplits[codes[i]] = splits[i];
             emit AffiliateSet(codes[i], splits[i].affiliate, splits[i].splitBps);
@@ -660,7 +680,6 @@ contract LoanCore is
     }
 
     // ============================================= HELPERS ============================================
-
 
     /**
      * @dev Perform shared logic across repay operations repay and forceRepay - all "checks" and "effects".
@@ -712,10 +731,10 @@ contract LoanCore is
      * @return affiliateFee         The amount going to the affiliate.
      * @return affiliate            The address of the affiliate.
      */
-    function _getAffiliateSplit(
-        uint256 amount,
-        bytes32 affiliateCode
-    ) internal view returns (uint256 protocolFee, uint256 affiliateFee, address affiliate) {
+    function _getAffiliateSplit(uint256 amount, bytes32 affiliateCode)
+        internal
+        view
+        returns (uint256 protocolFee, uint256 affiliateFee, address affiliate){
         AffiliateSplit memory split = affiliateSplits[affiliateCode];
 
         if (split.affiliate == address(0)) {
