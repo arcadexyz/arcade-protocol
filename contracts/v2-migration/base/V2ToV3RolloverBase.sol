@@ -16,7 +16,8 @@ import {
     R_CurrencyMismatch,
     R_CollateralMismatch,
     R_CollateralIdMismatch,
-    R_NoTokenBalance
+    R_NoTokenBalance,
+    R_StateAlreadySet
 } from "../errors/RolloverErrors.sol";
 
 /**
@@ -46,7 +47,7 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
     IERC721 public immutable borrowerNoteV3;
 
     /// @notice state variable for pausing the contract
-    bool public paused = false;
+    bool public paused;
 
     constructor(IVault _vault, OperationContracts memory _opContracts) {
         // Set Balancer vault address
@@ -177,11 +178,15 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
      *
      * @dev This function is only to be used if a vulnerability is found or the contract
      *      is no longer being used.
+     *
+     * @param _pause              The state to set the contract to.
      */
-    function togglePause() external override onlyOwner {
-        paused = !paused;
+    function pause(bool _pause) external override onlyOwner {
+        if (paused == _pause) revert R_StateAlreadySet();
 
-        emit PausedStateChanged(paused);
+        paused = _pause;
+
+        emit PausedStateChanged(_pause);
     }
 
     /**

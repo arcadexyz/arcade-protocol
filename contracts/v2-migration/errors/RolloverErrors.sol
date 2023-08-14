@@ -104,3 +104,8 @@ error R_NoTokenBalance();
  * @notice Contract is paused, rollover operations are blocked.
  */
 error R_Paused();
+
+/**
+ * @notice The rollover contract is already in the specified pause state.
+ */
+error R_StateAlreadySet();
