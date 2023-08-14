@@ -225,6 +225,4 @@ contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase {
 
         return newLoanId;
     }
-
-    receive() external payable {}
 }
