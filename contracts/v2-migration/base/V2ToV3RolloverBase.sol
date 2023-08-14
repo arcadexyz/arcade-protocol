@@ -13,6 +13,7 @@ import {
     R_FundsConflict,
     R_NotCollateralOwner,
     R_CallerNotBorrower,
+    R_BorrowerNotReset,
     R_CurrencyMismatch,
     R_CollateralMismatch,
     R_CollateralIdMismatch,
@@ -46,6 +47,11 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
     IOriginationController public immutable originationControllerV3;
     ILoanCore public immutable loanCoreV3;
     IERC721 public immutable borrowerNoteV3;
+
+    /// @notice State variable used for checking the inheriting contract initiated the flash
+    ///         loan. When a rollover function is called the borrowers address is cached here
+    ///         and checked against the opData in the flash loan callback.
+    address public borrower;
 
     /// @notice state variable for pausing the contract
     bool public paused;
@@ -121,16 +127,16 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
      *
      * @param loanData                 The loan data for the loan to be repaid.
      * @param borrowerNoteId           ID of the borrowerNote for the loan to be repaid.
-     * @param borrower                 The address of the borrower.
+     * @param opDataBorrower           The address of the borrower.
      */
     function _repayLoan(
         LoanLibraryV2.LoanData memory loanData,
         uint256 borrowerNoteId,
-        address borrower
+        address opDataBorrower
     ) internal {
         // take BorrowerNote from borrower so that this contract receives collateral
         // borrower must approve this withdrawal
-        borrowerNoteV2.transferFrom(borrower, address(this), borrowerNoteId);
+        borrowerNoteV2.transferFrom(opDataBorrower, address(this), borrowerNoteId);
 
         // approve repayment
         uint256 totalRepayment = repaymentControllerV2.getFullInterestAmount(
@@ -161,16 +167,16 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
      * @param newLoanTerms              The terms of the V3 loan.
      * @param borrowerNoteId            The ID of the borrowerNote for the old loan.
      *
-     * @return borrower                 Owner of borrowerNote address.
+     * @return _borrower                Caller and the owner of borrowerNote address.
      */
     function _validateRollover(
         LoanLibraryV2.LoanTerms memory sourceLoanTerms,
         LoanLibrary.LoanTerms memory newLoanTerms,
         uint256 borrowerNoteId
-    ) internal view returns (address borrower) {
-        borrower = borrowerNoteV2.ownerOf(borrowerNoteId);
+    ) internal view returns (address _borrower) {
+        _borrower = borrowerNoteV2.ownerOf(borrowerNoteId);
 
-        if (borrower != msg.sender) revert R_CallerNotBorrower(msg.sender, borrower);
+        if (_borrower != msg.sender) revert R_CallerNotBorrower(msg.sender, _borrower);
 
         if (sourceLoanTerms.payableCurrency != newLoanTerms.payableCurrency) {
             revert R_CurrencyMismatch(sourceLoanTerms.payableCurrency, newLoanTerms.payableCurrency);
@@ -210,5 +216,15 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
         if (balance == 0) revert R_NoTokenBalance();
 
         token.safeTransfer(to, balance);
+    }
+
+    /**
+     * @notice This function ensures that at the start of every flash loan sequence, the borrower
+     *         state is reset to address(0). This is to ensure that the inheriting contract initiated
+     *         the flash loan and also reset it after repaying the flash loan.
+     */
+    modifier isBorrowerReset() {
+        if (borrower != address(0)) revert R_BorrowerNotReset(borrower);
+        _;
     }
 }

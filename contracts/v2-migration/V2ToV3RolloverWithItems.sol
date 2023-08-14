@@ -10,6 +10,7 @@ import "../libraries/FeeLookups.sol";
 
 import {
     R_UnknownCaller,
+    R_UnknownBorrower,
     R_InsufficientFunds,
     R_InsufficientAllowance,
     R_Paused
@@ -56,16 +57,19 @@ contract V2ToV3RolloverWithItems is IV2ToV3RolloverWithItems, V2ToV3RolloverBase
         bytes32 r,
         bytes32 s,
         LoanLibrary.Predicate[] calldata itemPredicates
-    ) external override {
+    ) external override isBorrowerReset {
         if (paused) revert R_Paused();
 
         LoanLibraryV2.LoanTerms memory loanTerms = loanCoreV2.getLoan(loanId).terms;
 
-        (address borrower) = _validateRollover(
+        (address _borrower) = _validateRollover(
             loanTerms,
             newLoanTerms,
             loanId // same as borrowerNoteId
         );
+
+        // cache borrower address for flash loan callback
+        borrower = _borrower;
 
         IERC20[] memory assets = new IERC20[](1);
         assets[0] = IERC20(loanTerms.payableCurrency);
@@ -77,7 +81,7 @@ contract V2ToV3RolloverWithItems is IV2ToV3RolloverWithItems, V2ToV3RolloverBase
             OperationDataWithItems(
                 {
                     loanId: loanId,
-                    borrower: borrower,
+                    borrower: _borrower,
                     newLoanTerms: newLoanTerms,
                     lender: lender,
                     nonce: nonce,
@@ -112,7 +116,14 @@ contract V2ToV3RolloverWithItems is IV2ToV3RolloverWithItems, V2ToV3RolloverBase
         if (msg.sender != address(VAULT)) revert R_UnknownCaller(msg.sender, address(VAULT));
 
         OperationDataWithItems memory opData = abi.decode(params, (OperationDataWithItems));
+
+        // verify this contract started the flash loan
+        if (opData.borrower != borrower) revert R_UnknownBorrower(opData.borrower, borrower);
+
         _executeOperation(assets, amounts, feeAmounts, opData);
+
+        // reset state
+        borrower = address(0);
     }
 
     /**
@@ -190,14 +201,14 @@ contract V2ToV3RolloverWithItems is IV2ToV3RolloverWithItems, V2ToV3RolloverBase
      *         the V3 Loan Core contract to take the collateral, then starts the new loan. Once
      *         the new loan is started, the borrowerNote is sent to the borrower.
      *
-     * @param borrower                 The address of the borrower.
+     * @param opDataBorrower           The address of the borrower from the opData.
      * @param lender                   The address of the new lender.
      * @param opData                   The data used to initialize new V3 loan with items.
      *
      * @return newLoanId               V3 loanId for the new loan that is started.
      */
     function _initializeNewLoanWithItems(
-        address borrower,
+        address opDataBorrower,
         address lender,
         OperationDataWithItems memory opData
     ) internal returns (uint256) {
@@ -222,8 +233,8 @@ contract V2ToV3RolloverWithItems is IV2ToV3RolloverWithItems, V2ToV3RolloverBase
             opData.itemPredicates
         );
 
-        // send the borrowerNote for the new V3 loan to the borrower
-        borrowerNoteV3.safeTransferFrom(address(this), borrower, newLoanId);
+        // send the V3 borrowerNote to the caller of the rollover function
+        borrowerNoteV3.safeTransferFrom(address(this), opDataBorrower, newLoanId);
 
         return newLoanId;
     }

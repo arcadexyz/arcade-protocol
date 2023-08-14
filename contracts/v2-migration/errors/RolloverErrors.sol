@@ -116,3 +116,20 @@ error R_StateAlreadySet();
  * @param name                    The name of the contract.
  */
 error R_ZeroAddress(string name);
+
+/**
+ * @notice The borrower address saved in the rollover contract is not the same as the
+ *         borrower address provided in the flash loan operation data. The initiator of
+ *         the flash loan must be the rollover contract.
+ *
+ * @param providedBorrower        Borrower address passed in the flash loan operation data.
+ * @param cachedBorrower          Borrower address saved in the rollover contract.
+ */
+error R_UnknownBorrower(address providedBorrower, address cachedBorrower);
+
+/**
+ * @notice The borrower state must be address(0) to initiate a rollover sequence.
+ *
+ * @param borrower                The borrower address.
+ */
+error R_BorrowerNotReset(address borrower);
