@@ -5,10 +5,12 @@ import { BigNumberish } from "ethers";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 
-import { UnvaultedItemsVerifier, MockERC721 } from "../typechain";
+import {
+    UnvaultedItemsVerifier,
+    MockERC721
+} from "../typechain";
 import { deploy } from "./utils/contracts";
-import { encodeSignatureItems } from "./utils/loans";
-import { SignatureItem } from "./utils/types";
+import { encodeItemCheck } from "./utils/loans";
 
 import { ZERO_ADDRESS } from "./utils/erc20";
 
@@ -44,39 +46,19 @@ describe("UnvaultedItemsVerifier", () => {
         it("fails for an invalid token address", async () => {
             const { verifier, mockERC721 } = ctx;
 
-            const signatureItems: SignatureItem[] = [
-                {
-                    cType: 0, // ERC721
-                    asset: ZERO_ADDRESS,
-                    tokenId: 100,
-                    amount: 1,
-                    anyIdAllowed: false,
-                },
-            ];
-
             await expect(
                 verifier.verifyPredicates(
                     mockERC721.address,
                     mockERC721.address,
                     mockERC721.address,
                     100,
-                    encodeSignatureItems(signatureItems),
-                ),
+                    encodeItemCheck(ZERO_ADDRESS, 100, false)
+                )
             ).to.be.revertedWith("IV_ItemMissingAddress");
         });
 
         it("verifies a specific token id", async () => {
             const { verifier, mockERC721 } = ctx;
-
-            const signatureItems: SignatureItem[] = [
-                {
-                    cType: 0, // ERC721
-                    asset: mockERC721.address,
-                    tokenId: 99,
-                    amount: 1,
-                    anyIdAllowed: false,
-                },
-            ];
 
             expect(
                 await verifier.verifyPredicates(
@@ -84,19 +66,9 @@ describe("UnvaultedItemsVerifier", () => {
                     mockERC721.address,
                     mockERC721.address,
                     100,
-                    encodeSignatureItems(signatureItems),
-                ),
+                    encodeItemCheck(mockERC721.address, 99, false)
+                )
             ).to.eq(false);
-
-            const signatureItems2: SignatureItem[] = [
-                {
-                    cType: 0, // ERC721
-                    asset: mockERC721.address,
-                    tokenId: 100,
-                    amount: 1,
-                    anyIdAllowed: false,
-                },
-            ];
 
             expect(
                 await verifier.verifyPredicates(
@@ -104,19 +76,9 @@ describe("UnvaultedItemsVerifier", () => {
                     mockERC721.address,
                     mockERC721.address,
                     99,
-                    encodeSignatureItems(signatureItems2),
-                ),
+                    encodeItemCheck(mockERC721.address, 100, false)
+                )
             ).to.eq(false);
-
-            const signatureItems3: SignatureItem[] = [
-                {
-                    cType: 0, // ERC721
-                    asset: mockERC721.address,
-                    tokenId: 100,
-                    amount: 1,
-                    anyIdAllowed: false,
-                },
-            ];
 
             expect(
                 await verifier.verifyPredicates(
@@ -124,8 +86,8 @@ describe("UnvaultedItemsVerifier", () => {
                     mockERC721.address,
                     mockERC721.address,
                     100,
-                    encodeSignatureItems(signatureItems3),
-                ),
+                    encodeItemCheck(mockERC721.address, 100, false)
+                )
             ).to.eq(true);
         });
 
@@ -134,15 +96,15 @@ describe("UnvaultedItemsVerifier", () => {
 
             const otherMockERC721 = <MockERC721>await deploy("MockERC721", deployer, ["Mock ERC721", "MOCK2"]);
 
-            const signatureItems: SignatureItem[] = [
-                {
-                    cType: 0, // ERC721
-                    asset: mockERC721.address,
-                    tokenId: 100,
-                    amount: 1,
-                    anyIdAllowed: true,
-                },
-            ];
+            expect(
+                await verifier.verifyPredicates(
+                    mockERC721.address,
+                    mockERC721.address,
+                    mockERC721.address,
+                    100,
+                    encodeItemCheck(mockERC721.address, 100, true)
+                )
+            ).to.eq(true);
 
             expect(
                 await verifier.verifyPredicates(
@@ -150,39 +112,9 @@ describe("UnvaultedItemsVerifier", () => {
                     mockERC721.address,
                     mockERC721.address,
                     100,
-                    encodeSignatureItems(signatureItems),
-                ),
+                    encodeItemCheck(mockERC721.address, 0, true)
+                )
             ).to.eq(true);
-
-            const signatureItems2: SignatureItem[] = [
-                {
-                    cType: 0, // ERC721
-                    asset: mockERC721.address,
-                    tokenId: 0,
-                    amount: 1,
-                    anyIdAllowed: true,
-                },
-            ];
-
-            expect(
-                await verifier.verifyPredicates(
-                    mockERC721.address,
-                    mockERC721.address,
-                    mockERC721.address,
-                    100,
-                    encodeSignatureItems(signatureItems2),
-                ),
-            ).to.eq(true);
-
-            const signatureItems3: SignatureItem[] = [
-                {
-                    cType: 0, // ERC721
-                    asset: mockERC721.address,
-                    tokenId: 0,
-                    amount: 1,
-                    anyIdAllowed: true,
-                },
-            ];
 
             expect(
                 await verifier.verifyPredicates(
@@ -190,19 +122,9 @@ describe("UnvaultedItemsVerifier", () => {
                     mockERC721.address,
                     mockERC721.address,
                     777,
-                    encodeSignatureItems(signatureItems3),
-                ),
+                    encodeItemCheck(mockERC721.address, 0, true)
+                )
             ).to.eq(true);
-
-            const signatureItems4: SignatureItem[] = [
-                {
-                    cType: 0, // ERC721
-                    asset: otherMockERC721.address,
-                    tokenId: 0,
-                    amount: 1,
-                    anyIdAllowed: true,
-                },
-            ];
 
             expect(
                 await verifier.verifyPredicates(
@@ -210,19 +132,9 @@ describe("UnvaultedItemsVerifier", () => {
                     mockERC721.address,
                     mockERC721.address,
                     100,
-                    encodeSignatureItems(signatureItems4),
-                ),
+                    encodeItemCheck(otherMockERC721.address, 0, true)
+                )
             ).to.eq(false);
-
-            const signatureItems5: SignatureItem[] = [
-                {
-                    cType: 0, // ERC721
-                    asset: mockERC721.address,
-                    tokenId: 0,
-                    amount: 1,
-                    anyIdAllowed: true,
-                },
-            ];
 
             expect(
                 await verifier.verifyPredicates(
@@ -230,8 +142,8 @@ describe("UnvaultedItemsVerifier", () => {
                     mockERC721.address,
                     otherMockERC721.address,
                     100,
-                    encodeSignatureItems(signatureItems5),
-                ),
+                    encodeItemCheck(mockERC721.address, 0, true)
+                )
             ).to.eq(false);
         });
     });
