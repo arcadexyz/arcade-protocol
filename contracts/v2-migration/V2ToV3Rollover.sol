@@ -6,6 +6,8 @@ import "./base/V2ToV3RolloverBase.sol";
 
 import "../interfaces/IV2ToV3Rollover.sol";
 
+import "../libraries/FeeLookups.sol";
+
 import {
     R_UnknownCaller,
     R_InsufficientFunds,
@@ -26,7 +28,7 @@ import {
  * It is required that the V2 protocol has zero fees enabled. This contract only works with
  * ERC721 collateral.
  */
-contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase {
+contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase, FeeLookups {
     using SafeERC20 for IERC20;
 
     constructor(IVault _vault, OperationContracts memory _opContracts) V2ToV3RolloverBase(_vault, _opContracts) {}
@@ -132,12 +134,7 @@ contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase {
         (uint256 flashAmountDue, uint256 needFromBorrower, uint256 leftoverPrincipal) = _ensureFunds(
             amounts[0], // principal + interest
             premiums[0], // flash loan fee
-            uint256(
-                feeControllerV3.getLendingFee(
-                    // FL_01 - borrower origination fee
-                    keccak256("BORROWER_ORIGINATION_FEE")
-                )
-            ),
+            uint256(feeControllerV3.getLendingFee(FL_01)), // borrower origination fee
             opData.newLoanTerms.principal // new loan terms principal
         );
 
