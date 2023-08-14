@@ -185,7 +185,7 @@ contract V2ToV3RolloverWithItems is IV2ToV3RolloverWithItems, V2ToV3RolloverBase
 
         // Make flash loan repayment
         // Balancer requires a transfer back to the vault
-        asset.transfer(address(VAULT), flashAmountDue);
+        asset.safeTransfer(address(VAULT), flashAmountDue);
     }
 
     /**

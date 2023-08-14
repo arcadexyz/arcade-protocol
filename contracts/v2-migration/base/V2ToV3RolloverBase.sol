@@ -192,6 +192,6 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
         uint256 balance = token.balanceOf(address(this));
         if (balance == 0) revert R_NoTokenBalance();
 
-        token.transfer(to, balance);
+        token.safeTransfer(to, balance);
     }
 }
