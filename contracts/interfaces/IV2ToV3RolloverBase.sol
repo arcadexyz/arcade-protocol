@@ -63,5 +63,5 @@ interface IV2ToV3RolloverBase is IFlashLoanRecipient {
 
     function flushToken(IERC20 token, address to) external;
 
-    function togglePause() external;
+    function pause(bool _pause) external;
 }
