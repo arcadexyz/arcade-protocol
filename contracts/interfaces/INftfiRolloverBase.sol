@@ -10,7 +10,7 @@ import "./IFeeController.sol";
 import "./ILoanCore.sol";
 
 import "../external/interfaces/IFlashLoanRecipient.sol";
-import "../external/NFTFI/loans/direct/loanTypes/DirectLoanFixedOffer.sol";
+import "../external/nftfi/loans/direct/loanTypes/DirectLoanFixedOffer.sol";
 
 interface INftfiRolloverBase is IFlashLoanRecipient {
     event NftfiRollover(
