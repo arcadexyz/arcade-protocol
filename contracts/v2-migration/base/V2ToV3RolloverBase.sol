@@ -55,7 +55,9 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
         if (address(_vault) == address(0)) revert R_ZeroAddress("vault");
         if (address(_opContracts.feeControllerV3) == address(0)) revert R_ZeroAddress("feeControllerV3");
         if (address(_opContracts.originationControllerV3) == address(0)) {
+
             revert R_ZeroAddress("originationControllerV3");
+
         }
         if (address(_opContracts.loanCoreV3) == address(0)) revert R_ZeroAddress("loanCoreV3");
         if (address(_opContracts.borrowerNoteV3) == address(0)) revert R_ZeroAddress("borrowerNoteV3");
