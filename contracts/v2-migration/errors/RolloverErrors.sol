@@ -109,3 +109,10 @@ error R_Paused();
  * @notice The rollover contract is already in the specified pause state.
  */
 error R_StateAlreadySet();
+
+/**
+ * @notice Cannot pass the zero address as an argument.
+ *
+ * @param name                    The name of the contract.
+ */
+error R_ZeroAddress(string name);
