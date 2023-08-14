@@ -38,7 +38,6 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
     /// @notice V2 lending protocol contract references
     ILoanCoreV2 public constant loanCoreV2 = ILoanCoreV2(0x81b2F8Fc75Bab64A6b144aa6d2fAa127B4Fa7fD9);
     IERC721 public constant borrowerNoteV2 = IERC721(0x337104A4f06260Ff327d6734C555A0f5d8F863aa);
-    IERC721 public constant lenderNoteV2 = IERC721(0x349A026A43FFA8e2Ab4c4e59FCAa93F87Bd8DdeE);
     IRepaymentControllerV2 public constant repaymentControllerV2 =
         IRepaymentControllerV2(0xb39dAB85FA05C381767FF992cCDE4c94619993d4);
 
