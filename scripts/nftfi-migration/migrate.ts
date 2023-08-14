@@ -200,15 +200,11 @@ export async function main(): Promise<void> {
     console.log("Deploying rollover contract...");
 
     const contracts = {
-        feeController: `${feeController.address}`,
-        originationController: `${ORIGINATION_CONTROLLER_ADDRESS}`,
-        loanCore: `${LOAN_CORE_ADDRESS}`,
-        borrowerNote: `${borrowerNote.address}`,
+        feeControllerV3: `${feeController.address}`,
+        originationControllerV3: `${ORIGINATION_CONTROLLER_ADDRESS}`,
+        loanCoreV3: `${LOAN_CORE_ADDRESS}`,
+        borrowerNoteV3: `${borrowerNote.address}`,
     };
-
-    console.log("ARGS")
-    console.log(BALANCER_ADDRESS);
-    console.log(contracts);
 
     const factory = await ethers.getContractFactory("LP1Migration");
     const migration = <LP1Migration>await factory.deploy(BALANCER_ADDRESS, contracts);
@@ -300,7 +296,7 @@ export async function main(): Promise<void> {
     console.log("Execute NFTFI -> V3 rollover...");
     const tx = await migration
         .connect(borrower)
-        .rolloverNftfiLoan(LOAN_ID, newLoanTerms, newLender.address, NONCE, sig.v, sig.r, sig.s);
+        .migrateLoan(LOAN_ID, newLoanTerms, newLender.address, NONCE, sig.v, sig.r, sig.s);
 
     // send transaction
     console.log("✅ Transaction hash:", tx.hash);

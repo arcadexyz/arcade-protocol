@@ -39,7 +39,7 @@ import {
 
 import { createLoanItemsSignature } from "../../test/utils/eip712";
 import { ItemsPredicate, LoanTerms, SignatureItem } from "../../test/utils/types";
-import { encodeSignatureItems } from "../../test/utils/loans";
+import { encodeSignatureItems, encodeItemCheck } from "../../test/utils/loans";
 
 /**
  * This script deploys V3 lending protocol and sets up roles and permissions. Deploys
@@ -214,10 +214,10 @@ export async function main(): Promise<void> {
     console.log("Deploying rollover contract...");
 
     const contracts = {
-        feeController: `${feeController.address}`,
-        originationController: `${ORIGINATION_CONTROLLER_ADDRESS}`,
-        loanCore: `${LOAN_CORE_ADDRESS}`,
-        borrowerNote: `${borrowerNote.address}`,
+        feeControllerV3: `${feeController.address}`,
+        originationControllerV3: `${ORIGINATION_CONTROLLER_ADDRESS}`,
+        loanCoreV3: `${LOAN_CORE_ADDRESS}`,
+        borrowerNoteV3: `${borrowerNote.address}`,
     };
 
     const factory = await ethers.getContractFactory("LP1MigrationWithItems");
@@ -294,20 +294,10 @@ export async function main(): Promise<void> {
         affiliateCode: ethers.constants.HashZero,
     };
 
-    const signatureItems: SignatureItem[] = [
-        {
-            cType: 0, // ERC721
-            asset: LENDER_SPECIFIED_COLLATERAL,
-            tokenId: LENDER_SPECIFIED_COLLATERAL_ID,
-            amount: 1,
-            anyIdAllowed: false,
-        },
-    ];
-
     const predicates: ItemsPredicate[] = [
         {
             verifier: unvaultedItemsVerifier.address,
-            data: encodeSignatureItems(signatureItems),
+            data: encodeItemCheck(LENDER_SPECIFIED_COLLATERAL, LENDER_SPECIFIED_COLLATERAL_ID),
         },
     ];
 
@@ -328,7 +318,7 @@ export async function main(): Promise<void> {
     console.log("Execute NFTFI -> V3 rollover...");
     const tx = await flashRollover
         .connect(borrower)
-        .rolloverNftfiLoanWithItems(LOAN_ID, newLoanTerms, newLender.address, NONCE, sig.v, sig.r, sig.s, predicates);
+        .migrateLoanWithItems(LOAN_ID, newLoanTerms, newLender.address, NONCE, sig.v, sig.r, sig.s, predicates);
 
     // send transaction
     console.log("✅ Transaction hash:", tx.hash);
