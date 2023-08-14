@@ -182,7 +182,7 @@ contract LP1Migration is IMigration, LP1MigrationBase {
 
         // Make flash loan repayment
         // Balancer requires a transfer back to the vault
-        asset.transfer(address(VAULT), flashAmountDue);
+        asset.safeTransfer(address(VAULT), flashAmountDue);
     }
 
     /**

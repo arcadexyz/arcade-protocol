@@ -230,7 +230,7 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
         uint256 balance = token.balanceOf(address(this));
         require(balance > 0, "no balance");
 
-        token.transfer(to, balance);
+        token.safeTransfer(to, balance);
     }
 
     /**
