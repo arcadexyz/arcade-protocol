@@ -13,7 +13,8 @@ import {
     R_UnknownBorrower,
     R_InsufficientFunds,
     R_InsufficientAllowance,
-    R_Paused
+    R_Paused,
+    R_ZeroAddress
 } from "./errors/RolloverErrors.sol";
 
 /**
@@ -55,7 +56,7 @@ contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase, FeeLookups {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external override isBorrowerReset {
+    ) external override whenBorrowerReset {
         if (paused) revert R_Paused();
 
         LoanLibraryV2.LoanTerms memory loanTerms = loanCoreV2.getLoan(loanId).terms;
@@ -116,11 +117,10 @@ contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase, FeeLookups {
 
         // verify this contract started the flash loan
         if (opData.borrower != borrower) revert R_UnknownBorrower(opData.borrower, borrower);
+        // borrower must be set
+        if (borrower == address(0)) revert R_ZeroAddress("borrower");
 
         _executeOperation(assets, amounts, feeAmounts, opData);
-
-        // reset state
-        borrower = address(0);
     }
 
     /**

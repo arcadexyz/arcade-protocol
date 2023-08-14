@@ -220,11 +220,15 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
 
     /**
      * @notice This function ensures that at the start of every flash loan sequence, the borrower
-     *         state is reset to address(0). This is to ensure that the inheriting contract initiated
-     *         the flash loan and also reset it after repaying the flash loan.
+     *         state is reset to address(0). The rollover functions that inherit this modifier set
+     *         the borrower state while executing the rollover operations. At the end of the rollover
+     *         the borrower state is reset to address(0).
      */
-    modifier isBorrowerReset() {
+    modifier whenBorrowerReset() {
         if (borrower != address(0)) revert R_BorrowerNotReset(borrower);
+
         _;
+
+        borrower = address(0);
     }
 }
