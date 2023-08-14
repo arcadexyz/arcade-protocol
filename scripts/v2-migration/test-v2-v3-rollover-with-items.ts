@@ -210,7 +210,9 @@ export async function main(): Promise<void> {
     console.log(`Add collateral and payable currency to V3 OriginationController...`);
     const addCollateral = await originationController.setAllowedCollateralAddresses([LOAN_COLLATERAL_ADDRESS], [true]);
     await addCollateral.wait();
-    const addPayableCurrency = await originationController.setAllowedPayableCurrencies([PAYABLE_CURRENCY], [true]);
+    const addPayableCurrency = await originationController.setAllowedPayableCurrencies(
+        [PAYABLE_CURRENCY], [{isAllowed: true, minPrincipal: ethers.utils.parseUnits("0.001", 18)}]
+    );
     await addPayableCurrency.wait();
 
     // Deploy v2 -> v3 rollover contract
