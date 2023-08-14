@@ -13,7 +13,7 @@ import {
     RepaymentController,
     OriginationController,
     UnvaultedItemsVerifier,
-    NftfiRolloverWithItems,
+    LP1MigrationWithItems,
     CallWhitelistAllExtensions,
 } from "../../typechain";
 import { ORIGINATOR_ROLE, REPAYER_ROLE, BASE_URI } from "../utils/constants";
@@ -43,7 +43,7 @@ import { encodeSignatureItems } from "../../test/utils/loans";
 
 /**
  * This script deploys V3 lending protocol and sets up roles and permissions. Deploys
- * the NftFiRolloverWithItems contract, then, executes a NftFi -> V3 rollover using a
+ * the LP1MigrationWithItems contract, then, executes a NftFi -> V3 rollover using a
  * Balancer Flashloan to rollover an active NFTFI loan on mainnet. Before running this
  * script, make sure the nftfi-rollover/config.ts file is updated with valid values
  * from mainnet.
@@ -220,10 +220,10 @@ export async function main(): Promise<void> {
         borrowerNote: `${borrowerNote.address}`,
     };
 
-    const factory = await ethers.getContractFactory("NftfiRolloverWithItems");
-    const flashRollover = <NftfiRolloverWithItems>await factory.deploy(BALANCER_ADDRESS, contracts);
+    const factory = await ethers.getContractFactory("LP1MigrationWithItems");
+    const flashRollover = <LP1MigrationWithItems>await factory.deploy(BALANCER_ADDRESS, contracts);
     await flashRollover.deployed();
-    console.log("NftfiRolloverWithItems deployed to:", flashRollover.address);
+    console.log("LP1MigrationWithItems deployed to:", flashRollover.address);
     const flashLoanFee: BigNumber = BigNumber.from("0"); // 0% flash loan fee on Balancer
     console.log("Owner:", await flashRollover.owner());
 

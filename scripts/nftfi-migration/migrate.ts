@@ -13,7 +13,7 @@ import {
     RepaymentController,
     OriginationController,
     UnvaultedItemsVerifier,
-    NftfiRollover,
+    LP1Migration,
     CallWhitelistAllExtensions,
 } from "../../typechain";
 import { ORIGINATOR_ROLE, REPAYER_ROLE, BASE_URI } from "../utils/constants";
@@ -42,7 +42,7 @@ import { LoanTerms } from "../../test/utils/types";
 
 /**
  * This script deploys V3 lending protocol and sets up roles and permissions. Deploys
- * the NftFiRollover contract, then, executes a NftFi -> V3 rollover using a
+ * the LP1Migration contract, then, executes a NftFi -> V3 rollover using a
  * Balancer Flashloan to rollover an active NFTFI loan on mainnet. Before running this
  * script, make sure the nftfi-rollover/config.ts file is updated with valid values
  * from mainnet.
@@ -206,12 +206,16 @@ export async function main(): Promise<void> {
         borrowerNote: `${borrowerNote.address}`,
     };
 
-    const factory = await ethers.getContractFactory("NftfiRollover");
-    const flashRollover = <NftfiRollover>await factory.deploy(BALANCER_ADDRESS, contracts);
-    await flashRollover.deployed();
-    console.log("NftfiRollover deployed to:", flashRollover.address);
+    console.log("ARGS")
+    console.log(BALANCER_ADDRESS);
+    console.log(contracts);
+
+    const factory = await ethers.getContractFactory("LP1Migration");
+    const migration = <LP1Migration>await factory.deploy(BALANCER_ADDRESS, contracts);
+    await migration.deployed();
+    console.log("LP1Migration deployed to:", migration.address);
     const flashLoanFee: BigNumber = BigNumber.from("0"); // 0% flash loan fee on Balancer
-    console.log("Owner:", await flashRollover.owner());
+    console.log("Owner:", await migration.owner());
 
     // impersonate accounts
     console.log(SUBSECTION_SEPARATOR);
@@ -255,7 +259,7 @@ export async function main(): Promise<void> {
         NFTFI_OBLIGATION_RECEIPT_TOKEN_ABI,
         (await hre.ethers.getSigners())[0],
     );
-    await obligationReceiptToken.connect(borrower).approve(flashRollover.address, NFTFI_SMARTNFT_ID);
+    await obligationReceiptToken.connect(borrower).approve(migration.address, NFTFI_SMARTNFT_ID);
     console.log(SUBSECTION_SEPARATOR);
 
     // if new loan will not cover flash loan repayment, then borrower needs to cover the difference
@@ -263,7 +267,7 @@ export async function main(): Promise<void> {
     if (V3_LOAN_PRINCIPAL.lt(flashLoanAmountDue)) {
         const difference = flashLoanAmountDue.sub(V3_LOAN_PRINCIPAL);
         await payableCurrency.connect(whale).transfer(borrower.address, difference);
-        await payableCurrency.connect(borrower).approve(flashRollover.address, difference);
+        await payableCurrency.connect(borrower).approve(migration.address, difference);
     }
     console.log(SUBSECTION_SEPARATOR);
 
@@ -294,7 +298,7 @@ export async function main(): Promise<void> {
     // ============= Execute ==============
 
     console.log("Execute NFTFI -> V3 rollover...");
-    const tx = await flashRollover
+    const tx = await migration
         .connect(borrower)
         .rolloverNftfiLoan(LOAN_ID, newLoanTerms, newLender.address, NONCE, sig.v, sig.r, sig.s);
 
