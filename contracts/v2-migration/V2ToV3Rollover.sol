@@ -4,7 +4,7 @@ pragma solidity 0.8.18;
 
 import "./base/V2ToV3RolloverBase.sol";
 
-import "../interfaces/IV2ToV3Rollover.sol";
+import "../interfaces/IMigration.sol";
 
 import "../libraries/FeeLookups.sol";
 
@@ -30,14 +30,14 @@ import {
  * It is required that the V2 protocol has zero fees enabled. This contract only works with
  * ERC721 collateral.
  */
-contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase, FeeLookups {
+contract V2ToV3Rollover is IMigration, V2ToV3RolloverBase, FeeLookups {
     using SafeERC20 for IERC20;
 
     constructor(IVault _vault, OperationContracts memory _opContracts) V2ToV3RolloverBase(_vault, _opContracts) {}
 
     /**
      * @notice Rollover a loan from V2 to V3. Validates new loan terms against the old terms.
-     *         Takes out Flash Loan for principal + interest, repays old loan, and starts new 
+     *         Takes out Flash Loan for principal + interest, repays old loan, and starts new
      *         loan on V3.
      *
      * @param loanId                 The ID of the loan to be rolled over.
@@ -48,7 +48,7 @@ contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase, FeeLookups {
      * @param r                      The r value of signature for new loan.
      * @param s                      The s value of signature for new loan.
      */
-    function rolloverLoan(
+    function migrateLoan(
         uint256 loanId,
         LoanLibrary.LoanTerms calldata newLoanTerms,
         address lender,
@@ -97,7 +97,7 @@ contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase, FeeLookups {
 
     /**
      * @notice Callback function for flash loan.
-     * 
+     *
      * @dev The caller of this function must be the lending pool.
      *
      * @param assets                 The ERC20 address that was borrowed in Flash Loan.
@@ -130,7 +130,7 @@ contract V2ToV3Rollover is IV2ToV3Rollover, V2ToV3RolloverBase, FeeLookups {
      * @param assets                 The ERC20 that was borrowed in Flash Loan.
      * @param amounts                The amount that was borrowed in Flash Loan.
      * @param premiums               The fees that are due back to the lending pool.
-     * @param opData                 The data to be executed after receiving Flash Loan.                 
+     * @param opData                 The data to be executed after receiving Flash Loan.
      */
     function _executeOperation(
         IERC20[] calldata assets,

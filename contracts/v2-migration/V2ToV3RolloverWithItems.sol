@@ -4,7 +4,7 @@ pragma solidity 0.8.18;
 
 import "./base/V2ToV3RolloverBase.sol";
 
-import "../interfaces/IV2ToV3RolloverWithItems.sol";
+import "../interfaces/IMigrationWithItems.sol";
 
 import "../libraries/FeeLookups.sol";
 
@@ -30,7 +30,7 @@ import {
  * It is required that the V2 protocol has zero fees enabled. This contract only works with
  * ERC721 collateral.
  */
-contract V2ToV3RolloverWithItems is IV2ToV3RolloverWithItems, V2ToV3RolloverBase, FeeLookups {
+contract V2ToV3RolloverWithItems is IMigrationWithItems, V2ToV3RolloverBase, FeeLookups {
     using SafeERC20 for IERC20;
 
     constructor(IVault _vault, OperationContracts memory _opContracts) V2ToV3RolloverBase(_vault, _opContracts) {}
@@ -49,7 +49,7 @@ contract V2ToV3RolloverWithItems is IV2ToV3RolloverWithItems, V2ToV3RolloverBase
      * @param s                      The s value of signature for new loan.
      * @param itemPredicates         The item predicates specified by lender for new loan.
      */
-    function rolloverLoanWithItems(
+    function migrateLoanWithItems(
         uint256 loanId,
         LoanLibrary.LoanTerms calldata newLoanTerms,
         address lender,
@@ -134,7 +134,7 @@ contract V2ToV3RolloverWithItems is IV2ToV3RolloverWithItems, V2ToV3RolloverBase
      * @param assets                 The ERC20 that was borrowed in Flash Loan.
      * @param amounts                The amount that was borrowed in Flash Loan.
      * @param premiums               The fees that are due back to the lending pool.
-     * @param opData                 The data to be executed after receiving Flash Loan.                 
+     * @param opData                 The data to be executed after receiving Flash Loan.
      */
     function _executeOperation(
         IERC20[] calldata assets,

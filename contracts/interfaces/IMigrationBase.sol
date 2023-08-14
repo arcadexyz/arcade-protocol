@@ -14,14 +14,7 @@ import "../external/interfaces/IFlashLoanRecipient.sol";
 import "../v2-migration/v2-contracts/v2-interfaces/ILoanCoreV2.sol";
 import "../v2-migration/v2-contracts/v2-interfaces/IRepaymentControllerV2.sol";
 
-interface IV2ToV3RolloverBase is IFlashLoanRecipient {
-    event V2V3Rollover(
-        address indexed lender,
-        address indexed borrower,
-        uint256 collateralTokenId,
-        uint256 newLoanId
-    );
-
+interface IMigrationBase is IFlashLoanRecipient {
     event PausedStateChanged(bool isPaused);
 
     struct OperationContracts {

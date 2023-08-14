@@ -2,39 +2,39 @@
 
 pragma solidity 0.8.18;
 
-import "../interfaces/INftfiRolloverWithItems.sol";
+import "../interfaces/IMigrationWithItems.sol";
 
-import "./base/NftfiRolloverBase.sol";
+import "./base/LP1MigrationBase.sol";
 
 import {
-    NR_UnknownCaller,
-    NR_InsufficientFunds,
-    NR_InsufficientAllowance,
-    NR_Paused
-} from "./errors/NftfiRolloverErrors.sol";
+    MR_UnknownCaller,
+    MR_InsufficientFunds,
+    MR_InsufficientAllowance,
+    MR_Paused
+} from "./errors/MigrationErrors.sol";
 
 /**
- * @title NftfiToV3RolloverWithItems
+ * @title LP1MigrationWithItems
  * @author Non-Fungible Technologies, Inc.
  *
- * This contract is used to rollover a loan from the NFTFI lending protocol to the Arcade
- * V3 lending protocol. The rollover mechanism takes out a flash loan for the maximumRepaymentAmount
- * of the nftfi loan from Balancer pool, repays the nftfi loan, and starts a new loan on V3.
- * This rollover contract can be used with a collection wide offer signed by a lender.
+ * This contract is used to migrate a loan from the other lending protocolss to the Arcade
+ * V3 lending protocol. The migration mechanism takes out a flash loan for the maximumRepaymentAmount
+ * of the old loan from Balancer pool, repays the old loan, and starts a new loan on V3.
+ * This migratiion contract can be used with an items signature signed by a lender.
  *
  * This contract only works with ERC721 collateral.
  */
-contract NftfiRolloverWithItems is INftfiRolloverWithItems, NftfiRolloverBase {
+contract LP1MigrationWithItems is IMigrationWithItems, LP1MigrationBase {
     using SafeERC20 for IERC20;
 
-    constructor(IVault _vault, OperationContracts memory _opContracts) NftfiRolloverBase(_vault, _opContracts) {}
+    constructor(IVault _vault, OperationContracts memory _opContracts) LP1MigrationBase(_vault, _opContracts) {}
 
     /**
-     * @notice Rollover a loan from NFTFI to V3 using a collection wide offer. Validates new
-     *         loan terms against the NFTFI terms. Takes out Flash Loan for maximumRepaymentAmount,
-     *         repays NFTFI loan, and starts new loan on V3.
+     * @notice Mirage a loan from LP1 to V3 using an items signature. Validates new
+     *         loan terms against the old terms. Takes out Flash Loan for maximumRepaymentAmount,
+     *         repays old loan, and starts new loan on V3.
      *
-     * @param loanId                 The ID of the NFTFI loan to be rolled over.
+     * @param loanId                 The ID of the LP1 loan to be migrated.
      * @param newLoanTerms           The terms of the new loan.
      * @param lender                 The address of the lender.
      * @param nonce                  The nonce for the signature.
@@ -43,8 +43,8 @@ contract NftfiRolloverWithItems is INftfiRolloverWithItems, NftfiRolloverBase {
      * @param s                      The s value of signature for new loan.
      * @param itemPredicates         The item predicates specified by lender for new loan.
      */
-    function rolloverNftfiLoanWithItems(
-        uint32 loanId, // nftfi loanId
+    function migrateLoanWithItems(
+        uint256 loanId, // LP1 loanId
         LoanLibrary.LoanTerms calldata newLoanTerms,
         address lender,
         uint160 nonce,
@@ -52,24 +52,23 @@ contract NftfiRolloverWithItems is INftfiRolloverWithItems, NftfiRolloverBase {
         bytes32 r,
         bytes32 s,
         LoanLibrary.Predicate[] calldata itemPredicates
-    ) external {
-        if (paused) revert NR_Paused();
+    ) external override {
+        if (paused) revert MR_Paused();
 
-        LoanData.LoanTerms memory loanTermsNftfi = _getLoanTermsNftfi(loanId);
-
-        _validateRollover(loanTermsNftfi, newLoanTerms, loanId);
+        LoanData.LoanTerms memory loanTerms = _getLoanTerms(loanId);
+        _validateMigration(loanTerms, newLoanTerms, loanId);
 
         {
             IERC20[] memory assets = new IERC20[](1);
-            assets[0] = IERC20(loanTermsNftfi.loanERC20Denomination);
+            assets[0] = IERC20(loanTerms.loanERC20Denomination);
 
             uint256[] memory amounts = new uint256[](1);
-            amounts[0] = loanTermsNftfi.maximumRepaymentAmount;
+            amounts[0] = loanTerms.maximumRepaymentAmount;
 
             bytes memory params = abi.encode(
                 OperationDataWithItems({
                     loanId: loanId,
-                    borrower: loanTermsNftfi.borrower,
+                    borrower: loanTerms.borrower,
                     newLoanTerms: newLoanTerms,
                     lender: lender,
                     nonce: nonce,
@@ -101,14 +100,14 @@ contract NftfiRolloverWithItems is INftfiRolloverWithItems, NftfiRolloverBase {
         uint256[] calldata feeAmounts,
         bytes calldata params
     ) external nonReentrant {
-        if (msg.sender != address(VAULT)) revert NR_UnknownCaller(msg.sender, address(VAULT));
+        if (msg.sender != address(VAULT)) revert MR_UnknownCaller(msg.sender, address(VAULT));
 
         OperationDataWithItems memory opData = abi.decode(params, (OperationDataWithItems));
         _executeOperation(assets, amounts, feeAmounts, opData);
     }
 
     /**
-     * @notice Executes repayment of NFTFI loan and initialization of new loan with lender
+     * @notice Executes repayment of old loan and initialization of new loan with lender
      *         specified item predicates. Any funds that are not covered by closing out
      *         the old loan must be covered by the borrower.
      *
@@ -123,7 +122,7 @@ contract NftfiRolloverWithItems is INftfiRolloverWithItems, NftfiRolloverBase {
         uint256[] calldata premiums,
         OperationDataWithItems memory opData
     ) internal {
-        // Get NFTFI smartNFTId to look up lender promissoryNote and borrower obligationReceipt
+        // Get smartNFTId to look up lender promissoryNote and borrower obligationReceipt
         IDirectLoanCoordinator.Loan memory loanData = IDirectLoanCoordinator(loanCoordinator).getLoanData(
             uint32(opData.loanId)
         );
@@ -151,10 +150,10 @@ contract NftfiRolloverWithItems is INftfiRolloverWithItems, NftfiRolloverBase {
 
         if (needFromBorrower > 0) {
             if (asset.balanceOf(borrower) < needFromBorrower) {
-                revert NR_InsufficientFunds(borrower, needFromBorrower, asset.balanceOf(opData.borrower));
+                revert MR_InsufficientFunds(borrower, needFromBorrower, asset.balanceOf(opData.borrower));
             }
             if (asset.allowance(borrower, address(this)) < needFromBorrower) {
-                revert NR_InsufficientAllowance(
+                revert MR_InsufficientAllowance(
                     borrower,
                     needFromBorrower,
                     asset.allowance(borrower, address(this))
@@ -163,16 +162,16 @@ contract NftfiRolloverWithItems is INftfiRolloverWithItems, NftfiRolloverBase {
         }
 
         {
-            LoanData.LoanTerms memory loanTermsNftfi = _getLoanTermsNftfi(uint32(opData.loanId));
+            LoanData.LoanTerms memory loanTerms = _getLoanTerms(uint32(opData.loanId));
 
-            _repayLoan(loanTermsNftfi, borrower, uint32(opData.loanId));
+            _repayLoan(loanTerms, borrower, uint32(opData.loanId));
 
             uint256 newLoanId = _initializeNewLoanWithItems(borrower, opData.lender, opData);
 
-            emit NftfiRollover(
+            emit Migration(
                 lender,
                 borrower,
-                uint32(opData.loanId), // NftFi loanId
+                uint32(opData.loanId), // old loanId
                 newLoanId
             );
         }

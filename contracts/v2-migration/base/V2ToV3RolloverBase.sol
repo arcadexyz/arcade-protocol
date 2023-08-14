@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "../../interfaces/IV2ToV3RolloverBase.sol";
+import "../../interfaces/IMigrationBase.sol";
 
 import {
     R_FundsConflict,
@@ -28,8 +28,15 @@ import {
  *
  * This contract holds the common logic for the V2ToV3Rollover and V2ToV3RolloverWithItems contracts.
  */
-abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ERC721Holder, Ownable {
+abstract contract V2ToV3RolloverBase is IMigrationBase, ReentrancyGuard, ERC721Holder, Ownable {
     using SafeERC20 for IERC20;
+
+    event V2V3Rollover(
+        address indexed lender,
+        address indexed borrower,
+        uint256 collateralTokenId,
+        uint256 newLoanId
+    );
 
     // Balancer vault contract
     /* solhint-disable var-name-mixedcase */
@@ -184,7 +191,7 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
         if (sourceLoanTerms.collateralAddress != newLoanTerms.collateralAddress) {
             revert R_CollateralMismatch(sourceLoanTerms.collateralAddress, newLoanTerms.collateralAddress);
         }
-        
+
         if (sourceLoanTerms.collateralId != newLoanTerms.collateralId) {
             revert R_CollateralIdMismatch(sourceLoanTerms.collateralId, newLoanTerms.collateralId);
         }

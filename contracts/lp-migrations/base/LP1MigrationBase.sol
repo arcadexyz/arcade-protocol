@@ -7,31 +7,40 @@ import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "../../interfaces/INftfiRolloverBase.sol";
+import "../../external/lp-1/loans/direct/loanTypes/DirectLoanFixedOffer.sol";
+
+import "../../interfaces/IMigrationBase.sol";
 
 import {
-    NR_FundsConflict,
-    NR_NotCollateralOwner,
-    NR_CurrencyMismatch,
-    NR_CollateralIdMismatch,
-    NR_CollateralMismatch,
-    NR_CallerNotBorrower
-} from "../errors/NftfiRolloverErrors.sol";
+    MR_FundsConflict,
+    MR_NotCollateralOwner,
+    MR_CurrencyMismatch,
+    MR_CollateralIdMismatch,
+    MR_CollateralMismatch,
+    MR_CallerNotBorrower
+} from "../errors/MigrationErrors.sol";
 
 /**
- * @title NftfiRolloverBase
+ * @title LP1MigrationBase
  * @author Non-Fungible Technologies, Inc.
  *
- * This contract holds the common logic for the NftfiToV3Rollover and NftfiToV3RolloverWithItems contracts.
+ * This contract holds the common logic for the LP1Migration and LP1MigrationWIthItems contracts.
  */
-abstract contract NftfiRolloverBase is INftfiRolloverBase, ReentrancyGuard, ERC721Holder, Ownable {
+abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Holder, Ownable {
     using SafeERC20 for IERC20;
+
+    event Migration(
+        address indexed lender,
+        address indexed borrower,
+        uint256 oldLoanId,
+        uint256 newLoanId
+    );
 
     // Balancer vault contract
     /* solhint-disable var-name-mixedcase */
     IVault public immutable VAULT; // 0xBA12222222228d8Ba445958a75a0704d566BF2C8
 
-    /// @notice nftfi contract references
+    /// @notice LP1 contract references
     DirectLoanFixedOffer public constant directLoanFixedOffer =
         DirectLoanFixedOffer(0xE52Cec0E90115AbeB3304BaA36bc2655731f7934);
     IDirectLoanCoordinator public constant loanCoordinator =
@@ -51,10 +60,10 @@ abstract contract NftfiRolloverBase is INftfiRolloverBase, ReentrancyGuard, ERC7
         VAULT = _vault;
 
         // Set lending protocol contract references
-        feeController = IFeeController(_opContracts.feeController);
-        originationController = IOriginationController(_opContracts.originationController);
-        loanCore = ILoanCore(_opContracts.loanCore);
-        borrowerNote = IERC721(_opContracts.borrowerNote);
+        feeController = IFeeController(_opContracts.feeControllerV3);
+        originationController = IOriginationController(_opContracts.originationControllerV3);
+        loanCore = ILoanCore(_opContracts.loanCoreV3);
+        borrowerNote = IERC721(_opContracts.borrowerNoteV3);
     }
 
         /**
@@ -79,7 +88,7 @@ abstract contract NftfiRolloverBase is INftfiRolloverBase, ReentrancyGuard, ERC7
         uint256 premium,
         uint256 originationFee,
         uint256 newPrincipal
-    ) internal view returns (uint256 flashAmountDue, uint256 needFromBorrower, uint256 leftoverPrincipal) {
+    ) internal pure returns (uint256 flashAmountDue, uint256 needFromBorrower, uint256 leftoverPrincipal) {
         // total amount due to flash loan contract
         flashAmountDue = amount + premium;
         // amount that will be received when starting the new loan
@@ -95,21 +104,21 @@ abstract contract NftfiRolloverBase is INftfiRolloverBase, ReentrancyGuard, ERC7
 
         // Either leftoverPrincipal or needFromBorrower should be 0
         if (leftoverPrincipal != 0 && needFromBorrower != 0) {
-            revert NR_FundsConflict(leftoverPrincipal, needFromBorrower);
+            revert MR_FundsConflict(leftoverPrincipal, needFromBorrower);
         }
     }
 
     /**
-     * @notice Helper function to repay the loan. Takes the NFTFI obligationReceiptToken from the borrower, and
+     * @notice Helper function to repay the loan. Takes the obligationReceiptToken from the borrower, and
      *         approves the directLoanFixedOffer contract to spend the payable currency received from flash loan.
      *         Repays the loan, and ensures this contract holds the collateral after the loan is repaid.
      *
-     * @param loanTermsNftfi           The loan terms for the loan to be repaid.
+     * @param loanTerms                The loan terms for the loan to be repaid.
      * @param borrower                 The address of the borrower for the loan to be repaid.
      * @param loanId                   The id of the loan to be repaid.
      */
     function _repayLoan(
-        LoanData.LoanTerms memory loanTermsNftfi,
+        LoanData.LoanTerms memory loanTerms,
         address borrower,
         uint32 loanId
     ) internal {
@@ -125,35 +134,35 @@ abstract contract NftfiRolloverBase is INftfiRolloverBase, ReentrancyGuard, ERC7
         );
 
         // Approve repayment
-        IERC20(loanTermsNftfi.loanERC20Denomination).approve(
+        IERC20(loanTerms.loanERC20Denomination).approve(
             address(directLoanFixedOffer),
-            loanTermsNftfi.maximumRepaymentAmount
+            loanTerms.maximumRepaymentAmount
         );
 
         // Repay loan
         DirectLoanFixedOffer(address(directLoanFixedOffer)).payBackLoan(loanId);
 
-        address collateralOwner = IERC721(loanTermsNftfi.nftCollateralContract).ownerOf(loanTermsNftfi.nftCollateralId);
-        if (collateralOwner != address(this)) revert NR_NotCollateralOwner(collateralOwner);
+        address collateralOwner = IERC721(loanTerms.nftCollateralContract).ownerOf(loanTerms.nftCollateralId);
+        if (collateralOwner != address(this)) revert MR_NotCollateralOwner(collateralOwner);
     }
 
     /**
-     * @notice Validates that the rollover is valid. The borrower from the NFTFI loan must be the caller.
-     *         The new loan must have the same currency as the NFTFI loan. The new loan must use the same
-     *         collateral as the NFTFI loan. If any of these conditionals are not met, the transaction
+     * @notice Validates that the migration is valid. The borrower from the loan must be the caller.
+     *         The new loan must have the same currency as the old loan. The new loan must use the same
+     *         collateral as the old loan. If any of these conditionals are not met, the transaction
      *         will revert.
      *
-     * @param sourceLoanTerms           The terms of the NFTFI loan.
+     * @param sourceLoanTerms           The terms of the old loan.
      * @param newLoanTerms              The terms of the V3 loan.
-     * @param loanId                    The ID of the NFTFI loan.
+     * @param loanId                    The ID of the old loan.
      */
-    function _validateRollover(
+    function _validateMigration(
         LoanData.LoanTerms memory sourceLoanTerms,
         LoanLibrary.LoanTerms calldata newLoanTerms,
-        uint32 loanId
+        uint256 loanId
     ) internal view {
         IDirectLoanCoordinator.Loan memory loanCoordinatorData = IDirectLoanCoordinator(loanCoordinator).getLoanData(
-            loanId
+            uint32(loanId)
         );
 
         uint256 smartNftId = loanCoordinatorData.smartNftId;
@@ -161,29 +170,29 @@ abstract contract NftfiRolloverBase is INftfiRolloverBase, ReentrancyGuard, ERC7
             smartNftId
         );
 
-        if (borrower != msg.sender) revert NR_CallerNotBorrower(msg.sender, borrower);
+        if (borrower != msg.sender) revert MR_CallerNotBorrower(msg.sender, borrower);
 
         if (sourceLoanTerms.loanERC20Denomination != newLoanTerms.payableCurrency) {
-            revert NR_CurrencyMismatch(sourceLoanTerms.loanERC20Denomination, newLoanTerms.payableCurrency);
+            revert MR_CurrencyMismatch(sourceLoanTerms.loanERC20Denomination, newLoanTerms.payableCurrency);
         }
 
         if (sourceLoanTerms.nftCollateralContract != newLoanTerms.collateralAddress) {
-            revert NR_CollateralMismatch(sourceLoanTerms.nftCollateralContract, newLoanTerms.collateralAddress);
+            revert MR_CollateralMismatch(sourceLoanTerms.nftCollateralContract, newLoanTerms.collateralAddress);
         }
 
         if (sourceLoanTerms.nftCollateralId != newLoanTerms.collateralId) {
-            revert NR_CollateralIdMismatch(sourceLoanTerms.nftCollateralId, newLoanTerms.collateralId);
+            revert MR_CollateralIdMismatch(sourceLoanTerms.nftCollateralId, newLoanTerms.collateralId);
         }
     }
 
     /**
-     * @notice Helper function to get the loan terms for the NFTFI loan.
+     * @notice Helper function to get the loan terms for the loan.
      *
      * @param loanId                   The id of the loan for which the terms are needed.
      *
-     * @return loanTermsNftfi          The terms associates with the NFTFI loan id.
+     * @return loanTerms               The terms associated with the loan id.
      */
-    function _getLoanTermsNftfi(uint32 loanId) internal returns (LoanData.LoanTerms memory) {
+    function _getLoanTerms(uint256 loanId) internal view returns (LoanData.LoanTerms memory) {
         (
             uint256 loanPrincipalAmount,
             uint256 maximumRepaymentAmount,
@@ -196,9 +205,9 @@ abstract contract NftfiRolloverBase is INftfiRolloverBase, ReentrancyGuard, ERC7
             uint64 loanStartTime,
             address nftCollateralContract,
             address borrower
-        ) = DirectLoanFixedOffer(address(directLoanFixedOffer)).loanIdToLoan(loanId);
+        ) = DirectLoanFixedOffer(address(directLoanFixedOffer)).loanIdToLoan(uint32(loanId));
 
-        LoanData.LoanTerms memory loanTermsNftfi = LoanData.LoanTerms(
+        return LoanData.LoanTerms(
             loanPrincipalAmount,
             maximumRepaymentAmount,
             nftCollateralId,
@@ -211,8 +220,6 @@ abstract contract NftfiRolloverBase is INftfiRolloverBase, ReentrancyGuard, ERC7
             nftCollateralContract,
             borrower
         );
-
-        return loanTermsNftfi;
     }
 
     /**
