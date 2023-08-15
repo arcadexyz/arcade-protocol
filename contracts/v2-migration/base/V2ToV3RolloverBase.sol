@@ -82,7 +82,8 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
      *         This function will return the total amount due back to the lending pool. The amount
      *         that needs to be paid by the borrower, in the case that the new loan does not cover
      *         the flashAmountDue. Lastly, the amount that will be sent back to the borrower, in
-     *         the case that the new loan covers more than the flashAmountDue.
+     *         the case that the new loan covers more than the flashAmountDue. There cannot be a
+     *         case where both needFromBorrower and leftoverPrincipal are non-zero.
      *
      * @param amount                  The amount that was borrowed in Flash Loan.
      * @param premium                 The fees that are due back to the lending pool.
@@ -107,15 +108,14 @@ abstract contract V2ToV3RolloverBase is IV2ToV3RolloverBase, ReentrancyGuard, ER
 
         if (flashAmountDue > willReceive) {
             // Not enough - have borrower pay the difference
-            needFromBorrower = flashAmountDue - willReceive;
+            unchecked {
+                needFromBorrower = flashAmountDue - willReceive;
+            }
         } else if (willReceive > flashAmountDue) {
             // Too much - will send extra to borrower
-            leftoverPrincipal = willReceive - flashAmountDue;
-        }
-
-        // Either leftoverPrincipal or needFromBorrower should be 0
-        if (leftoverPrincipal != 0 && needFromBorrower != 0) {
-            revert R_FundsConflict(leftoverPrincipal, needFromBorrower);
+            unchecked {
+                leftoverPrincipal = willReceive - flashAmountDue;
+            }
         }
     }
 
