@@ -173,7 +173,8 @@ contract LoanCore is
         collateralInUse[collateralKey] = true;
 
         // Assign fees for withdrawal
-        uint256 feesEarned = _amountFromLender - _amountToBorrower;
+        uint256 feesEarned;
+        unchecked { feesEarned = _amountFromLender - _amountToBorrower; }
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
             _getAffiliateSplit(feesEarned, terms.affiliateCode);
 
@@ -414,10 +415,10 @@ contract LoanCore is
         // Check that contract will not net lose tokens
         if (_amountToOldLender + _amountToLender + _amountToBorrower > _settledAmount)
             revert LC_CannotSettle(_amountToOldLender + _amountToLender + _amountToBorrower, _settledAmount);
-
         {
             // Assign fees for withdrawal
-            uint256 feesEarned = _settledAmount - _amountToOldLender - _amountToLender - _amountToBorrower;
+            uint256 feesEarned;
+            unchecked { feesEarned = _settledAmount - _amountToOldLender - _amountToLender - _amountToBorrower; }
 
             // Make sure split goes to affiliate code from _new_ terms
             (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
@@ -504,7 +505,7 @@ contract LoanCore is
      * @return amount               The amount of the note.
      */
     function getNoteReceipt(uint256 loanId) external view override returns (address, uint256) {
-        NoteReceipt memory receipt = noteReceipts[loanId];
+        NoteReceipt storage receipt = noteReceipts[loanId];
         return (receipt.token, receipt.amount);
     }
 
@@ -529,7 +530,7 @@ contract LoanCore is
         uint256 noteCount = borrowerNote.balanceOf(caller);
         for (uint256 i = 0; i < noteCount;) {
             uint256 loanId = borrowerNote.tokenOfOwnerByIndex(caller, i);
-            LoanLibrary.LoanTerms memory terms = loans[loanId].terms;
+            LoanLibrary.LoanTerms storage terms = loans[loanId].terms;
 
             // if the borrower is currently borrowing against this vault,
             // return true
@@ -578,10 +579,12 @@ contract LoanCore is
         if (to == address(0)) revert LC_ZeroAddress("to");
 
         // any token balances remaining on this contract are fees owned by the protocol
-        uint256 available = feesWithdrawable[token][msg.sender];
+        mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[token];
+
+        uint256 available = _feesWithdrawable[msg.sender];
         if (amount > available) revert LC_CannotWithdraw(amount, available);
 
-        feesWithdrawable[token][msg.sender] -= amount;
+        unchecked { _feesWithdrawable[msg.sender] -= amount; }
 
         _transferIfNonzero(IERC20(token), to, amount);
 
@@ -600,8 +603,9 @@ contract LoanCore is
         if (to == address(0)) revert LC_ZeroAddress("to");
 
         // any token balances remaining on this contract are fees owned by the protocol
-        uint256 amount = feesWithdrawable[token][address(this)];
-        feesWithdrawable[token][address(this)] = 0;
+        mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[token];
+        uint256 amount = _feesWithdrawable[address(this)];
+        _feesWithdrawable[address(this)] = 0;
 
         _transferIfNonzero(IERC20(token), to, amount);
 
@@ -684,7 +688,10 @@ contract LoanCore is
 
         // Check that we will not net lose tokens.
         if (_amountToLender > _amountFromPayer) revert LC_CannotSettle(_amountToLender, _amountFromPayer);
-        uint256 feesEarned = _amountFromPayer - _amountToLender;
+
+        uint256 feesEarned;
+        unchecked { feesEarned = _amountFromPayer - _amountToLender; }
+
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
             _getAffiliateSplit(feesEarned, data.terms.affiliateCode);
 
@@ -721,7 +728,7 @@ contract LoanCore is
 
         affiliate = split.affiliate;
         affiliateFee = amount * split.splitBps / BASIS_POINTS_DENOMINATOR;
-        protocolFee = amount - affiliateFee;
+        unchecked { protocolFee = amount - affiliateFee; }
     }
 
     /**
@@ -732,9 +739,11 @@ contract LoanCore is
      * @param nonce                 The nonce to consume.
      */
     function _useNonce(address user, uint160 nonce) internal {
-        if (usedNonces[user][nonce]) revert LC_NonceUsed(user, nonce);
+        mapping(uint160 => bool) storage _usedNonces = usedNonces[user];
+
+        if (_usedNonces[nonce]) revert LC_NonceUsed(user, nonce);
         // set nonce to used
-        usedNonces[user][nonce] = true;
+        _usedNonces[nonce] = true;
 
         emit NonceUsed(user, nonce);
     }

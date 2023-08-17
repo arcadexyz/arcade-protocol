@@ -1004,13 +1004,17 @@ contract OriginationController is
         if (repayAmount > borrowerOwedForNewLoan) {
             // amount to collect from borrower
             // new loan principal is less than old loan repayment amount
-            amounts.needFromBorrower = repayAmount - borrowerOwedForNewLoan;
+            unchecked {
+                amounts.needFromBorrower = repayAmount - borrowerOwedForNewLoan;
+            }
         } else {
             // amount to collect from lender (either old or new)
             amounts.leftoverPrincipal = amounts.amountFromLender - repayAmount;
 
             // amount to send to borrower
-            amounts.amountToBorrower = borrowerOwedForNewLoan - repayAmount;
+            unchecked {
+                amounts.amountToBorrower = borrowerOwedForNewLoan - repayAmount;
+            }
         }
 
         // Calculate lender amounts based on if the lender is the same as the old lender
@@ -1028,7 +1032,9 @@ contract OriginationController is
             // the amount the lender is owed for the old loan. If so, the lender is owed the
             // difference
             if (amounts.needFromBorrower > 0 && repayAmount > amounts.amountFromLender) {
-                amounts.amountToLender = repayAmount - amounts.amountFromLender;
+                unchecked {
+                    amounts.amountToLender = repayAmount - amounts.amountFromLender;
+                }
             }
         }
     }

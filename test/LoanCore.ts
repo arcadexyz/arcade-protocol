@@ -1253,6 +1253,8 @@ describe("LoanCore", () => {
             await expect(loanCore.connect(borrower).withdrawProtocolFees(mockERC20.address, borrower.address))
                 .to.emit(loanCore, "FeesWithdrawn")
                 .withArgs(mockERC20.address, borrower.address, borrower.address, repayAmount.div(10));
+
+            expect(await loanCore.feesWithdrawable(mockERC20.address, borrower.address)).to.eq(0);
         });
 
         it("reverts if withdrawProtocolFees() is called to address zero", async () => {
@@ -2109,6 +2111,9 @@ describe("LoanCore", () => {
                     .withArgs(mockERC20.address, borrower.address, borrower.address, fee.div(2))
                     .to.emit(mockERC20, "Transfer")
                     .withArgs(loanCore.address, borrower.address, fee.div(2));
+
+                expect(await loanCore.feesWithdrawable(mockERC20.address, borrower.address))
+                    .to.eq(0);
             });
 
             it("affiliate can withdraw fees, sending to a third party", async () => {
