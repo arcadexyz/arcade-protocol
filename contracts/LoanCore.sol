@@ -173,7 +173,8 @@ contract LoanCore is
         collateralInUse[collateralKey] = true;
 
         // Assign fees for withdrawal
-        uint256 feesEarned = _amountFromLender - _amountToBorrower;
+        uint256 feesEarned;
+        unchecked { feesEarned = _amountFromLender - _amountToBorrower; }
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
             _getAffiliateSplit(feesEarned, terms.affiliateCode);
 
@@ -414,10 +415,10 @@ contract LoanCore is
         // Check that contract will not net lose tokens
         if (_amountToOldLender + _amountToLender + _amountToBorrower > _settledAmount)
             revert LC_CannotSettle(_amountToOldLender + _amountToLender + _amountToBorrower, _settledAmount);
-
         {
             // Assign fees for withdrawal
-            uint256 feesEarned = _settledAmount - _amountToOldLender - _amountToLender - _amountToBorrower;
+            uint256 feesEarned;
+            unchecked { feesEarned = _settledAmount - _amountToOldLender - _amountToLender - _amountToBorrower; }
 
             // Make sure split goes to affiliate code from _new_ terms
             (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
@@ -581,7 +582,7 @@ contract LoanCore is
         uint256 available = feesWithdrawable[token][msg.sender];
         if (amount > available) revert LC_CannotWithdraw(amount, available);
 
-        feesWithdrawable[token][msg.sender] -= amount;
+        unchecked { feesWithdrawable[token][msg.sender] -= amount; }
 
         _transferIfNonzero(IERC20(token), to, amount);
 
@@ -684,7 +685,10 @@ contract LoanCore is
 
         // Check that we will not net lose tokens.
         if (_amountToLender > _amountFromPayer) revert LC_CannotSettle(_amountToLender, _amountFromPayer);
-        uint256 feesEarned = _amountFromPayer - _amountToLender;
+
+        uint256 feesEarned;
+        unchecked { feesEarned = _amountFromPayer - _amountToLender; }
+
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
             _getAffiliateSplit(feesEarned, data.terms.affiliateCode);
 
@@ -721,7 +725,7 @@ contract LoanCore is
 
         affiliate = split.affiliate;
         affiliateFee = amount * split.splitBps / BASIS_POINTS_DENOMINATOR;
-        protocolFee = amount - affiliateFee;
+        unchecked { protocolFee = amount - affiliateFee; }
     }
 
     /**
