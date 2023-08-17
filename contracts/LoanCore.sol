@@ -505,7 +505,7 @@ contract LoanCore is
      * @return amount               The amount of the note.
      */
     function getNoteReceipt(uint256 loanId) external view override returns (address, uint256) {
-        NoteReceipt memory receipt = noteReceipts[loanId];
+        NoteReceipt storage receipt = noteReceipts[loanId];
         return (receipt.token, receipt.amount);
     }
 
@@ -530,7 +530,7 @@ contract LoanCore is
         uint256 noteCount = borrowerNote.balanceOf(caller);
         for (uint256 i = 0; i < noteCount;) {
             uint256 loanId = borrowerNote.tokenOfOwnerByIndex(caller, i);
-            LoanLibrary.LoanTerms memory terms = loans[loanId].terms;
+            LoanLibrary.LoanTerms storage terms = loans[loanId].terms;
 
             // if the borrower is currently borrowing against this vault,
             // return true
@@ -579,10 +579,12 @@ contract LoanCore is
         if (to == address(0)) revert LC_ZeroAddress("to");
 
         // any token balances remaining on this contract are fees owned by the protocol
-        uint256 available = feesWithdrawable[token][msg.sender];
+        mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[token];
+
+        uint256 available = _feesWithdrawable[msg.sender];
         if (amount > available) revert LC_CannotWithdraw(amount, available);
 
-        unchecked { feesWithdrawable[token][msg.sender] -= amount; }
+        unchecked { _feesWithdrawable[msg.sender] -= amount; }
 
         _transferIfNonzero(IERC20(token), to, amount);
 
@@ -601,8 +603,9 @@ contract LoanCore is
         if (to == address(0)) revert LC_ZeroAddress("to");
 
         // any token balances remaining on this contract are fees owned by the protocol
-        uint256 amount = feesWithdrawable[token][address(this)];
-        feesWithdrawable[token][address(this)] = 0;
+        mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[token];
+        uint256 amount = _feesWithdrawable[address(this)];
+        _feesWithdrawable[address(this)] = 0;
 
         _transferIfNonzero(IERC20(token), to, amount);
 
@@ -736,9 +739,11 @@ contract LoanCore is
      * @param nonce                 The nonce to consume.
      */
     function _useNonce(address user, uint160 nonce) internal {
-        if (usedNonces[user][nonce]) revert LC_NonceUsed(user, nonce);
+        mapping(uint160 => bool) storage _usedNonces = usedNonces[user];
+
+        if (_usedNonces[nonce]) revert LC_NonceUsed(user, nonce);
         // set nonce to used
-        usedNonces[user][nonce] = true;
+        _usedNonces[nonce] = true;
 
         emit NonceUsed(user, nonce);
     }
