@@ -69,9 +69,10 @@ contract CallWhitelist is Ownable, CallBlacklist, ICallWhitelist {
      * @param selector              The function selector to whitelist.
      */
     function add(address callee, bytes4 selector) external override onlyOwner {
-        if (whitelist[callee][selector]) revert CW_AlreadyWhitelisted(callee, selector);
+        mapping(bytes4 => bool) storage calleeWhitelist = whitelist[callee];
 
-        whitelist[callee][selector] = true;
+        if (calleeWhitelist[selector]) revert CW_AlreadyWhitelisted(callee, selector);
+        calleeWhitelist[selector] = true;
 
         emit CallAdded(msg.sender, callee, selector);
     }
@@ -85,9 +86,10 @@ contract CallWhitelist is Ownable, CallBlacklist, ICallWhitelist {
      * @param selector              The function selector to whitelist.
      */
     function remove(address callee, bytes4 selector) external override onlyOwner {
-        if (!whitelist[callee][selector]) revert CW_NotWhitelisted(callee, selector);
+        mapping(bytes4 => bool) storage calleeWhitelist = whitelist[callee];
 
-        whitelist[callee][selector] = false;
+        if (!calleeWhitelist[selector]) revert CW_NotWhitelisted(callee, selector);
+        calleeWhitelist[selector] = false;
 
         emit CallRemoved(msg.sender, callee, selector);
     }
