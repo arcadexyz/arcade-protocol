@@ -13,6 +13,7 @@ import {
     MockERC721,
     MockERC1155,
     CryptoPunksMarket,
+    SupeRare,
     DelegationRegistry,
     FeeController,
     BaseURIDescriptor
@@ -37,6 +38,7 @@ interface TestContext {
     mockERC721: MockERC721;
     mockERC1155: MockERC1155;
     punks: CryptoPunksMarket;
+    superrare: SupeRare;
     user: Signer;
     other: Signer;
     signers: Signer[];
@@ -66,6 +68,12 @@ describe("AssetVault", () => {
         return vault;
     };
 
+    const createSuperRareToken = async (superare: SupeRare, user: Signer, other: Signer) => {
+        // create new superare token
+        await superare.connect(other).whitelistCreator(await user.getAddress());
+        await superare.connect(user).addNewToken('superrare');
+    }
+
     /**
      * Sets up a test context, deploying new contracts and returning them for use in a test
      */
@@ -84,6 +92,7 @@ describe("AssetVault", () => {
         const vault = await createVault(factory, signers[0]);
 
         const punks = <CryptoPunksMarket>await deploy("CryptoPunksMarket", signers[0], []);
+        const superrare = <SupeRare>await deploy("SupeRare", signers[1], []);
 
         return {
             registry,
@@ -99,6 +108,7 @@ describe("AssetVault", () => {
             other: signers[1],
             signers: signers.slice(2),
             punks,
+            superrare
         };
     };
 
@@ -1535,6 +1545,46 @@ describe("AssetVault", () => {
                     .to.be.revertedWith(`AV_ZeroAddress("to")`);
             });
 
+            it("should withdraw a SuperRare V1 token from vault", async () => {
+                const { vault, superrare, user, other: admin } = await loadFixture(fixture);
+
+                const TOKEN_ID = 1;
+
+                // create new SuperRare V1 token
+                await createSuperRareToken(superrare, user, admin);
+
+                expect(await superrare.balanceOf(await user.getAddress())).to.equal(1);
+
+                // transfer token to vault
+                await superrare.connect(user).transfer(vault.address, TOKEN_ID)
+
+                expect(await superrare.ownerOf(TOKEN_ID)).to.equal(vault.address);
+                expect(await superrare.balanceOf(await user.getAddress())).to.equal(0);
+                await vault.connect(user).enableWithdraw();
+                await vault.connect(user).withdrawSuperRareV1(superrare.address, TOKEN_ID, await user.getAddress());
+                expect(await superrare.balanceOf(await user.getAddress())).to.equal(1);
+            });
+
+            it("should fail to withdraw SuperRare V1 when recipient is address zero", async () => {
+                const { vault, superrare, user, other: admin } = await loadFixture(fixture);
+
+                const TOKEN_ID = 1;
+
+                // create new SuperRare V1 token
+                await createSuperRareToken(superrare, user, admin);
+
+                expect(await superrare.balanceOf(await user.getAddress())).to.equal(1);
+
+                // transfer token to vault
+                await superrare.connect(user).transfer(vault.address, TOKEN_ID)
+
+                expect(await superrare.ownerOf(TOKEN_ID)).to.equal(vault.address);
+                expect(await superrare.balanceOf(await user.getAddress())).to.equal(0);
+                await vault.connect(user).enableWithdraw();
+                await expect(vault.connect(user).withdrawSuperRareV1(superrare.address, TOKEN_ID, ethers.constants.AddressZero))
+                    .to.be.revertedWith(`AV_ZeroAddress("to")`);
+            });
+
             it("should throw when already withdrawn", async () => {
                 const { vault, mockERC721, user } = await loadFixture(fixture);
                 const tokenId = await deposit(mockERC721, vault, user);
@@ -1647,6 +1697,91 @@ describe("AssetVault", () => {
                     .to.be.revertedWith(`AV_ZeroAddress("to")`);
             });
         });
+
+        describe("SuperRare V1", function () {
+            it("should accept deposit of superare token", async () => {
+                const { vault, superrare, user, other: admin } = await loadFixture(fixture);
+                const TOKEN_ID = 1;
+
+                await createSuperRareToken(superrare, user, admin);
+                expect(await superrare.balanceOf(await user.getAddress())).to.equal(1);
+
+                // transfer token to vault
+                await superrare.connect(user).transfer(vault.address, TOKEN_ID)
+
+                expect(await superrare.ownerOf(TOKEN_ID)).to.equal(vault.address);
+                expect(await superrare.balanceOf(await user.getAddress())).to.equal(0);
+            });
+
+            it("should buy a token when sale price is met", async () => {
+                const { superrare, user, other: admin, signers } = await loadFixture(fixture);
+                await createSuperRareToken(superrare, user, admin);
+
+                expect(await superrare.balanceOf(await user.getAddress())).to.equal(1);
+                expect(await superrare.ownerOf(1)).to.equal(await user.getAddress());
+
+                const newBuyer = signers[0];
+                const oneEther = hre.ethers.utils.parseEther("1");
+
+                await superrare.connect(user).setSalePrice(1, oneEther);
+
+                await superrare.connect(newBuyer).buy(1, { value: oneEther })
+                expect(await superrare.balanceOf(await newBuyer.getAddress())).to.equal(1);
+                expect(await superrare.ownerOf(1)).to.equal(await newBuyer.getAddress());
+            });
+
+            it("should clear sale price on transfer", async () => {
+                const { superrare, vault, user, other: admin } = await loadFixture(fixture);
+                await createSuperRareToken(superrare, user, admin);
+                const oneEther = hre.ethers.utils.parseEther("1");
+                const TOKEN_ID = 1;
+                await superrare.connect(user).setSalePrice(TOKEN_ID, oneEther);
+
+                // transfer token to vault
+                await superrare.connect(user).transfer(vault.address, TOKEN_ID);
+
+                const salePrice = await superrare.salePriceOfToken(TOKEN_ID);
+                expect(salePrice).to.equal(0);
+            });
+
+            it("should not allow transfer out of vault", async () => {
+                const { superrare, vault, user, other: admin, signers } = await loadFixture(fixture);
+                await createSuperRareToken(superrare, user, admin);
+                const oneEther = hre.ethers.utils.parseEther("1");
+                const TOKEN_ID = 1;
+                await superrare.connect(user).setSalePrice(TOKEN_ID, oneEther);
+
+                // transfer token to vault
+                await superrare.connect(user).transfer(vault.address, TOKEN_ID);
+                const newBuyer = signers[0];
+                await expect(superrare.connect(newBuyer).buy(1, { value: oneEther })).to.be.reverted;
+                expect(await superrare.ownerOf(TOKEN_ID)).to.equal(vault.address);
+            });
+
+            it("should not allow accepting a bid while vaulted", async () => {
+                const { superrare, vault, user, other: admin, signers } = await loadFixture(fixture);
+                await createSuperRareToken(superrare, user, admin);
+                const oneEther = hre.ethers.utils.parseEther("1");
+                const TOKEN_ID = 1;
+                const bidder = signers[0];
+
+                // bid on a token
+                await superrare.connect(bidder).bid(TOKEN_ID, { value: oneEther });
+
+                // transfer asset to vault
+                await superrare.connect(user).transfer(vault.address, TOKEN_ID);
+
+                // retrieve current bid to assert it is still active
+                const [bidAmt, currBidder] = await superrare.currentBidDetailsOfToken(TOKEN_ID);
+                expect(bidAmt).to.equal(oneEther);
+                expect(currBidder).to.equal(await bidder.getAddress());
+
+                // accepting bid must fail
+                await expect(superrare.connect(user).acceptBid(1)).to.be.reverted;
+                // ensure owner of token is still vault
+                expect(await superrare.ownerOf(TOKEN_ID)).to.equal(vault.address);
+            });
+        })
 
         describe("Withdraw batch", () => {
             const depositERC1155 = async (token: MockERC1155, vault: AssetVault, user: Signer, amount: BigNumber) => {

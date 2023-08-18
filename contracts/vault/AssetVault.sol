@@ -14,6 +14,7 @@ import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "../interfaces/IAssetVault.sol";
 import "../interfaces/ICallDelegator.sol";
 import "../external/interfaces/IPunks.sol";
+import "../external/interfaces/ISuperRareV1.sol";
 
 import "./CallWhitelistDelegation.sol";
 import "./CallWhitelistApprovals.sol";
@@ -271,6 +272,26 @@ contract AssetVault is
 
         IPunks(punks).transferPunk(to, punkIndex);
         emit WithdrawPunk(msg.sender, punks, to, punkIndex);
+    }
+
+    /**
+     * @notice Withdraw SuperRare V1 from the vault.
+     *         Vault must have withdraw enabled.
+     *         Caller must be owner.
+     *
+     * @param superRareV1           SuperRare V1 contract address
+     * @param tokenId               tokenId to withdraw
+     * @param to                    recipient of the token
+     */
+    function withdrawSuperRareV1(
+        address superRareV1,
+        uint256 tokenId,
+        address to
+    ) external override onlyOwner onlyWithdrawEnabled {
+        if (to == address(0)) revert AV_ZeroAddress("to");
+
+        ISuperRareV1(superRareV1).transfer(to, tokenId);
+        emit WithdrawSuperRareV1(msg.sender, superRareV1, to, tokenId);
     }
 
     // ====================================== UTILITY OPERATIONS ========================================
