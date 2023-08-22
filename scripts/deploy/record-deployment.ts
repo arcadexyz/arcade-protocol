@@ -4,7 +4,6 @@ import hre from "hardhat";
 import { BigNumberish } from "ethers";
 
 import { DeployedResources } from "./deploy";
-import { BORROWER_NOTE_BASE_URI, VAULT_FACTORY_BASE_URI } from "../utils/constants";
 
 export interface ContractData {
     contractAddress: string;

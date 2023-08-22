@@ -48,7 +48,7 @@ contract CallWhitelistApprovals is CallWhitelist {
      * @param spender              The token spender.
      * @param _isApproved          Whether the spender should be approved.
      */
-    function setApproval(address token, address spender, bool _isApproved) external onlyOwner {
+    function setApproval(address token, address spender, bool _isApproved) external onlyRole(WHITELIST_MANAGER_ROLE) {
         approvals[token][spender] = _isApproved;
         emit ApprovalSet(msg.sender, token, spender, _isApproved);
     }

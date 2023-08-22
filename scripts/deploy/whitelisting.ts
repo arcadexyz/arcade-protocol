@@ -2,11 +2,11 @@ import { ethers} from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import assert from "assert";
 import fetch from "node-fetch";
-import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "./utils/constants";
-import { NETWORK } from "./deploy/test/utils";
-import { WHITELIST_MANAGER_ROLE } from "./utils/constants";
+import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../utils/constants";
+import { NETWORK } from "./test/utils";
+import { WHITELIST_MANAGER_ROLE } from "../utils/constants";
 
-import { OriginationController } from "../typechain";
+import { OriginationController } from "../../typechain";
 
 /**
  * Live data for approved collections on Arcade: https://api.arcade.xyz/api/v2/collections/

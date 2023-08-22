@@ -4,8 +4,8 @@ export const ORIGINATOR_ROLE = ethers.utils.id("ORIGINATOR");
 export const REPAYER_ROLE = ethers.utils.id("REPAYER");
 export const ADMIN_ROLE = ethers.utils.id("ADMIN");
 export const FEE_CLAIMER_ROLE = ethers.utils.id("FEE_CLAIMER");
-export const AFFILIATE_MANAGER_ROLE = ethers.utils.id("AFFILIATE");
-export const RESOURCE_MANAGER_ROLE = ethers.utils.id("RESOURCE");
+export const AFFILIATE_MANAGER_ROLE = ethers.utils.id("AFFILIATE_MANAGER");
+export const RESOURCE_MANAGER_ROLE = ethers.utils.id("RESOURCE_MANAGER");
 export const MINT_BURN_ROLE = ethers.utils.id("MINT_BURN");
 export const WHITELIST_MANAGER_ROLE = ethers.utils.id("WHITELIST_MANAGER");
 
@@ -25,4 +25,9 @@ export const LENDER_NOTE_BASE_URI = `https://s3.amazonaws.com/images.pawn.fi/tes
 export const LENDER_NOTE_NAME = "Arcade.xyz Lender Note";
 export const LENDER_NOTE_SYMBOL = "aBN";
 
-
+export const ADMIN = "0x02C845ac4baC48A6CD1e1c88a84195B7d5805B82"; // in prod - core voting
+export const RESOURCE_MANAGER = ADMIN; // core voting or delegated "low-security" multisig - controls NFT image
+export const CALL_WHITELIST_MANAGER = ADMIN; // core voting - adds vault utility via adding/removing function calls from CallWhitelist
+export const LOAN_WHITELIST_MANAGER = ADMIN; // core voting - manages OriginationController
+export const FEE_CLAIMER = ADMIN; // core voting or delegated "high-security" multisig/smart contract
+export const AFFILIATE_MANAGER = ADMIN // core voting
