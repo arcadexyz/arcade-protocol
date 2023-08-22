@@ -1,6 +1,6 @@
 import fs from "fs"
 import hre, { ethers } from "hardhat";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signer
+import { Contract } from "ethers";
 
 import {
     AssetVault,
@@ -72,7 +72,7 @@ interface ContractArgs {
 };
 
 export async function setupRoles(resources: ContractArgs): Promise<void> {
-    const signers: SignerWithAddress[] = await hre.ethers.getSigners();
+    const signers = await ethers.getSigners();
     const [deployer] = signers;
 
     // Set admin address
@@ -222,7 +222,7 @@ async function loadContracts(jsonFile: string): Promise<ContractArgs> {
         contracts[argKey] = contract;
     }
 
-    return contracts as ContractArgs;
+    return contracts as unknown as ContractArgs;
 }
 
 if (require.main === module) {
