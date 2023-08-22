@@ -47,6 +47,11 @@ abstract contract CallBlacklist {
     bytes4 private constant PUNKS_OFFER_TO_ADDRESS = bytes4(keccak256("offerPunkForSaleToAddress(uint256,uint256,address)"));
     bytes4 private constant PUNKS_BUY = bytes4(keccak256("buyPunk(uint256)"));
 
+    bytes4 private constant SUPERRARE_SET_SALE_PRICE = bytes4(keccak256("setSalePrice(uint256,uint256)"));
+    bytes4 private constant SUPERRARE_ACCEPT_BID = bytes4(keccak256("acceptBid(uint256)"));
+    // SuperRare transfer already blacklisted - same elector as IERC20.transfer
+    // SuperRare approve already blacklisted - same elector as IERC20.approve
+
     // ================= Blacklist State ==================
 
     /**
@@ -76,6 +81,8 @@ abstract contract CallBlacklist {
             selector == PUNKS_TRANSFER ||
             selector == PUNKS_OFFER ||
             selector == PUNKS_OFFER_TO_ADDRESS ||
-            selector == PUNKS_BUY;
+            selector == PUNKS_BUY ||
+            selector == SUPERRARE_SET_SALE_PRICE ||
+            selector == SUPERRARE_ACCEPT_BID;
     }
 }

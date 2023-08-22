@@ -13,6 +13,7 @@ interface IAssetVault {
     event WithdrawERC20(address indexed operator, address indexed token, address recipient, uint256 amount);
     event WithdrawERC721(address indexed operator, address indexed token, address recipient, uint256 tokenId);
     event WithdrawPunk(address indexed operator, address indexed token, address recipient, uint256 tokenId);
+    event WithdrawSuperRareV1(address indexed operator, address indexed token, address recipient, uint256 tokenId);
 
     event WithdrawERC1155(
         address indexed operator,
@@ -71,6 +72,12 @@ interface IAssetVault {
     function withdrawPunk(
         address punks,
         uint256 punkIndex,
+        address to
+    ) external;
+
+    function withdrawSuperRareV1(
+        address superRareV1,
+        uint256 tokenId,
         address to
     ) external;
 
