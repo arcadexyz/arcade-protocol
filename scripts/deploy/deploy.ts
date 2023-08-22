@@ -1,7 +1,18 @@
 import { ethers } from "hardhat";
 
-import { writeJson } from "./write-json";
-import { BASE_URI, SECTION_SEPARATOR, SUBSECTION_SEPARATOR, PUNKS_ADDRESS } from "../utils/constants";
+import { recordDeployment } from "./record-deployment";
+import {
+    SECTION_SEPARATOR,
+    SUBSECTION_SEPARATOR,
+    VAULT_FACTORY_BASE_URI,
+    BORROWER_NOTE_BASE_URI,
+    LENDER_NOTE_BASE_URI,
+    DELEGATION_REGISTRY_ADDRESS,
+    BORROWER_NOTE_NAME,
+    BORROWER_NOTE_SYMBOL,
+    LENDER_NOTE_NAME,
+    LENDER_NOTE_SYMBOL
+ } from "../utils/constants";
 
 import {
     AssetVault,
@@ -10,41 +21,33 @@ import {
     PromissoryNote,
     RepaymentController,
     OriginationController,
-    CallWhitelist,
     ArcadeItemsVerifier,
     VaultFactory,
     BaseURIDescriptor,
-    PunksVerifier,
     CollectionWideOfferVerifier,
     ArtBlocksVerifier,
-    UnvaultedItemsVerifier,
-    CallWhitelistApprovals,
-    CallWhitelistDelegation,
-    DelegationRegistry
+    CallWhitelistAllExtensions
 } from "../../typechain";
 
 export interface DeployedResources {
-    assetVault: AssetVault;
+    whitelist: CallWhitelistAllExtensions;
+    vaultFactoryURIDescriptor: BaseURIDescriptor;
     feeController: FeeController;
+    assetVault: AssetVault;
+    vaultFactory: VaultFactory;
     loanCore: LoanCore;
-    borrowerNote: PromissoryNote;
-    lenderNote: PromissoryNote;
     repaymentController: RepaymentController;
     originationController: OriginationController;
-    whitelist: CallWhitelist;
-    vaultFactory: VaultFactory;
-    verifier: ArcadeItemsVerifier;
-    baseURIDescriptor: BaseURIDescriptor;
-    punksVerifier: PunksVerifier;
+    borrowerNoteURIDescriptor: BaseURIDescriptor;
+    borrowerNote: PromissoryNote;
+    lenderNoteURIDescriptor: BaseURIDescriptor;
+    lenderNote: PromissoryNote;
+    arcadeItemsVerifier: ArcadeItemsVerifier;
     collectionWideOfferVerifier: CollectionWideOfferVerifier;
     artBlocksVerifier: ArtBlocksVerifier;
-    unvaultedItemsVerifier: UnvaultedItemsVerifier;
-    callWhitelistApprovals: CallWhitelistApprovals,
-    callWhitelistDelegation: CallWhitelistDelegation;
-    delegationRegistry: DelegationRegistry;
 }
 
-export async function main(): Promise<DeployedResources> {
+export async function main(): Promise<void> {
     // Hardhat always runs the compile task when running scripts through it.
     // If this runs in a standalone fashion you may want to call compile manually
     // to make sure everything is compiled
@@ -52,36 +55,32 @@ export async function main(): Promise<DeployedResources> {
 
     console.log(SECTION_SEPARATOR);
 
-    const CallWhiteListFactory = await ethers.getContractFactory("CallWhitelist");
-    const whitelist = <CallWhitelist>await CallWhiteListFactory.deploy();
+    const CallWhiteListFactory = await ethers.getContractFactory("CallWhitelistAllExtensions");
+    const whitelist = <CallWhitelistAllExtensions>await CallWhiteListFactory.deploy(DELEGATION_REGISTRY_ADDRESS);
     await whitelist.deployed();
 
-    const whitelistAddress = whitelist.address;
-    console.log("CallWhitelist deployed to:", whitelistAddress);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const BaseURIDescriptorFactory = await ethers.getContractFactory("BaseURIDescriptor");
-    const baseURIDescriptor = <BaseURIDescriptor>await BaseURIDescriptorFactory.deploy(`${BASE_URI}`);
-    await baseURIDescriptor.deployed();
-
-    const baseURIDescriptorAddress = baseURIDescriptor.address;
-    console.log("BaseURIDescriptor deployed to:", baseURIDescriptorAddress);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const FeeControllerFactory = await ethers.getContractFactory("FeeController");
-    const feeController = <FeeController>await FeeControllerFactory.deploy();
-    await feeController.deployed();
-
-    const feeControllerAddress = feeController.address;
-    console.log("FeeController deployed to: ", feeControllerAddress);
+    console.log("CallWhitelistAllExtensions deployed to:", whitelist.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const AssetVaultFactory = await ethers.getContractFactory("AssetVault");
     const assetVault = <AssetVault>await AssetVaultFactory.deploy();
     await assetVault.deployed();
 
-    const assetVaultAddress = assetVault.address;
-    console.log("AssetVault deployed to:", assetVaultAddress);
+    console.log("AssetVault deployed to:", assetVault.address);
+    console.log(SUBSECTION_SEPARATOR);
+
+    const BaseURIDescriptorFactory = await ethers.getContractFactory("BaseURIDescriptor");
+    const vfURIDescriptor = <BaseURIDescriptor>await BaseURIDescriptorFactory.deploy(`${VAULT_FACTORY_BASE_URI}`);
+    await vfURIDescriptor.deployed();
+
+    console.log("Vault Factory URI Descriptor deployed to:", vfURIDescriptor.address);
+    console.log(SUBSECTION_SEPARATOR);
+
+    const FeeControllerFactory = await ethers.getContractFactory("FeeController");
+    const feeController = <FeeController>await FeeControllerFactory.deploy();
+    await feeController.deployed();
+
+    console.log("FeeController deployed to: ", feeController.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const VaultFactoryFactory = await ethers.getContractFactory("VaultFactory");
@@ -90,35 +89,48 @@ export async function main(): Promise<DeployedResources> {
             assetVault.address,
             whitelist.address,
             feeController.address,
-            baseURIDescriptor.address,
+            vfURIDescriptor.address,
         )
     );
+
     await vaultFactory.deployed();
 
-    const vaultFactoryAddress = vaultFactory.address;
-    console.log("VaultFactory deployed to:", vaultFactoryAddress);
+    console.log("VaultFactory deployed to:", vaultFactory.address);
     console.log(SUBSECTION_SEPARATOR);
 
-    const bNoteName = "Arcade.xyz BorrowerNote";
-    const bNoteSymbol = "aBN";
     const PromissoryNoteFactory = await ethers.getContractFactory("PromissoryNote");
+
+    const borrowerNoteURIDescriptor = <BaseURIDescriptor>(
+        await BaseURIDescriptorFactory.deploy(`${BORROWER_NOTE_BASE_URI}`)
+    );
+    await borrowerNoteURIDescriptor.deployed();
+
     const borrowerNote = <PromissoryNote>(
-        await PromissoryNoteFactory.deploy(bNoteName, bNoteSymbol, baseURIDescriptor.address)
+        await PromissoryNoteFactory.deploy(
+            BORROWER_NOTE_NAME,
+            BORROWER_NOTE_SYMBOL,
+            borrowerNoteURIDescriptor.address
+        )
     );
     await borrowerNote.deployed();
 
-    const borrowerNoteAddress = borrowerNote.address;
     console.log("BorrowerNote deployed to:", borrowerNote.address);
 
-    const lNoteName = "Arcade.xyz LenderNote";
-    const lNoteSymbol = "aLN";
+    const lenderNoteURIDescriptor = <BaseURIDescriptor>(
+        await BaseURIDescriptorFactory.deploy(`${LENDER_NOTE_BASE_URI}`)
+    );
+    await lenderNoteURIDescriptor.deployed();
+
     const lenderNote = <PromissoryNote>(
-        await PromissoryNoteFactory.deploy(lNoteName, lNoteSymbol, baseURIDescriptor.address)
+        await PromissoryNoteFactory.deploy(
+            LENDER_NOTE_NAME,
+            LENDER_NOTE_SYMBOL,
+            lenderNoteURIDescriptor.address
+        )
     );
     await lenderNote.deployed();
 
-    const lenderNoteAddress = lenderNote.address;
-    console.log("LenderNote deployed to:", lenderNoteAddress);
+    console.log("LenderNote deployed to:", lenderNote.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const LoanCoreFactory = await ethers.getContractFactory("LoanCore");
@@ -128,19 +140,19 @@ export async function main(): Promise<DeployedResources> {
     );
     await loanCore.deployed();
 
-    const loanCoreAddress = loanCore.address;
-    console.log("LoanCore deployed to:", loanCoreAddress);
+    console.log("LoanCore deployed to:", loanCore.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const RepaymentControllerFactory = await ethers.getContractFactory("RepaymentController");
     const repaymentController = <RepaymentController>(
-        await RepaymentControllerFactory.deploy(loanCore.address, feeController.address)
+        await RepaymentControllerFactory.deploy(
+            loanCore.address,
+            feeController.address
+        )
     );
     await repaymentController.deployed();
 
-    const repaymentContAddress = repaymentController.address;
-    console.log("RepaymentController deployed to:", repaymentContAddress);
-
+    console.log("RepaymentController deployed to:", repaymentController.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationController");
@@ -150,127 +162,91 @@ export async function main(): Promise<DeployedResources> {
     );
     await originationController.deployed();
 
-    const originationContAddress = originationController.address;
-    console.log("OriginationController deployed to:", originationContAddress);
-
+    console.log("OriginationController deployed to:", originationController.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const VerifierFactory = await ethers.getContractFactory("ArcadeItemsVerifier");
     const verifier = <ArcadeItemsVerifier>await VerifierFactory.deploy();
     await verifier.deployed();
 
-    const verifierAddress = verifier.address;
-    console.log("ItemsVerifier deployed to:", verifierAddress);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const PunksVerifierFactory = await ethers.getContractFactory("PunksVerifier");
-    const punksVerifier = <PunksVerifier>await PunksVerifierFactory.deploy(PUNKS_ADDRESS);
-    await punksVerifier.deployed();
-
-    const punksVerifierAddress = punksVerifier.address;
-    console.log("PunksVerifier deployed to:", punksVerifierAddress);
+    console.log("ItemsVerifier deployed to:", verifier.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const CWOVerifierFactory = await ethers.getContractFactory("CollectionWideOfferVerifier");
     const collectionWideOfferVerifier = <CollectionWideOfferVerifier>await CWOVerifierFactory.deploy();
     await collectionWideOfferVerifier.deployed();
 
-    const collectionWideOfferVerifierAddress = collectionWideOfferVerifier.address;
-    console.log("CollectionWideVerifier deployed to:", collectionWideOfferVerifierAddress);
+    console.log("CollectionWideVerifier deployed to:", collectionWideOfferVerifier.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const ArtBlocksVerifierFactory = await ethers.getContractFactory("ArtBlocksVerifier");
     const artBlocksVerifier = <ArtBlocksVerifier>await ArtBlocksVerifierFactory.deploy();
     await artBlocksVerifier.deployed();
 
-    const artBlocksVerifierAddress = artBlocksVerifier.address;
-    console.log("ArtBlocksVerifier deployed to:", artBlocksVerifierAddress);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const UnvaultedItemsVerifierFactory = await ethers.getContractFactory("UnvaultedItemsVerifier");
-    const unvaultedItemsVerifier = <UnvaultedItemsVerifier>await UnvaultedItemsVerifierFactory.deploy();
-    await unvaultedItemsVerifier.deployed();
-
-    const unvaultedItemsVerifierAddress = unvaultedItemsVerifier.address;
-    console.log("UnvaultedItemsVerifier deployed to:", unvaultedItemsVerifierAddress);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const CallWhitelistApprovalsFactory = await ethers.getContractFactory("CallWhitelistApprovals");
-    const callWhitelistApprovals = <CallWhitelistApprovals>await CallWhitelistApprovalsFactory.deploy();
-    await callWhitelistApprovals.deployed();
-
-    const callWhitelistApprovalsAddress = callWhitelistApprovals.address;
-    console.log("CallWhitelistApprovals deployed to:", callWhitelistApprovalsAddress);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const DelegationRegistryFactory = await ethers.getContractFactory("DelegationRegistry");
-    const delegationRegistry = <DelegationRegistry>await DelegationRegistryFactory.deploy();
-    await delegationRegistry.deployed();
-
-    const delegationRegistryAddress = delegationRegistry.address;
-    console.log("DelegationRegistry deployed to:", delegationRegistryAddress);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const CallWhitelistDelegationFactory = await ethers.getContractFactory("CallWhitelistDelegation");
-    const callWhitelistDelegation = <CallWhitelistDelegation>(
-        await CallWhitelistDelegationFactory.deploy(delegationRegistryAddress)
-    );
-    await callWhitelistDelegation.deployed();
-
-    const callWhitelistDelegationAddress = callWhitelistDelegation.address;
-    console.log("CallWhitelistDelegation deployed to:", callWhitelistDelegationAddress);
+    console.log("ArtBlocksVerifier deployed to:", artBlocksVerifier.address);
     console.log(SUBSECTION_SEPARATOR);
 
     console.log("Writing to deployments json file...");
 
-    await writeJson(
-        whitelistAddress,
-        baseURIDescriptorAddress,
-        feeControllerAddress,
-        assetVaultAddress,
-        vaultFactoryAddress,
-        borrowerNoteAddress,
-        lenderNoteAddress,
-        loanCoreAddress,
-        repaymentContAddress,
-        originationContAddress,
-        verifierAddress,
-        bNoteName,
-        bNoteSymbol,
-        lNoteName,
-        lNoteSymbol,
-        BASE_URI,
-        punksVerifierAddress,
-        collectionWideOfferVerifierAddress,
-        artBlocksVerifierAddress,
-        unvaultedItemsVerifierAddress,
-        callWhitelistApprovalsAddress,
-        delegationRegistryAddress,
-        callWhitelistDelegationAddress,
+    const resources: DeployedResources = {
+        whitelist,
+        vaultFactoryURIDescriptor: vfURIDescriptor,
+        feeController,
+        assetVault,
+        vaultFactory,
+        loanCore,
+        repaymentController,
+        originationController,
+        borrowerNoteURIDescriptor,
+        borrowerNote,
+        lenderNoteURIDescriptor,
+        lenderNote,
+        arcadeItemsVerifier: verifier,
+        collectionWideOfferVerifier,
+        artBlocksVerifier
+    }
+
+    await recordDeployment(
+        resources,
+        {
+            whitelist: [DELEGATION_REGISTRY_ADDRESS],
+            vaultFactoryURIDescriptor: [VAULT_FACTORY_BASE_URI],
+            vaultFactory: [
+                assetVault.address,
+                whitelist.address,
+                feeController.address,
+                vfURIDescriptor.address,
+            ],
+            borrowerNoteURIDescriptor: [BORROWER_NOTE_BASE_URI],
+            borrowerNote: [
+                BORROWER_NOTE_NAME,
+                BORROWER_NOTE_SYMBOL,
+                borrowerNoteURIDescriptor.address
+            ],
+            lenderNoteURIDescriptor: [LENDER_NOTE_BASE_URI],
+            lenderNote: [
+                LENDER_NOTE_NAME,
+                LENDER_NOTE_SYMBOL,
+                lenderNoteURIDescriptor.address
+            ],
+            loanCore: [
+                borrowerNote.address,
+                lenderNote.address
+            ],
+            repaymentController: [
+                loanCore.address,
+                feeController.address
+            ],
+            originationController: [
+                loanCore.address,
+                feeController.address
+            ]
+        }
     );
 
     console.log(SECTION_SEPARATOR);
 
-    return {
-        assetVault,
-        feeController,
-        loanCore,
-        borrowerNote,
-        lenderNote,
-        repaymentController,
-        originationController,
-        whitelist,
-        vaultFactory,
-        verifier,
-        baseURIDescriptor,
-        punksVerifier,
-        collectionWideOfferVerifier,
-        artBlocksVerifier,
-        unvaultedItemsVerifier,
-        callWhitelistApprovals,
-        delegationRegistry,
-        callWhitelistDelegation,
-    };
+    console.log("✅ Deployment complete.");
 }
 
 // We recommend this pattern to be able to use async/await everywhere
