@@ -1993,6 +1993,62 @@ describe("LoanCore", () => {
         });
     });
 
+    describe("Shutdown", () => {
+        let context: TestContext;
+
+        beforeEach(async () => {
+            context = await loadFixture(fixture);
+        });
+
+        it("should shutdown the contract", async () => {
+            const { loanCore, user } = context;
+
+            await loanCore.connect(user).grantRole(SHUTDOWN_ROLE, user.address);
+            await expect(loanCore.connect(user).shutdown())
+                .to.emit(loanCore, "Paused")
+                .withArgs(user.address);
+
+            expect(await loanCore.paused()).to.be.true;
+        });
+
+        it("should revert when called by a non-shutdown role", async () => {
+            const { loanCore, user, other } = context;
+
+            await loanCore.connect(user).grantRole(SHUTDOWN_ROLE, user.address);
+            await expect(loanCore.connect(other).shutdown())
+                .to.be.revertedWith("AccessControl");
+        });
+
+        it("should revert when called by a non-shutdown admin", async () => {
+            const { loanCore, user, other } = context;
+
+            await expect(loanCore.connect(user).shutdown())
+                .to.be.revertedWith("AccessControl");
+        });
+
+        it("should succeed after role is granted", async () => {
+            const { loanCore, user, other } = context;
+
+            await loanCore.connect(user).grantRole(SHUTDOWN_ROLE, other.address);
+
+            await expect(loanCore.connect(other).shutdown())
+                .to.emit(loanCore, "Paused")
+                .withArgs(other.address);
+
+            expect(await loanCore.paused()).to.be.true;
+        });
+
+        it("should fail if role is renounced", async () => {
+            const { loanCore, user, other } = context;
+
+            await loanCore.connect(user).grantRole(SHUTDOWN_ROLE, other.address);
+            await loanCore.connect(user).renounceRole(SHUTDOWN_ROLE, user.address);
+
+            await expect(loanCore.connect(user).shutdown())
+                .to.be.revertedWith("AccessControl");
+        });
+    })
+
     describe("Affiliate fees", () => {
         let context: TestContext;
 
