@@ -26,7 +26,8 @@ import {
     FEE_CLAIMER_ROLE,
     AFFILIATE_MANAGER_ROLE,
     ADMIN_ROLE,
-    BASE_URI
+    BASE_URI,
+    SHUTDOWN_ROLE
 } from "./utils/constants";
 
 interface TestContext {
@@ -635,9 +636,8 @@ describe("LoanCore", () => {
             ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
         });
 
-        it("should fail when paused", async () => {
+        it("should fail when shutdown", async () => {
             const { vaultFactory, loanCore, mockERC20, terms, borrower, lender } = await setupLoan();
-
             const { collateralId, principal } = terms;
 
             await vaultFactory
@@ -645,7 +645,9 @@ describe("LoanCore", () => {
                 .transferFrom(borrower.address, loanCore.address, collateralId);
             await mockERC20.connect(lender).mint(loanCore.address, principal);
 
-            await loanCore.connect(borrower).pause();
+            await loanCore.grantRole(SHUTDOWN_ROLE, borrower.address);
+            await loanCore.connect(borrower).shutdown();
+
             await expect(
                 loanCore.connect(borrower).startLoan(
                     lender.address,
@@ -811,7 +813,7 @@ describe("LoanCore", () => {
                 .to.be.revertedWith("LC_CannotSettle");
         });
 
-        it("should still work when paused", async () => {
+        it("should still work when shutdown", async () => {
             const { mockERC20, loanId, loanCore, user: borrower, terms } = await setupLoan();
             const repayAmount = terms.principal.add(terms.proratedInterestRate);
 
@@ -986,7 +988,7 @@ describe("LoanCore", () => {
                 .to.be.revertedWith("LC_CannotSettle");
         });
 
-        it("should still work when paused", async () => {
+        it("should still work when shutdown", async () => {
             const { mockERC20, loanId, loanCore, user: borrower, terms } = await setupLoan();
             const repayAmount = terms.principal.add(terms.proratedInterestRate);
 
@@ -1104,40 +1106,18 @@ describe("LoanCore", () => {
             );
         });
 
-        it("should fail when paused", async () => {
+        it("should fail when shutdown", async () => {
             const { mockERC20, loanId, loanCore, user: borrower, terms, blockchainTime } = await setupLoan();
             await mockERC20.connect(borrower).mint(loanCore.address, terms.principal.add(terms.proratedInterestRate));
 
             await blockchainTime.increaseTime(360001); // increase to the end of loan duration
             await blockchainTime.increaseTime(600) // increase 10 mins to the end of repayment grace period
 
-            await loanCore.connect(borrower).pause();
+            await loanCore.connect(borrower).grantRole(SHUTDOWN_ROLE, borrower.address);
+            await loanCore.connect(borrower).shutdown();
             await expect(loanCore.connect(borrower).claim(loanId, 0)).to.be.revertedWith(
                 "Pausable: paused",
             );
-        });
-
-        it("pause, unPause, make tx", async () => {
-            const {
-                mockERC20,
-                loanId,
-                loanCore,
-                user: borrower,
-                terms,
-                blockchainTime,
-            } = await setupLoan();
-            await mockERC20.connect(borrower).mint(loanCore.address, terms.principal.add(terms.proratedInterestRate));
-
-            await blockchainTime.increaseTime(360001); // increase to the end of loan duration
-            await blockchainTime.increaseTime(600) // increase 10 mins to the end of repayment grace period
-            await loanCore.connect(borrower).pause();
-
-            await blockchainTime.increaseTime(100);
-            await loanCore.connect(borrower).unpause();
-
-            await expect(loanCore.connect(borrower).claim(loanId, 0))
-                .to.emit(loanCore, "LoanClaimed")
-                .withArgs(loanId);
         });
     });
 
@@ -1744,6 +1724,39 @@ describe("LoanCore", () => {
                 )
             ).to.be.revertedWith("LC_CannotSettle");
         });
+
+        it("should fail when shutdown", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms } = await setupLoan();
+            const repayAmount = terms.principal.add(terms.proratedInterestRate);
+
+            // Figure out amounts owed
+            // With same terms, borrower will have to pay interest plus 0.1%
+            // 10% interest on 100, plus 0.1% eq 11.1
+
+            await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
+            await mockERC20.connect(borrower).approve(loanCore.address, ethers.utils.parseEther("12"));
+
+            await mockERC20
+                .connect(borrower)
+                .mint(borrower.address, repayAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
+
+            await loanCore.grantRole(SHUTDOWN_ROLE, borrower.address);
+            await loanCore.connect(borrower).shutdown();
+
+            await expect(
+                loanCore.connect(borrower).rollover(
+                    loanId,
+                    borrower.address,
+                    lender.address,
+                    terms,
+                    repayAmount,
+                    0,
+                    0,
+                    repayAmount
+                )
+            ).to.be.revertedWith("Pausable: paused");
+        });
     });
 
     describe("canCallOn", () => {
@@ -1899,6 +1912,24 @@ describe("LoanCore", () => {
 
             expect(await loanCore.canCallOn(lender.address, collateralId.toString())).to.be.false;
         });
+
+        it("should fail when shutdown", async () => {
+            const {
+                loanCore,
+                loanId,
+                borrower,
+                terms: { collateralId },
+            } = await setupLoan();
+
+            const storedLoanData = await loanCore.getLoan(loanId);
+            expect(storedLoanData.state).to.equal(LoanState.Active);
+
+            await loanCore.grantRole(SHUTDOWN_ROLE, borrower.address);
+            await loanCore.connect(borrower).shutdown();
+
+            await expect(loanCore.canCallOn(borrower.address, collateralId.toString()))
+                .to.be.revertedWith("Pausable: paused");
+        });
     });
 
     describe("Nonce management", () => {
@@ -1949,6 +1980,16 @@ describe("LoanCore", () => {
             await expect(loanCore.connect(user).cancelNonce(10)).to.not.be.reverted;
 
             await expect(loanCore.connect(user).consumeNonce(user.address, 10)).to.be.revertedWith("LC_NonceUsed");
+        });
+
+        it("should fail when shutdown", async () => {
+            const { loanCore, user } = context;
+
+            await loanCore.grantRole(SHUTDOWN_ROLE, user.address);
+            await loanCore.connect(user).shutdown();
+
+            await expect(loanCore.connect(user).consumeNonce(user.address, 10))
+                .to.be.revertedWith("Pausable: paused");
         });
     });
 

@@ -37,7 +37,8 @@ import {
     RESOURCE_MANAGER_ROLE,
     MINT_BURN_ROLE,
     WHITELIST_MANAGER_ROLE,
-    MIN_LOAN_PRINCIPAL
+    MIN_LOAN_PRINCIPAL,
+    SHUTDOWN_ROLE
 } from "./utils/constants";
 
 interface TestContext {
@@ -271,6 +272,7 @@ describe("Integration", () => {
             expect(await loanCore.hasRole(FEE_CLAIMER_ROLE, admin.address)).to.be.true;
             expect(await loanCore.getRoleMemberCount(FEE_CLAIMER_ROLE)).to.eq(1);
             expect(await loanCore.getRoleMemberCount(AFFILIATE_MANAGER_ROLE)).to.eq(0);
+            expect(await loanCore.getRoleMemberCount(SHUTDOWN_ROLE)).to.eq(0);
             // CallWhitelist roles
             expect(await whitelist.hasRole(ADMIN_ROLE, admin.address)).to.be.true;
             expect(await whitelist.getRoleMemberCount(ADMIN_ROLE)).to.eq(1);

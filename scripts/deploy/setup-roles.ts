@@ -16,7 +16,9 @@ import {
     FEE_CLAIMER,
     AFFILIATE_MANAGER,
     SUBSECTION_SEPARATOR,
-    SECTION_SEPARATOR
+    SECTION_SEPARATOR,
+    SHUTDOWN_ROLE,
+    SHUTDOWN_CALLER
 } from "../utils/constants";
 
 export async function setupRoles(resources: ContractArgs): Promise<void> {
@@ -122,6 +124,7 @@ export async function setupRoles(resources: ContractArgs): Promise<void> {
     await loanCore.grantRole(REPAYER_ROLE, REPAYMENT_CONTROLLER_ADDRESS);
     await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, AFFILIATE_MANAGER);
     await loanCore.grantRole(FEE_CLAIMER_ROLE, FEE_CLAIMER);
+    await loanCore.grantRole(SHUTDOWN_ROLE, SHUTDOWN_CALLER);
     await loanCore.renounceRole(ADMIN_ROLE, deployer.address);
 
     console.log(`LoanCore: admin role granted to ${ADMIN}`);
@@ -129,6 +132,7 @@ export async function setupRoles(resources: ContractArgs): Promise<void> {
     console.log(`LoanCore: repayer role granted to ${REPAYMENT_CONTROLLER_ADDRESS}`);
     console.log(`LoanCore: affiliate manager role granted to ${AFFILIATE_MANAGER}`);
     console.log(`LoanCore: fee claimer role granted to ${FEE_CLAIMER}`);
+    console.log(`LoanCore: shutdown role granted to ${SHUTDOWN_CALLER}`);
     console.log(`LoanCore: deployer renounced admin role`);
     console.log(SUBSECTION_SEPARATOR);
 

@@ -8,6 +8,7 @@ export const AFFILIATE_MANAGER_ROLE = ethers.utils.id("AFFILIATE_MANAGER");
 export const RESOURCE_MANAGER_ROLE = ethers.utils.id("RESOURCE_MANAGER");
 export const MINT_BURN_ROLE = ethers.utils.id("MINT_BURN");
 export const WHITELIST_MANAGER_ROLE = ethers.utils.id("WHITELIST_MANAGER");
+export const SHUTDOWN_ROLE = ethers.utils.id("SHUTDOWN");
 
 export const SECTION_SEPARATOR = "\n" + "=".repeat(80) + "\n";
 export const SUBSECTION_SEPARATOR = "-".repeat(10);
@@ -30,7 +31,8 @@ export const RESOURCE_MANAGER = ADMIN; // core voting or delegated "low-security
 export const CALL_WHITELIST_MANAGER = ADMIN; // core voting - adds vault utility via adding/removing function calls from CallWhitelist
 export const LOAN_WHITELIST_MANAGER = ADMIN; // core voting - manages OriginationController
 export const FEE_CLAIMER = ADMIN; // core voting or delegated "high-security" multisig/smart contract
-export const AFFILIATE_MANAGER = ADMIN // core voting
+export const AFFILIATE_MANAGER = ADMIN; // core voting
+export const SHUTDOWN_CALLER = ADMIN; // core voting
 
 export const allowedCurrencies = [
     "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",       // WETH

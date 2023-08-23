@@ -29,7 +29,9 @@ import {
     FEE_CLAIMER,
     RESOURCE_MANAGER_ROLE,
     AFFILIATE_MANAGER,
-    allowedCurrencies
+    allowedCurrencies,
+    SHUTDOWN_ROLE,
+    SHUTDOWN_CALLER
 } from "../../utils/constants";
 
 import {
@@ -305,6 +307,13 @@ describe("Deployment", function() {
             .false;
         expect(await loanCore.getRoleMemberCount(AFFILIATE_MANAGER_ROLE)).to.eq(1);
 
+        expect(await loanCore.hasRole(SHUTDOWN_ROLE, deployer.address)).to.be.false;
+        expect(await loanCore.hasRole(SHUTDOWN_ROLE, SHUTDOWN_CALLER)).to.be.true;
+        expect(await loanCore.hasRole(SHUTDOWN_ROLE, deployment["OriginationController"].contractAddress)).to
+            .be.false;
+        expect(await loanCore.hasRole(SHUTDOWN_ROLE, deployment["RepaymentController"].contractAddress)).to.be
+            .false;
+        expect(await loanCore.getRoleMemberCount(SHUTDOWN_ROLE)).to.eq(1);
 
         const ocFactory = await ethers.getContractFactory("OriginationController");
         const originationController = <OriginationController>(
