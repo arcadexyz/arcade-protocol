@@ -23,7 +23,7 @@ import {
     OriginationController,
     ArcadeItemsVerifier,
     VaultFactory,
-    BaseURIDescriptor,
+    StaticURIDescriptor,
     CollectionWideOfferVerifier,
     ArtBlocksVerifier,
     CallWhitelistAllExtensions
@@ -31,16 +31,16 @@ import {
 
 export interface DeployedResources {
     whitelist: CallWhitelistAllExtensions;
-    vaultFactoryURIDescriptor: BaseURIDescriptor;
+    vaultFactoryURIDescriptor: StaticURIDescriptor;
     feeController: FeeController;
     assetVault: AssetVault;
     vaultFactory: VaultFactory;
     loanCore: LoanCore;
     repaymentController: RepaymentController;
     originationController: OriginationController;
-    borrowerNoteURIDescriptor: BaseURIDescriptor;
+    borrowerNoteURIDescriptor: StaticURIDescriptor;
     borrowerNote: PromissoryNote;
-    lenderNoteURIDescriptor: BaseURIDescriptor;
+    lenderNoteURIDescriptor: StaticURIDescriptor;
     lenderNote: PromissoryNote;
     arcadeItemsVerifier: ArcadeItemsVerifier;
     collectionWideOfferVerifier: CollectionWideOfferVerifier;
@@ -69,8 +69,8 @@ export async function main(): Promise<void> {
     console.log("AssetVault deployed to:", assetVault.address);
     console.log(SUBSECTION_SEPARATOR);
 
-    const BaseURIDescriptorFactory = await ethers.getContractFactory("BaseURIDescriptor");
-    const vfURIDescriptor = <BaseURIDescriptor>await BaseURIDescriptorFactory.deploy(`${VAULT_FACTORY_BASE_URI}`);
+    const StaticURIDescriptorFactory = await ethers.getContractFactory("StaticURIDescriptor");
+    const vfURIDescriptor = <StaticURIDescriptor>await StaticURIDescriptorFactory.deploy(`${VAULT_FACTORY_BASE_URI}`);
     await vfURIDescriptor.deployed();
 
     console.log("Vault Factory URI Descriptor deployed to:", vfURIDescriptor.address);
@@ -100,8 +100,8 @@ export async function main(): Promise<void> {
 
     const PromissoryNoteFactory = await ethers.getContractFactory("PromissoryNote");
 
-    const borrowerNoteURIDescriptor = <BaseURIDescriptor>(
-        await BaseURIDescriptorFactory.deploy(`${BORROWER_NOTE_BASE_URI}`)
+    const borrowerNoteURIDescriptor = <StaticURIDescriptor>(
+        await StaticURIDescriptorFactory.deploy(`${BORROWER_NOTE_BASE_URI}`)
     );
     await borrowerNoteURIDescriptor.deployed();
 
@@ -116,8 +116,8 @@ export async function main(): Promise<void> {
 
     console.log("BorrowerNote deployed to:", borrowerNote.address);
 
-    const lenderNoteURIDescriptor = <BaseURIDescriptor>(
-        await BaseURIDescriptorFactory.deploy(`${LENDER_NOTE_BASE_URI}`)
+    const lenderNoteURIDescriptor = <StaticURIDescriptor>(
+        await StaticURIDescriptorFactory.deploy(`${LENDER_NOTE_BASE_URI}`)
     );
     await lenderNoteURIDescriptor.deployed();
 
