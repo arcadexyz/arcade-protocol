@@ -5,7 +5,7 @@ import { Contract } from "ethers";
 import {
     CallWhitelistAllExtensions,
     AssetVault,
-    BaseURIDescriptor,
+    StaticURIDescriptor,
     FeeController,
     VaultFactory,
     PromissoryNote,
@@ -19,13 +19,13 @@ import {
 
 export interface ContractArgs {
     whitelist: CallWhitelistAllExtensions;
-    vaultFactoryURIDescriptor: BaseURIDescriptor;
+    vaultFactoryURIDescriptor: StaticURIDescriptor;
     feeController: FeeController;
     assetVault: AssetVault;
     vaultFactory: VaultFactory;
-    borrowerNoteURIDescriptor: BaseURIDescriptor;
+    borrowerNoteURIDescriptor: StaticURIDescriptor;
     borrowerNote: PromissoryNote;
-    lenderNoteURIDescriptor: BaseURIDescriptor;
+    lenderNoteURIDescriptor: StaticURIDescriptor;
     lenderNote: PromissoryNote;
     loanCore: LoanCore;
     repaymentController: RepaymentController;
@@ -68,7 +68,7 @@ export async function loadContracts(jsonFile: string): Promise<ContractArgs> {
         if (key.endsWith("Note")) {
             contract = await ethers.getContractAt("PromissoryNote", jsonData[key]["contractAddress"]);
         } else if (key.endsWith("Descriptor")) {
-            contract = await ethers.getContractAt("BaseURIDescriptor", jsonData[key]["contractAddress"]);
+            contract = await ethers.getContractAt("StaticURIDescriptor", jsonData[key]["contractAddress"]);
         } else {
             contract = await ethers.getContractAt(key, jsonData[key]["contractAddress"]);
         }

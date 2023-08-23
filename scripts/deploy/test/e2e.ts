@@ -39,7 +39,7 @@ import {
     PromissoryNote,
     OriginationController,
     VaultFactory,
-    BaseURIDescriptor
+    StaticURIDescriptor
 } from "../../../typechain";
 
 /**
@@ -217,9 +217,9 @@ describe("Deployment", function() {
         expect(await whitelist.getRoleMemberCount(ADMIN_ROLE)).to.eq(1);
         expect(await whitelist.getRoleMemberCount(WHITELIST_MANAGER_ROLE)).to.eq(1);
 
-        const baseURIDescriptorFactory = await ethers.getContractFactory("BaseURIDescriptor");
-        const vaultFactoryURIDescriptor = <BaseURIDescriptor>(
-            await baseURIDescriptorFactory.attach(deployment["VaultFactoryURIDescriptor"].contractAddress)
+        const StaticURIDescriptorFactory = await ethers.getContractFactory("StaticURIDescriptor");
+        const vaultFactoryURIDescriptor = <StaticURIDescriptor>(
+            await StaticURIDescriptorFactory.attach(deployment["VaultFactoryURIDescriptor"].contractAddress)
         );
 
         expect(await vaultFactoryURIDescriptor.owner()).to.eq(RESOURCE_MANAGER);
@@ -246,8 +246,8 @@ describe("Deployment", function() {
 
         const noteFactory = await ethers.getContractFactory("PromissoryNote");
 
-        const borrowerNoteURIDescriptor = <BaseURIDescriptor>(
-            await baseURIDescriptorFactory.attach(deployment["BorrowerNoteURIDescriptor"].contractAddress)
+        const borrowerNoteURIDescriptor = <StaticURIDescriptor>(
+            await StaticURIDescriptorFactory.attach(deployment["BorrowerNoteURIDescriptor"].contractAddress)
         );
 
         expect(await borrowerNoteURIDescriptor.owner()).to.eq(RESOURCE_MANAGER);
@@ -257,8 +257,8 @@ describe("Deployment", function() {
         expect(await borrowerNote.hasRole(ADMIN_ROLE, ADMIN)).to.be.false;
         expect(await borrowerNote.getRoleMemberCount(ADMIN_ROLE)).to.eq(0);
 
-        const lenderNoteURIDescriptor = <BaseURIDescriptor>(
-            await baseURIDescriptorFactory.attach(deployment["LenderNoteURIDescriptor"].contractAddress)
+        const lenderNoteURIDescriptor = <StaticURIDescriptor>(
+            await StaticURIDescriptorFactory.attach(deployment["LenderNoteURIDescriptor"].contractAddress)
         );
 
         expect(await lenderNoteURIDescriptor.owner()).to.eq(RESOURCE_MANAGER);
@@ -338,7 +338,7 @@ describe("Deployment", function() {
             const contractData = deployment[contractName];
 
             if (contractName.endsWith("Note")) contractName = "PromissoryNote";
-            else if (contractName.endsWith("Descriptor")) contractName = "BaseURIDescriptor";
+            else if (contractName.endsWith("Descriptor")) contractName = "StaticURIDescriptor";
             const artifact = await artifacts.readArtifact(contractName);
 
             const verifiedAbi = await getVerifiedABI(contractData.contractAddress);
