@@ -22,7 +22,7 @@ import { mint } from "./utils/erc20";
 import { mintToAddress as mintERC721 } from "./utils/erc721";
 import { mint as mintERC1155 } from "./utils/erc1155";
 import { deploy } from "./utils/contracts";
-import { BASE_URI } from "./utils/constants";
+import { BASE_URI, WHITELIST_MANAGER_ROLE } from "./utils/constants";
 import { LogDescription } from "ethers/lib/utils";
 
 type Signer = SignerWithAddress;
@@ -81,6 +81,8 @@ describe("AssetVault", () => {
         const signers: Signer[] = await hre.ethers.getSigners();
         const registry = <DelegationRegistry>await deploy("DelegationRegistry", signers[0], []);
         const whitelist = <CallWhitelist>await deploy("CallWhitelistAllExtensions", signers[0], [registry.address]);
+        await whitelist.grantRole(WHITELIST_MANAGER_ROLE, signers[0].address);
+
         const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
         const mockERC721 = <MockERC721>await deploy("MockERC721", signers[0], ["Mock ERC721", "MOCK"]);
         const mockERC1155 = <MockERC1155>await deploy("MockERC1155", signers[0], []);

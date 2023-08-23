@@ -86,7 +86,7 @@ contract CallWhitelistDelegation is CallWhitelist {
      *
      * @param _registry             The new registry.
      */
-    function setRegistry(address _registry) external onlyRole(WHITELIST_MANAGER_ROLE) {
+    function setRegistry(address _registry) external onlyRole(ADMIN_ROLE) {
         if (address(registry) == _registry) revert CWD_RegistryAlreadySet();
 
         registry = IDelegationRegistry(_registry);

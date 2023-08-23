@@ -6,6 +6,8 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { CallWhitelist, MockERC20, MockERC721, MockERC1155, CryptoPunksMarket } from "../typechain";
 import { deploy } from "./utils/contracts";
 
+import { WHITELIST_MANAGER_ROLE } from "./utils/constants";
+
 type Signer = SignerWithAddress;
 
 interface TestContext {
@@ -31,6 +33,8 @@ describe("CallWhitelist", () => {
         const mockERC1155 = <MockERC1155>await deploy("MockERC1155", signers[0], []);
         const mockPunks = <CryptoPunksMarket>await deploy("CryptoPunksMarket", signers[0], []);
 
+        await whitelist.grantRole(WHITELIST_MANAGER_ROLE, signers[0].address);
+
         return {
             whitelist,
             mockERC20,
@@ -45,7 +49,7 @@ describe("CallWhitelist", () => {
 
     describe("Access control", function () {
         describe("add", async () => {
-            it("should succeed from owner", async () => {
+            it("should succeed from whitelist manager", async () => {
                 const { whitelist, mockERC20, user } = await loadFixture(fixture);
 
                 const selector = mockERC20.interface.getSighash("mint");
@@ -54,42 +58,46 @@ describe("CallWhitelist", () => {
                     .withArgs(user.address, mockERC20.address, selector);
             });
 
-            it("should fail from non-owner", async () => {
+            it("should fail from non-whitelist manager", async () => {
                 const { whitelist, mockERC20, other } = await loadFixture(fixture);
 
                 const selector = mockERC20.interface.getSighash("mint");
                 await expect(whitelist.connect(other).add(mockERC20.address, selector)).to.be.revertedWith(
-                    "Ownable: caller is not the owner",
+                    "AccessControl",
                 );
             });
 
-            it("should succeed after ownership transferred", async () => {
+            it("should succeed after role granted", async () => {
                 const { whitelist, mockERC20, user, other } = await loadFixture(fixture);
 
                 const selector = mockERC20.interface.getSighash("mint");
-                await expect(whitelist.connect(user).transferOwnership(other.address))
-                    .to.emit(whitelist, "OwnershipTransferred")
-                    .withArgs(user.address, other.address);
+
+                await expect(whitelist.connect(user).grantRole(WHITELIST_MANAGER_ROLE, other.address))
+                    .to.emit(whitelist, "RoleGranted")
+                    .withArgs(WHITELIST_MANAGER_ROLE, other.address, user.address);
+
                 await expect(whitelist.connect(other).add(mockERC20.address, selector))
                     .to.emit(whitelist, "CallAdded")
                     .withArgs(other.address, mockERC20.address, selector);
             });
 
-            it("should fail from old address after ownership transferred", async () => {
-                const { whitelist, mockERC20, user, other } = await loadFixture(fixture);
+            it("should fail from old address after role renounced", async () => {
+                const { whitelist, mockERC20, user } = await loadFixture(fixture);
 
                 const selector = mockERC20.interface.getSighash("mint");
-                await expect(whitelist.connect(user).transferOwnership(other.address))
-                    .to.emit(whitelist, "OwnershipTransferred")
-                    .withArgs(user.address, other.address);
+
+                await expect(whitelist.connect(user).renounceRole(WHITELIST_MANAGER_ROLE, user.address))
+                    .to.emit(whitelist, "RoleRevoked")
+                    .withArgs(WHITELIST_MANAGER_ROLE, user.address, user.address);
+
                 await expect(whitelist.connect(user).add(mockERC20.address, selector)).to.be.revertedWith(
-                    "Ownable: caller is not the owner",
+                    "AccessControl",
                 );
             });
         });
 
         describe("remove", async () => {
-            it("should succeed from owner", async () => {
+            it("should succeed from whitelist manager ", async () => {
                 const { whitelist, mockERC20, user } = await loadFixture(fixture);
 
                 const selector = mockERC20.interface.getSighash("mint");
@@ -101,45 +109,52 @@ describe("CallWhitelist", () => {
                     .withArgs(user.address, mockERC20.address, selector);
             });
 
-            it("should fail from non-owner", async () => {
+            it("should fail from non-whitelist manager", async () => {
                 const { whitelist, mockERC20, user, other } = await loadFixture(fixture);
 
                 const selector = mockERC20.interface.getSighash("mint");
                 await expect(whitelist.connect(user).add(mockERC20.address, selector))
                     .to.emit(whitelist, "CallAdded")
                     .withArgs(user.address, mockERC20.address, selector);
+
                 await expect(whitelist.connect(other).remove(mockERC20.address, selector)).to.be.revertedWith(
-                    "Ownable: caller is not the owner",
+                    "AccessControl",
                 );
             });
 
-            it("should succeed after ownership transferred", async () => {
+            it("should succeed after role granted", async () => {
                 const { whitelist, mockERC20, user, other } = await loadFixture(fixture);
 
                 const selector = mockERC20.interface.getSighash("mint");
-                await expect(whitelist.connect(user).transferOwnership(other.address))
-                    .to.emit(whitelist, "OwnershipTransferred")
-                    .withArgs(user.address, other.address);
+
+                await expect(whitelist.connect(user).grantRole(WHITELIST_MANAGER_ROLE, other.address))
+                    .to.emit(whitelist, "RoleGranted")
+                    .withArgs(WHITELIST_MANAGER_ROLE, other.address, user.address);
+
                 await expect(whitelist.connect(other).add(mockERC20.address, selector))
                     .to.emit(whitelist, "CallAdded")
                     .withArgs(other.address, mockERC20.address, selector);
+
                 await expect(whitelist.connect(other).remove(mockERC20.address, selector))
                     .to.emit(whitelist, "CallRemoved")
                     .withArgs(other.address, mockERC20.address, selector);
             });
 
-            it("should fail from old address after ownership transferred", async () => {
-                const { whitelist, mockERC20, user, other } = await loadFixture(fixture);
+            it("should fail from old address after role renounced", async () => {
+                const { whitelist, mockERC20, user } = await loadFixture(fixture);
 
                 const selector = mockERC20.interface.getSighash("mint");
-                await expect(whitelist.connect(user).transferOwnership(other.address))
-                    .to.emit(whitelist, "OwnershipTransferred")
-                    .withArgs(user.address, other.address);
-                await expect(whitelist.connect(other).add(mockERC20.address, selector))
+
+                await expect(whitelist.connect(user).add(mockERC20.address, selector))
                     .to.emit(whitelist, "CallAdded")
-                    .withArgs(other.address, mockERC20.address, selector);
+                    .withArgs(user.address, mockERC20.address, selector);
+
+                await expect(whitelist.connect(user).renounceRole(WHITELIST_MANAGER_ROLE, user.address))
+                    .to.emit(whitelist, "RoleRevoked")
+                    .withArgs(WHITELIST_MANAGER_ROLE, user.address, user.address);
+
                 await expect(whitelist.connect(user).remove(mockERC20.address, selector)).to.be.revertedWith(
-                    "Ownable: caller is not the owner",
+                    "AccessControl"
                 );
             });
         });
@@ -293,9 +308,9 @@ describe("CallWhitelist", () => {
 
             await expect(whitelist.remove(mockERC20.address, selector))
                 .to.be.revertedWith(`CW_NotWhitelisted("${mockERC20.address}", "${selector}")`);
-            
+
         });
-        
+
         it("add again after removing", async () => {
             const { whitelist, mockERC20 } = await loadFixture(fixture);
             const selector = mockERC20.interface.getSighash("mint");

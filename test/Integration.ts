@@ -264,28 +264,45 @@ describe("Integration", () => {
             } = await loadFixture(fixture);
 
             // LoanCore roles
-            expect(await loanCore.hasRole(FEE_CLAIMER_ROLE, admin.address)).to.be.true;
             expect(await loanCore.hasRole(ORIGINATOR_ROLE, originationController.address)).to.be.true;
+            expect(await loanCore.getRoleMemberCount(ORIGINATOR_ROLE)).to.eq(1);
             expect(await loanCore.hasRole(REPAYER_ROLE, repaymentController.address)).to.be.true;
-            // CallWhitelist owner
-            expect(await whitelist.owner()).to.equal(admin.address);
+            expect(await loanCore.getRoleMemberCount(REPAYER_ROLE)).to.eq(1);
+            expect(await loanCore.hasRole(FEE_CLAIMER_ROLE, admin.address)).to.be.true;
+            expect(await loanCore.getRoleMemberCount(FEE_CLAIMER_ROLE)).to.eq(1);
+            expect(await loanCore.getRoleMemberCount(AFFILIATE_MANAGER_ROLE)).to.eq(0);
+            // CallWhitelist roles
+            expect(await whitelist.hasRole(ADMIN_ROLE, admin.address)).to.be.true;
+            expect(await whitelist.getRoleMemberCount(ADMIN_ROLE)).to.eq(1);
+            expect(await whitelist.getRoleMemberCount(WHITELIST_MANAGER_ROLE)).to.eq(0);
             // FeeController owner
             expect(await feeController.owner()).to.equal(admin.address);
             // BaseURIDescriptor owner
             expect(await descriptor.owner()).to.equal(admin.address);
             // VaultFactory roles
             expect(await vaultFactory.hasRole(ADMIN_ROLE, admin.address)).to.be.true;
+            expect(await vaultFactory.getRoleMemberCount(ADMIN_ROLE)).to.eq(1);
             expect(await vaultFactory.hasRole(FEE_CLAIMER_ROLE, admin.address)).to.be.true;
+            expect(await vaultFactory.getRoleMemberCount(FEE_CLAIMER_ROLE)).to.eq(1);
+            expect(await vaultFactory.getRoleMemberCount(RESOURCE_MANAGER_ROLE)).to.eq(0);
             // PromissoryNotes roles
             expect(await borrowerNote.hasRole(ADMIN_ROLE, admin.address)).to.be.false;
+            expect(await borrowerNote.getRoleMemberCount(ADMIN_ROLE)).to.eq(0);
             expect(await borrowerNote.hasRole(MINT_BURN_ROLE, loanCore.address)).to.be.true;
+            expect(await borrowerNote.getRoleMemberCount(MINT_BURN_ROLE)).to.eq(1);
             expect(await borrowerNote.hasRole(RESOURCE_MANAGER_ROLE, admin.address)).to.be.true;
+            expect(await borrowerNote.getRoleMemberCount(RESOURCE_MANAGER_ROLE)).to.eq(1);
             expect(await lenderNote.hasRole(ADMIN_ROLE, admin.address)).to.be.false;
+            expect(await lenderNote.getRoleMemberCount(ADMIN_ROLE)).to.eq(0);
             expect(await lenderNote.hasRole(MINT_BURN_ROLE, loanCore.address)).to.be.true;
+            expect(await lenderNote.getRoleMemberCount(MINT_BURN_ROLE)).to.eq(1);
             expect(await lenderNote.hasRole(RESOURCE_MANAGER_ROLE, admin.address)).to.be.true;
+            expect(await lenderNote.getRoleMemberCount(RESOURCE_MANAGER_ROLE)).to.eq(1);
             // OriginationController roles
             expect(await originationController.hasRole(ADMIN_ROLE, admin.address)).to.be.true;
+            expect(await originationController.getRoleMemberCount(ADMIN_ROLE)).to.eq(1);
             expect(await originationController.hasRole(WHITELIST_MANAGER_ROLE, admin.address)).to.be.true;
+            expect(await originationController.getRoleMemberCount(WHITELIST_MANAGER_ROLE)).to.eq(1);
         });
     });
 
