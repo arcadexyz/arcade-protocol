@@ -1,5 +1,5 @@
 import fs from "fs"
-import hre, { ethers } from "hardhat";
+import { ethers } from "hardhat";
 import { Contract } from "ethers";
 
 import {
@@ -93,6 +93,7 @@ export async function setupRoles(resources: ContractArgs): Promise<void> {
     // ============= CallWhitelist ==============
 
     const { whitelist } = resources;
+    console.log("RESOURCES", whitelist.address);
     await whitelist.grantRole(ADMIN_ROLE, ADMIN);
     await whitelist.grantRole(WHITELIST_MANAGER_ROLE, CALL_WHITELIST_MANAGER);
     await whitelist.renounceRole(ADMIN_ROLE, deployer.address);
@@ -136,6 +137,7 @@ export async function setupRoles(resources: ContractArgs): Promise<void> {
     // =========== borrowerNoteURIDescriptor ============
 
     const { borrowerNoteURIDescriptor } = resources;
+    console.log(borrowerNoteURIDescriptor.address);
     await borrowerNoteURIDescriptor.transferOwnership(RESOURCE_MANAGER);
 
     console.log(`BorrowerNoteURIDescriptor: ownership transferred to ${RESOURCE_MANAGER}`);
@@ -211,9 +213,9 @@ async function loadContracts(jsonFile: string): Promise<ContractArgs> {
         console.log(`Key: ${key}, address: ${jsonData[key]["contractAddress"]}`);
 
         let contract: Contract;
-        if (key.includes("Note")) {
+        if (key.endsWith("Note")) {
             contract = await ethers.getContractAt("PromissoryNote", jsonData[key]["contractAddress"]);
-        } else if (key.includes("Descriptor")) {
+        } else if (key.endsWith("Descriptor")) {
             contract = await ethers.getContractAt("BaseURIDescriptor", jsonData[key]["contractAddress"]);
         } else {
             contract = await ethers.getContractAt(key, jsonData[key]["contractAddress"]);
@@ -227,12 +229,12 @@ async function loadContracts(jsonFile: string): Promise<ContractArgs> {
 
 if (require.main === module) {
     // retrieve command line args array
-    const [,,file] = process.argv;
+    const file = process.env.DEPLOYMENT_FILE;
 
     console.log("File:", file);
 
     // assemble args to access the relevant deplyment json in .deployment
-    void loadContracts(file)
+    void loadContracts(file!)
         .then(setupRoles)
         .then(() => process.exit(0))
         .catch((error: Error) => {

@@ -25,7 +25,7 @@ export const LENDER_NOTE_BASE_URI = `https://s3.amazonaws.com/images.pawn.fi/tes
 export const LENDER_NOTE_NAME = "Arcade.xyz Lender Note";
 export const LENDER_NOTE_SYMBOL = "aBN";
 
-export const ADMIN = "0x02C845ac4baC48A6CD1e1c88a84195B7d5805B82"; // in prod - will always be CV-owned timelock
+export const ADMIN = "0xAdD93e738a415c5248f7cB044FCFC71d86b18572"; // in prod - will always be CV-owned timelock
 export const RESOURCE_MANAGER = ADMIN; // core voting or delegated "low-security" multisig - controls NFT image
 export const CALL_WHITELIST_MANAGER = ADMIN; // core voting - adds vault utility via adding/removing function calls from CallWhitelist
 export const LOAN_WHITELIST_MANAGER = ADMIN; // core voting - manages OriginationController
