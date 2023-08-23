@@ -2,7 +2,7 @@ import fs from "fs";
 import hre from "hardhat";
 import { BigNumberish } from "ethers";
 
-import { ContractData } from "./write-json";
+import { ContractData } from "./record-deployment";
 
 import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../utils/constants";
 
@@ -34,10 +34,12 @@ async function verifyArtifacts(
 // get data from deployments json to run verify artifacts
 export async function main(): Promise<void> {
     // retrieve command line args array
-    const [,,file] = process.argv;
+    const file = process.env.DEPLOYMENT_FILE;
+
+    console.log("File:", file);
 
     // read deployment json to get contract addresses and constructor arguments
-    const readData = fs.readFileSync(file, 'utf-8');
+    const readData = fs.readFileSync(file!, 'utf-8');
     const jsonData = JSON.parse(readData);
 
     // loop through jsonData to run verifyArtifacts function

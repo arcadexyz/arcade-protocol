@@ -50,7 +50,7 @@ import {
  */
 assert(NETWORK !== "hardhat", "Must use a long-lived network!");
 
-describe("Deployment", function() {
+describe("Deployment", function () {
     this.timeout(0);
     this.bail();
 
