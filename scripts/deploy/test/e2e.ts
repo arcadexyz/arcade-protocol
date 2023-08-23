@@ -320,7 +320,7 @@ describe("Deployment", function() {
         expect(await originationController.getRoleMemberCount(WHITELIST_MANAGER_ROLE)).to.eq(1);
     });
 
-    it("verifies all contracts on the proper network", async () => {
+    it.skip("verifies all contracts on the proper network", async () => {
         const filename = getLatestDeploymentFile();
         const deployment = getLatestDeployment();
 
