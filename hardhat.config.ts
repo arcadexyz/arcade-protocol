@@ -50,7 +50,7 @@ if (forkMainnet && !process.env.ALCHEMY_API_KEY) {
 function createTestnetConfig(network: keyof typeof chainIds): NetworkUserConfig {
     const sepoliaUri = `https://rpc.sepolia.org/`;
     // const defaultUri = `https://eth-${network}.alchemyapi.io/v2/${alchemyApiKey}`;
-    const defaultUri = "https://rpc.tenderly.co/fork/8b6ad603-da2a-4edf-b5d7-5bb07d6b8503";
+    const defaultUri = "https://rpc.tenderly.co/fork/b07f6fed-dd16-42b1-ade9-55a68ee8856e";
     const url = network === `sepolia` ? sepoliaUri : defaultUri;
 
     return {

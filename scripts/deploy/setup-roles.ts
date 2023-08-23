@@ -1,21 +1,4 @@
-import fs from "fs"
-import { ethers } from "hardhat";
-import { Contract } from "ethers";
-
-import {
-    AssetVault,
-    FeeController,
-    LoanCore,
-    PromissoryNote,
-    RepaymentController,
-    OriginationController,
-    ArcadeItemsVerifier,
-    VaultFactory,
-    BaseURIDescriptor,
-    CollectionWideOfferVerifier,
-    ArtBlocksVerifier,
-    CallWhitelistAllExtensions
-} from "../../typechain";
+import { loadContracts, ContractArgs } from "../utils/deploy";
 
 import {
     ORIGINATOR_ROLE,
@@ -34,42 +17,6 @@ import {
     SUBSECTION_SEPARATOR,
     SECTION_SEPARATOR
 } from "../utils/constants";
-
-const jsonContracts: { [key: string]: string } = {
-    CallWhitelistAllExtensions: "whitelist",
-    AssetVault: "assetVault",
-    VaultFactoryURIDescriptor: "vaultFactoryURIDescriptor",
-    FeeController: "feeController",
-    VaultFactory: "vaultFactory",
-    BorrowerNoteURIDescriptor: "borrowerNoteURIDescriptor",
-    BorrowerNote: "borrowerNote",
-    LenderNoteURIDescriptor: "lenderNoteURIDescriptor",
-    LenderNote: "lenderNote",
-    LoanCore: "loanCore",
-    RepaymentController: "repaymentController",
-    OriginationController: "originationController",
-    ArcadeItemsVerifier: "verifier",
-    CollectionWideOfferVerifier: "collectionWideOfferVerifier",
-    ArtBlocksVerifier: "artBlocksVerifier",
-};
-
-interface ContractArgs {
-    whitelist: CallWhitelistAllExtensions;
-    vaultFactoryURIDescriptor: BaseURIDescriptor;
-    feeController: FeeController;
-    assetVault: AssetVault;
-    vaultFactory: VaultFactory;
-    borrowerNoteURIDescriptor: BaseURIDescriptor;
-    borrowerNote: PromissoryNote;
-    lenderNoteURIDescriptor: BaseURIDescriptor;
-    lenderNote: PromissoryNote;
-    loanCore: LoanCore;
-    repaymentController: RepaymentController;
-    originationController: OriginationController;
-    verifier: ArcadeItemsVerifier;
-    collectionWideOfferVerifier: CollectionWideOfferVerifier;
-    artBlocksVerifier: ArtBlocksVerifier;
-};
 
 export async function setupRoles(resources: ContractArgs): Promise<void> {
     const signers = await ethers.getSigners();
@@ -93,7 +40,6 @@ export async function setupRoles(resources: ContractArgs): Promise<void> {
     // ============= CallWhitelist ==============
 
     const { whitelist } = resources;
-    console.log("RESOURCES", whitelist.address);
     await whitelist.grantRole(ADMIN_ROLE, ADMIN);
     await whitelist.grantRole(WHITELIST_MANAGER_ROLE, CALL_WHITELIST_MANAGER);
     await whitelist.renounceRole(ADMIN_ROLE, deployer.address);
@@ -198,33 +144,7 @@ export async function setupRoles(resources: ContractArgs): Promise<void> {
     console.log(`OriginationController: Deployer renounced admin and whitelist manager role`);
     console.log(SUBSECTION_SEPARATOR);
 
-    console.log("Transferred all ownership.\n");
-}
-
-async function loadContracts(jsonFile: string): Promise<ContractArgs> {
-    const readData = fs.readFileSync(jsonFile, 'utf-8');
-    const jsonData = JSON.parse(readData);
-    const contracts: { [key: string]: Contract } = {};
-
-    for await (const key of Object.keys(jsonData)) {
-        if (!(key in jsonContracts)) continue;
-
-        const argKey = jsonContracts[key];
-        console.log(`Key: ${key}, address: ${jsonData[key]["contractAddress"]}`);
-
-        let contract: Contract;
-        if (key.endsWith("Note")) {
-            contract = await ethers.getContractAt("PromissoryNote", jsonData[key]["contractAddress"]);
-        } else if (key.endsWith("Descriptor")) {
-            contract = await ethers.getContractAt("BaseURIDescriptor", jsonData[key]["contractAddress"]);
-        } else {
-            contract = await ethers.getContractAt(key, jsonData[key]["contractAddress"]);
-        }
-
-        contracts[argKey] = contract;
-    }
-
-    return contracts as unknown as ContractArgs;
+    console.log("✅ Transferred all ownership.");
 }
 
 if (require.main === module) {

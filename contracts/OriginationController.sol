@@ -599,12 +599,12 @@ contract OriginationController is
     /**
      * @notice Return whether the address can be used as a loan funding currency.
      *
-     * @param verifier             The verifier contract to query.
+     * @param token                 The token to query.
      *
-     * @return isAllowed          Whether the contract is verified.
+     * @return isAllowed            Whether the contract is verified.
      */
-    function isAllowedCurrency(address verifier) public view override returns (bool) {
-        return allowedCurrencies[verifier].isAllowed;
+    function isAllowedCurrency(address token) public view override returns (bool) {
+        return allowedCurrencies[token].isAllowed;
     }
 
     /**

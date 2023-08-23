@@ -3,7 +3,7 @@
 pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 
 import "../interfaces/ICallWhitelist.sol";
 
@@ -28,7 +28,7 @@ import {
  *
  * The contract owner can add or remove items from the whitelist.
  */
-contract CallWhitelist is AccessControl, CallBlacklist, ICallWhitelist {
+contract CallWhitelist is AccessControlEnumerable, CallBlacklist, ICallWhitelist {
     using SafeERC20 for IERC20;
 
     // ============================================ STATE ==============================================

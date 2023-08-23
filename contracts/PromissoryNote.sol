@@ -4,7 +4,7 @@ pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
 import "./interfaces/IPromissoryNote.sol";
@@ -35,7 +35,7 @@ import {
  *  - a minter role that allows for token minting (creation)
  *  - token ID and URI autogeneration
  *
- * This contract uses {AccessControl} to lock permissioned functions using the
+ * This contract uses {AccessControlEnumerable} to lock permissioned functions using the
  * different roles - head to its documentation for details.
  *
  * The account that deploys the contract will be granted the minter and pauser
@@ -44,7 +44,7 @@ import {
  */
 contract PromissoryNote is
     Context,
-    AccessControl,
+    AccessControlEnumerable,
     ERC721Enumerable,
     ERC721Permit,
     IPromissoryNote
@@ -185,7 +185,7 @@ contract PromissoryNote is
         public
         view
         virtual
-        override(AccessControl, ERC721, ERC721Enumerable, IERC165)
+        override(AccessControlEnumerable, ERC721, ERC721Enumerable, IERC165)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
