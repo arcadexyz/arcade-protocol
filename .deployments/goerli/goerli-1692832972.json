@@ -12,7 +12,7 @@
   "VaultFactoryURIDescriptor": {
     "contractAddress": "0xEe6b65f040aa6C811e7E21637A532AC6819cdAe0",
     "constructorArgs": [
-      "https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnBeats/"
+      "ipfs://QmZqGmFmhHviRnzMadzoJn9kc5zx3XBGVQMaBMU4xVZVoQ"
     ]
   },
   "FeeController": {
@@ -31,7 +31,7 @@
   "BorrowerNoteURIDescriptor": {
     "contractAddress": "0xfF130C83706281dFf47C509BC729E797BF0e2f08",
     "constructorArgs": [
-      "https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnBeats/"
+      "ipfs://QmP33FAzZYMaNaUiNhok89bBKzEzq1qQ6LQ6FLbBFZprcc"
     ]
   },
   "BorrowerNote": {
@@ -45,14 +45,14 @@
   "LenderNoteURIDescriptor": {
     "contractAddress": "0x3806587d479b2ec44038e8F644FE3D2d82e4fF7C",
     "constructorArgs": [
-      "https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnBeats/"
+      "ipfs://QmSoqN1QskJRwrrdG867NjWdwsXkUmEcmMK1MmNUoEdHps"
     ]
   },
   "LenderNote": {
     "contractAddress": "0x393577385b03571ccBD95aFe6b14cD7382aB16C1",
     "constructorArgs": [
       "Arcade.xyz Lender Note",
-      "aBN",
+      "aLN",
       "0x3806587d479b2ec44038e8F644FE3D2d82e4fF7C"
     ]
   },
