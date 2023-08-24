@@ -47,7 +47,7 @@ export interface DeployedResources {
     artBlocksVerifier: ArtBlocksVerifier;
 }
 
-export async function main(): Promise<void> {
+export async function main(): Promise<DeployedResources> {
     // Hardhat always runs the compile task when running scripts through it.
     // If this runs in a standalone fashion you may want to call compile manually
     // to make sure everything is compiled
@@ -247,6 +247,8 @@ export async function main(): Promise<void> {
     console.log(SECTION_SEPARATOR);
 
     console.log("✅ Deployment complete.");
+
+    return resources;
 }
 
 // We recommend this pattern to be able to use async/await everywhere

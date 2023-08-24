@@ -88,5 +88,29 @@
   "ArtBlocksVerifier": {
     "contractAddress": "0x968915B9Bc4d88F5B0664F400DC9fd79D37470dD",
     "constructorArgs": []
+  },
+  "V2ToV3Rollover": {
+    "contractAddress": "0x413DC7055ab160FD4fbC48B082011a4B77cBF7a9",
+    "constructorArgs": [
+      "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+      {
+        "feeControllerV3": "0xa66Ccb968392Cd6652E32b8768Ae6343A65400cF",
+        "originationControllerV3": "0xB74C4B3f3ea71E2FFB382c633FF66527978FDCe8",
+        "loanCoreV3": "0xFfaE061d1e2d416bc3B8320145277052dba68923",
+        "borrowerNoteV3": "0xF5FB026f9EE9E0854a1b8Aa0867a8A76608b591e"
+      }
+    ]
+  },
+  "V2ToV3RolloverWithItems": {
+    "contractAddress": "0x3a0f9a98714Ed4a36CD5EbC07f364f39C88c2e8A",
+    "constructorArgs": [
+      "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+      {
+        "feeControllerV3": "0xa66Ccb968392Cd6652E32b8768Ae6343A65400cF",
+        "originationControllerV3": "0xB74C4B3f3ea71E2FFB382c633FF66527978FDCe8",
+        "loanCoreV3": "0xFfaE061d1e2d416bc3B8320145277052dba68923",
+        "borrowerNoteV3": "0xF5FB026f9EE9E0854a1b8Aa0867a8A76608b591e"
+      }
+    ]
   }
 }

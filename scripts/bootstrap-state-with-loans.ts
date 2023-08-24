@@ -27,7 +27,7 @@ export async function main(): Promise<void> {
         loanCore,
         feeController,
         whitelist,
-        verifier
+        arcadeItemsVerifier: verifier
     } = await deploy();
 
     // Mint some NFTs
