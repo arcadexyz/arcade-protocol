@@ -3,7 +3,7 @@ import path from "path";
 import hre from "hardhat";
 import { BigNumberish } from "ethers";
 
-import { DeployedResources } from "./deploy";
+import { DeployedResources } from "../utils/deploy";
 
 export interface ContractData {
     contractAddress: string;

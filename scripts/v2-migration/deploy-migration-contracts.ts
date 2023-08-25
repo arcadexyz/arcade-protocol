@@ -1,5 +1,5 @@
 import hre, { ethers } from "hardhat";
-import { loadContracts, Depl, DeployedResourcesoyedResources } from "../utils/deploy";
+import { loadContracts, DeployedResources } from "../utils/deploy";
 
 import { BALANCER_ADDRESS } from "./config";
 import { V2ToV3Rollover, V2ToV3RolloverWithItems } from "../../typechain";

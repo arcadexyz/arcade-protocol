@@ -83,10 +83,10 @@ export async function doWhitelisting(contracts: DeployedResources): Promise<void
     // Whitelist allowed collateral
     // Whitelist verifiers
 
-    const { originationController, verifier, collectionWideOfferVerifier, artBlocksVerifier } = contracts;
+    const { originationController, arcadeItemsVerifier, collectionWideOfferVerifier, artBlocksVerifier } = contracts;
     await whitelistPayableCurrencies(originationController);
     await whitelistCollections(originationController);
-    await whitelistVerifiers(originationController, [verifier, collectionWideOfferVerifier, artBlocksVerifier]);
+    await whitelistVerifiers(originationController, [arcadeItemsVerifier, collectionWideOfferVerifier, artBlocksVerifier]);
 
     console.log("✅ Whitelisting complete.");
 }
