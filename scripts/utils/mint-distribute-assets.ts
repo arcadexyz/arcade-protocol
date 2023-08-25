@@ -4,7 +4,7 @@ import { MockERC1155Metadata, MockERC20, MockERC721Metadata } from "../../typech
 
 import { getBalance, mintTokens } from "./tokens";
 import { getBalanceERC1155, mintNFTs } from "./nfts";
-import { SUBSECTION_SEPARATOR } from "./bootstrap-tools";
+import { SUBSECTION_SEPARATOR } from "./constants";
 
 export async function mintAndDistribute(
     signers: SignerWithAddress[],

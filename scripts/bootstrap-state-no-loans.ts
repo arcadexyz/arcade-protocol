@@ -17,7 +17,7 @@ export async function main(): Promise<void> {
     console.log("Deploying resources...\n");
 
     // Deploy the smart contracts
-    const { loanCore } = await deploy();
+    await deploy();
     console.log(SECTION_SEPARATOR);
 
     // Mint some NFTs

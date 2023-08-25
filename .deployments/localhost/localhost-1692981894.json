@@ -1,0 +1,92 @@
+{
+  "CallWhitelistAllExtensions": {
+    "contractAddress": "0x7354334e99Dcd64F964510129215Aa28aad887BC",
+    "constructorArgs": [
+      "0x00000000000076a84fef008cdabe6409d2fe638b"
+    ]
+  },
+  "AssetVault": {
+    "contractAddress": "0xcDFd42B5695f45daBDbaE0B5356d823CD38e83a7",
+    "constructorArgs": []
+  },
+  "VaultFactoryURIDescriptor": {
+    "contractAddress": "0xEe6b65f040aa6C811e7E21637A532AC6819cdAe0",
+    "constructorArgs": [
+      "ipfs://QmZqGmFmhHviRnzMadzoJn9kc5zx3XBGVQMaBMU4xVZVoQ"
+    ]
+  },
+  "FeeController": {
+    "contractAddress": "0xa66Ccb968392Cd6652E32b8768Ae6343A65400cF",
+    "constructorArgs": []
+  },
+  "VaultFactory": {
+    "contractAddress": "0x8fB52cb2bb677464b3ae9755925dE08a78Ddac18",
+    "constructorArgs": [
+      "0xcDFd42B5695f45daBDbaE0B5356d823CD38e83a7",
+      "0x7354334e99Dcd64F964510129215Aa28aad887BC",
+      "0xa66Ccb968392Cd6652E32b8768Ae6343A65400cF",
+      "0xEe6b65f040aa6C811e7E21637A532AC6819cdAe0"
+    ]
+  },
+  "BorrowerNoteURIDescriptor": {
+    "contractAddress": "0xfF130C83706281dFf47C509BC729E797BF0e2f08",
+    "constructorArgs": [
+      "ipfs://QmP33FAzZYMaNaUiNhok89bBKzEzq1qQ6LQ6FLbBFZprcc"
+    ]
+  },
+  "BorrowerNote": {
+    "contractAddress": "0xF5FB026f9EE9E0854a1b8Aa0867a8A76608b591e",
+    "constructorArgs": [
+      "Arcade.xyz Borrower Note",
+      "aBN",
+      "0xfF130C83706281dFf47C509BC729E797BF0e2f08"
+    ]
+  },
+  "LenderNoteURIDescriptor": {
+    "contractAddress": "0x3806587d479b2ec44038e8F644FE3D2d82e4fF7C",
+    "constructorArgs": [
+      "ipfs://QmSoqN1QskJRwrrdG867NjWdwsXkUmEcmMK1MmNUoEdHps"
+    ]
+  },
+  "LenderNote": {
+    "contractAddress": "0x393577385b03571ccBD95aFe6b14cD7382aB16C1",
+    "constructorArgs": [
+      "Arcade.xyz Lender Note",
+      "aLN",
+      "0x3806587d479b2ec44038e8F644FE3D2d82e4fF7C"
+    ]
+  },
+  "LoanCore": {
+    "contractAddress": "0xFfaE061d1e2d416bc3B8320145277052dba68923",
+    "constructorArgs": [
+      "0xF5FB026f9EE9E0854a1b8Aa0867a8A76608b591e",
+      "0x393577385b03571ccBD95aFe6b14cD7382aB16C1"
+    ]
+  },
+  "RepaymentController": {
+    "contractAddress": "0x1F35a2d7746ef2569fF7a809609C4348353A4016",
+    "constructorArgs": [
+      "0xFfaE061d1e2d416bc3B8320145277052dba68923",
+      "0xa66Ccb968392Cd6652E32b8768Ae6343A65400cF"
+    ]
+  },
+  "OriginationController": {
+    "contractAddress": "0xB74C4B3f3ea71E2FFB382c633FF66527978FDCe8",
+    "constructorArgs": [
+      "0xFfaE061d1e2d416bc3B8320145277052dba68923",
+      "0xa66Ccb968392Cd6652E32b8768Ae6343A65400cF"
+    ]
+  },
+  "ArcadeItemsVerifier": {
+    "contractAddress": "0x824793838f4e6d621ab661462CAe831b36b74dFf",
+    "constructorArgs": []
+  },
+  "CollectionWideOfferVerifier": {
+    "contractAddress": "0x122a2d5D54A546708a80e7275b96D772f3826ffA",
+    "constructorArgs": []
+  },
+  "ArtBlocksVerifier": {
+    "contractAddress": "0x968915B9Bc4d88F5B0664F400DC9fd79D37470dD",
+    "constructorArgs": []
+  }
+}
