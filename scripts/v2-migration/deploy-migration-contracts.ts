@@ -1,10 +1,10 @@
 import hre, { ethers } from "hardhat";
-import { loadContracts, ContractArgs } from "../utils/deploy";
+import { loadContracts, Depl, DeployedResourcesoyedResources } from "../utils/deploy";
 
 import { BALANCER_ADDRESS } from "./config";
 import { V2ToV3Rollover, V2ToV3RolloverWithItems } from "../../typechain";
 
-export async function deploy(resources: ContractArgs): Promise<void> {
+export async function deploy(resources: DeployedResources): Promise<void> {
     const args = [
         BALANCER_ADDRESS,
         {
@@ -15,40 +15,38 @@ export async function deploy(resources: ContractArgs): Promise<void> {
         }
     ];
 
-    // const rolloverBaseFactory = await ethers.getContractFactory("V2ToV3Rollover");
-    // const rolloverWithItemsFactory = await ethers.getContractFactory("V2ToV3RolloverWithItems");
+    const rolloverBaseFactory = await ethers.getContractFactory("V2ToV3Rollover");
+    const rolloverWithItemsFactory = await ethers.getContractFactory("V2ToV3RolloverWithItems");
 
-    // const rollover = <V2ToV3Rollover>await rolloverBaseFactory.deploy(...args);
-    // const rolloverWithItems = <V2ToV3RolloverWithItems>await rolloverWithItemsFactory.deploy(...args);
-    // await Promise.all([rollover.deployed(), rolloverWithItems.deployed()]);
+    const rollover = <V2ToV3Rollover>await rolloverBaseFactory.deploy(...args);
+    const rolloverWithItems = <V2ToV3RolloverWithItems>await rolloverWithItemsFactory.deploy(...args);
+    await Promise.all([rollover.deployed(), rolloverWithItems.deployed()]);
 
-    // console.log();
-    // console.log("V2ToV3Rollover deployed to:", rollover.address);
-    // console.log("V2ToV3RolloverWithItems deployed to:", rolloverWithItems.address);
+    console.log();
+    console.log("V2ToV3Rollover deployed to:", rollover.address);
+    console.log("V2ToV3RolloverWithItems deployed to:", rolloverWithItems.address);
 
-    // console.log("\nPaste into deployments JSON:");
-    // console.log(JSON.stringify({
-    //     V2ToV3Rollover: {
-    //         contractAddress: rollover.address,
-    //         constructorArgs: args
-    //     },
-    //     V2ToV3RolloverWithItems: {
-    //         contractAddress: rolloverWithItems.address,
-    //         constructorArgs: args
-    //     }
-    // }, null, 4));
-    // console.log("\n");
+    console.log("\nPaste into deployments JSON:");
+    console.log(JSON.stringify({
+        V2ToV3Rollover: {
+            contractAddress: rollover.address,
+            constructorArgs: args
+        },
+        V2ToV3RolloverWithItems: {
+            contractAddress: rolloverWithItems.address,
+            constructorArgs: args
+        }
+    }, null, 4));
+    console.log("\n");
 
     if (process.env.VERIFY) {
         await hre.run("verify:verify", {
-            // address: rollover.address,
-            address: "0x413DC7055ab160FD4fbC48B082011a4B77cBF7a9",
+            address: rollover.address,
             constructorArguments: args
         });
 
         await hre.run("verify:verify", {
-            // address: rolloverWithItems.address,
-            address: "0x3a0f9a98714Ed4a36CD5EbC07f364f39C88c2e8A",
+            address: rolloverWithItems.address,
             constructorArguments: args
         });
     }

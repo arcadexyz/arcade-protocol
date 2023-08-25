@@ -4,12 +4,10 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-wit
 
 import { LoanTerms } from "../../test/utils/types";
 import { createLoanTermsSignature } from "../../test/utils/eip712";
-import { setupRoles } from "../deploy/setup-roles";
 import { SECTION_SEPARATOR } from "./constants";
 
 import { MockERC1155Metadata, MockERC20, MockERC721Metadata, VaultFactory } from "../../typechain";
 import { createVault } from "./vault";
-import { ContractArgs } from "./deploy";
 
 export async function vaultAssetsAndMakeLoans(
     signers: SignerWithAddress[],
@@ -32,23 +30,6 @@ export async function vaultAssetsAndMakeLoans(
     console.log(SECTION_SEPARATOR);
     console.log("But let's set up roles and permissions first...\n");
     // setup the role privileges
-
-    const resources: ContractArgs = {
-        whitelist,
-
-    }
-
-    await setupRoles(
-        factory,
-        originationController,
-        borrowerNote,
-        repaymentController,
-        lenderNote,
-        loanCore,
-        feeController,
-        whitelist,
-        verifier
-    );
 
     // Connect the first signer with the
     const signer1 = signers[1];
@@ -176,7 +157,7 @@ export async function vaultAssetsAndMakeLoans(
         collateralId: av1A.address,
         payableCurrency: weth.address,
         deadline: 1754884800,
-        affiliateCode: "0x",
+        affiliateCode: ethers.constants.HashZero,
     };
 
     const sig = await createLoanTermsSignature(
@@ -210,7 +191,7 @@ export async function vaultAssetsAndMakeLoans(
         collateralId: av1B.address,
         payableCurrency: pawnToken.address,
         deadline: 1754884800,
-        affiliateCode: "0x",
+        affiliateCode: ethers.constants.HashZero,
     };
 
     const sig2 = await createLoanTermsSignature(
@@ -242,7 +223,7 @@ export async function vaultAssetsAndMakeLoans(
         collateralId: av3A.address,
         payableCurrency: usd.address,
         deadline: 1754884800,
-        affiliateCode: "0x",
+        affiliateCode: ethers.constants.HashZero,
     };
 
     const sig3 = await createLoanTermsSignature(
@@ -274,7 +255,7 @@ export async function vaultAssetsAndMakeLoans(
         collateralId: av3B.address,
         payableCurrency: usd.address,
         deadline: 1754884800,
-        affiliateCode: "0x",
+        affiliateCode: ethers.constants.HashZero,
     };
 
     const sig4 = await createLoanTermsSignature(
@@ -306,7 +287,7 @@ export async function vaultAssetsAndMakeLoans(
         collateralId: av3C.address,
         payableCurrency: weth.address,
         deadline: 1754884800,
-        affiliateCode: "0x",
+        affiliateCode: ethers.constants.HashZero,
     };
 
     const sig5 = await createLoanTermsSignature(
@@ -338,7 +319,7 @@ export async function vaultAssetsAndMakeLoans(
         collateralId: av4A.address,
         payableCurrency: pawnToken.address,
         deadline: 1754884800,
-        affiliateCode: "0x",
+        affiliateCode: ethers.constants.HashZero,
     };
 
     const sig6 = await createLoanTermsSignature(

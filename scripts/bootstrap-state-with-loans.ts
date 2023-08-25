@@ -7,17 +7,19 @@ import { vaultAssetsAndMakeLoans } from "./utils/bootstrap-tools";
 import { mintAndDistribute } from "./utils/mint-distribute-assets";
 import { deployNFTs } from "./utils/deploy-assets";
 import { SECTION_SEPARATOR } from "./utils/constants";
+import { DeployedResources } from "./utils/deploy";
 
 export async function main(): Promise<void> {
     // Bootstrap five accounts only.
     // Skip the first account, since the
     // first signer will be the deployer.
-    const [, ...signers] = (await ethers.getSigners()).slice(1, 7);
+    const [, ...signers] = (await ethers.getSigners()).slice(0, 6);
 
     console.log(SECTION_SEPARATOR);
     console.log("Deploying resources...\n");
 
     // Deploy the smart contracts
+    let resources: DeployedResources;
     const {
         vaultFactory,
         originationController,
@@ -27,8 +29,8 @@ export async function main(): Promise<void> {
         loanCore,
         feeController,
         whitelist,
-        arcadeItemsVerifier: verifier
-    } = await deploy();
+        arcadeItemsVerifier: verifier,
+    } = resources = await deploy();
 
     // Mint some NFTs
     console.log(SECTION_SEPARATOR);
@@ -38,6 +40,8 @@ export async function main(): Promise<void> {
     console.log(SECTION_SEPARATOR);
     console.log("Distributing assets...\n");
     await mintAndDistribute(signers, weth, pawnToken, usd, punks, art, beats);
+
+    // Setup roles
 
     // Vault some assets
     console.log(SECTION_SEPARATOR);

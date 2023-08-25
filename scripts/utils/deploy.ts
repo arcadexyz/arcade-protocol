@@ -3,37 +3,37 @@ import { ethers } from "hardhat";
 import { Contract } from "ethers";
 
 import {
-    CallWhitelistAllExtensions,
     AssetVault,
-    StaticURIDescriptor,
     FeeController,
-    VaultFactory,
-    PromissoryNote,
     LoanCore,
+    PromissoryNote,
     RepaymentController,
     OriginationController,
     ArcadeItemsVerifier,
+    VaultFactory,
+    StaticURIDescriptor,
     CollectionWideOfferVerifier,
     ArtBlocksVerifier,
+    CallWhitelistAllExtensions
 } from "../../typechain";
 
-export interface ContractArgs {
+export interface DeployedResources {
     whitelist: CallWhitelistAllExtensions;
     vaultFactoryURIDescriptor: StaticURIDescriptor;
     feeController: FeeController;
     assetVault: AssetVault;
     vaultFactory: VaultFactory;
+    loanCore: LoanCore;
+    repaymentController: RepaymentController;
+    originationController: OriginationController;
     borrowerNoteURIDescriptor: StaticURIDescriptor;
     borrowerNote: PromissoryNote;
     lenderNoteURIDescriptor: StaticURIDescriptor;
     lenderNote: PromissoryNote;
-    loanCore: LoanCore;
-    repaymentController: RepaymentController;
-    originationController: OriginationController;
-    verifier: ArcadeItemsVerifier;
+    arcadeItemsVerifier: ArcadeItemsVerifier;
     collectionWideOfferVerifier: CollectionWideOfferVerifier;
     artBlocksVerifier: ArtBlocksVerifier;
-};
+}
 
 const jsonContracts: { [key: string]: string } = {
     CallWhitelistAllExtensions: "whitelist",
@@ -48,12 +48,12 @@ const jsonContracts: { [key: string]: string } = {
     LoanCore: "loanCore",
     RepaymentController: "repaymentController",
     OriginationController: "originationController",
-    ArcadeItemsVerifier: "verifier",
+    ArcadeItemsVerifier: "arcadeItemsVerifier",
     CollectionWideOfferVerifier: "collectionWideOfferVerifier",
     ArtBlocksVerifier: "artBlocksVerifier",
 };
 
-export async function loadContracts(jsonFile: string): Promise<ContractArgs> {
+export async function loadContracts(jsonFile: string): Promise<DeployedResources> {
     const readData = fs.readFileSync(jsonFile, 'utf-8');
     const jsonData = JSON.parse(readData);
     const contracts: { [key: string]: Contract } = {};
@@ -76,5 +76,5 @@ export async function loadContracts(jsonFile: string): Promise<ContractArgs> {
         contracts[argKey] = contract;
     }
 
-    return contracts as unknown as ContractArgs;
+    return contracts as unknown as DeployedResources;
 }

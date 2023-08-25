@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import { random } from "lodash";
 
-import { loadContracts, ContractArgs } from "./utils/deploy";
+import { loadContracts, DeployedResources } from "./utils/deploy";
 import { SECTION_SEPARATOR } from "./utils/constants";
 import { LoanTerms } from "../test/utils/types";
 import { createLoanTermsSignature } from "../test/utils/eip712";
@@ -10,7 +10,7 @@ import { createVault } from "./utils/vault";
 
 import { MockERC721Metadata } from "../typechain";
 
-export async function makeLoan(resources: ContractArgs): Promise<void> {
+export async function makeLoan(resources: DeployedResources): Promise<void> {
     const signers = await ethers.getSigners();
     const [, admin, borrower, lender] = signers;
 

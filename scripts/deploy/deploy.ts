@@ -29,23 +29,7 @@ import {
     CallWhitelistAllExtensions
 } from "../../typechain";
 
-export interface DeployedResources {
-    whitelist: CallWhitelistAllExtensions;
-    vaultFactoryURIDescriptor: StaticURIDescriptor;
-    feeController: FeeController;
-    assetVault: AssetVault;
-    vaultFactory: VaultFactory;
-    loanCore: LoanCore;
-    repaymentController: RepaymentController;
-    originationController: OriginationController;
-    borrowerNoteURIDescriptor: StaticURIDescriptor;
-    borrowerNote: PromissoryNote;
-    lenderNoteURIDescriptor: StaticURIDescriptor;
-    lenderNote: PromissoryNote;
-    arcadeItemsVerifier: ArcadeItemsVerifier;
-    collectionWideOfferVerifier: CollectionWideOfferVerifier;
-    artBlocksVerifier: ArtBlocksVerifier;
-}
+import { DeployedResources } from "../utils/deploy";
 
 export async function main(): Promise<DeployedResources> {
     // Hardhat always runs the compile task when running scripts through it.

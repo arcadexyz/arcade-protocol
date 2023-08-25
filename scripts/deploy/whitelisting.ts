@@ -3,7 +3,7 @@ import fetch from "node-fetch";
 import { chunk } from "lodash";
 
 import { OriginationController } from "../../typechain";
-import { loadContracts, ContractArgs } from "../utils/deploy";
+import { loadContracts, DeployedResources } from "../utils/deploy";
 import { allowedCurrencies, minPrincipals } from "../utils/constants";
 
 /**
@@ -78,7 +78,7 @@ async function whitelistVerifiers(originationController: OriginationController, 
     console.log(`Whitelisted ${addrs.length} verifiers.`);
 }
 
-export async function doWhitelisting(contracts: ContractArgs): Promise<void> {
+export async function doWhitelisting(contracts: DeployedResources): Promise<void> {
     // Whitelist payable currencies
     // Whitelist allowed collateral
     // Whitelist verifiers

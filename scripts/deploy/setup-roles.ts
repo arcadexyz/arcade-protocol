@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-import { loadContracts, ContractArgs } from "../utils/deploy";
+import { loadContracts, DeployedResources } from "../utils/deploy";
 
 import {
     ORIGINATOR_ROLE,
@@ -21,7 +21,7 @@ import {
     SHUTDOWN_CALLER
 } from "../utils/constants";
 
-export async function setupRoles(resources: ContractArgs): Promise<void> {
+export async function setupRoles(resources: DeployedResources): Promise<void> {
     const signers = await ethers.getSigners();
     const [deployer] = signers;
 
