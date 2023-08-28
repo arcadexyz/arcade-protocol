@@ -33,6 +33,7 @@ export async function getVerifiedTokenData(): Promise<Record<string, any>[]> {
 
 export async function whitelistPayableCurrencies(originationController: OriginationController): Promise<void> {
     type AllowData = { isAllowed: true, minPrincipal: BigNumberish }[]
+
     const allowData = minPrincipals.reduce(
         (acc: AllowData, minPrincipal) => {
             acc.push({ isAllowed: true, minPrincipal });
