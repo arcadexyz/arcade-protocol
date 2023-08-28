@@ -7,9 +7,9 @@ import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "../../external/lp-1/loans/direct/loanTypes/DirectLoanFixedOffer.sol";
+import "../external/lp-1/loans/direct/loanTypes/DirectLoanFixedOffer.sol";
 
-import "../../interfaces/IMigrationBase.sol";
+import "../interfaces/IMigrationBase.sol";
 
 import {
     MR_FundsConflict,
@@ -19,6 +19,8 @@ import {
     MR_CollateralMismatch,
     MR_CallerNotBorrower
 } from "../errors/MigrationErrors.sol";
+
+import { R_StateAlreadySet } from "../errors/RolloverErrors.sol";
 
 /**
  * @title LP1MigrationBase
@@ -238,8 +240,14 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
      *
      * @dev This function is only to be used if a vulnerability is found or the contract
      *      is no longer being used.
+     *
+     * @param _pause              The state to set the contract to.
      */
-    function togglePause() external override onlyOwner {
-        paused = !paused;
+    function pause(bool _pause) external override onlyOwner {
+        if (paused == _pause) revert R_StateAlreadySet();
+
+        paused = _pause;
+
+        emit PausedStateChanged(_pause);
     }
 }

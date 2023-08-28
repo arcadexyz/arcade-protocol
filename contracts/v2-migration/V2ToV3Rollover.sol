@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.18;
 
-import "./base/V2ToV3RolloverBase.sol";
+import "./V2ToV3RolloverBase.sol";
 
 import "../interfaces/IMigration.sol";
 
@@ -15,7 +15,7 @@ import {
     R_InsufficientAllowance,
     R_Paused,
     R_ZeroAddress
-} from "./errors/RolloverErrors.sol";
+} from "../errors/RolloverErrors.sol";
 
 /**
  * @title V2ToV3Rollover

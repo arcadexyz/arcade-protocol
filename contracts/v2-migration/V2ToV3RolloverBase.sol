@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "../../interfaces/IMigrationBase.sol";
+import "../interfaces/IMigrationBase.sol";
 
 import {
     R_FundsConflict,

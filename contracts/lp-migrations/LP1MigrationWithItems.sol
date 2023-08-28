@@ -4,14 +4,14 @@ pragma solidity 0.8.18;
 
 import "../interfaces/IMigrationWithItems.sol";
 
-import "./base/LP1MigrationBase.sol";
+import "./LP1MigrationBase.sol";
 
 import {
     MR_UnknownCaller,
     MR_InsufficientFunds,
     MR_InsufficientAllowance,
     MR_Paused
-} from "./errors/MigrationErrors.sol";
+} from "../errors/MigrationErrors.sol";
 
 /**
  * @title LP1MigrationWithItems
