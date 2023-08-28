@@ -8,5 +8,7 @@ export const AFFILIATE_MANAGER_ROLE = ethers.utils.id("AFFILIATE_MANAGER");
 export const WHITELIST_MANAGER_ROLE = ethers.utils.id("WHITELIST_MANAGER");
 export const RESOURCE_MANAGER_ROLE = ethers.utils.id("RESOURCE_MANAGER");
 export const MINT_BURN_ROLE = ethers.utils.id("MINT/BURN");
+export const SHUTDOWN_ROLE = ethers.utils.id("SHUTDOWN");
+
 export const BASE_URI = `https://s3.amazonaws.com/images.pawn.fi/test-nft-metadata/PawnBeats/`;
 export const MIN_LOAN_PRINCIPAL = 1_000_000;

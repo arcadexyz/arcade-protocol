@@ -2,41 +2,69 @@
 
 import { ethers } from "hardhat";
 
+import { SECTION_SEPARATOR } from "./utils/constants";
+import { DeployedResources } from "./utils/deploy";
+
 import { main as deploy } from "./deploy/deploy";
-import { SECTION_SEPARATOR, vaultAssetsAndMakeLoans } from "./utils/bootstrap-tools";
-import { mintAndDistribute } from "./utils/mint-distribute-assets";
+import { setupRoles } from "./deploy/setup-roles";
+
 import { deployNFTs } from "./utils/deploy-assets";
+import { mintAndDistribute } from "./utils/mint-distribute-assets";
+import { vaultAssetsAndMakeLoans } from "./utils/bootstrap-tools";
 
 export async function main(): Promise<void> {
     // Bootstrap five accounts only.
     // Skip the first account, since the
     // first signer will be the deployer.
-    const [, ...signers] = (await ethers.getSigners()).slice(1, 7);
+    const [, ...signers] = (await ethers.getSigners()).slice(0, 6);
 
     console.log(SECTION_SEPARATOR);
     console.log("Deploying resources...\n");
 
     // Deploy the smart contracts
+    let resources: DeployedResources;
     const {
         vaultFactory,
         originationController,
         borrowerNote,
         repaymentController,
-        lenderNote,
-        loanCore,
-        feeController,
-        whitelist,
-        verifier
-    } = await deploy();
+        loanCore
+    } = resources = await deploy();
 
     // Mint some NFTs
     console.log(SECTION_SEPARATOR);
+    console.log("Deploying principal & collateral NFTs...\n");
     const { punks, art, beats, weth, pawnToken, usd } = await deployNFTs();
+
+
+    // Complete deploy - do whitelisting and role setup
+    console.log(SECTION_SEPARATOR);
+    console.log("Populating whitelist state...\n");
+
+    await originationController.setAllowedPayableCurrencies(
+        [weth.address, pawnToken.address, usd.address],
+        [
+            { isAllowed: true, minPrincipal: ethers.utils.parseEther("0.0001") },
+            { isAllowed: true, minPrincipal: ethers.utils.parseEther("0.0001") },
+            { isAllowed: true, minPrincipal: ethers.utils.parseUnits("1", 6) }
+        ]
+    );
+
+    await originationController.setAllowedCollateralAddresses(
+        [punks.address, art.address, beats.address, vaultFactory.address],
+        [true, true, true, true]
+    );
+
+    console.log(SECTION_SEPARATOR);
+    console.log("Assigning roles & permissions...\n");
+
+    await setupRoles(resources);
 
     // Distribute NFTs and ERC20s
     console.log(SECTION_SEPARATOR);
     console.log("Distributing assets...\n");
     await mintAndDistribute(signers, weth, pawnToken, usd, punks, art, beats);
+
 
     // Vault some assets
     console.log(SECTION_SEPARATOR);
@@ -47,11 +75,7 @@ export async function main(): Promise<void> {
         originationController,
         borrowerNote,
         repaymentController,
-        lenderNote,
         loanCore,
-        feeController,
-        whitelist,
-        verifier,
         punks,
         usd,
         beats,

@@ -371,6 +371,11 @@ error LC_NoReceipt(uint256 loanId);
  */
 error LC_CallerNotLoanCore();
 
+/**
+ * @notice The loan core contract has been irreversibly shut down.
+ */
+error LC_Shutdown();
+
 // ==================================== Promissory Note ======================================
 /// @notice All errors prefixed with PN_, to separate from other contracts in the protocol.
 

@@ -1,7 +1,7 @@
-import hre, { ethers } from "hardhat";
-import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../utils/bootstrap-tools";
-
+import { ethers } from "hardhat";
 import { Contract } from "ethers";
+
+import { SECTION_SEPARATOR } from "../utils/constants";
 
 export interface DeployedResources {
     contract: Contract;

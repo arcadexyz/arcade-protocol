@@ -1,6 +1,5 @@
 import "@typechain/hardhat";
 import "@nomiclabs/hardhat-waffle";
-import "@nomiclabs/hardhat-etherscan";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
 import "@nomiclabs/hardhat-ethers";
@@ -27,6 +26,7 @@ const chainIds = {
     mainnet: 1,
     rinkeby: 4,
     ropsten: 3,
+    sepolia: 11155111,
 };
 
 // Ensure that we have all the environment variables we need.
@@ -48,7 +48,10 @@ if (forkMainnet && !process.env.ALCHEMY_API_KEY) {
 
 // create testnet network
 function createTestnetConfig(network: keyof typeof chainIds): NetworkUserConfig {
-    const url = `https://eth-${network}.alchemyapi.io/v2/${alchemyApiKey}`;
+    const sepoliaUri = `https://rpc.sepolia.org/`;
+    const defaultUri = `https://eth-${network}.alchemyapi.io/v2/${alchemyApiKey}`;
+    const url = network === `sepolia` ? sepoliaUri : defaultUri;
+
     return {
         accounts: {
             count: 10,
@@ -118,6 +121,7 @@ export const config: HardhatUserConfig = {
         kovan: createTestnetConfig("kovan"),
         rinkeby: createTestnetConfig("rinkeby"),
         ropsten: createTestnetConfig("ropsten"),
+        sepolia: createTestnetConfig("sepolia"),
         localhost: {
             accounts: {
                 mnemonic,
@@ -169,7 +173,7 @@ export const config: HardhatUserConfig = {
         apiKey: process.env.ETHERSCAN_API_KEY,
     },
     mocha: {
-        timeout: 100000
+        timeout: 100000,
     },
 };
 

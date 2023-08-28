@@ -74,7 +74,7 @@ contract CallWhitelistDelegation is CallWhitelist {
      * @param token                The token approval to set.
      * @param _isApproved          Whether the token should be approved.
      */
-    function setDelegationApproval(address token, bool _isApproved) external onlyOwner {
+    function setDelegationApproval(address token, bool _isApproved) external onlyRole(WHITELIST_MANAGER_ROLE) {
         delegationApproved[token] = _isApproved;
 
         emit DelegationSet(msg.sender, token, _isApproved);
@@ -86,7 +86,7 @@ contract CallWhitelistDelegation is CallWhitelist {
      *
      * @param _registry             The new registry.
      */
-    function setRegistry(address _registry) external onlyOwner {
+    function setRegistry(address _registry) external onlyRole(ADMIN_ROLE) {
         if (address(registry) == _registry) revert CWD_RegistryAlreadySet();
 
         registry = IDelegationRegistry(_registry);

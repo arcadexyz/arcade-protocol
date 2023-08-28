@@ -1,225 +1,168 @@
-import fs from "fs"
-import hre, { ethers } from "hardhat";
-import { Contract } from "ethers";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-
-import { SUBSECTION_SEPARATOR, SECTION_SEPARATOR } from "../utils/bootstrap-tools";
+import { ethers } from "hardhat";
+import { loadContracts, DeployedResources } from "../utils/deploy";
 
 import {
     ORIGINATOR_ROLE,
     ADMIN_ROLE,
     FEE_CLAIMER_ROLE,
     REPAYER_ROLE,
+    AFFILIATE_MANAGER_ROLE,
+    RESOURCE_MANAGER_ROLE,
+    WHITELIST_MANAGER_ROLE,
+    ADMIN,
+    RESOURCE_MANAGER,
+    CALL_WHITELIST_MANAGER,
+    LOAN_WHITELIST_MANAGER,
+    FEE_CLAIMER,
+    AFFILIATE_MANAGER,
+    SUBSECTION_SEPARATOR,
+    SECTION_SEPARATOR,
+    SHUTDOWN_ROLE,
+    SHUTDOWN_CALLER
 } from "../utils/constants";
 
-const jsonContracts: { [key: string]: string } = {
-    CallWhitelist: "whitelist",
-    AssetVault: "assetVault",
-    VaultFactory: "factory",
-    FeeController: "feeController",
-    BorrowerNote: "borrowerNote",
-    LenderNote: "lenderNote",
-    LoanCore: "loanCore",
-    RepaymentController: "repaymentController",
-    OriginationController: "originationController",
-    ArcadeItemsVerifier: "verifier"
-};
-
-type ContractArgs = {
-    whitelist: Contract;
-    assetVault: Contract;
-    factory: Contract;
-    feeController: Contract;
-    borrowerNote: Contract;
-    lenderNote: Contract;
-    loanCore: Contract;
-    repaymentController: Contract;
-    originationController: Contract;
-    verifier: Contract;
-};
-
-export async function main(
-    factory: Contract,
-    originationController: Contract,
-    borrowerNote: Contract,
-    repaymentController: Contract,
-    lenderNote: Contract,
-    loanCore: Contract,
-    feeController: Contract,
-    whitelist: Contract,
-    verifier: Contract
-): Promise<void> {
-    const signers: SignerWithAddress[] = await hre.ethers.getSigners();
+export async function setupRoles(resources: DeployedResources): Promise<void> {
+    const signers = await ethers.getSigners();
     const [deployer] = signers;
 
     // Set admin address
-    const ADMIN_ADDRESS = process.env.ADMIN;
-    console.log("Admin address:", ADMIN_ADDRESS);
+    console.log("Admin address:", ADMIN);
+    console.log("Resource manager address:", RESOURCE_MANAGER);
+    console.log("Call whitelist manager address:", CALL_WHITELIST_MANAGER);
+    console.log("Loan whitelist manager address:", LOAN_WHITELIST_MANAGER);
+    console.log("Fee claimer address:", FEE_CLAIMER);
+    console.log("Affiliate manager address:", AFFILIATE_MANAGER);
 
     // Define roles
-    const ORIGINATION_CONTROLLER_ADDRESS = originationController.address;
-    const LOAN_CORE_ADDRESS = loanCore.address;
-    const REPAYMENT_CONTROLLER_ADDRESS = repaymentController.address;
+    const ORIGINATION_CONTROLLER_ADDRESS = resources.originationController.address;
+    const LOAN_CORE_ADDRESS = resources.loanCore.address;
+    const REPAYMENT_CONTROLLER_ADDRESS = resources.repaymentController.address;
 
     console.log(SECTION_SEPARATOR);
 
     // ============= CallWhitelist ==============
 
-    // set CallWhiteList admin
-    const updateWhitelistAdmin = await whitelist.transferOwnership(ADMIN_ADDRESS);
-    await updateWhitelistAdmin.wait();
+    const { whitelist } = resources;
+    await whitelist.grantRole(ADMIN_ROLE, ADMIN);
+    await whitelist.grantRole(WHITELIST_MANAGER_ROLE, CALL_WHITELIST_MANAGER);
+    await whitelist.renounceRole(ADMIN_ROLE, deployer.address);
 
-    console.log(`CallWhitelist: ownership transferred to ${ADMIN_ADDRESS}`);
+    console.log(`CallWhitelistAllExtensions: admin role granted to ${CALL_WHITELIST_MANAGER}`);
+    console.log(`CallWhitelistAllExtensions: whitelist manager role granted to ${CALL_WHITELIST_MANAGER}`);
+    console.log(`CallWhitelistAllExtensions: Deployer renounced admin role`);
+    console.log(SUBSECTION_SEPARATOR);
+
+    // =========== vaultFactoryURIDescriptor ============
+
+    const { vaultFactoryURIDescriptor } = resources;
+    await vaultFactoryURIDescriptor.transferOwnership(RESOURCE_MANAGER);
+
+    console.log(`VaultFactoryURIDescriptor: ownership transferred to ${RESOURCE_MANAGER}`);
     console.log(SUBSECTION_SEPARATOR);
 
     // ============= FeeController ==============
 
-    // set FeeController admin
-    const updateFeeControllerAdmin = await feeController.transferOwnership(ADMIN_ADDRESS);
-    await updateFeeControllerAdmin.wait();
+    const { feeController } = resources;
+    await feeController.transferOwnership(ADMIN);
 
-    console.log(`FeeController: ownership transferred to ${ADMIN_ADDRESS}`);
+    console.log(`FeeController: ownership transferred to ${ADMIN}`);
+    console.log(SUBSECTION_SEPARATOR);
+
+    // ================= VaultFactory ==================
+
+    const { vaultFactory } = resources;
+    await vaultFactory.grantRole(ADMIN_ROLE, ADMIN);
+    await vaultFactory.grantRole(FEE_CLAIMER_ROLE, FEE_CLAIMER);
+    await vaultFactory.grantRole(RESOURCE_MANAGER_ROLE, RESOURCE_MANAGER);
+    await vaultFactory.renounceRole(ADMIN_ROLE, deployer.address);
+    await vaultFactory.renounceRole(FEE_CLAIMER_ROLE, deployer.address);
+
+    console.log(`VaultFactory: admin role granted to ${ADMIN}`);
+    console.log(`VaultFactory: fee claimer role granted to ${FEE_CLAIMER}`);
+    console.log(`VaultFactory: resource manager role granted to ${RESOURCE_MANAGER}`);
+    console.log(`VaultFactory: deployer renounced admin and fee claimer role`);
+    console.log(SUBSECTION_SEPARATOR);
+
+    // =========== borrowerNoteURIDescriptor ============
+
+    const { borrowerNoteURIDescriptor } = resources;
+    await borrowerNoteURIDescriptor.transferOwnership(RESOURCE_MANAGER);
+
+    console.log(`BorrowerNoteURIDescriptor: ownership transferred to ${RESOURCE_MANAGER}`);
     console.log(SUBSECTION_SEPARATOR);
 
     // ============= BorrowerNote ==============
 
-    const initBorrowerNote = await borrowerNote.initialize(LOAN_CORE_ADDRESS);
-    await initBorrowerNote.wait();
+    const { borrowerNote } = resources;
+    await borrowerNote.initialize(LOAN_CORE_ADDRESS);
+
     console.log(`BorrowerNote: initialized loanCore at address ${LOAN_CORE_ADDRESS}`);
+    console.log(SUBSECTION_SEPARATOR);
+
+    // =========== lenderNoteURIDescriptor ============
+
+    const { lenderNoteURIDescriptor } = resources;
+    await lenderNoteURIDescriptor.transferOwnership(RESOURCE_MANAGER);
+
+    console.log(`LenderNoteURIDescriptor: ownership transferred to ${RESOURCE_MANAGER}`);
     console.log(SUBSECTION_SEPARATOR);
 
     // ============= LenderNote ==============
 
-    const initLenderNote = await lenderNote.initialize(LOAN_CORE_ADDRESS);
-    await initLenderNote.wait();
+    const { lenderNote } = resources;
+    await lenderNote.initialize(LOAN_CORE_ADDRESS);
+
     console.log(`LenderNote: initialized loanCore at address ${LOAN_CORE_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
     // ============= LoanCore ==============
 
-    // grant the admin role for LoanCore
-    const updateLoanCoreAdmin = await loanCore.grantRole(ADMIN_ROLE, ADMIN_ADDRESS);
-    await updateLoanCoreAdmin.wait();
+    const { loanCore } = resources;
+    await loanCore.grantRole(ADMIN_ROLE, ADMIN);
+    await loanCore.grantRole(ORIGINATOR_ROLE, ORIGINATION_CONTROLLER_ADDRESS);
+    await loanCore.grantRole(REPAYER_ROLE, REPAYMENT_CONTROLLER_ADDRESS);
+    await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, AFFILIATE_MANAGER);
+    await loanCore.grantRole(FEE_CLAIMER_ROLE, FEE_CLAIMER);
+    await loanCore.grantRole(SHUTDOWN_ROLE, SHUTDOWN_CALLER);
+    await loanCore.renounceRole(ADMIN_ROLE, deployer.address);
 
-    console.log(`LoanCore: admin role granted to ${ADMIN_ADDRESS}`);
-    console.log(SUBSECTION_SEPARATOR);
-
-    // grant LoanCore admin fee claimer permissions
-    const updateLoanCoreFeeClaimer = await loanCore.grantRole(FEE_CLAIMER_ROLE, ADMIN_ADDRESS);
-    await updateLoanCoreFeeClaimer.wait();
-
-    console.log(`LoanCore: fee claimer role granted to ${ADMIN_ADDRESS}`);
-    console.log(SUBSECTION_SEPARATOR);
-
-    // grant originationContoller the originator role
-    const updateOriginationControllerRole = await loanCore.grantRole(ORIGINATOR_ROLE, ORIGINATION_CONTROLLER_ADDRESS);
-    await updateOriginationControllerRole.wait();
-
+    console.log(`LoanCore: admin role granted to ${ADMIN}`);
     console.log(`LoanCore: originator role granted to ${ORIGINATION_CONTROLLER_ADDRESS}`);
-    console.log(SUBSECTION_SEPARATOR);
-
-    // grant repaymentContoller the REPAYER_ROLE
-    const updateRepaymentControllerAdmin = await loanCore
-        .grantRole(REPAYER_ROLE, REPAYMENT_CONTROLLER_ADDRESS);
-    await updateRepaymentControllerAdmin.wait();
-
     console.log(`LoanCore: repayer role granted to ${REPAYMENT_CONTROLLER_ADDRESS}`);
-    console.log(SUBSECTION_SEPARATOR);
-
-    // renounce ownership from deployer
-    const renounceAdmin = await loanCore.renounceRole(ADMIN_ROLE, deployer.address);
-    await renounceAdmin.wait();
-
-    const renounceFeeClaimer = await loanCore.renounceRole(FEE_CLAIMER_ROLE, deployer.address);
-    await renounceFeeClaimer.wait();
-
-    console.log("LoanCore: deployer has renounced admin role");
+    console.log(`LoanCore: affiliate manager role granted to ${AFFILIATE_MANAGER}`);
+    console.log(`LoanCore: fee claimer role granted to ${FEE_CLAIMER}`);
+    console.log(`LoanCore: shutdown role granted to ${SHUTDOWN_CALLER}`);
+    console.log(`LoanCore: deployer renounced admin role`);
     console.log(SUBSECTION_SEPARATOR);
 
     // ============= OriginationController ==============
 
-    // whitelist verifier
-    const whitelistVerifier = await originationController.setAllowedVerifier(verifier.address, true);
-    await whitelistVerifier.wait();
+    const { originationController } = resources;
+    await originationController.grantRole(ADMIN_ROLE, ADMIN);
+    await originationController.grantRole(WHITELIST_MANAGER_ROLE, LOAN_WHITELIST_MANAGER);
+    await originationController.renounceRole(ADMIN_ROLE, deployer.address);
+    await originationController.renounceRole(WHITELIST_MANAGER_ROLE, deployer.address);
 
-    console.log(`OriginationController: added ${verifier.address} as allowed verifier`);
+    console.log(`OriginationController: admin role granted to ${ADMIN}`);
+    console.log(`OriginationController: whitelist manager role granted to ${LOAN_WHITELIST_MANAGER}`);
+    console.log(`OriginationController: Deployer renounced admin and whitelist manager role`);
     console.log(SUBSECTION_SEPARATOR);
 
-    // grant originationContoller the owner role
-    const updateOriginationControllerAdmin = await originationController.grantRole(ADMIN_ROLE, ADMIN_ADDRESS);
-    await updateOriginationControllerAdmin.wait();
-
-    console.log(`OriginationController: admin role granted to ${ADMIN_ADDRESS}`);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const renounceOriginationControllerAdmin = await originationController.renounceRole(ADMIN_ROLE, deployer.address);
-    await renounceOriginationControllerAdmin.wait();
-
-    console.log("OriginationController: deployer has renounced admin role");
-    console.log(SUBSECTION_SEPARATOR);
-
-    console.log("Transferred all ownership.\n");
-}
-
-async function attachAddresses(jsonFile: string): Promise<ContractArgs> {
-    const readData = fs.readFileSync(jsonFile, 'utf-8');
-    const jsonData = JSON.parse(readData);
-    const contracts: { [key: string]: Contract } = {};
-
-    for await (const key of Object.keys(jsonData)) {
-        if (!(key in jsonContracts)) continue;
-
-        const argKey = jsonContracts[key];
-        console.log(`Key: ${key}, address: ${jsonData[key]["contractAddress"]}`);
-
-        let contract: Contract;
-        if (key === "BorrowerNote" || key === "LenderNote") {
-            contract = await ethers.getContractAt("PromissoryNote", jsonData[key]["contractAddress"]);
-        } else {
-            contract = await ethers.getContractAt(key, jsonData[key]["contractAddress"]);
-        }
-
-        contracts[argKey] = contract;
-    }
-
-    return contracts as ContractArgs;
+    console.log("✅ Transferred all ownership.");
 }
 
 if (require.main === module) {
     // retrieve command line args array
-    const [,,file] = process.argv;
+    const file = process.env.DEPLOYMENT_FILE;
 
     console.log("File:", file);
 
     // assemble args to access the relevant deplyment json in .deployment
-    void attachAddresses(file).then((res: ContractArgs) => {
-        const {
-            factory,
-            originationController,
-            borrowerNote,
-            repaymentController,
-            lenderNote,
-            loanCore,
-            feeController,
-            whitelist,
-            verifier
-        } = res;
-
-        main(
-            factory,
-            originationController,
-            borrowerNote,
-            repaymentController,
-            lenderNote,
-            loanCore,
-            feeController,
-            whitelist,
-            verifier
-        )
-            .then(() => process.exit(0))
-            .catch((error: Error) => {
-                console.error(error);
-                process.exit(1);
-            });
-    });
+    void loadContracts(file!)
+        .then(setupRoles)
+        .then(() => process.exit(0))
+        .catch((error: Error) => {
+            console.error(error);
+            process.exit(1);
+        });
 }

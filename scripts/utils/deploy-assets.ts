@@ -2,7 +2,7 @@ import { ethers } from "hardhat";
 
 import { MockERC1155Metadata, MockERC20, MockERC721Metadata } from "../../typechain";
 
-import { SECTION_SEPARATOR } from "./bootstrap-tools";
+import { SECTION_SEPARATOR } from "./constants";
 
 interface DeployedNFT {
     punks: MockERC721Metadata;

@@ -4,7 +4,7 @@ pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
@@ -41,7 +41,7 @@ import {
  * VaultFactory in order to determine their own contract owner. The VaultFactory contains
  * conveniences to allow switching between the address and uint256 formats.
  */
-contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC721Enumerable {
+contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControlEnumerable, ERC721Enumerable {
     using Strings for uint256;
     using Address for address payable;
 
@@ -264,7 +264,7 @@ contract VaultFactory is IVaultFactory, ERC165, ERC721Permit, AccessControl, ERC
         public
         view
         virtual
-        override(IERC165, ERC165, ERC721, ERC721Enumerable, AccessControl)
+        override(IERC165, ERC165, ERC721, ERC721Enumerable, AccessControlEnumerable)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);

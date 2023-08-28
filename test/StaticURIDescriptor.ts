@@ -4,14 +4,14 @@ import { waffle, ethers } from "hardhat";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 
-import { BaseURIDescriptor, MockERC721 } from "../typechain";
+import { MockERC721, StaticURIDescriptor } from "../typechain";
 import { deploy } from "./utils/contracts";
 
 import { BASE_URI } from "./utils/constants";
 
 interface TestContext {
     mockERC721: MockERC721;
-    descriptor: BaseURIDescriptor;
+    descriptor: StaticURIDescriptor;
     deployer: SignerWithAddress;
 }
 
@@ -23,12 +23,12 @@ const fixture = async (): Promise<TestContext> => {
     const [deployer] = signers;
 
     const mockERC721 = <MockERC721>await deploy("MockERC721", deployer, ["Mock ERC721", "MOCK"]);
-    const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
+    const descriptor = <StaticURIDescriptor>await deploy("StaticURIDescriptor", signers[0], [BASE_URI])
 
     return { mockERC721, deployer, descriptor };
 };
 
-describe("BaseURIDescriptor", () => {
+describe("StaticURIDescriptor", () => {
     let ctx: TestContext;
 
     beforeEach(async () => {
@@ -36,30 +36,23 @@ describe("BaseURIDescriptor", () => {
     });
 
     describe("getTokenURI", () => {
-        it("returns a tokenURI with the token ID suffix", async () => {
-            const { descriptor, mockERC721 } = ctx;
-
-            expect(await descriptor.tokenURI(mockERC721.address, 1)).to.equal(`${BASE_URI}1`);
-            expect(await descriptor.tokenURI(mockERC721.address, 55)).to.equal(`${BASE_URI}55`);
-            expect(await descriptor.tokenURI(mockERC721.address, 909790)).to.equal(`${BASE_URI}909790`);
-        });
-
-        it("returns the same tokenURI for a given token ID for any token address", async () => {
+        it("returns the same token uri for every call", async () => {
             const { descriptor, mockERC721, deployer } = ctx;
 
-            expect(await descriptor.tokenURI(mockERC721.address, 55)).to.equal(`${BASE_URI}55`);
-            expect(await descriptor.tokenURI(deployer.address, 55)).to.equal(`${BASE_URI}55`);
+            expect(await descriptor.tokenURI(mockERC721.address, 1)).to.eq(BASE_URI);
+            expect(await descriptor.tokenURI(mockERC721.address, 55)).to.eq(BASE_URI);
+            expect(await descriptor.tokenURI(mockERC721.address, 909790)).to.eq(BASE_URI);
+            expect(await descriptor.tokenURI(deployer.address, 55)).to.eq(BASE_URI);
         });
-
 
         it("returns an empty string if baseURI is not set", async () => {
             const { descriptor, mockERC721, deployer } = ctx;
 
             await descriptor.setBaseURI("");
 
-            expect(await descriptor.tokenURI(deployer.address, 10)).to.equal("");
-            expect(await descriptor.tokenURI(deployer.address, 55)).to.equal("");
-            expect(await descriptor.tokenURI(mockERC721.address, 55)).to.equal("");
+            expect(await descriptor.tokenURI(deployer.address, 10)).to.eq("");
+            expect(await descriptor.tokenURI(deployer.address, 55)).to.eq("");
+            expect(await descriptor.tokenURI(mockERC721.address, 55)).to.eq("");
         });
     });
 
@@ -81,8 +74,8 @@ describe("BaseURIDescriptor", () => {
             ).to.emit(descriptor, "SetBaseURI")
                 .withArgs(deployer.address, OTHER_BASE_URI);
 
-            expect(await descriptor.baseURI()).to.equal(OTHER_BASE_URI);
-            expect(await descriptor.tokenURI(mockERC721.address, 55)).to.equal(`${OTHER_BASE_URI}55`);
+            expect(await descriptor.baseURI()).to.eq(OTHER_BASE_URI);
+            expect(await descriptor.tokenURI(mockERC721.address, 55)).to.eq(OTHER_BASE_URI);
         });
 
         it("sets an empty baseURI", async () => {
@@ -93,8 +86,8 @@ describe("BaseURIDescriptor", () => {
             ).to.emit(descriptor, "SetBaseURI")
                 .withArgs(deployer.address, "");
 
-            expect(await descriptor.baseURI()).to.equal("");
-            expect(await descriptor.tokenURI(mockERC721.address, 55)).to.equal("");
+            expect(await descriptor.baseURI()).to.eq("");
+            expect(await descriptor.tokenURI(mockERC721.address, 55)).to.eq("");
         });
     });
 });

@@ -4,13 +4,10 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-wit
 
 import { LoanTerms } from "../../test/utils/types";
 import { createLoanTermsSignature } from "../../test/utils/eip712";
-import { main as setupRoles } from "../deploy/setup-roles";
+import { SECTION_SEPARATOR } from "./constants";
 
 import { MockERC1155Metadata, MockERC20, MockERC721Metadata, VaultFactory } from "../../typechain";
 import { createVault } from "./vault";
-
-export const SECTION_SEPARATOR = "\n" + "=".repeat(80) + "\n";
-export const SUBSECTION_SEPARATOR = "-".repeat(10);
 
 export async function vaultAssetsAndMakeLoans(
     signers: SignerWithAddress[],
@@ -18,11 +15,7 @@ export async function vaultAssetsAndMakeLoans(
     originationController: Contract,
     borrowerNote: Contract,
     repaymentController: Contract,
-    lenderNote: Contract,
     loanCore: Contract,
-    feeController: Contract,
-    whitelist: Contract,
-    verifier: Contract,
     punks: MockERC721Metadata,
     usd: MockERC20,
     beats: MockERC1155Metadata,
@@ -30,24 +23,9 @@ export async function vaultAssetsAndMakeLoans(
     art: MockERC721Metadata,
     pawnToken: MockERC20,
 ): Promise<void> {
-    console.log(SECTION_SEPARATOR);
-    console.log("But let's set up roles and permissions first...\n");
-    // setup the role privileges
-    await setupRoles(
-        factory,
-        originationController,
-        borrowerNote,
-        repaymentController,
-        lenderNote,
-        loanCore,
-        feeController,
-        whitelist,
-        verifier
-    );
-
-    // Connect the first signer with the
+    // Connect the first signer
     const signer1 = signers[1];
-    const signer1Address = await signers[1].getAddress();
+    const signer1Address = signers[1].address;
     // Create vault 1
     const av1A = await createVault(factory, signer1); // this is the Vault Id
     // Deposit 1 punk and 1000 usd to user's first vault:
@@ -75,7 +53,7 @@ export async function vaultAssetsAndMakeLoans(
 
     // Connect the third signer
     const signer3 = signers[3];
-    const signer3Address = await signers[3].getAddress();
+    const signer3Address = signers[3].address;
 
     // Create vault 3A
     const av3A = await createVault(factory, signer3);
@@ -118,7 +96,7 @@ export async function vaultAssetsAndMakeLoans(
     );
     // Connect the fourth signer
     const signer4 = signers[4];
-    const signer4Address = await signers[4].getAddress();
+    const signer4Address = signers[4].address;
 
     // Create vault 4A
     const av4A = await createVault(factory, signer4);
@@ -166,12 +144,12 @@ export async function vaultAssetsAndMakeLoans(
     const loan1Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(oneWeekMs),
         principal: ethers.utils.parseEther("10"),
-        proratedInterestRate: ethers.utils.parseEther("1.5"),
+        proratedInterestRate: ethers.utils.parseEther("1500"),
         collateralAddress: factory.address,
         collateralId: av1A.address,
         payableCurrency: weth.address,
         deadline: 1754884800,
-        affiliateCode: "0x",
+        affiliateCode: ethers.constants.HashZero,
     };
 
     const sig = await createLoanTermsSignature(
@@ -179,13 +157,13 @@ export async function vaultAssetsAndMakeLoans(
         "OriginationController",
         loan1Terms,
         signer1,
-        "2",
+        "3",
         BigNumber.from(1),
         "b",
     );
 
-    await weth.connect(signer2).approve(originationController.address, ethers.utils.parseEther("10"));
-    await factory.connect(signer1).approve(originationController.address, av1A.address);
+    await weth.connect(signer2).approve(loanCore.address, ethers.utils.parseEther("10"));
+    await factory.connect(signer1).approve(loanCore.address, av1A.address);
 
     // Borrower signed, so lender will initialize
     await originationController
@@ -200,12 +178,12 @@ export async function vaultAssetsAndMakeLoans(
     const loan2Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(oneWeekMs) - 10,
         principal: ethers.utils.parseEther("10000"),
-        proratedInterestRate: ethers.utils.parseEther("0.5"),
+        proratedInterestRate: ethers.utils.parseEther("500"),
         collateralAddress: factory.address,
         collateralId: av1B.address,
         payableCurrency: pawnToken.address,
         deadline: 1754884800,
-        affiliateCode: "0x",
+        affiliateCode: ethers.constants.HashZero,
     };
 
     const sig2 = await createLoanTermsSignature(
@@ -213,13 +191,13 @@ export async function vaultAssetsAndMakeLoans(
         "OriginationController",
         loan2Terms,
         signer1,
-        "2",
+        "3",
         BigNumber.from(2),
         "b",
     );
 
-    await pawnToken.connect(signer3).approve(originationController.address, ethers.utils.parseEther("10000"));
-    await factory.connect(signer1).approve(originationController.address, av1B.address);
+    await pawnToken.connect(signer3).approve(loanCore.address, ethers.utils.parseEther("10000"));
+    await factory.connect(signer1).approve(loanCore.address, av1B.address);
 
     // Borrower signed, so lender will initialize
     await originationController.connect(signer3).initializeLoan(loan2Terms, signer1.address, signer3.address, sig2, 2);
@@ -232,12 +210,12 @@ export async function vaultAssetsAndMakeLoans(
     const loan3Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(oneDayMs) - 10,
         principal: ethers.utils.parseUnits("1000", 6),
-        proratedInterestRate: ethers.utils.parseUnits("80"),
+        proratedInterestRate: ethers.utils.parseUnits("800"),
         collateralAddress: factory.address,
         collateralId: av3A.address,
         payableCurrency: usd.address,
         deadline: 1754884800,
-        affiliateCode: "0x",
+        affiliateCode: ethers.constants.HashZero,
     };
 
     const sig3 = await createLoanTermsSignature(
@@ -245,13 +223,13 @@ export async function vaultAssetsAndMakeLoans(
         "OriginationController",
         loan3Terms,
         signer3,
-        "2",
+        "3",
         BigNumber.from(1),
         "b",
     );
 
-    await usd.connect(signer2).approve(originationController.address, ethers.utils.parseUnits("1000", 6));
-    await factory.connect(signer3).approve(originationController.address, av3A.address);
+    await usd.connect(signer2).approve(loanCore.address, ethers.utils.parseUnits("1000", 6));
+    await factory.connect(signer3).approve(loanCore.address, av3A.address);
 
     // Borrower signed, so lender will initialize
     await originationController.connect(signer2).initializeLoan(loan3Terms, signer3.address, signer2.address, sig3, 1);
@@ -264,12 +242,12 @@ export async function vaultAssetsAndMakeLoans(
     const loan4Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(oneMonthMs),
         principal: ethers.utils.parseUnits("1000", 6),
-        proratedInterestRate: ethers.utils.parseUnits("140"),
+        proratedInterestRate: ethers.utils.parseUnits("1400"),
         collateralAddress: factory.address,
         collateralId: av3B.address,
         payableCurrency: usd.address,
         deadline: 1754884800,
-        affiliateCode: "0x",
+        affiliateCode: ethers.constants.HashZero,
     };
 
     const sig4 = await createLoanTermsSignature(
@@ -277,13 +255,13 @@ export async function vaultAssetsAndMakeLoans(
         "OriginationController",
         loan4Terms,
         signer3,
-        "2",
+        "3",
         BigNumber.from(2),
         "b",
     );
 
-    await usd.connect(signer2).approve(originationController.address, ethers.utils.parseUnits("1000", 6));
-    await factory.connect(signer3).approve(originationController.address, av3B.address);
+    await usd.connect(signer2).approve(loanCore.address, ethers.utils.parseUnits("1000", 6));
+    await factory.connect(signer3).approve(loanCore.address, av3B.address);
 
     // Borrower signed, so lender will initialize
     await originationController.connect(signer2).initializeLoan(loan4Terms, signer3.address, signer2.address, sig4, 2);
@@ -296,12 +274,12 @@ export async function vaultAssetsAndMakeLoans(
     const loan5Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(9000000),
         principal: ethers.utils.parseEther("20"),
-        proratedInterestRate: ethers.utils.parseEther("2.0"),
+        proratedInterestRate: ethers.utils.parseEther("200"),
         collateralAddress: factory.address,
         collateralId: av3C.address,
         payableCurrency: weth.address,
         deadline: 1754884800,
-        affiliateCode: "0x",
+        affiliateCode: ethers.constants.HashZero,
     };
 
     const sig5 = await createLoanTermsSignature(
@@ -309,13 +287,13 @@ export async function vaultAssetsAndMakeLoans(
         "OriginationController",
         loan5Terms,
         signer3,
-        "2",
+        "3",
         BigNumber.from(3),
         "b",
     );
 
-    await weth.connect(signer4).approve(originationController.address, ethers.utils.parseEther("20"));
-    await factory.connect(signer3).approve(originationController.address, av3C.address);
+    await weth.connect(signer4).approve(loanCore.address, ethers.utils.parseEther("20"));
+    await factory.connect(signer3).approve(loanCore.address, av3C.address);
 
     // Borrower signed, so lender will initialize
     await originationController.connect(signer4).initializeLoan(loan5Terms, signer3.address, signer4.address, sig5, 3);
@@ -328,12 +306,12 @@ export async function vaultAssetsAndMakeLoans(
     const loan6Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(oneWeekMs),
         principal: ethers.utils.parseEther("300.33"),
-        proratedInterestRate: ethers.utils.parseEther("18.0198"),
+        proratedInterestRate: ethers.utils.parseEther("600"),
         collateralAddress: factory.address,
         collateralId: av4A.address,
         payableCurrency: pawnToken.address,
         deadline: 1754884800,
-        affiliateCode: "0x",
+        affiliateCode: ethers.constants.HashZero,
     };
 
     const sig6 = await createLoanTermsSignature(
@@ -341,13 +319,13 @@ export async function vaultAssetsAndMakeLoans(
         "OriginationController",
         loan6Terms,
         signer4,
-        "2",
+        "3",
         BigNumber.from(1),
         "b",
     );
 
-    await pawnToken.connect(signer2).approve(originationController.address, ethers.utils.parseEther("300.33"));
-    await factory.connect(signer4).approve(originationController.address, av4A.address);
+    await pawnToken.connect(signer2).approve(loanCore.address, ethers.utils.parseEther("300.33"));
+    await factory.connect(signer4).approve(loanCore.address, av4A.address);
 
     // Borrower signed, so lender will initialize
     await originationController.connect(signer2).initializeLoan(loan6Terms, signer4.address, signer2.address, sig6, 1);
@@ -363,14 +341,14 @@ export async function vaultAssetsAndMakeLoans(
 
     // 1 will pay off loan from 3
     const loan1BorrowerNoteId = await borrowerNote.tokenOfOwnerByIndex(signer1.address, 1);
-    await pawnToken.connect(signer1).approve(repaymentController.address, ethers.utils.parseEther("10500"));
+    await pawnToken.connect(signer1).approve(loanCore.address, ethers.utils.parseEther("10500"));
     await repaymentController.connect(signer1).repay(loan1BorrowerNoteId);
 
     console.log(`(Loan 2) Borrower ${signer1.address} repaid 10500 PAWN to ${signer3.address}`);
 
     // 3 will pay off one loan from 2
     const loan4BorrowerNoteId = await borrowerNote.tokenOfOwnerByIndex(signer3.address, 1);
-    await usd.connect(signer3).approve(repaymentController.address, ethers.utils.parseUnits("1140", 6));
+    await usd.connect(signer3).approve(loanCore.address, ethers.utils.parseUnits("1140", 6));
     await repaymentController.connect(signer3).repay(loan4BorrowerNoteId);
 
     console.log(`(Loan 4) Borrower ${signer3.address} repaid 1140 PUSD to ${signer2.address}`);

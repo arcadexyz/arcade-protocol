@@ -30,7 +30,8 @@ import {
     LC_NonceUsed,
     LC_AffiliateCodeAlreadySet,
     LC_CallerNotLoanCore,
-    LC_NoReceipt
+    LC_NoReceipt,
+    LC_Shutdown
 } from "./errors/Lending.sol";
 
 /**
@@ -65,6 +66,7 @@ contract LoanCore is
     bytes32 public constant REPAYER_ROLE = keccak256("REPAYER");
     bytes32 public constant AFFILIATE_MANAGER_ROLE = keccak256("AFFILIATE_MANAGER");
     bytes32 public constant FEE_CLAIMER_ROLE = keccak256("FEE_CLAIMER");
+    bytes32 public constant SHUTDOWN_ROLE = keccak256("SHUTDOWN");
 
     /// @dev Max split any affiliate can earn.
     uint96 private constant MAX_AFFILIATE_SPLIT = 50_00;
@@ -126,6 +128,7 @@ contract LoanCore is
         _setRoleAdmin(REPAYER_ROLE, ADMIN_ROLE);
         _setRoleAdmin(FEE_CLAIMER_ROLE, ADMIN_ROLE);
         _setRoleAdmin(AFFILIATE_MANAGER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(SHUTDOWN_ROLE, ADMIN_ROLE);
 
         /// @dev Although using references for both promissory notes, these
         ///      must be fresh versions and cannot be re-used across multiple
@@ -646,21 +649,14 @@ contract LoanCore is
     }
 
     /**
-     * @notice Pauses the contract, preventing loan lifecyle operations.
-     *         Should only be used in case of emergency. Can only be called
-     *         by contract owner.
+     * @notice Shuts down the contract, callable by a designated role. Irreversible.
+     *         When the contract is shutdown, loans can only be repaid.
+     *         New loans cannot be started, defaults cannot be claimed,
+     *         loans cannot be rolled over, and vault utility cannot be
+     *         employed. This is an emergency recovery feature.
      */
-    function pause() external onlyRole(ADMIN_ROLE) {
+    function shutdown() external onlyRole(SHUTDOWN_ROLE) {
         _pause();
-    }
-
-    /**
-     * @notice Unpauses the contract, enabling loan lifecycle operations.
-     *         Can be used after pausing due to emergency.
-     *         Can only be called by contract owner.
-     */
-    function unpause() external onlyRole(ADMIN_ROLE) {
-        _unpause();
     }
 
     // ============================================= HELPERS ============================================
@@ -804,5 +800,12 @@ contract LoanCore is
         uint256 amount
     ) internal {
         if (amount > 0) token.safeTransferFrom(from, address(this), amount);
+    }
+
+    /**
+     * @dev Blocks the contract from unpausing once paused.
+     */
+    function _unpause() internal override whenPaused {
+        revert LC_Shutdown();
     }
 }

@@ -3,7 +3,7 @@
 pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 
 import "../interfaces/ICallWhitelist.sol";
 
@@ -28,10 +28,15 @@ import {
  *
  * The contract owner can add or remove items from the whitelist.
  */
-contract CallWhitelist is Ownable, CallBlacklist, ICallWhitelist {
+contract CallWhitelist is AccessControlEnumerable, CallBlacklist, ICallWhitelist {
     using SafeERC20 for IERC20;
 
     // ============================================ STATE ==============================================
+
+    // =================== Constants =====================
+
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
+    bytes32 public constant WHITELIST_MANAGER_ROLE = keccak256("WHITELIST_MANAGER");
 
     // ================= Whitelist State ==================
 
@@ -42,6 +47,18 @@ contract CallWhitelist is Ownable, CallBlacklist, ICallWhitelist {
      *         at 0x1111, the mapping will contain whitelist[0x1111][0x0000] = true.
      */
     mapping(address => mapping(bytes4 => bool)) private whitelist;
+
+    // ========================================= CONSTRUCTOR ===========================================
+
+    /**
+     * @notice Creates a new call whitelist contract, setting up required roles.
+     */
+    constructor() {
+        _setupRole(ADMIN_ROLE, msg.sender);
+
+        _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(WHITELIST_MANAGER_ROLE, ADMIN_ROLE);
+    }
 
     // ========================================= VIEW FUNCTIONS =========================================
 
@@ -68,7 +85,7 @@ contract CallWhitelist is Ownable, CallBlacklist, ICallWhitelist {
      * @param callee                The contract to whitelist.
      * @param selector              The function selector to whitelist.
      */
-    function add(address callee, bytes4 selector) external override onlyOwner {
+    function add(address callee, bytes4 selector) external override onlyRole(WHITELIST_MANAGER_ROLE) {
         mapping(bytes4 => bool) storage calleeWhitelist = whitelist[callee];
 
         if (calleeWhitelist[selector]) revert CW_AlreadyWhitelisted(callee, selector);
@@ -85,7 +102,7 @@ contract CallWhitelist is Ownable, CallBlacklist, ICallWhitelist {
      * @param callee                The contract to whitelist.
      * @param selector              The function selector to whitelist.
      */
-    function remove(address callee, bytes4 selector) external override onlyOwner {
+    function remove(address callee, bytes4 selector) external override onlyRole(WHITELIST_MANAGER_ROLE) {
         mapping(bytes4 => bool) storage calleeWhitelist = whitelist[callee];
 
         if (!calleeWhitelist[selector]) revert CW_NotWhitelisted(callee, selector);
