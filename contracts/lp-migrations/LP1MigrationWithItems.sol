@@ -61,10 +61,10 @@ contract LP1MigrationWithItems is IMigrationWithItems, LP1MigrationBase {
         if (paused) revert MR_Paused();
 
         LoanData.LoanTerms memory loanTerms = _getLoanTerms(loanId);
-        _validateMigration(loanTerms, newLoanTerms, loanId);
+        (address _borrower) = _validateMigration(loanTerms, newLoanTerms, loanId);
 
         // cache borrower address for flash loan callback
-        borrower = loanTerms.borrower;
+        borrower = _borrower;
         if (borrower == address(0)) revert R_ZeroAddress("borrower");
 
         IERC20[] memory assets = new IERC20[](1);

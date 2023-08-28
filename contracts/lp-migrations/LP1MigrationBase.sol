@@ -182,13 +182,13 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
         LoanData.LoanTerms memory sourceLoanTerms,
         LoanLibrary.LoanTerms calldata newLoanTerms,
         uint256 loanId
-    ) internal view {
+    ) internal view returns (address _borrower) {
         IDirectLoanCoordinator.Loan memory loanCoordinatorData = IDirectLoanCoordinator(loanCoordinator).getLoanData(
             uint32(loanId)
         );
 
         uint256 smartNftId = loanCoordinatorData.smartNftId;
-        address _borrower = IERC721(IDirectLoanCoordinator(loanCoordinator).obligationReceiptToken()).ownerOf(
+        _borrower = IERC721(IDirectLoanCoordinator(loanCoordinator).obligationReceiptToken()).ownerOf(
             smartNftId
         );
 
