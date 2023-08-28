@@ -48,6 +48,10 @@ export const encodeItemCheck = (addr: string, id: BigNumberish, anyIdAllowed = f
     return ethers.utils.defaultAbiCoder.encode(types, [addr, id, anyIdAllowed]);
 }
 
+export const encodeAddress = (addr: string): string => {
+    return ethers.utils.defaultAbiCoder.encode(["address"], [addr]);
+}
+
 export const feeSnapshot: FeeSnapshot = {
     lenderDefaultFee: BigNumber.from(0),
     lenderInterestFee: BigNumber.from(0),

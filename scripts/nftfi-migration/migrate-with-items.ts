@@ -3,20 +3,16 @@ import "@nomiclabs/hardhat-ethers";
 import hre, { ethers } from "hardhat";
 import { BigNumber } from "ethers";
 
-import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../utils/bootstrap-tools";
+import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../utils/constants";
 import {
     ERC20,
-    PromissoryNote,
-    BaseURIDescriptor,
-    FeeController,
-    LoanCore,
-    RepaymentController,
-    OriginationController,
-    UnvaultedItemsVerifier,
     LP1MigrationWithItems,
-    CallWhitelistAllExtensions,
 } from "../../typechain";
-import { ORIGINATOR_ROLE, REPAYER_ROLE, BASE_URI } from "../utils/constants";
+
+import { main as deploy } from "../deploy/deploy";
+import { doWhitelisting } from "../deploy/whitelisting";
+import { setupRoles } from "../deploy/setup-roles";
+
 import {
     BORROWER,
     PAYABLE_CURRENCY,
@@ -38,8 +34,8 @@ import {
 } from "./config";
 
 import { createLoanItemsSignature } from "../../test/utils/eip712";
-import { ItemsPredicate, LoanTerms, SignatureItem } from "../../test/utils/types";
-import { encodeSignatureItems, encodeItemCheck } from "../../test/utils/loans";
+import { ItemsPredicate, LoanTerms } from "../../test/utils/types";
+import { encodeAddress } from "../../test/utils/loans";
 
 /**
  * This script deploys V3 lending protocol and sets up roles and permissions. Deploys
@@ -61,142 +57,20 @@ export async function main(): Promise<void> {
     console.log(SECTION_SEPARATOR);
     console.log("Deploying V3 contracts...");
 
-    const DELEGATION_REGISTRY_ADDRESS = "0x00000000000076A84feF008CDAbe6409d2FE638B";
+    const resources = await deploy();
 
-    const CallWhiteListFactory = await ethers.getContractFactory("CallWhitelistAllExtensions");
-    const callWhitelistAllExtensions = <CallWhitelistAllExtensions>(
-        await CallWhiteListFactory.deploy(DELEGATION_REGISTRY_ADDRESS)
-    );
-    await callWhitelistAllExtensions.deployed();
-    console.log("CallWhitelistAllExtensions deployed to:", callWhitelistAllExtensions.address);
-    console.log(SUBSECTION_SEPARATOR);
+    const {
+        originationController,
+        feeController,
+        loanCore,
+        borrowerNote,
+        collectionWideOfferVerifier
+    } = resources;
 
-    const BaseURIDescriptorFactory = await ethers.getContractFactory("BaseURIDescriptor");
-    const baseURIDescriptor = <BaseURIDescriptor>await BaseURIDescriptorFactory.deploy(`${BASE_URI}`);
-    await baseURIDescriptor.deployed();
-    console.log("BaseURIDescriptor deployed to:", baseURIDescriptor.address);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const FeeControllerFactory = await ethers.getContractFactory("FeeController");
-    const feeController = <FeeController>await FeeControllerFactory.deploy();
-    await feeController.deployed();
-    console.log("FeeController deployed to: ", feeController.address);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const bNoteName = "Arcade.xyz BorrowerNote";
-    const bNoteSymbol = "aBN";
-    const PromissoryNoteFactory = await ethers.getContractFactory("PromissoryNote");
-    const borrowerNote = <PromissoryNote>(
-        await PromissoryNoteFactory.deploy(bNoteName, bNoteSymbol, baseURIDescriptor.address)
-    );
-    await borrowerNote.deployed();
-    console.log("BorrowerNote deployed to:", borrowerNote.address);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const lNoteName = "Arcade.xyz LenderNote";
-    const lNoteSymbol = "aLN";
-    const lenderNote = <PromissoryNote>(
-        await PromissoryNoteFactory.deploy(lNoteName, lNoteSymbol, baseURIDescriptor.address)
-    );
-    await lenderNote.deployed();
-    console.log("LenderNote deployed to:", lenderNote.address);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const LoanCoreFactory = await ethers.getContractFactory("LoanCore");
-    const loanCore = <LoanCore>await LoanCoreFactory.deploy(borrowerNote.address, lenderNote.address);
-    await loanCore.deployed();
-    console.log("LoanCore deployed to:", loanCore.address);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const RepaymentControllerFactory = await ethers.getContractFactory("RepaymentController");
-    const repaymentController = <RepaymentController>(
-        await RepaymentControllerFactory.deploy(loanCore.address, feeController.address)
-    );
-    await repaymentController.deployed();
-    console.log("RepaymentController deployed to:", repaymentController.address);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const OriginationControllerFactory = await ethers.getContractFactory("OriginationController");
-    const originationController = <OriginationController>(
-        await OriginationControllerFactory.deploy(loanCore.address, feeController.address)
-    );
-    await originationController.deployed();
-    console.log("OriginationController deployed to:", originationController.address);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const UnvaultedItemsVerifierFactory = await ethers.getContractFactory("UnvaultedItemsVerifier");
-    const unvaultedItemsVerifier = <UnvaultedItemsVerifier>await UnvaultedItemsVerifierFactory.deploy();
-    await unvaultedItemsVerifier.deployed();
-    console.log("UnvaultedItemsVerifier deployed to:", unvaultedItemsVerifier.address);
-    console.log(SUBSECTION_SEPARATOR);
-
-    console.log("✅ Contracts Deployed\n");
     console.log(SECTION_SEPARATOR);
+    console.log("Whitelisting tokens...");
 
-    // ================================== Setup V3 Lending Protocol ==================================
-    console.log("Setting up V3 Lending Protocol...\n");
-
-    // roles addresses
-    const ADMIN_ADDRESS = process.env.ADMIN ? process.env.ADMIN : (await hre.ethers.getSigners())[0].address;
-    console.log("Admin address:", ADMIN_ADDRESS);
-    console.log(SUBSECTION_SEPARATOR);
-
-    const ORIGINATION_CONTROLLER_ADDRESS = originationController.address;
-    const LOAN_CORE_ADDRESS = loanCore.address;
-    const REPAYMENT_CONTROLLER_ADDRESS = repaymentController.address;
-
-    // ============= BorrowerNote ==============
-
-    const initBorrowerNote = await borrowerNote.initialize(LOAN_CORE_ADDRESS);
-    await initBorrowerNote.wait();
-    console.log(`BorrowerNote: initialized loanCore at address ${LOAN_CORE_ADDRESS}`);
-    console.log(SUBSECTION_SEPARATOR);
-
-    // ============= LenderNote ==============
-
-    const initLenderNote = await lenderNote.initialize(LOAN_CORE_ADDRESS);
-    await initLenderNote.wait();
-    console.log(`LenderNote: initialized loanCore at address ${LOAN_CORE_ADDRESS}`);
-    console.log(SUBSECTION_SEPARATOR);
-
-    // ============= LoanCore ==============
-
-    // grant originationController the ORIGINATOR_ROLE
-    const updateOriginationControllerRole = await loanCore.grantRole(ORIGINATOR_ROLE, ORIGINATION_CONTROLLER_ADDRESS);
-    await updateOriginationControllerRole.wait();
-    console.log(`LoanCore: originator role granted to ${ORIGINATION_CONTROLLER_ADDRESS}`);
-    console.log(SUBSECTION_SEPARATOR);
-
-    // grant repaymentController the REPAYER_ROLE
-    const updateRepaymentControllerAdmin = await loanCore.grantRole(REPAYER_ROLE, REPAYMENT_CONTROLLER_ADDRESS);
-    await updateRepaymentControllerAdmin.wait();
-    console.log(`LoanCore: repayer role granted to ${REPAYMENT_CONTROLLER_ADDRESS}`);
-    console.log(SUBSECTION_SEPARATOR);
-
-    // ============= OriginationController ==============
-
-    // whitelist unvaultedItemsVerifier
-    const setUnvaultedItemsVerifier = await originationController.setAllowedVerifiers(
-        [unvaultedItemsVerifier.address],
-        [true],
-    );
-    await setUnvaultedItemsVerifier.wait();
-    console.log(
-        `OriginationController added UnvaultedItemsVerifier, at address: ${unvaultedItemsVerifier.address} as allowed verifier`,
-    );
-    console.log(SUBSECTION_SEPARATOR);
-
-    console.log("✅ V3 Lending Protocol setup complete\n");
-    console.log(SECTION_SEPARATOR);
-
-    // ================================== Execute V2 -> V3 Rollover ==================================
-
-    console.log("Perform V2 -> V3 rollover...\n");
-
-    // ============= Setup ==============
-    // use accounts[0] as new lender
-    const [newLender] = await hre.ethers.getSigners();
-    console.log("New lender address:", newLender.address);
+    await doWhitelisting(resources);
 
     // Whitelist collateral and payable currency used in the new loan terms
     console.log(SUBSECTION_SEPARATOR);
@@ -209,14 +83,28 @@ export async function main(): Promise<void> {
     const addPayableCurrency = await originationController.setAllowedPayableCurrencies([PAYABLE_CURRENCY], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
     await addPayableCurrency.wait();
 
+    console.log(SECTION_SEPARATOR);
+    console.log("Assigning roles...");
+
+    await setupRoles(resources);
+
+    // ================================== Execute V2 -> V3 Rollover ==================================
+
+    console.log("Perform V2 -> V3 rollover...\n");
+
+    // ============= Setup ==============
+    // use accounts[0] as new lender
+    const [newLender] = await hre.ethers.getSigners();
+    console.log("New lender address:", newLender.address);
+
     // Deploy NftFI -> v3 rollover contract and set the flash loan fee value
     console.log(SUBSECTION_SEPARATOR);
     console.log("Deploying rollover contract...");
 
     const contracts = {
         feeControllerV3: `${feeController.address}`,
-        originationControllerV3: `${ORIGINATION_CONTROLLER_ADDRESS}`,
-        loanCoreV3: `${LOAN_CORE_ADDRESS}`,
+        originationControllerV3: `${originationController.address}`,
+        loanCoreV3: `${loanCore.address}`,
         borrowerNoteV3: `${borrowerNote.address}`,
     };
 
@@ -251,7 +139,7 @@ export async function main(): Promise<void> {
     console.log(SUBSECTION_SEPARATOR);
 
     console.log("New lender approves payable currency to V3 LoanCore...");
-    await payableCurrency.connect(newLender).approve(LOAN_CORE_ADDRESS, V3_LOAN_PRINCIPAL);
+    await payableCurrency.connect(newLender).approve(loanCore.address, V3_LOAN_PRINCIPAL);
     console.log(SUBSECTION_SEPARATOR);
 
     console.log("Borrower mints NFTFI obligationReceiptToken and approve it to rollover contract...");
@@ -296,13 +184,13 @@ export async function main(): Promise<void> {
 
     const predicates: ItemsPredicate[] = [
         {
-            verifier: unvaultedItemsVerifier.address,
-            data: encodeItemCheck(LENDER_SPECIFIED_COLLATERAL, LENDER_SPECIFIED_COLLATERAL_ID),
+            verifier: collectionWideOfferVerifier.address,
+            data: encodeAddress(LENDER_SPECIFIED_COLLATERAL),
         },
     ];
 
     const sig = await createLoanItemsSignature(
-        ORIGINATION_CONTROLLER_ADDRESS,
+        originationController.address,
         "OriginationController",
         newLoanTerms,
         predicates,
