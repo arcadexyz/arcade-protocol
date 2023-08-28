@@ -20,7 +20,11 @@ import {
     MR_CallerNotBorrower
 } from "../errors/MigrationErrors.sol";
 
-import { R_StateAlreadySet } from "../errors/RolloverErrors.sol";
+import {
+    R_StateAlreadySet,
+    R_ZeroAddress,
+    R_BorrowerNotReset
+} from "../errors/RolloverErrors.sol";
 
 /**
  * @title LP1MigrationBase
@@ -54,10 +58,26 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
     ILoanCore public immutable loanCore;
     IERC721 public immutable borrowerNote;
 
+    /// @notice State variable used for checking the inheriting contract initiated the flash
+    ///         loan. When a rollover function is called the borrowers address is cached here
+    ///         and checked against the opData in the flash loan callback.
+    address public borrower;
+
     /// @notice state variable for pausing the contract
-    bool public paused = false;
+    bool public paused;
 
     constructor(IVault _vault, OperationContracts memory _opContracts) {
+        // input sanitization
+        if (address(_vault) == address(0)) revert R_ZeroAddress("vault");
+        if (address(_opContracts.feeControllerV3) == address(0)) revert R_ZeroAddress("feeControllerV3");
+
+        if (address(_opContracts.originationControllerV3) == address(0)) {
+            revert R_ZeroAddress("originationControllerV3");
+        }
+
+        if (address(_opContracts.loanCoreV3) == address(0)) revert R_ZeroAddress("loanCoreV3");
+        if (address(_opContracts.borrowerNoteV3) == address(0)) revert R_ZeroAddress("borrowerNoteV3");
+
         // Set Balancer vault address
         VAULT = _vault;
 
@@ -168,11 +188,11 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
         );
 
         uint256 smartNftId = loanCoordinatorData.smartNftId;
-        address borrower = IERC721(IDirectLoanCoordinator(loanCoordinator).obligationReceiptToken()).ownerOf(
+        address _borrower = IERC721(IDirectLoanCoordinator(loanCoordinator).obligationReceiptToken()).ownerOf(
             smartNftId
         );
 
-        if (borrower != msg.sender) revert MR_CallerNotBorrower(msg.sender, borrower);
+        if (_borrower != msg.sender) revert MR_CallerNotBorrower(msg.sender, _borrower);
 
         if (sourceLoanTerms.loanERC20Denomination != newLoanTerms.payableCurrency) {
             revert MR_CurrencyMismatch(sourceLoanTerms.loanERC20Denomination, newLoanTerms.payableCurrency);
@@ -206,7 +226,7 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
             address nftCollateralWrapper,
             uint64 loanStartTime,
             address nftCollateralContract,
-            address borrower
+            address _borrower
         ) = DirectLoanFixedOffer(address(directLoanFixedOffer)).loanIdToLoan(uint32(loanId));
 
         return LoanData.LoanTerms(
@@ -220,7 +240,7 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
             nftCollateralWrapper,
             loanStartTime,
             nftCollateralContract,
-            borrower
+            _borrower
         );
     }
 
@@ -249,5 +269,19 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
         paused = _pause;
 
         emit PausedStateChanged(_pause);
+    }
+
+    /**
+     * @notice This function ensures that at the start of every flash loan sequence, the borrower
+     *         state is reset to address(0). The rollover functions that inherit this modifier set
+     *         the borrower state while executing the rollover operations. At the end of the rollover
+     *         the borrower state is reset to address(0).
+     */
+    modifier whenBorrowerReset() {
+        if (borrower != address(0)) revert R_BorrowerNotReset(borrower);
+
+        _;
+
+        borrower = address(0);
     }
 }

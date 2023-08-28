@@ -13,6 +13,11 @@ import {
     MR_Paused
 } from "../errors/MigrationErrors.sol";
 
+import {
+    R_ZeroAddress,
+    R_UnknownBorrower
+} from "../errors/RolloverErrors.sol";
+
 /**
  * @title LP1Migration
  * @author Non-Fungible Technologies, Inc.
@@ -51,35 +56,37 @@ contract LP1Migration is IMigration, LP1MigrationBase {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external override {
+    ) external override whenBorrowerReset {
         if (paused) revert MR_Paused();
 
         LoanData.LoanTerms memory loanTerms = _getLoanTerms(loanId);
         _validateMigration(loanTerms, newLoanTerms, loanId);
 
-        {
-            IERC20[] memory assets = new IERC20[](1);
-            assets[0] = IERC20(loanTerms.loanERC20Denomination);
+        // cache borrower address for flash loan callback
+        borrower = loanTerms.borrower;
+        if (borrower == address(0)) revert R_ZeroAddress("borrower");
 
-            uint256[] memory amounts = new uint256[](1);
-            amounts[0] = loanTerms.maximumRepaymentAmount;
+        IERC20[] memory assets = new IERC20[](1);
+        assets[0] = IERC20(loanTerms.loanERC20Denomination);
 
-            bytes memory params = abi.encode(
-                OperationData({
-                    loanId: loanId,
-                    borrower: loanTerms.borrower,
-                    newLoanTerms: newLoanTerms,
-                    lender: lender,
-                    nonce: nonce,
-                    v: v,
-                    r: r,
-                    s: s
-                })
-            );
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = loanTerms.maximumRepaymentAmount;
 
-            // Flash loan based on principal + interest
-            VAULT.flashLoan(this, assets, amounts, params);
-        }
+        bytes memory params = abi.encode(
+            OperationData({
+                loanId: loanId,
+                borrower: borrower,
+                newLoanTerms: newLoanTerms,
+                lender: lender,
+                nonce: nonce,
+                v: v,
+                r: r,
+                s: s
+            })
+        );
+
+        // Flash loan based on principal + interest
+        VAULT.flashLoan(this, assets, amounts, params);
     }
 
     /**
@@ -101,6 +108,12 @@ contract LP1Migration is IMigration, LP1MigrationBase {
         if (msg.sender != address(VAULT)) revert MR_UnknownCaller(msg.sender, address(VAULT));
 
         OperationData memory opData = abi.decode(params, (OperationData));
+
+        // verify this contract started the flash loan
+        if (opData.borrower != borrower) revert R_UnknownBorrower(opData.borrower, borrower);
+        // borrower must be set
+        if (borrower == address(0)) revert R_ZeroAddress("borrower");
+
         _executeOperation(assets, amounts, feeAmounts, opData);
     }
 
