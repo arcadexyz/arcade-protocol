@@ -85,6 +85,7 @@ function createHardhatConfig(): HardhatNetworkUserConfig {
         return Object.assign(config, {
             forking: {
                 url: `https://eth-mainnet.alchemyapi.io/v2/${alchemyApiKey}`,
+                blockNumber: 17895128,
             },
         });
     }

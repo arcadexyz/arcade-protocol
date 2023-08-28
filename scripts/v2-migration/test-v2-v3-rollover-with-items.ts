@@ -194,7 +194,7 @@ export async function main(): Promise<void> {
     // ============= Execute ==============
 
     console.log("Execute V2 -> V3 rollover...\n");
-    const tx = await flashRollover.connect(borrower).rolloverLoanWithItems(
+    const tx = await flashRollover.connect(borrower).migrateLoanWithItems(
         LOAN_ID,
         newLoanTerms,
         newLender.address,
