@@ -26,13 +26,13 @@ export const LENDER_NOTE_BASE_URI = "ipfs://QmSoqN1QskJRwrrdG867NjWdwsXkUmEcmMK1
 export const LENDER_NOTE_NAME = "Arcade.xyz Lender Note";
 export const LENDER_NOTE_SYMBOL = "aLN";
 
-export const ADMIN = "0xAdD93e738a415c5248f7cB044FCFC71d86b18572"; // in prod - will always be CV-owned timelock
-export const RESOURCE_MANAGER = ADMIN; // core voting or delegated "low-security" multisig - controls NFT image
-export const CALL_WHITELIST_MANAGER = ADMIN; // core voting - adds vault utility via adding/removing function calls from CallWhitelist
-export const LOAN_WHITELIST_MANAGER = ADMIN; // core voting - manages OriginationController
-export const FEE_CLAIMER = ADMIN; // core voting or delegated "high-security" multisig/smart contract
-export const AFFILIATE_MANAGER = ADMIN; // core voting
-export const SHUTDOWN_CALLER = ADMIN; // core voting
+export const ADMIN = "0xAdD93e738a415c5248f7cB044FCFC71d86b18572";
+export const RESOURCE_MANAGER = ADMIN;
+export const CALL_WHITELIST_MANAGER = ADMIN;
+export const LOAN_WHITELIST_MANAGER = ADMIN;
+export const FEE_CLAIMER = ADMIN;
+export const AFFILIATE_MANAGER = ADMIN;
+export const SHUTDOWN_CALLER = ADMIN;
 
 export const allowedCurrencies = [
     "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",       // WETH

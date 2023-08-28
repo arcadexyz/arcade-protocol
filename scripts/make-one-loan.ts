@@ -111,8 +111,6 @@ export async function makeLoan(resources: DeployedResources): Promise<void> {
                 NONCE
             );
 
-    // console.log("Result:", call);
-
     console.log(
         `(Loan 1) Signer ${borrower.address} borrowed ${amount} WETH at 15% interest from ${lender.address} against Vault ${vault.address}`
     );

@@ -86,7 +86,6 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     // =========== borrowerNoteURIDescriptor ============
 
     const { borrowerNoteURIDescriptor } = resources;
-    console.log(borrowerNoteURIDescriptor.address);
     await borrowerNoteURIDescriptor.transferOwnership(RESOURCE_MANAGER);
 
     console.log(`BorrowerNoteURIDescriptor: ownership transferred to ${RESOURCE_MANAGER}`);
