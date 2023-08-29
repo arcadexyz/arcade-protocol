@@ -68,8 +68,13 @@ async function whitelistCollections(originationController: OriginationController
     console.log(`Whitelisted ${ids.length} collections in ${chunkedIds.length} transactions.`);
 
     await originationController.setAllowedCollateralAddresses(
-        [vaultFactory.address],
-        [true]
+        [
+            vaultFactory.address,
+            "0x6e9B4c2f6Bd57b7b924d29b5dcfCa1273Ecc94A2", // v2 Vault Factory
+            "0x666faa632E5f7bA20a7FCe36596A6736f87133Be", // v2 Vault Factory
+            "0x7594916540e60fC8d6e9Ba5c3C83632F7001Cf53" // v2 Vault Factory
+        ],
+        [true, true, true, true]
     );
 
     console.log(`Whitelisted VaultFactory at ${vaultFactory.address}.}`);
