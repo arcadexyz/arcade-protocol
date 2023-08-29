@@ -18,17 +18,13 @@ export async function deploy(resources: DeployedResources): Promise<void> {
     const rolloverBaseFactory = await ethers.getContractFactory("V2ToV3Rollover");
     const rolloverWithItemsFactory = await ethers.getContractFactory("V2ToV3RolloverWithItems");
 
-    // const rollover = <V2ToV3Rollover>await rolloverBaseFactory.deploy(...args);
-    // await rollover.deployed();
-    const rollover = <V2ToV3Rollover>await rolloverBaseFactory.attach("0x1F59f83C3962481e8D490c9d65484202e4a3f9DB");
-    // const rolloverWithItems = <V2ToV3RolloverWithItems>await rolloverWithItemsFactory.deploy(...args);
-    // await rolloverWithItems.deployed();
-    const rolloverWithItems = <V2ToV3Rollover>(
-        await rolloverWithItemsFactory.attach("0xac33E4abf40293452422283730ed54A6af139E7B")
-    );
+    const rollover = <V2ToV3Rollover>await rolloverBaseFactory.deploy(...args);
+    await rollover.deployed();
+    const rolloverWithItems = <V2ToV3RolloverWithItems>await rolloverWithItemsFactory.deploy(...args);
+    await rolloverWithItems.deployed();
 
     console.log();
-    // console.log("V2ToV3Rollover deployed to:", rollover.address);
+    console.log("V2ToV3Rollover deployed to:", rollover.address);
     console.log("V2ToV3RolloverWithItems deployed to:", rolloverWithItems.address);
 
     console.log("\nPaste into deployments JSON:");

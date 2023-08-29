@@ -40,71 +40,65 @@ export async function main(): Promise<DeployedResources> {
     console.log(SECTION_SEPARATOR);
 
     const CallWhiteListFactory = await ethers.getContractFactory("CallWhitelistAllExtensions");
-    // const whitelist = <CallWhitelistAllExtensions>await CallWhiteListFactory.deploy(DELEGATION_REGISTRY_ADDRESS);
-    // await whitelist.deployed();
+    const whitelist = <CallWhitelistAllExtensions>await CallWhiteListFactory.deploy(DELEGATION_REGISTRY_ADDRESS);
+    await whitelist.deployed();
 
-    // console.log("CallWhitelistAllExtensions deployed to:", whitelist.address);
-    // console.log(SUBSECTION_SEPARATOR);
+    console.log("CallWhitelistAllExtensions deployed to:", whitelist.address);
+    console.log(SUBSECTION_SEPARATOR);
 
     const AssetVaultFactory = await ethers.getContractFactory("AssetVault");
-    // const assetVault = <AssetVault>await AssetVaultFactory.deploy();
-    // await assetVault.deployed();
+    const assetVault = <AssetVault>await AssetVaultFactory.deploy();
+    await assetVault.deployed();
 
-    // console.log("AssetVault deployed to:", assetVault.address);
-    // console.log(SUBSECTION_SEPARATOR);
+    console.log("AssetVault deployed to:", assetVault.address);
+    console.log(SUBSECTION_SEPARATOR);
 
     const StaticURIDescriptorFactory = await ethers.getContractFactory("StaticURIDescriptor");
-    // const vfURIDescriptor = <StaticURIDescriptor>await StaticURIDescriptorFactory.deploy(`${VAULT_FACTORY_BASE_URI}`);
-    // await vfURIDescriptor.deployed();
+    const vfURIDescriptor = <StaticURIDescriptor>await StaticURIDescriptorFactory.deploy(`${VAULT_FACTORY_BASE_URI}`);
+    await vfURIDescriptor.deployed();
 
-    // console.log("Vault Factory URI Descriptor deployed to:", vfURIDescriptor.address);
-    // console.log(SUBSECTION_SEPARATOR);
+    console.log("Vault Factory URI Descriptor deployed to:", vfURIDescriptor.address);
+    console.log(SUBSECTION_SEPARATOR);
 
     const FeeControllerFactory = await ethers.getContractFactory("FeeController");
-    // const feeController = <FeeController>await FeeControllerFactory.deploy();
-    // await feeController.deployed();
+    const feeController = <FeeController>await FeeControllerFactory.deploy();
+    await feeController.deployed();
 
-    // console.log("FeeController deployed to: ", feeController.address);
-    // console.log(SUBSECTION_SEPARATOR);
+    console.log("FeeController deployed to: ", feeController.address);
+    console.log(SUBSECTION_SEPARATOR);
 
     const VaultFactoryFactory = await ethers.getContractFactory("VaultFactory");
-    // const vaultFactory = <VaultFactory>(
-    //     await VaultFactoryFactory.deploy(
-    //         assetVault.address,
-    //         whitelist.address,
-    //         feeController.address,
-    //         vfURIDescriptor.address,
-    //     )
-    // );
+    const vaultFactory = <VaultFactory>(
+        await VaultFactoryFactory.deploy(
+            assetVault.address,
+            whitelist.address,
+            feeController.address,
+            vfURIDescriptor.address,
+        )
+    );
 
-    // await vaultFactory.deployed();
+    await vaultFactory.deployed();
 
-    // console.log("VaultFactory deployed to:", vaultFactory.address);
-    // console.log(SUBSECTION_SEPARATOR);
+    console.log("VaultFactory deployed to:", vaultFactory.address);
+    console.log(SUBSECTION_SEPARATOR);
 
     const PromissoryNoteFactory = await ethers.getContractFactory("PromissoryNote");
 
-    // const borrowerNoteURIDescriptor = <StaticURIDescriptor>(
-    //     await StaticURIDescriptorFactory.deploy(`${BORROWER_NOTE_BASE_URI}`)
-    // );
-    // await borrowerNoteURIDescriptor.deployed();
+    const borrowerNoteURIDescriptor = <StaticURIDescriptor>(
+        await StaticURIDescriptorFactory.deploy(`${BORROWER_NOTE_BASE_URI}`)
+    );
+    await borrowerNoteURIDescriptor.deployed();
 
-    // const borrowerNote = <PromissoryNote>(
-    //     await PromissoryNoteFactory.deploy(
-    //         BORROWER_NOTE_NAME,
-    //         BORROWER_NOTE_SYMBOL,
-    //         borrowerNoteURIDescriptor.address
-    //     )
-    // );
-    // await borrowerNote.deployed();
-
-    // console.log("BorrowerNote deployed to:", borrowerNote.address);
     const borrowerNote = <PromissoryNote>(
-        await PromissoryNoteFactory.attach("0xe5B12BEfaf3a91065DA7FDD461dEd2d8F8ECb7BE")
+        await PromissoryNoteFactory.deploy(
+            BORROWER_NOTE_NAME,
+            BORROWER_NOTE_SYMBOL,
+            borrowerNoteURIDescriptor.address
+        )
     );
-    const feeController = <FeeController>(
-        await FeeControllerFactory.attach("0xf764442856Eb3fe68A0828e07246a4B395e800fa")
-    );
+    await borrowerNote.deployed();
+
+    console.log("BorrowerNote deployed to:", borrowerNote.address);
 
     const lenderNoteURIDescriptor = <StaticURIDescriptor>(
         await StaticURIDescriptorFactory.deploy(`${LENDER_NOTE_BASE_URI}`)
@@ -166,18 +160,6 @@ export async function main(): Promise<DeployedResources> {
     console.log(SUBSECTION_SEPARATOR);
 
     console.log("Writing to deployments json file...");
-
-    const whitelist = <CallWhitelistAllExtensions>(
-        await CallWhiteListFactory.attach("0x28992ca7BA49a83f3bc391E9312730dE78Bf51Ca")
-    );
-    const assetVault = <AssetVault>await AssetVaultFactory.attach("0xb56A5cCAd374c0d7fB4820322cC336FeC5d1424A");
-    const vfURIDescriptor = <StaticURIDescriptor>(
-        await StaticURIDescriptorFactory.attach("0xaD8a07804389842758d215aBAD7C722B6bA79f22")
-    );
-    const borrowerNoteURIDescriptor = <StaticURIDescriptor>(
-        await StaticURIDescriptorFactory.attach("0xA3e495088c2481Fe76F28b16357654fCE13Cc5e9")
-    );
-    const vaultFactory = <VaultFactory>await VaultFactoryFactory.attach("0x269363665Dbb1582b143099a3cb467E98a476D55");
 
     const resources: DeployedResources = {
         whitelist,

@@ -39,7 +39,8 @@ export async function whitelistPayableCurrencies(originationController: Originat
         return acc;
     }, []);
 
-    await originationController.setAllowedPayableCurrencies(allowedCurrencies, allowData);
+    const tx = await originationController.setAllowedPayableCurrencies(allowedCurrencies, allowData);
+    await tx.wait();
 
     console.log(`Whitelisted ${allowedCurrencies.length} payable currencies.`);
 }
@@ -58,13 +59,12 @@ async function whitelistCollections(
 
     for (const chunk of chunkedIds) {
         const tx = await originationController.setAllowedCollateralAddresses(chunk, Array(chunk.length).fill(true));
-
         await tx.wait();
     }
 
     console.log(`Whitelisted ${ids.length} collections in ${chunkedIds.length} transactions.`);
 
-    const tx2 = await originationController.setAllowedCollateralAddresses(
+    const tx = await originationController.setAllowedCollateralAddresses(
         [
             vaultFactory.address,
             "0x6e9B4c2f6Bd57b7b924d29b5dcfCa1273Ecc94A2", // v2 Vault Factory
@@ -73,7 +73,7 @@ async function whitelistCollections(
         ],
         [true, true, true, true],
     );
-    await tx2.wait();
+    await tx.wait();
 
     console.log(`Whitelisted VaultFactory at ${vaultFactory.address}.}`);
 }
@@ -91,10 +91,15 @@ export async function doWhitelisting(contracts: DeployedResources): Promise<void
     // Whitelist allowed collateral
     // Whitelist verifiers
 
-    const { originationController, arcadeItemsVerifier, collectionWideOfferVerifier, artBlocksVerifier, vaultFactory } =
-        contracts;
+    const {
+        originationController,
+        arcadeItemsVerifier,
+        collectionWideOfferVerifier,
+        artBlocksVerifier,
+        vaultFactory
+    } = contracts;
 
-    // await whitelistPayableCurrencies(originationController);
+    await whitelistPayableCurrencies(originationController);
     await whitelistCollections(originationController, vaultFactory);
     await whitelistVerifiers(originationController, [
         arcadeItemsVerifier,
