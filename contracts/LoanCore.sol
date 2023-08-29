@@ -181,6 +181,7 @@ contract LoanCore is
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
             _getAffiliateSplit(feesEarned, terms.affiliateCode);
 
+
         if (protocolFee > 0) feesWithdrawable[terms.payableCurrency][address(this)] += protocolFee;
         if (affiliateFee > 0) feesWithdrawable[terms.payableCurrency][affiliate] += affiliateFee;
 

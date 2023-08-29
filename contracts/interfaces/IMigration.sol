@@ -4,7 +4,7 @@ pragma solidity 0.8.18;
 
 import "./ILoanCore.sol";
 
-interface IV2ToV3Rollover {
+interface IMigration {
     struct OperationData {
         uint256 loanId;
         address borrower;
@@ -16,7 +16,7 @@ interface IV2ToV3Rollover {
         bytes32 s;
     }
 
-    function rolloverLoan(
+    function migrateLoan(
         uint256 loanId,
         LoanLibrary.LoanTerms calldata newLoanTerms,
         address lender,
