@@ -16,13 +16,16 @@ export const SUBSECTION_SEPARATOR = "-".repeat(10);
 export const PUNKS_ADDRESS = "0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB";
 export const DELEGATION_REGISTRY_ADDRESS = "0x00000000000076a84fef008cdabe6409d2fe638b" // same on all networks
 
-export const VAULT_FACTORY_BASE_URI = "ipfs://QmZqGmFmhHviRnzMadzoJn9kc5zx3XBGVQMaBMU4xVZVoQ";
+// export const VAULT_FACTORY_BASE_URI = "ipfs://QmZqGmFmhHviRnzMadzoJn9kc5zx3XBGVQMaBMU4xVZVoQ"; // goerli
+export const VAULT_FACTORY_BASE_URI = "ipfs://QmZxV2PRMeNjuy5eK3ZUjLj3sSTaU5FsoZnzBebeCrSU2v"; // mainnet
 
-export const BORROWER_NOTE_BASE_URI = "ipfs://QmP33FAzZYMaNaUiNhok89bBKzEzq1qQ6LQ6FLbBFZprcc"
+// export const BORROWER_NOTE_BASE_URI = "ipfs://QmP33FAzZYMaNaUiNhok89bBKzEzq1qQ6LQ6FLbBFZprcc"; // goerli
+export const BORROWER_NOTE_BASE_URI = "ipfs://QmNPVoEPopKHC1sEnkUCw3HJkxCkgbtw9EzMpu5HXJHrh3"; // mainnet
 export const BORROWER_NOTE_NAME = "Arcade.xyz Borrower Note";
 export const BORROWER_NOTE_SYMBOL = "aBN";
 
-export const LENDER_NOTE_BASE_URI = "ipfs://QmSoqN1QskJRwrrdG867NjWdwsXkUmEcmMK1MmNUoEdHps";
+// export const LENDER_NOTE_BASE_URI = "ipfs://QmSoqN1QskJRwrrdG867NjWdwsXkUmEcmMK1MmNUoEdHps"; // goerli
+export const LENDER_NOTE_BASE_URI = "ipfs://QmTKTPKZx6qTnVJZxo1SYr53woDtMLZjuy1qPukknTEbQZ"; // mainnet
 export const LENDER_NOTE_NAME = "Arcade.xyz Lender Note";
 export const LENDER_NOTE_SYMBOL = "aLN";
 
