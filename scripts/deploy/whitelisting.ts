@@ -49,7 +49,7 @@ export async function whitelistPayableCurrencies(originationController: Originat
     console.log(`Whitelisted ${allowedCurrencies.length} payable currencies.`);
 }
 
-async function whitelistCollections(originationController: OriginationController): Promise<void> {
+async function whitelistCollections(originationController: OriginationController, vaultFactory: Contract): Promise<void> {
     const data = await getVerifiedTokenData();
     const ids = data.reduce((acc: string[], collection) => {
         if (collection.isVerified) acc.push(collection.id);
@@ -66,6 +66,13 @@ async function whitelistCollections(originationController: OriginationController
     }
 
     console.log(`Whitelisted ${ids.length} collections in ${chunkedIds.length} transactions.`);
+
+    await originationController.setAllowedCollateralAddresses(
+        [vaultFactory.address],
+        [true]
+    );
+
+    console.log(`Whitelisted VaultFactory at ${vaultFactory.address}.}`);
 }
 
 async function whitelistVerifiers(originationController: OriginationController, verifiers: Contract[]): Promise<void> {
@@ -84,9 +91,15 @@ export async function doWhitelisting(contracts: DeployedResources): Promise<void
     // Whitelist allowed collateral
     // Whitelist verifiers
 
-    const { originationController, arcadeItemsVerifier, collectionWideOfferVerifier, artBlocksVerifier } = contracts;
+    const {
+        originationController,
+        arcadeItemsVerifier,
+        collectionWideOfferVerifier,
+        artBlocksVerifier
+    } = contracts;
+
     await whitelistPayableCurrencies(originationController);
-    await whitelistCollections(originationController);
+    await whitelistCollections(originationController, vaultFactory);
     await whitelistVerifiers(originationController, [arcadeItemsVerifier, collectionWideOfferVerifier, artBlocksVerifier]);
 
     console.log("✅ Whitelisting complete.");
