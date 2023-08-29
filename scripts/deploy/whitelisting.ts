@@ -32,24 +32,22 @@ export async function getVerifiedTokenData(): Promise<Record<string, any>[]> {
 }
 
 export async function whitelistPayableCurrencies(originationController: OriginationController): Promise<void> {
-    type AllowData = { isAllowed: true, minPrincipal: BigNumberish }[]
+    type AllowData = { isAllowed: true; minPrincipal: BigNumberish }[];
 
-    const allowData = minPrincipals.reduce(
-        (acc: AllowData, minPrincipal) => {
-            acc.push({ isAllowed: true, minPrincipal });
-            return acc;
-        },
-    []);
+    const allowData = minPrincipals.reduce((acc: AllowData, minPrincipal) => {
+        acc.push({ isAllowed: true, minPrincipal });
+        return acc;
+    }, []);
 
-    await originationController.setAllowedPayableCurrencies(
-        allowedCurrencies,
-        allowData
-    );
+    await originationController.setAllowedPayableCurrencies(allowedCurrencies, allowData);
 
     console.log(`Whitelisted ${allowedCurrencies.length} payable currencies.`);
 }
 
-async function whitelistCollections(originationController: OriginationController, vaultFactory: Contract): Promise<void> {
+async function whitelistCollections(
+    originationController: OriginationController,
+    vaultFactory: Contract,
+): Promise<void> {
     const data = await getVerifiedTokenData();
     const ids = data.reduce((acc: string[], collection) => {
         if (collection.isVerified) acc.push(collection.id);
@@ -59,34 +57,31 @@ async function whitelistCollections(originationController: OriginationController
     const chunkedIds = chunk(ids, 50);
 
     for (const chunk of chunkedIds) {
-        await originationController.setAllowedCollateralAddresses(
-            chunk,
-            Array(chunk.length).fill(true)
-        );
+        const tx = await originationController.setAllowedCollateralAddresses(chunk, Array(chunk.length).fill(true));
+
+        await tx.wait();
     }
 
     console.log(`Whitelisted ${ids.length} collections in ${chunkedIds.length} transactions.`);
 
-    await originationController.setAllowedCollateralAddresses(
+    const tx2 = await originationController.setAllowedCollateralAddresses(
         [
             vaultFactory.address,
             "0x6e9B4c2f6Bd57b7b924d29b5dcfCa1273Ecc94A2", // v2 Vault Factory
             "0x666faa632E5f7bA20a7FCe36596A6736f87133Be", // v2 Vault Factory
-            "0x7594916540e60fC8d6e9Ba5c3C83632F7001Cf53" // v2 Vault Factory
+            "0x7594916540e60fC8d6e9Ba5c3C83632F7001Cf53", // v2 Vault Factory
         ],
-        [true, true, true, true]
+        [true, true, true, true],
     );
+    await tx2.wait();
 
     console.log(`Whitelisted VaultFactory at ${vaultFactory.address}.}`);
 }
 
 async function whitelistVerifiers(originationController: OriginationController, verifiers: Contract[]): Promise<void> {
-    const addrs = verifiers.map((verifier) => verifier.address);
+    const addrs = verifiers.map(verifier => verifier.address);
 
-    await originationController.setAllowedVerifiers(
-        addrs,
-        Array(addrs.length).fill(true)
-    );
+    await originationController.setAllowedVerifiers(addrs, Array(addrs.length).fill(true));
 
     console.log(`Whitelisted ${addrs.length} verifiers.`);
 }
@@ -96,16 +91,16 @@ export async function doWhitelisting(contracts: DeployedResources): Promise<void
     // Whitelist allowed collateral
     // Whitelist verifiers
 
-    const {
-        originationController,
+    const { originationController, arcadeItemsVerifier, collectionWideOfferVerifier, artBlocksVerifier, vaultFactory } =
+        contracts;
+
+    // await whitelistPayableCurrencies(originationController);
+    await whitelistCollections(originationController, vaultFactory);
+    await whitelistVerifiers(originationController, [
         arcadeItemsVerifier,
         collectionWideOfferVerifier,
-        artBlocksVerifier
-    } = contracts;
-
-    await whitelistPayableCurrencies(originationController);
-    await whitelistCollections(originationController, vaultFactory);
-    await whitelistVerifiers(originationController, [arcadeItemsVerifier, collectionWideOfferVerifier, artBlocksVerifier]);
+        artBlocksVerifier,
+    ]);
 
     console.log("✅ Whitelisting complete.");
 }
@@ -127,4 +122,3 @@ if (require.main === module) {
             process.exit(1);
         });
 }
-

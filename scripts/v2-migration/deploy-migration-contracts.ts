@@ -11,43 +11,54 @@ export async function deploy(resources: DeployedResources): Promise<void> {
             feeControllerV3: resources.feeController.address,
             originationControllerV3: resources.originationController.address,
             loanCoreV3: resources.loanCore.address,
-            borrowerNoteV3: resources.borrowerNote.address
-        }
+            borrowerNoteV3: resources.borrowerNote.address,
+        },
     ];
 
     const rolloverBaseFactory = await ethers.getContractFactory("V2ToV3Rollover");
     const rolloverWithItemsFactory = await ethers.getContractFactory("V2ToV3RolloverWithItems");
 
-    const rollover = <V2ToV3Rollover>await rolloverBaseFactory.deploy(...args);
-    const rolloverWithItems = <V2ToV3RolloverWithItems>await rolloverWithItemsFactory.deploy(...args);
-    await Promise.all([rollover.deployed(), rolloverWithItems.deployed()]);
+    // const rollover = <V2ToV3Rollover>await rolloverBaseFactory.deploy(...args);
+    // await rollover.deployed();
+    const rollover = <V2ToV3Rollover>await rolloverBaseFactory.attach("0x1F59f83C3962481e8D490c9d65484202e4a3f9DB");
+    // const rolloverWithItems = <V2ToV3RolloverWithItems>await rolloverWithItemsFactory.deploy(...args);
+    // await rolloverWithItems.deployed();
+    const rolloverWithItems = <V2ToV3Rollover>(
+        await rolloverWithItemsFactory.attach("0xac33E4abf40293452422283730ed54A6af139E7B")
+    );
 
     console.log();
-    console.log("V2ToV3Rollover deployed to:", rollover.address);
+    // console.log("V2ToV3Rollover deployed to:", rollover.address);
     console.log("V2ToV3RolloverWithItems deployed to:", rolloverWithItems.address);
 
     console.log("\nPaste into deployments JSON:");
-    console.log(JSON.stringify({
-        V2ToV3Rollover: {
-            contractAddress: rollover.address,
-            constructorArgs: args
-        },
-        V2ToV3RolloverWithItems: {
-            contractAddress: rolloverWithItems.address,
-            constructorArgs: args
-        }
-    }, null, 4));
+    console.log(
+        JSON.stringify(
+            {
+                V2ToV3Rollover: {
+                    contractAddress: rollover.address,
+                    constructorArgs: args,
+                },
+                V2ToV3RolloverWithItems: {
+                    contractAddress: rolloverWithItems.address,
+                    constructorArgs: args,
+                },
+            },
+            null,
+            4,
+        ),
+    );
     console.log("\n");
 
     if (process.env.VERIFY) {
         await hre.run("verify:verify", {
             address: rollover.address,
-            constructorArguments: args
+            constructorArguments: args,
         });
 
         await hre.run("verify:verify", {
             address: rolloverWithItems.address,
-            constructorArguments: args
+            constructorArguments: args,
         });
     }
 }
