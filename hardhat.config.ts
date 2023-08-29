@@ -162,7 +162,7 @@ export const config: HardhatUserConfig = {
             },
             {
                 version: "0.4.18",
-            }
+            },
         ],
     },
     typechain: {

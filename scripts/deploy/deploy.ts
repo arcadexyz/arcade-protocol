@@ -11,8 +11,8 @@ import {
     BORROWER_NOTE_NAME,
     BORROWER_NOTE_SYMBOL,
     LENDER_NOTE_NAME,
-    LENDER_NOTE_SYMBOL
- } from "../utils/constants";
+    LENDER_NOTE_SYMBOL,
+} from "../utils/constants";
 
 import {
     AssetVault,
@@ -26,7 +26,7 @@ import {
     StaticURIDescriptor,
     CollectionWideOfferVerifier,
     ArtBlocksVerifier,
-    CallWhitelistAllExtensions
+    CallWhitelistAllExtensions,
 } from "../../typechain";
 
 import { DeployedResources } from "../utils/deploy";
@@ -106,11 +106,7 @@ export async function main(): Promise<DeployedResources> {
     await lenderNoteURIDescriptor.deployed();
 
     const lenderNote = <PromissoryNote>(
-        await PromissoryNoteFactory.deploy(
-            LENDER_NOTE_NAME,
-            LENDER_NOTE_SYMBOL,
-            lenderNoteURIDescriptor.address
-        )
+        await PromissoryNoteFactory.deploy(LENDER_NOTE_NAME, LENDER_NOTE_SYMBOL, lenderNoteURIDescriptor.address)
     );
     await lenderNote.deployed();
 
@@ -118,10 +114,7 @@ export async function main(): Promise<DeployedResources> {
     console.log(SUBSECTION_SEPARATOR);
 
     const LoanCoreFactory = await ethers.getContractFactory("LoanCore");
-    const loanCore = <LoanCore>await LoanCoreFactory.deploy(
-        borrowerNote.address,
-        lenderNote.address
-    );
+    const loanCore = <LoanCore>await LoanCoreFactory.deploy(borrowerNote.address, lenderNote.address);
     await loanCore.deployed();
 
     console.log("LoanCore deployed to:", loanCore.address);
@@ -129,10 +122,7 @@ export async function main(): Promise<DeployedResources> {
 
     const RepaymentControllerFactory = await ethers.getContractFactory("RepaymentController");
     const repaymentController = <RepaymentController>(
-        await RepaymentControllerFactory.deploy(
-            loanCore.address,
-            feeController.address
-        )
+        await RepaymentControllerFactory.deploy(loanCore.address, feeController.address)
     );
     await repaymentController.deployed();
 
@@ -140,9 +130,8 @@ export async function main(): Promise<DeployedResources> {
     console.log(SUBSECTION_SEPARATOR);
 
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationController");
-    const originationController = <OriginationController>await OriginationControllerFactory.deploy(
-        loanCore.address,
-        feeController.address
+    const originationController = <OriginationController>(
+        await OriginationControllerFactory.deploy(loanCore.address, feeController.address)
     );
     await originationController.deployed();
 
@@ -187,46 +176,21 @@ export async function main(): Promise<DeployedResources> {
         lenderNote,
         arcadeItemsVerifier: verifier,
         collectionWideOfferVerifier,
-        artBlocksVerifier
-    }
+        artBlocksVerifier,
+    };
 
-    await recordDeployment(
-        resources,
-        {
-            whitelist: [DELEGATION_REGISTRY_ADDRESS],
-            vaultFactoryURIDescriptor: [VAULT_FACTORY_BASE_URI],
-            vaultFactory: [
-                assetVault.address,
-                whitelist.address,
-                feeController.address,
-                vfURIDescriptor.address,
-            ],
-            borrowerNoteURIDescriptor: [BORROWER_NOTE_BASE_URI],
-            borrowerNote: [
-                BORROWER_NOTE_NAME,
-                BORROWER_NOTE_SYMBOL,
-                borrowerNoteURIDescriptor.address
-            ],
-            lenderNoteURIDescriptor: [LENDER_NOTE_BASE_URI],
-            lenderNote: [
-                LENDER_NOTE_NAME,
-                LENDER_NOTE_SYMBOL,
-                lenderNoteURIDescriptor.address
-            ],
-            loanCore: [
-                borrowerNote.address,
-                lenderNote.address
-            ],
-            repaymentController: [
-                loanCore.address,
-                feeController.address
-            ],
-            originationController: [
-                loanCore.address,
-                feeController.address
-            ]
-        }
-    );
+    await recordDeployment(resources, {
+        whitelist: [DELEGATION_REGISTRY_ADDRESS],
+        vaultFactoryURIDescriptor: [VAULT_FACTORY_BASE_URI],
+        vaultFactory: [assetVault.address, whitelist.address, feeController.address, vfURIDescriptor.address],
+        borrowerNoteURIDescriptor: [BORROWER_NOTE_BASE_URI],
+        borrowerNote: [BORROWER_NOTE_NAME, BORROWER_NOTE_SYMBOL, borrowerNoteURIDescriptor.address],
+        lenderNoteURIDescriptor: [LENDER_NOTE_BASE_URI],
+        lenderNote: [LENDER_NOTE_NAME, LENDER_NOTE_SYMBOL, lenderNoteURIDescriptor.address],
+        loanCore: [borrowerNote.address, lenderNote.address],
+        repaymentController: [loanCore.address, feeController.address],
+        originationController: [loanCore.address, feeController.address],
+    });
 
     console.log(SECTION_SEPARATOR);
 
