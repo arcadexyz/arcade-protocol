@@ -45,38 +45,38 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
 
     // ============= CallWhitelist ==============
 
-    // const { whitelist } = resources;
-    // tx = await whitelist.grantRole(ADMIN_ROLE, ADMIN);
-    // await tx.wait();
+    const { whitelist } = resources;
+    tx = await whitelist.grantRole(ADMIN_ROLE, ADMIN);
+    await tx.wait();
 
-    // tx = await whitelist.grantRole(WHITELIST_MANAGER_ROLE, CALL_WHITELIST_MANAGER);
-    // await tx.wait();
+    tx = await whitelist.grantRole(WHITELIST_MANAGER_ROLE, CALL_WHITELIST_MANAGER);
+    await tx.wait();
 
-    // tx = await whitelist.renounceRole(ADMIN_ROLE, deployer.address);
-    // await tx.wait();
+    tx = await whitelist.renounceRole(ADMIN_ROLE, deployer.address);
+    await tx.wait();
 
-    // console.log(`CallWhitelistAllExtensions: admin role granted to ${CALL_WHITELIST_MANAGER}`);
-    // console.log(`CallWhitelistAllExtensions: whitelist manager role granted to ${CALL_WHITELIST_MANAGER}`);
-    // console.log(`CallWhitelistAllExtensions: Deployer renounced admin role`);
-    // console.log(SUBSECTION_SEPARATOR);
+    console.log(`CallWhitelistAllExtensions: admin role granted to ${CALL_WHITELIST_MANAGER}`);
+    console.log(`CallWhitelistAllExtensions: whitelist manager role granted to ${CALL_WHITELIST_MANAGER}`);
+    console.log(`CallWhitelistAllExtensions: Deployer renounced admin role`);
+    console.log(SUBSECTION_SEPARATOR);
 
-    // // =========== vaultFactoryURIDescriptor ============
+    // =========== vaultFactoryURIDescriptor ============
 
-    // const { vaultFactoryURIDescriptor } = resources;
-    // tx = await vaultFactoryURIDescriptor.transferOwnership(RESOURCE_MANAGER);
-    // await tx.wait();
+    const { vaultFactoryURIDescriptor } = resources;
+    tx = await vaultFactoryURIDescriptor.transferOwnership(RESOURCE_MANAGER);
+    await tx.wait();
 
-    // console.log(`VaultFactoryURIDescriptor: ownership transferred to ${RESOURCE_MANAGER}`);
-    // console.log(SUBSECTION_SEPARATOR);
+    console.log(`VaultFactoryURIDescriptor: ownership transferred to ${RESOURCE_MANAGER}`);
+    console.log(SUBSECTION_SEPARATOR);
 
-    // // ============= FeeController ==============
+    // ============= FeeController ==============
 
-    // const { feeController } = resources;
-    // tx = await feeController.transferOwnership(ADMIN);
-    // await tx.wait();
+    const { feeController } = resources;
+    tx = await feeController.transferOwnership(ADMIN);
+    await tx.wait();
 
-    // console.log(`FeeController: ownership transferred to ${ADMIN}`);
-    // console.log(SUBSECTION_SEPARATOR);
+    console.log(`FeeController: ownership transferred to ${ADMIN}`);
+    console.log(SUBSECTION_SEPARATOR);
 
     // ================= VaultFactory ==================
 
@@ -116,6 +116,14 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     console.log(`BorrowerNote: initialized loanCore at address ${LOAN_CORE_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
 
+    tx = await borrowerNote.grantRole(RESOURCE_MANAGER_ROLE, RESOURCE_MANAGER);
+    await tx.wait();
+
+    tx = await borrowerNote.renounceRole(RESOURCE_MANAGER_ROLE, deployer.address);
+    await tx.wait();
+    console.log(`BorrowerNote: resource manager role granted to ${RESOURCE_MANAGER}`);
+    console.log(`BorrowerNote: deployer renounced resource manager role`);
+
     // =========== lenderNoteURIDescriptor ============
 
     const { lenderNoteURIDescriptor } = resources;
@@ -133,6 +141,14 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
 
     console.log(`LenderNote: initialized loanCore at address ${LOAN_CORE_ADDRESS}`);
     console.log(SUBSECTION_SEPARATOR);
+
+    tx = await lenderNote.grantRole(RESOURCE_MANAGER_ROLE, RESOURCE_MANAGER);
+    await tx.wait();
+
+    tx = await lenderNote.renounceRole(RESOURCE_MANAGER_ROLE, deployer.address);
+    await tx.wait();
+    console.log(`lenderNote: resource manager role granted to ${RESOURCE_MANAGER}`);
+    console.log(`lenderNote: deployer renounced resource manager role`);
 
     // ============= LoanCore ==============
 
