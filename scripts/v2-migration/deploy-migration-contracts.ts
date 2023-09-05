@@ -5,9 +5,13 @@ import { BALANCER_ADDRESS } from "./config";
 import { V2ToV3Rollover, V2ToV3RolloverWithItems } from "../../typechain";
 
 export async function deploy(resources: DeployedResources): Promise<void> {
+    // Using mainnet addresses for V2 contracts
     const args = [
         BALANCER_ADDRESS,
         {
+            loanCoreV2: "0x81b2F8Fc75Bab64A6b144aa6d2fAa127B4Fa7fD9",
+            borrowerNoteV2: "0x337104A4f06260Ff327d6734C555A0f5d8F863aa",
+            repaymentControllerV2: "0xb39dAB85FA05C381767FF992cCDE4c94619993d4",
             feeControllerV3: resources.feeController.address,
             originationControllerV3: resources.originationController.address,
             loanCoreV3: resources.loanCore.address,
