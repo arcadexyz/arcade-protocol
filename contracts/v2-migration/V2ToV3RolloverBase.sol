@@ -38,17 +38,24 @@ abstract contract V2ToV3RolloverBase is IMigrationBase, ReentrancyGuard, ERC721H
         uint256 newLoanId
     );
 
+    struct OperationContracts {
+        ILoanCoreV2 loanCoreV2;
+        IERC721 borrowerNoteV2;
+        IRepaymentControllerV2 repaymentControllerV2;
+        IFeeController feeControllerV3;
+        IOriginationController originationControllerV3;
+        ILoanCore loanCoreV3;
+        IERC721 borrowerNoteV3;
+    }
+
     // Balancer vault contract
     /* solhint-disable var-name-mixedcase */
     IVault public immutable VAULT; // 0xBA12222222228d8Ba445958a75a0704d566BF2C8
 
-    /// @notice V2 lending protocol contract references
-    ILoanCoreV2 public constant loanCoreV2 = ILoanCoreV2(0x81b2F8Fc75Bab64A6b144aa6d2fAa127B4Fa7fD9);
-    IERC721 public constant borrowerNoteV2 = IERC721(0x337104A4f06260Ff327d6734C555A0f5d8F863aa);
-    IRepaymentControllerV2 public constant repaymentControllerV2 =
-        IRepaymentControllerV2(0xb39dAB85FA05C381767FF992cCDE4c94619993d4);
-
-    /// @notice V3 lending protocol contract references
+    /// @notice lending protocol contract references
+    ILoanCoreV2 public immutable loanCoreV2;
+    IERC721 public immutable borrowerNoteV2;
+    IRepaymentControllerV2 public immutable repaymentControllerV2;
     IFeeController public immutable feeControllerV3;
     IOriginationController public immutable originationControllerV3;
     ILoanCore public immutable loanCoreV3;
@@ -65,12 +72,11 @@ abstract contract V2ToV3RolloverBase is IMigrationBase, ReentrancyGuard, ERC721H
     constructor(IVault _vault, OperationContracts memory _opContracts) {
         // input sanitization
         if (address(_vault) == address(0)) revert R_ZeroAddress("vault");
+        if (address(_opContracts.loanCoreV2) == address(0)) revert R_ZeroAddress("loanCoreV2");
+        if (address(_opContracts.borrowerNoteV2) == address(0)) revert R_ZeroAddress("borrowerNoteV2");
+        if (address(_opContracts.repaymentControllerV2) == address(0)) revert R_ZeroAddress("repaymentControllerV2");
         if (address(_opContracts.feeControllerV3) == address(0)) revert R_ZeroAddress("feeControllerV3");
-
-        if (address(_opContracts.originationControllerV3) == address(0)) {
-            revert R_ZeroAddress("originationControllerV3");
-        }
-
+        if (address(_opContracts.originationControllerV3) == address(0)) revert R_ZeroAddress("originationControllerV3");
         if (address(_opContracts.loanCoreV3) == address(0)) revert R_ZeroAddress("loanCoreV3");
         if (address(_opContracts.borrowerNoteV3) == address(0)) revert R_ZeroAddress("borrowerNoteV3");
 
@@ -78,6 +84,9 @@ abstract contract V2ToV3RolloverBase is IMigrationBase, ReentrancyGuard, ERC721H
         VAULT = _vault;
 
         // Set lending protocol contract references
+        loanCoreV2 = ILoanCoreV2(_opContracts.loanCoreV2);
+        borrowerNoteV2 = IERC721(_opContracts.borrowerNoteV2);
+        repaymentControllerV2 = IRepaymentControllerV2(_opContracts.repaymentControllerV2);
         feeControllerV3 = IFeeController(_opContracts.feeControllerV3);
         originationControllerV3 = IOriginationController(_opContracts.originationControllerV3);
         loanCoreV3 = ILoanCore(_opContracts.loanCoreV3);

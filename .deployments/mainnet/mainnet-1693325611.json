@@ -90,10 +90,13 @@
     "constructorArgs": []
   },
   "V2ToV3Rollover": {
-    "contractAddress": "0x1F59f83C3962481e8D490c9d65484202e4a3f9DB",
+    "contractAddress": "0xDB0655752A3CD23B8fD360aF596E71EE924c5253",
     "constructorArgs": [
       "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
       {
+        "loanCoreV2": "0x81b2F8Fc75Bab64A6b144aa6d2fAa127B4Fa7fD9",
+        "borrowerNoteV2": "0x337104A4f06260Ff327d6734C555A0f5d8F863aa",
+        "repaymentControllerV2": "0xb39dAB85FA05C381767FF992cCDE4c94619993d4",
         "feeControllerV3": "0xf764442856Eb3fe68A0828e07246a4B395e800fa",
         "originationControllerV3": "0xB7BFcca7D7ff0f371867B770856FAc184B185878",
         "loanCoreV3": "0x89bc08BA00f135d608bc335f6B33D7a9ABCC98aF",
@@ -102,10 +105,13 @@
     ]
   },
   "V2ToV3RolloverWithItems": {
-    "contractAddress": "0xac33E4abf40293452422283730ed54A6af139E7B",
+    "contractAddress": "0x3c77269CA7f4AC42B6f0bFC10D9f44406351d396",
     "constructorArgs": [
       "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
       {
+        "loanCoreV2": "0x81b2F8Fc75Bab64A6b144aa6d2fAa127B4Fa7fD9",
+        "borrowerNoteV2": "0x337104A4f06260Ff327d6734C555A0f5d8F863aa",
+        "repaymentControllerV2": "0xb39dAB85FA05C381767FF992cCDE4c94619993d4",
         "feeControllerV3": "0xf764442856Eb3fe68A0828e07246a4B395e800fa",
         "originationControllerV3": "0xB7BFcca7D7ff0f371867B770856FAc184B185878",
         "loanCoreV3": "0x89bc08BA00f135d608bc335f6B33D7a9ABCC98aF",
