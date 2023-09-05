@@ -77,6 +77,7 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
         if (address(_vault) == address(0)) revert R_ZeroAddress("vault");
         if (address(_opContracts.directLoanFixedOffer) == address(0)) revert R_ZeroAddress("directLoanFixedOffer");
         if (address(_opContracts.loanCoordinator) == address(0)) revert R_ZeroAddress("loanCoordinator");
+        if (address(_opContracts.feeControllerV3) == address(0)) revert R_ZeroAddress("feeControllerV3");
         if (address(_opContracts.originationControllerV3) == address(0)) revert R_ZeroAddress("originationControllerV3");
         if (address(_opContracts.loanCoreV3) == address(0)) revert R_ZeroAddress("loanCoreV3");
         if (address(_opContracts.borrowerNoteV3) == address(0)) revert R_ZeroAddress("borrowerNoteV3");
