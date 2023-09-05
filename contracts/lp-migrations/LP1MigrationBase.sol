@@ -42,17 +42,23 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
         uint256 newLoanId
     );
 
+    struct OperationContracts {
+        DirectLoanFixedOffer directLoanFixedOffer;
+        IDirectLoanCoordinator loanCoordinator;
+        IFeeController feeControllerV3;
+        IOriginationController originationControllerV3;
+        ILoanCore loanCoreV3;
+        IERC721 borrowerNoteV3;
+    }
+
+
     // Balancer vault contract
     /* solhint-disable var-name-mixedcase */
     IVault public immutable VAULT; // 0xBA12222222228d8Ba445958a75a0704d566BF2C8
 
-    /// @notice LP1 contract references
-    DirectLoanFixedOffer public constant directLoanFixedOffer =
-        DirectLoanFixedOffer(0xE52Cec0E90115AbeB3304BaA36bc2655731f7934);
-    IDirectLoanCoordinator public constant loanCoordinator =
-        IDirectLoanCoordinator(0x0C90C8B4aa8549656851964d5fB787F0e4F54082);
-
     /// @notice V3 lending protocol contract references
+    DirectLoanFixedOffer public immutable directLoanFixedOffer;
+    IDirectLoanCoordinator public immutable loanCoordinator;
     IFeeController public immutable feeController;
     IOriginationController public immutable originationController;
     ILoanCore public immutable loanCore;
@@ -69,12 +75,9 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
     constructor(IVault _vault, OperationContracts memory _opContracts) {
         // input sanitization
         if (address(_vault) == address(0)) revert R_ZeroAddress("vault");
-        if (address(_opContracts.feeControllerV3) == address(0)) revert R_ZeroAddress("feeControllerV3");
-
-        if (address(_opContracts.originationControllerV3) == address(0)) {
-            revert R_ZeroAddress("originationControllerV3");
-        }
-
+        if (address(_opContracts.directLoanFixedOffer) == address(0)) revert R_ZeroAddress("directLoanFixedOffer");
+        if (address(_opContracts.loanCoordinator) == address(0)) revert R_ZeroAddress("loanCoordinator");
+        if (address(_opContracts.originationControllerV3) == address(0)) revert R_ZeroAddress("originationControllerV3");
         if (address(_opContracts.loanCoreV3) == address(0)) revert R_ZeroAddress("loanCoreV3");
         if (address(_opContracts.borrowerNoteV3) == address(0)) revert R_ZeroAddress("borrowerNoteV3");
 
@@ -82,6 +85,8 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
         VAULT = _vault;
 
         // Set lending protocol contract references
+        directLoanFixedOffer = DirectLoanFixedOffer(_opContracts.directLoanFixedOffer);
+        loanCoordinator = IDirectLoanCoordinator(_opContracts.loanCoordinator);
         feeController = IFeeController(_opContracts.feeControllerV3);
         originationController = IOriginationController(_opContracts.originationControllerV3);
         loanCore = ILoanCore(_opContracts.loanCoreV3);
