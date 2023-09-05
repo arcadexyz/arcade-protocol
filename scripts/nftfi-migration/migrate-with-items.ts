@@ -101,11 +101,14 @@ export async function main(): Promise<void> {
     console.log(SUBSECTION_SEPARATOR);
     console.log("Deploying rollover contract...");
 
+    // Using mainnet addresses for migration
     const contracts = {
-        feeControllerV3: `${feeController.address}`,
-        originationControllerV3: `${originationController.address}`,
-        loanCoreV3: `${loanCore.address}`,
-        borrowerNoteV3: `${borrowerNote.address}`,
+        directLoanFixedOffer: "0xE52Cec0E90115AbeB3304BaA36bc2655731f7934",
+        loanCoordinator: "0x0C90C8B4aa8549656851964d5fB787F0e4F54082",
+        feeControllerV3: feeController.address,
+        originationControllerV3: originationController.address,
+        loanCoreV3: loanCore.address,
+        borrowerNoteV3: borrowerNote.address,
     };
 
     const factory = await ethers.getContractFactory("LP1MigrationWithItems");

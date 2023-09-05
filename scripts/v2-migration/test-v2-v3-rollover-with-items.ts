@@ -95,8 +95,12 @@ export async function main(): Promise<void> {
     console.log("New lender address:", newLender.address);
 
     // Deploy v2 -> v3 rollover contract
+    // Using mainnet addreses for V2 contracts
     console.log(SUBSECTION_SEPARATOR);
     const contracts = {
+        loanCoreV2: "0x81b2F8Fc75Bab64A6b144aa6d2fAa127B4Fa7fD9",
+        borrowerNoteV2: "0x337104A4f06260Ff327d6734C555A0f5d8F863aa",
+        repaymentControllerV2: "0xb39dAB85FA05C381767FF992cCDE4c94619993d4",
         feeControllerV3: feeController.address,
         originationControllerV3: originationController.address,
         loanCoreV3: loanCore.address,
