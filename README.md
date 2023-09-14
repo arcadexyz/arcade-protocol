@@ -96,7 +96,7 @@ A global whitelist contract that all Asset Vaults refer to in order to allow/dis
 used in the vault's `call` functionality. Transfer methods are blacklisted in order to prevent backdoor withdrawals from
 vaults. The contract owner can choose to add or remove target addresses and function selectors from the list.
 
-The extensions `CallWhitelistApprovals` and `CallWhitelistDelegation` add similar functionality for token approvals and [delegate.cash](https://delegate.cash/) delegations respectively.
+The extensions `CallWhitelistApprovals` and `CallWhitelistDelegation` add similar functionality for token approvals and [delegate.cash](https://delegate.cash/) delegations respectively. The `CallWhitelistAllExtensions` contract contains both aspects of mentioned functionality in addition to the base whitelist functionality.
 
 ## Verifiers
 
@@ -114,6 +114,24 @@ The following verifier extensions have been implemented:
 - `PunksVerifier.sol` allows collection-wide offers on CryptoPunks.
 - `UnvaultedItemsVerifier.sol` allows counterparties to propose collection-wide offers on assets that will be escrowed directly, without a vault.
 
+## Metadata
+
+The Arcade protocol contains three contracts that follow the ERC721 NFT standard: the Borrower Note and Lender Note (both instances of `PromissoryNote.sol`), and the Vault Factory. In all cases, the NFT contracts use a `tokenUri` implementation that queries an external, descriptor contract for a given token ID's URI. This allows more easy updates of image metadata and changes to token-based URI schemes. The current descriptor contracts are implemented:
+
+- `StaticURIDescriptor.sol` contains a `tokenUri` function that returns the same URI value for any given tokenId.
+- `BaseURIDescriptor.sol` contains a `tokenUri` function that returns an incrementing tokenId appended to a base URI path. This allows a `<base uri>/<token id>` URI scheme which allows unique images per token ID.
+
+## Migrations
+
+This repo implements a number of smart contracts that enable migration from other lending protocols to Arcade V3. All migration (or "rollover") contracts use the same settlement mechanism: initially, a flash loan is taken to repay an open loan, with a loan using the same collateral instantly opened on Arcade V3. Funding from the new loan can be used to repay the old loan from the source protocol. This allows capital-efficient adoption of the Arcade V3 protocol for those currently with active borrows against their NFTs.
+
+Two source protocol migrations have been implemented:
+
+- `V2ToV3Rollover.sol` and `V2ToV3RolloverWithItems.sol` allow migrations from the Arcade V2 protocol to Arcade V3.
+- `LP1Migration.sol` and `LP1MigrationWithItems.sol` allow migrations from NFTfi loans to Arcade V3.
+
+In both cases, the "with items" version of the smart contract allows the borrower to provide an items-based signature from a lender, as opposed to a vault based signature.
+
 ## Version 2
 
 This is version 3 of the protocol. Version 2 of the protocol can be found [here](https://github.com/Non-fungible-Technologies/v2-contracts).
@@ -122,13 +140,15 @@ This is version 3 of the protocol. Version 2 of the protocol can be found [here]
 
 The Arcade Lending Protocol is an immutable, non-upgradeable protocol: there defined roles below specify the entire scope of current and future control any organization may have over the operation of the protocol. These roles are designed such that operational responsibility can be modularized and decentralized. In practice, the V3 protocol is owned by a set of governance smart contract that can execute the results of DAO votes.
 
-- `CallWhitelist` and derived contracts are `Ownable` and have a defined owner, who can update a whitelist of allowed calls. This whitelist is global to every `AssetVault` deployed through the `VaultFactory`. In plain terms, the `CallWhitelist` owner has the ability to change the allowed functions an `AssetVault` can call.
-- `VaultFactory.sol` assigns three privileged roles: an admin, a fee claimer, and a resource manager. The resource manager can change the URI metadata of the VaultFactory NFT. The fee claimer can withdraw any mint fees collected by the contract. The admin can govern assignment of the fee claimer and resource manager roles.
-- `FeeController.sol` is `Ownable` and has a defined owner, which can update the protocol fees. Internal constants define maximum fees that the protocol can set, preventing an attack whereby funds are drained via setting fees to 100%.
+- `CallWhitelist` assigns two privileged roles: an `ADMIN` and a `WHITELIST_MANAGER` role. Holders of the whitelist manager role can add or remove new function calls from the call whitelist, and perform analagous actions on the whitelist extension contracts. Holders of the admin role can grant and revoke the whitelist manager role.
+- `VaultFactory.sol` assigns three privileged roles: an admin, a fee claimer, and a resource manager. The resource manager can change the descriptor contract of the VaultFactory NFT. The fee claimer can withdraw any mint fees collected by the contract. The admin can grant and revoke the fee claimer and resource manager roles.
+- `FeeController.sol` is `Ownable` and has a defined owner, which can update the protocol fees. Internal constants define maximum fees that the protocol can set, preventing an attack whereby funds are drained via setting fees to 100%. Only the current owner can transfer ownership.
 - `LoanCore.sol` is `AccessControl` and has a number of defined access roles:
   - The `ORIGINATOR` role is the only role allowed to access any functions which originate loans. In practice this role is granted to another smart contract, `OriginationController.sol`, which performs necessary checks and validation before starting loans. The `ADMIN` role can grant/revoke the `ORIGINATOR` role.
   - The `REPAYER` role is the only role allowed to access any functions which affect the loan lifecycle of currently active loans (repayment or default claims). In practice this role is granted to another smart contract, `RepaymentController.sol`, which performs necessary checks, calculations and validation before starting loans. The `ADMIN` role can grant/revoke the `REPAYER` role.
   - The `FEE_CLAIMER` role is the only role allowed claim accumulated protocol fees. The `ADMIN` role can grant/revoke the `FEE_CLAIMER` role.
   - The `AFFILIATE_MANAGER` role is the only role allowed to set affiliate splits for any fee collected during the loan lifecycle. The `ADMIN` role can grant/revoke the `AFFILIATE_MANAGER` role.
-- `OriginationController.sol` is `AccessControl` and specifies an `ADMIN` role and a `WHITELIST_MANAGER`. The latter role can update the principal currency, collateral, and verifier whitelists. The `ADMIN` role can grant or revoke the `WHITELIST_MANAGER` role.
+  - The `SHUTDOWN_CALLER` role is an emergency designation that allows holders to wind down core lending operations. In shutdown mode, loans can be repaid and collateral can be reclaimed, but new loans cannot be originated. Shutdown is irreversible.
+- `OriginationController.sol` has two defined roles: the `ADMIN` role and a `WHITELIST_MANAGER`. The latter role can update the principal currency, collateral, and verifier whitelists. The `ADMIN` role can grant or revoke the `WHITELIST_MANAGER` role.
 - `PromissoryNote.sol` has three defined roles: the `MINT/BURN` role allows the assigned address the ability to mint and burn tokens. For protocol operation, this would be `LoanCore`. The `RESOURCE_MANAGER` role allows the update of NFT metadata. The `ADMIN` role can grant/revoke the `MINT/BURN` role and `RESOURCE_MANAGER` role. In practice, after the note contract is initialized, the admin role is revoked in such a way it can never be regained.
+- `BaseURIDescriptor.sol` and other descriptor contracts are `Ownable` and have a defined owner. The defined owner can update contract fields related to token URI and metadata, such as changing the base URI. Only the contract owner can transfer ownership. In practice, the owner of a descriptor contract should be the same address as the defined `RESOURCE_MANAGER` in the NFT contract that uses the descriptor.
