@@ -10,6 +10,8 @@
 
 # Overview of Contracts
 
+> The latest deployment of contracts is from the commit tagged `v3.core.01`.
+
 ### ___See natspec for technical detail.___
 
 
