@@ -104,8 +104,7 @@ The extensions `CallWhitelistApprovals` and `CallWhitelistDelegation` add simila
 
 ### ItemsVerifier
 
-A contract that parses a payload of calldata and a target AssetVault, and decodes the payload in order to use it
-for logic proving or disproving defined predicates about the vault. The ItemsVerifier decodes the calldata
+A contract that parses a payload of calldata (predicates) and a target AssetVault. The contract decodes the calldata in order to prove or disprove various characteristics of a vault. The ItemsVerifier decodes the calldata
 as a list of required items the vault must hold in order for its predicates to pass. In the future, other contracts
 implementing `ISignatureVerifier` can support other calldata formats and associated validation logic.
 
@@ -118,10 +117,10 @@ The following verifier extensions have been implemented:
 
 ## Metadata
 
-The Arcade protocol contains three contracts that follow the ERC721 NFT standard: the Borrower Note and Lender Note (both instances of `PromissoryNote.sol`), and the Vault Factory. In all cases, the NFT contracts use a `tokenUri` implementation that queries an external, descriptor contract for a given token ID's URI. This allows more easy updates of image metadata and changes to token-based URI schemes. The current descriptor contracts are implemented:
+The Arcade protocol contains three contracts that follow the ERC721 NFT standard: the Borrower Note and Lender Note (both instances of `PromissoryNote.sol`), and the Vault Factory. In all cases, the NFT contracts use a `tokenURI` implementation that queries an external descriptor contract for a given token ID's URI. This allows more easy updates of image metadata and changes to token-based URI schemes. The current descriptor contracts are implemented:
 
-- `StaticURIDescriptor.sol` contains a `tokenUri` function that returns the same URI value for any given tokenId.
-- `BaseURIDescriptor.sol` contains a `tokenUri` function that returns an incrementing tokenId appended to a base URI path. This allows a `<base uri>/<token id>` URI scheme which allows unique images per token ID.
+- `StaticURIDescriptor.sol` contains a `tokenURI` function that returns the same URI value for any given tokenId.
+- `BaseURIDescriptor.sol` contains a `tokenURI` function that returns an incrementing tokenId appended to a base URI path. This allows a `<base uri>/<token id>` URI scheme which allows unique images per token ID.
 
 ## Migrations
 
@@ -143,14 +142,14 @@ This is version 3 of the protocol. Version 2 of the protocol can be found [here]
 The Arcade Lending Protocol is an immutable, non-upgradeable protocol: there defined roles below specify the entire scope of current and future control any organization may have over the operation of the protocol. These roles are designed such that operational responsibility can be modularized and decentralized. In practice, the V3 protocol is owned by a set of governance smart contract that can execute the results of DAO votes.
 
 - `CallWhitelist` assigns two privileged roles: an `ADMIN` and a `WHITELIST_MANAGER` role. Holders of the whitelist manager role can add or remove new function calls from the call whitelist, and perform analagous actions on the whitelist extension contracts. Holders of the admin role can grant and revoke the whitelist manager role.
-- `VaultFactory.sol` assigns three privileged roles: an admin, a fee claimer, and a resource manager. The resource manager can change the descriptor contract of the VaultFactory NFT. The fee claimer can withdraw any mint fees collected by the contract. The admin can grant and revoke the fee claimer and resource manager roles.
+- `VaultFactory.sol` assigns three privileged roles: an `ADMIN`, a `FEE_CLAIMER`, and a `RESOURCE_MANAGER`. The resource manager can change the descriptor contract of the VaultFactory NFT. The fee claimer can withdraw any mint fees collected by the contract. The admin can grant and revoke the fee claimer and resource manager roles.
 - `FeeController.sol` is `Ownable` and has a defined owner, which can update the protocol fees. Internal constants define maximum fees that the protocol can set, preventing an attack whereby funds are drained via setting fees to 100%. Only the current owner can transfer ownership.
-- `LoanCore.sol` is `AccessControl` and has a number of defined access roles:
+- `LoanCore.sol` is `AccessControl` and has a five defined access roles:
   - The `ORIGINATOR` role is the only role allowed to access any functions which originate loans. In practice this role is granted to another smart contract, `OriginationController.sol`, which performs necessary checks and validation before starting loans. The `ADMIN` role can grant/revoke the `ORIGINATOR` role.
   - The `REPAYER` role is the only role allowed to access any functions which affect the loan lifecycle of currently active loans (repayment or default claims). In practice this role is granted to another smart contract, `RepaymentController.sol`, which performs necessary checks, calculations and validation before starting loans. The `ADMIN` role can grant/revoke the `REPAYER` role.
   - The `FEE_CLAIMER` role is the only role allowed claim accumulated protocol fees. The `ADMIN` role can grant/revoke the `FEE_CLAIMER` role.
   - The `AFFILIATE_MANAGER` role is the only role allowed to set affiliate splits for any fee collected during the loan lifecycle. The `ADMIN` role can grant/revoke the `AFFILIATE_MANAGER` role.
   - The `SHUTDOWN_CALLER` role is an emergency designation that allows holders to wind down core lending operations. In shutdown mode, loans can be repaid and collateral can be reclaimed, but new loans cannot be originated. Shutdown is irreversible.
 - `OriginationController.sol` has two defined roles: the `ADMIN` role and a `WHITELIST_MANAGER`. The latter role can update the principal currency, collateral, and verifier whitelists. The `ADMIN` role can grant or revoke the `WHITELIST_MANAGER` role.
-- `PromissoryNote.sol` has three defined roles: the `MINT/BURN` role allows the assigned address the ability to mint and burn tokens. For protocol operation, this would be `LoanCore`. The `RESOURCE_MANAGER` role allows the update of NFT metadata. The `ADMIN` role can grant/revoke the `MINT/BURN` role and `RESOURCE_MANAGER` role. In practice, after the note contract is initialized, the admin role is revoked in such a way it can never be regained.
+- `PromissoryNote.sol` has three defined roles: the `MINT/BURN` role allows the assigned address the ability to mint and burn tokens. For the lending protocol to operate correctly, this role must be granted to `LoanCore`. The `RESOURCE_MANAGER` role allows the update of NFT metadata. The `ADMIN` role can grant/revoke the `MINT/BURN` role and `RESOURCE_MANAGER` role. In practice, after the note contract is initialized, the admin role is revoked in such a way it can never be regained.
 - `BaseURIDescriptor.sol` and other descriptor contracts are `Ownable` and have a defined owner. The defined owner can update contract fields related to token URI and metadata, such as changing the base URI. Only the contract owner can transfer ownership. In practice, the owner of a descriptor contract should be the same address as the defined `RESOURCE_MANAGER` in the NFT contract that uses the descriptor.
