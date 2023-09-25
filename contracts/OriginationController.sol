@@ -42,6 +42,8 @@ import {
     OC_ArrayTooManyElements
 } from "./errors/Lending.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title OriginationController
  * @author Non-Fungible Technologies, Inc.
@@ -951,7 +953,7 @@ contract OriginationController is
         }
 
         // approve LoanCore to take the total settled amount
-        payableCurrency.approve(address(loanCore), settledAmount);
+        payableCurrency.safeApprove(address(loanCore), settledAmount);
 
         loanId = loanCore.rollover(
             oldLoanId,
