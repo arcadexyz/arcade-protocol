@@ -9,6 +9,7 @@ coverage/
 dist/
 node_modules/
 typechain/
+out/
 
 # OpenZeppelin
 .openzeppelin/unknown-*.json
