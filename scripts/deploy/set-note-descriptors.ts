@@ -21,10 +21,11 @@ export async function setDescriptors(resources: DeployedResources): Promise<void
     console.log("ReflectiveURIDescriptor deployed to:", descriptor.address);
 
     // Update notes
-    let tx = await borrowerNote.connect(admin).setDescriptor(descriptor.address);
-    await tx.wait();
+    // let tx = await borrowerNote.connect(admin).setDescriptor(descriptor.address);
+    // await tx.wait();
 
-    tx = await lenderNote.connect(admin).setDescriptor(descriptor.address);
+    // tx = await lenderNote.connect(admin).setDescriptor(descriptor.address);
+    // await tx.wait();
 
     console.log("✅ Upgraded descriptor contracts.");
     console.log("\nPaste into deployments JSON:");

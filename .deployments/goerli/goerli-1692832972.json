@@ -120,7 +120,7 @@
     ]
   },
   "ReflectiveURIDescriptor": {
-    "contractAddress": "0x92ED78b41537C902Ad287608d8535bb6780A7618",
+    "contractAddress": "0xB7BFcca7D7ff0f371867B770856FAc184B185878",
     "constructorArgs": "https://api-goerli.arcade.xyz/api/v2/collections/"
   }
 }

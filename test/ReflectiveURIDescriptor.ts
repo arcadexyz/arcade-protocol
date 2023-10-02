@@ -39,7 +39,7 @@ describe("ReflectiveURIDescriptor", () => {
         it("returns a tokenURI with the token ID suffix", async () => {
             const { descriptor, mockERC721 } = ctx;
 
-            const expectedUri = (id: number) => `${BASE_URI}${mockERC721.address.toLowerCase()}/metadata/${id}`;
+            const expectedUri = (id: number) => `${BASE_URI}${mockERC721.address.toLowerCase()}/assets/${id}/metadata`;
 
             expect(await descriptor.tokenURI(mockERC721.address, 1)).to.equal(expectedUri(1));
             expect(await descriptor.tokenURI(mockERC721.address, 55)).to.equal(expectedUri(55));
@@ -49,8 +49,8 @@ describe("ReflectiveURIDescriptor", () => {
         it("returns different tokenURIs based on the target address", async () => {
             const { descriptor, mockERC721, deployer } = ctx;
 
-            expect(await descriptor.tokenURI(mockERC721.address, 55)).to.equal(`${BASE_URI}${mockERC721.address.toLowerCase() }/metadata/55`);
-            expect(await descriptor.tokenURI(deployer.address, 55)).to.equal(`${BASE_URI}${deployer.address.toLowerCase() }/metadata/55`);
+            expect(await descriptor.tokenURI(mockERC721.address, 55)).to.equal(`${BASE_URI}${mockERC721.address.toLowerCase() }/assets/55/metadata`);
+            expect(await descriptor.tokenURI(deployer.address, 55)).to.equal(`${BASE_URI}${deployer.address.toLowerCase() }/assets/55/metadata`);
         });
 
         it("returns an empty string if baseURI is not set", async () => {
@@ -83,7 +83,7 @@ describe("ReflectiveURIDescriptor", () => {
                 .withArgs(deployer.address, OTHER_BASE_URI);
 
             expect(await descriptor.baseURI()).to.equal(OTHER_BASE_URI);
-            expect(await descriptor.tokenURI(mockERC721.address, 55)).to.equal(`${OTHER_BASE_URI}${mockERC721.address.toLowerCase() }/metadata/55`);
+            expect(await descriptor.tokenURI(mockERC721.address, 55)).to.equal(`${OTHER_BASE_URI}${mockERC721.address.toLowerCase()}/assets/55/metadata`);
         });
 
         it("sets an empty baseURI", async () => {
