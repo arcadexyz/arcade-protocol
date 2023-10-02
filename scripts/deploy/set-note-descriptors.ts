@@ -8,12 +8,17 @@ export async function setDescriptors(resources: DeployedResources): Promise<void
     const [deployer] = signers;
     const admin = deployer;
 
+    const BASE_URI = "https://api.arcade.xyz/api/v2/collections/";
+
     // Get both note contracts
     const { borrowerNote, lenderNote } = resources;
 
     // Deploy a new descriptor
     const descriptorFactory = await ethers.getContractFactory("ReflectiveURIDescriptor");
-    const descriptor = <ReflectiveURIDescriptor>await descriptorFactory.deploy("https://api-goerli.arcade.xyz/api/v2/collections/");
+    const descriptor = <ReflectiveURIDescriptor>await descriptorFactory.deploy(BASE_URI);
+    await descriptor.deployed();
+
+    console.log("ReflectiveURIDescriptor deployed to:", descriptor.address);
 
     // Update notes
     let tx = await borrowerNote.connect(admin).setDescriptor(descriptor.address);
@@ -22,6 +27,20 @@ export async function setDescriptors(resources: DeployedResources): Promise<void
     tx = await lenderNote.connect(admin).setDescriptor(descriptor.address);
 
     console.log("✅ Upgraded descriptor contracts.");
+    console.log("\nPaste into deployments JSON:");
+    console.log(
+        JSON.stringify(
+            {
+                ReflectiveURIDescriptor: {
+                    contractAddress: descriptor.address,
+                    constructorArgs: BASE_URI,
+                }
+            },
+            null,
+            4,
+        ),
+    );
+    console.log("\n");
 }
 
 if (require.main === module) {

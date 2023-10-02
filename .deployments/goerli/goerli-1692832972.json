@@ -118,5 +118,9 @@
         "borrowerNoteV3": "0xF5FB026f9EE9E0854a1b8Aa0867a8A76608b591e"
       }
     ]
+  },
+  "ReflectiveURIDescriptor": {
+    "contractAddress": "0x92ED78b41537C902Ad287608d8535bb6780A7618",
+    "constructorArgs": "https://api-goerli.arcade.xyz/api/v2/collections/"
   }
 }
