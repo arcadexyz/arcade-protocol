@@ -52,7 +52,7 @@ contract ReflectiveURIDescriptor is INFTDescriptor, Ownable {
         return string(
             abi.encodePacked(
                 baseURI,
-                target,
+                Strings.toHexString(uint160(target), 20),
                 "/metadata/",
                 tokenId.toString()
             )
