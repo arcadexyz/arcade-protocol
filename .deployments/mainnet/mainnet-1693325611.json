@@ -118,5 +118,11 @@
         "borrowerNoteV3": "0xe5B12BEfaf3a91065DA7FDD461dEd2d8F8ECb7BE"
       }
     ]
+  },
+  {
+    "ReflectiveURIDescriptor": {
+      "contractAddress": "0x7FA888A801fC7B7E5e847239E58DD4e2dc621Fd5",
+      "constructorArgs": "https://api.arcade.xyz/api/v2/collections/"
+    }
   }
 }

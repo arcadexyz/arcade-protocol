@@ -8,13 +8,14 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "../interfaces/INFTDescriptor.sol";
 
 /**
- * @title StaticURIDescriptor
+ * @title ReflectiveURIDescriptor
  * @author Non-Fungible Technologies, Inc.
  *
- * Basic descriptor contract for an NFT, that returns the same resource
- * for any requested token.
+ * Basic descriptor contract for an NFT, that uses a baseURI, and returns a tokenURI
+ * for the requested token ID, with a URL path that depends on the address of the
+ * calling contract.
  */
-contract StaticURIDescriptor is INFTDescriptor, Ownable {
+contract ReflectiveURIDescriptor is INFTDescriptor, Ownable {
     using Strings for uint256;
 
     event SetBaseURI(address indexed caller, string indexed baseURI);
@@ -41,10 +42,23 @@ contract StaticURIDescriptor is INFTDescriptor, Ownable {
     /**
      * @notice Getter of specific URI for an ERC721 token ID.
      *
-     * @return uri                  The token ID's URI, the contract's baseURI.
+     * @param target                The address of the contract to get the URI for.
+     * @param tokenId               The ID of the token to get the URI for.
+     *
+     * @return uri                  The token ID's URI.
      */
-    function tokenURI(address, uint256) external view override returns (string memory) {
-        return baseURI;
+    function tokenURI(address target, uint256 tokenId) external view override returns (string memory) {
+        if (bytes(baseURI).length == 0) return "";
+
+        return string(
+            abi.encodePacked(
+                baseURI,
+                Strings.toHexString(uint160(target), 20),
+                "/assets/",
+                tokenId.toString(),
+                "/metadata"
+            )
+        );
     }
 
     /**
