@@ -36,7 +36,7 @@ contract BaseURIDescriptor is INFTDescriptor, Ownable {
         baseURI = _baseURI;
     }
 
-    // ===================================== DESCRIPTOR OPERATIONAS ============================================
+    // ===================================== DESCRIPTOR OPERATIONS ============================================
 
     /**
      * @notice Getter of specific URI for an ERC721 token ID.
