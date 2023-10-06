@@ -3,37 +3,31 @@ import "@nomiclabs/hardhat-ethers";
 import hre, { ethers } from "hardhat";
 import { BigNumber } from "ethers";
 
-import {
-    SECTION_SEPARATOR,
-    SUBSECTION_SEPARATOR
-} from "../utils/constants";
+import { SECTION_SEPARATOR, SUBSECTION_SEPARATOR } from "../utils/constants";
 
-import {
-    ERC20,
-    LP1Migration,
-} from "../../typechain";
+import { ERC20, LP1Migration } from "../../typechain";
 
 import { main as deploy } from "../deploy/deploy";
 import { doWhitelisting } from "../deploy/whitelisting";
 import { setupRoles } from "../deploy/setup-roles";
 
 import {
-    BORROWER,
+    BUNDLE_BORROWER,
     PAYABLE_CURRENCY,
     WHALE,
     BALANCER_ADDRESS,
-    LOAN_ID,
-    LENDER_SPECIFIED_COLLATERAL_ID,
-    LENDER_SPECIFIED_COLLATERAL,
+    BUNDLE_LOAN_ID,
+    BUNDLE_LENDER_SPECIFIED_COLLATERAL_ID,
+    BUNDLE_LENDER_SPECIFIED_COLLATERAL,
     NONCE,
     V3_LOAN_PRINCIPAL,
     V3_LOAN_INTEREST_RATE,
-    NFTFI_REPAYMENT_AMOUNT,
+    NFTFI_BUNDLE_REPAYMENT_AMOUNT,
     NFTFI_OBLIGATION_RECEIPT_TOKEN_ADDRESS,
-    NFTFI_SMARTNFT_ID,
-    DIRECT_LOAN_FIXED_OFFER_ABI,
+    NFTFI_BUNDLE_SMARTNFT_ID,
+    DIRECT_LOAN_FIXED_OFFER_REDEPLOY_ABI,
     NFTFI_OBLIGATION_RECEIPT_TOKEN_ABI,
-    NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS,
+    NFTFI_DIRECT_LOAN_FIXED_OFFER_REDEPLOY_ADDRESS,
     MIN_LOAN_PRINCIPAL,
 } from "./config";
 
@@ -42,13 +36,13 @@ import { LoanTerms } from "../../test/utils/types";
 
 /**
  * This script deploys V3 lending protocol and sets up roles and permissions. Deploys
- * the LP1Migration contract, then, executes a NftFi -> V3 rollover using a
+ * the LP1Migration contract, then, executes a NftFi bundle -> V3 rollover using a
  * Balancer Flashloan to rollover an active NFTFI loan on mainnet. Before running this
  * script, make sure the nftfi-migration/config.ts file is updated with valid values
  * from mainnet.
  *
  * Run this script with the following command:
- * `FORK_MAINNET=true npx hardhat run scripts/nftfi-migration/migrate.ts`
+ * `FORK_MAINNET=true npx hardhat run scripts/nftfi-migration/migrate-bundle.ts`
  */
 
 export async function main(): Promise<void> {
@@ -59,12 +53,7 @@ export async function main(): Promise<void> {
 
     const resources = await deploy();
 
-    const {
-        originationController,
-        feeController,
-        loanCore,
-        borrowerNote
-    } = resources;
+    const { originationController, feeController, loanCore, borrowerNote } = resources;
 
     console.log(SECTION_SEPARATOR);
     console.log("Whitelisting tokens...");
@@ -75,7 +64,7 @@ export async function main(): Promise<void> {
     console.log(SUBSECTION_SEPARATOR);
     console.log(`Add collateral and payable currency to V3 OriginationController...`);
     const addCollateral = await originationController.setAllowedCollateralAddresses(
-        [LENDER_SPECIFIED_COLLATERAL],
+        [BUNDLE_LENDER_SPECIFIED_COLLATERAL],
         [true],
     );
     await addCollateral.wait();
@@ -92,20 +81,20 @@ export async function main(): Promise<void> {
 
     // ================================== Execute NFTFI -> V3 Migration ==================================
 
-    console.log("Perform NFTFI -> V3 migration...\n");
+    console.log("Perform NFTFI bundle -> V3 migration...\n");
 
     // ============= Setup ==============
     // use accounts[0] as new lender
     const [newLender] = await hre.ethers.getSigners();
     console.log("New lender address:", newLender.address);
 
-    // Deploy NftFI -> v3 rollover contract and set the flash loan fee value
+    // Deploy NftFI bundle -> v3 rollover contract and set the flash loan fee value
     console.log(SUBSECTION_SEPARATOR);
     console.log("Deploying migration contract...");
 
     // Using mainnet addresses for migration
     const contracts = {
-        directLoanFixedOffer: "0xE52Cec0E90115AbeB3304BaA36bc2655731f7934",
+        directLoanFixedOffer: "0x8252Df1d8b29057d1Afe3062bf5a64D503152BC8", // for bundle loans
         loanCoordinator: "0x0C90C8B4aa8549656851964d5fB787F0e4F54082",
         feeControllerV3: feeController.address,
         originationControllerV3: originationController.address,
@@ -128,10 +117,10 @@ export async function main(): Promise<void> {
     });
     await hre.network.provider.request({
         method: "hardhat_impersonateAccount",
-        params: [BORROWER],
+        params: [BUNDLE_BORROWER],
     });
     const whale = await hre.ethers.getSigner(WHALE);
-    const borrower = await hre.ethers.getSigner(BORROWER);
+    const borrower = await hre.ethers.getSigner(BUNDLE_BORROWER);
 
     const erc20Factory = await ethers.getContractFactory("ERC20");
     const payableCurrency = <ERC20>erc20Factory.attach(`${PAYABLE_CURRENCY}`);
@@ -147,14 +136,14 @@ export async function main(): Promise<void> {
     await payableCurrency.connect(newLender).approve(loanCore.address, V3_LOAN_PRINCIPAL);
     console.log(SUBSECTION_SEPARATOR);
 
-    console.log("Borrower mints NFTFI obligationReceiptToken and approve it to rollover contract...");
+    console.log("Borrower mints NFTFI obligationReceiptToken and approves it to rollover contract...");
     const directLoanFixedOffer = new ethers.Contract(
-        NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS,
-        DIRECT_LOAN_FIXED_OFFER_ABI,
+        NFTFI_DIRECT_LOAN_FIXED_OFFER_REDEPLOY_ADDRESS,
+        DIRECT_LOAN_FIXED_OFFER_REDEPLOY_ABI,
         (await hre.ethers.getSigners())[0],
     );
 
-    const mintObligationReceipt = await directLoanFixedOffer.connect(borrower).mintObligationReceipt(LOAN_ID);
+    const mintObligationReceipt = await directLoanFixedOffer.connect(borrower).mintObligationReceipt(BUNDLE_LOAN_ID);
     await mintObligationReceipt.wait();
 
     const obligationReceiptToken = new ethers.Contract(
@@ -162,17 +151,17 @@ export async function main(): Promise<void> {
         NFTFI_OBLIGATION_RECEIPT_TOKEN_ABI,
         (await hre.ethers.getSigners())[0],
     );
-    await obligationReceiptToken.connect(borrower).approve(migration.address, NFTFI_SMARTNFT_ID);
+
+    await obligationReceiptToken.connect(borrower).approve(migration.address, NFTFI_BUNDLE_SMARTNFT_ID);
     console.log(SUBSECTION_SEPARATOR);
 
     // if new loan will not cover flash loan repayment, then borrower needs to cover the difference
-    const flashLoanAmountDue = NFTFI_REPAYMENT_AMOUNT.add(NFTFI_REPAYMENT_AMOUNT.mul(flashLoanFee).div(10000));
+    const flashLoanAmountDue = NFTFI_BUNDLE_REPAYMENT_AMOUNT.add(NFTFI_BUNDLE_REPAYMENT_AMOUNT.mul(flashLoanFee).div(10000));
     if (V3_LOAN_PRINCIPAL.lt(flashLoanAmountDue)) {
         const difference = flashLoanAmountDue.sub(V3_LOAN_PRINCIPAL);
         await payableCurrency.connect(whale).transfer(borrower.address, difference);
         await payableCurrency.connect(borrower).approve(migration.address, difference);
     }
-    console.log(SUBSECTION_SEPARATOR);
 
     console.log("New Lender creates V3 signature...");
     // collection wide offer parameters
@@ -181,8 +170,8 @@ export async function main(): Promise<void> {
         deadline: Math.floor(Date.now() / 1000) + 100_000,
         proratedInterestRate: V3_LOAN_INTEREST_RATE,
         principal: V3_LOAN_PRINCIPAL,
-        collateralAddress: LENDER_SPECIFIED_COLLATERAL,
-        collateralId: LENDER_SPECIFIED_COLLATERAL_ID,
+        collateralAddress: BUNDLE_LENDER_SPECIFIED_COLLATERAL,
+        collateralId: BUNDLE_LENDER_SPECIFIED_COLLATERAL_ID,
         payableCurrency: PAYABLE_CURRENCY,
         affiliateCode: ethers.constants.HashZero,
     };
@@ -200,10 +189,10 @@ export async function main(): Promise<void> {
 
     // ============= Execute ==============
 
-    console.log("Execute NFTFI -> V3 migration ...");
+    console.log("Execute NFTFI bundle -> V3 migration ...");
     const tx = await migration
         .connect(borrower)
-        .migrateLoan(LOAN_ID, newLoanTerms, newLender.address, NONCE, sig.v, sig.r, sig.s);
+        .migrateLoan(BUNDLE_LOAN_ID, newLoanTerms, newLender.address, NONCE, sig.v, sig.r, sig.s);
 
     // send transaction
     console.log("✅ Transaction hash:", tx.hash);
