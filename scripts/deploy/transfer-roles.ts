@@ -474,7 +474,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
         contractName: "OriginationController",
         to: originationController.address,
         functionName: "renounceRole",
-        description: "Current owner renounces whitelistManager role",
+        description: "Current owner renounces whitelist manager role",
         calldata
     });
 
