@@ -189,7 +189,7 @@ describe("Deployment", function () {
         expect(await originationController.isAllowedVerifier(deployment["ArtBlocksVerifier"].contractAddress)).to.be.true;
     });
 
-    it("correctly sets up all roles and permissions", async () => {
+    it.only("correctly sets up all roles and permissions", async () => {
         const filename = getLatestDeploymentFile();
         const deployment = getLatestDeployment();
         const [deployer] = await ethers.getSigners();

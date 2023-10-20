@@ -30,7 +30,7 @@ export const LENDER_NOTE_BASE_URI = "ipfs://QmTKTPKZx6qTnVJZxo1SYr53woDtMLZjuy1q
 export const LENDER_NOTE_NAME = "Arcade.xyz Lender Note";
 export const LENDER_NOTE_SYMBOL = "aLN";
 
-export const OLD_ADMIN = "0x398e92C827C5FA0F33F171DC8E20570c5CfF330e";
+export const OLD_ADMIN = "0xAdD93e738a415c5248f7cB044FCFC71d86b18572";
 
 // To fill in after deployment
 export const ADMIN = "0x398e92C827C5FA0F33F171DC8E20570c5CfF330e";

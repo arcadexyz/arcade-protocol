@@ -21,6 +21,9 @@ export const getLatestDeploymentFile = (): string => {
     expect(files.length).to.be.gt(0);
 
     const { filename } = files.slice(1).reduce((result, file) => {
+        // Skip if file doesn't end with timestamp
+        if (!file.match(/\d{10}\.json$/)) return result;
+
         const stats = fs.statSync(path.join(DEPLOYMENTS_DIR, file));
 
         if (stats.ctime > result.ctime) {

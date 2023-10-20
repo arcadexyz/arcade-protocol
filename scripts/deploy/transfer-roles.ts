@@ -26,6 +26,7 @@ import {
 
 export interface TxData {
     index: number;
+    contractName: string;
     to: string;
     functionName: string;
     description: string;
@@ -64,6 +65,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
 
     txs.push({
         index: index++,
+        contractName: "CallWhitelistAllExtensions",
         to: whitelist.address,
         functionName: "grantRole",
         description: "Grant the admin role",
@@ -77,6 +79,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
 
     txs.push({
         index: index++,
+        contractName: "CallWhitelistAllExtensions",
         to: whitelist.address,
         functionName: "grantRole",
         description: "Grant the whitelist manager role",
@@ -90,6 +93,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
 
     txs.push({
         index: index++,
+        contractName: "CallWhitelistAllExtensions",
         to: whitelist.address,
         functionName: "renounceRole",
         description: "Current owner renounces admin role",
@@ -103,9 +107,10 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
 
     txs.push({
         index: index++,
+        contractName: "CallWhitelistAllExtensions",
         to: whitelist.address,
         functionName: "renounceRole",
-        description: "Current owner renounces admin role",
+        description: "Current owner renounces whitelist manager role",
         calldata
     });
 
@@ -121,6 +126,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     calldata = vaultFactoryURIDescriptor.interface.encodeFunctionData("transferOwnership", [RESOURCE_MANAGER]);
     txs.push({
         index: index++,
+        contractName: "VaultFactoryURIDescriptor",
         to: vaultFactoryURIDescriptor.address,
         functionName: "transferOwnership",
         description: "Transfer ownership to resource manager",
@@ -136,6 +142,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     calldata = feeController.interface.encodeFunctionData("transferOwnership", [ADMIN]);
     txs.push({
         index: index++,
+        contractName: "FeeController",
         to: feeController.address,
         functionName: "transferOwnership",
         description: "Transfer ownership to admin",
@@ -151,6 +158,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     calldata = vaultFactory.interface.encodeFunctionData("grantRole", [ADMIN_ROLE, ADMIN]);
     txs.push({
         index: index++,
+        contractName: "VaultFactory",
         to: vaultFactory.address,
         functionName: "grantRole",
         description: "Grant the admin role",
@@ -160,6 +168,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     calldata = vaultFactory.interface.encodeFunctionData("grantRole", [FEE_CLAIMER_ROLE, FEE_CLAIMER]);
     txs.push({
         index: index++,
+        contractName: "VaultFactory",
         to: vaultFactory.address,
         functionName: "grantRole",
         description: "Grant the fee claimer role",
@@ -169,6 +178,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     calldata = vaultFactory.interface.encodeFunctionData("grantRole", [RESOURCE_MANAGER_ROLE, RESOURCE_MANAGER]);
     txs.push({
         index: index++,
+        contractName: "VaultFactory",
         to: vaultFactory.address,
         functionName: "grantRole",
         description: "Grant the resource manager role",
@@ -178,6 +188,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     calldata = vaultFactory.interface.encodeFunctionData("renounceRole", [ADMIN_ROLE, OLD_ADMIN]);
     txs.push({
         index: index++,
+        contractName: "VaultFactory",
         to: vaultFactory.address,
         functionName: "renounceRole",
         description: "Current owner renounces admin role",
@@ -187,6 +198,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     calldata = vaultFactory.interface.encodeFunctionData("renounceRole", [FEE_CLAIMER_ROLE, OLD_ADMIN]);
     txs.push({
         index: index++,
+        contractName: "VaultFactory",
         to: vaultFactory.address,
         functionName: "renounceRole",
         description: "Current owner renounces admin role",
@@ -196,6 +208,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     calldata = vaultFactory.interface.encodeFunctionData("renounceRole", [RESOURCE_MANAGER_ROLE, OLD_ADMIN]);
     txs.push({
         index: index++,
+        contractName: "VaultFactory",
         to: vaultFactory.address,
         functionName: "renounceRole",
         description: "Current owner renounces resource manager role",
@@ -214,6 +227,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     calldata = borrowerNoteURIDescriptor.interface.encodeFunctionData("transferOwnership", [RESOURCE_MANAGER]);
     txs.push({
         index: index++,
+        contractName: "BorrowerNoteURIDescriptor",
         to: borrowerNoteURIDescriptor.address,
         functionName: "transferOwnership",
         description: "Transfer ownership to resource manager",
@@ -229,15 +243,18 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     calldata = borrowerNote.interface.encodeFunctionData("grantRole", [RESOURCE_MANAGER_ROLE, RESOURCE_MANAGER]);
     txs.push({
         index: index++,
+        contractName: "BorrowerNote",
         to: borrowerNote.address,
         functionName: "grantRole",
         description: "Grant the resource manager role",
         calldata
     });
 
-    calldata = borrowerNote.interface.encodeFunctionData("renounceRole", [RESOURCE_MANAGER_ROLE, OLD_ADMIN]);
+    const borrowerNoteAdmin = await borrowerNote.getRoleMember(RESOURCE_MANAGER_ROLE, 0);
+    calldata = borrowerNote.interface.encodeFunctionData("renounceRole", [RESOURCE_MANAGER_ROLE, borrowerNoteAdmin]);
     txs.push({
         index: index++,
+        contractName: "BorrowerNote",
         to: borrowerNote.address,
         functionName: "renounceRole",
         description: "Current owner renounces resource manager role",
@@ -253,6 +270,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     calldata = lenderNoteURIDescriptor.interface.encodeFunctionData("transferOwnership", [RESOURCE_MANAGER]);
     txs.push({
         index: index++,
+        contractName: "LenderNoteURIDescriptor",
         to: lenderNoteURIDescriptor.address,
         functionName: "transferOwnership",
         description: "Transfer ownership to resource manager",
@@ -268,15 +286,18 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     calldata = lenderNote.interface.encodeFunctionData("grantRole", [RESOURCE_MANAGER_ROLE, RESOURCE_MANAGER]);
     txs.push({
         index: index++,
+        contractName: "LenderNote",
         to: lenderNote.address,
         functionName: "grantRole",
         description: "Grant the resource manager role",
         calldata
     });
 
-    calldata = lenderNote.interface.encodeFunctionData("renounceRole", [RESOURCE_MANAGER_ROLE, OLD_ADMIN]);
+    const lenderNoteAdmin = await lenderNote.getRoleMember(RESOURCE_MANAGER_ROLE, 0);
+    calldata = lenderNote.interface.encodeFunctionData("renounceRole", [RESOURCE_MANAGER_ROLE, lenderNoteAdmin]);
     txs.push({
         index: index++,
+        contractName: "LenderNote",
         to: lenderNote.address,
         functionName: "renounceRole",
         description: "Current owner renounces resource manager role",
@@ -295,6 +316,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     );
     txs.push({
         index: index++,
+        contractName: "LoanCore",
         to: loanCore.address,
         functionName: "grantRole",
         description: "Grant the admin role",
@@ -307,6 +329,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     );
     txs.push({
         index: index++,
+        contractName: "LoanCore",
         to: loanCore.address,
         functionName: "grantRole",
         description: "Grant the affiliate manager role",
@@ -319,6 +342,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     );
     txs.push({
         index: index++,
+        contractName: "LoanCore",
         to: loanCore.address,
         functionName: "grantRole",
         description: "Grant the fee claimer role",
@@ -331,6 +355,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     );
     txs.push({
         index: index++,
+        contractName: "LoanCore",
         to: loanCore.address,
         functionName: "grantRole",
         description: "Grant the shutdown role",
@@ -343,6 +368,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     );
     txs.push({
         index: index++,
+        contractName: "LoanCore",
         to: loanCore.address,
         functionName: "renounceRole",
         description: "Current owner renounces admin role",
@@ -355,6 +381,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     );
     txs.push({
         index: index++,
+        contractName: "LoanCore",
         to: loanCore.address,
         functionName: "renounceRole",
         description: "Current owner renounces affiliate manager role",
@@ -367,6 +394,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     );
     txs.push({
         index: index++,
+        contractName: "LoanCore",
         to: loanCore.address,
         functionName: "renounceRole",
         description: "Current owner renounces fee claimer role",
@@ -379,6 +407,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     );
     txs.push({
         index: index++,
+        contractName: "LoanCore",
         to: loanCore.address,
         functionName: "renounceRole",
         description: "Current owner renounces shutdown role",
@@ -403,6 +432,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     );
     txs.push({
         index: index++,
+        contractName: "OriginationController",
         to: originationController.address,
         functionName: "grantRole",
         description: "Grant the admin role",
@@ -415,6 +445,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     );
     txs.push({
         index: index++,
+        contractName: "OriginationController",
         to: originationController.address,
         functionName: "grantRole",
         description: "Grant the whitelist manager role",
@@ -427,6 +458,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     );
     txs.push({
         index: index++,
+        contractName: "OriginationController",
         to: originationController.address,
         functionName: "renounceRole",
         description: "Current owner renounces admin role",
@@ -439,6 +471,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     );
     txs.push({
         index: index++,
+        contractName: "OriginationController",
         to: originationController.address,
         functionName: "renounceRole",
         description: "Current owner renounces whitelistManager role",
