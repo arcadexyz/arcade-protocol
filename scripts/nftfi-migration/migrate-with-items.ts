@@ -30,7 +30,8 @@ import {
     DIRECT_LOAN_FIXED_OFFER_ABI,
     NFTFI_OBLIGATION_RECEIPT_TOKEN_ABI,
     NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS,
-    MIN_LOAN_PRINCIPAL
+    MIN_LOAN_PRINCIPAL,
+    NFTFI_DIRECT_LOAN_COORDINATOR_ADDRESS
 } from "./config";
 
 import { createLoanItemsSignature } from "../../test/utils/eip712";
@@ -39,21 +40,21 @@ import { encodeAddress } from "../../test/utils/loans";
 
 /**
  * This script deploys V3 lending protocol and sets up roles and permissions. Deploys
- * the LP1MigrationWithItems contract, then, executes a NftFi -> V3 rollover using a
- * Balancer Flashloan to rollover an active NFTFI loan on mainnet. Before running this
+ * the LP1MigrationWithItems contract, then executes a NftFi -> V3 rollover using a
+ * Balancer flashloan to rollover an active NFTFI loan on mainnet. Before running this
  * script, make sure the nftfi-rollover/config.ts file is updated with valid values
  * from mainnet.
  *
- * This script defaults to using the ArcadeUnvaultedItemsVerifier for the rollover. The
- * verifier contract is set to an allowed verifier in the OriginationController.
+ * This script defaults to using the CollectionWideOfferVerifier in the lender signature.
  *
  * Run this script with the following command:
- * `FORK_MAINNET=true npx hardhat run scripts/nftfi-rollover/nftfi-rollover-with-items.ts`
+ * `FORK_MAINNET=true npx hardhat run scripts/nftfi-migration/migrate-with-items.ts`
+ *
+ * Ensure the forked block number in hardhat config is: 17895128
  */
 
 export async function main(): Promise<void> {
     // ================================== Deploy V3 Lending Protocol ==================================
-    // Deploy V3 contracts
     console.log(SECTION_SEPARATOR);
     console.log("Deploying V3 contracts...");
 
@@ -88,9 +89,9 @@ export async function main(): Promise<void> {
 
     await setupRoles(resources);
 
-    // ================================== Execute V2 -> V3 Rollover ==================================
+    // ================================== Execute Migration ==================================
 
-    console.log("Perform V2 -> V3 rollover...\n");
+    console.log("Perform Migration...\n");
 
     // ============= Setup ==============
     // use accounts[0] as new lender
@@ -103,8 +104,8 @@ export async function main(): Promise<void> {
 
     // Using mainnet addresses for migration
     const contracts = {
-        directLoanFixedOffer: "0xE52Cec0E90115AbeB3304BaA36bc2655731f7934",
-        loanCoordinator: "0x0C90C8B4aa8549656851964d5fB787F0e4F54082",
+        directLoanFixedOffer: NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS,
+        loanCoordinator: NFTFI_DIRECT_LOAN_COORDINATOR_ADDRESS,
         feeControllerV3: feeController.address,
         originationControllerV3: originationController.address,
         loanCoreV3: loanCore.address,
@@ -115,8 +116,8 @@ export async function main(): Promise<void> {
     const flashRollover = <LP1MigrationWithItems>await factory.deploy(BALANCER_ADDRESS, contracts);
     await flashRollover.deployed();
     console.log("LP1MigrationWithItems deployed to:", flashRollover.address);
+
     const flashLoanFee: BigNumber = BigNumber.from("0"); // 0% flash loan fee on Balancer
-    console.log("Owner:", await flashRollover.owner());
 
     // impersonate accounts
     console.log(SUBSECTION_SEPARATOR);
@@ -161,7 +162,6 @@ export async function main(): Promise<void> {
         (await hre.ethers.getSigners())[0],
     );
     await obligationReceiptToken.connect(borrower).approve(flashRollover.address, NFTFI_SMARTNFT_ID);
-    console.log(SUBSECTION_SEPARATOR);
 
     // if new loan will not cover flash loan repayment, then borrower needs to cover the difference
     const flashLoanAmountDue = NFTFI_REPAYMENT_AMOUNT.add(NFTFI_REPAYMENT_AMOUNT.mul(flashLoanFee).div(10000));
@@ -206,16 +206,15 @@ export async function main(): Promise<void> {
 
     // ============= Execute ==============
 
-    console.log("Execute NFTFI -> V3 rollover...");
+    console.log("Execute NFTFI -> V3 migration...");
     const tx = await flashRollover
         .connect(borrower)
         .migrateLoanWithItems(LOAN_ID, newLoanTerms, newLender.address, NONCE, sig.v, sig.r, sig.s, predicates);
 
-    // send transaction
     console.log("✅ Transaction hash:", tx.hash);
 
     console.log(SECTION_SEPARATOR);
-    console.log("Rollover successful 🎉\n");
+    console.log("Migration successful 🎉\n");
 }
 
 // We recommend this pattern to be able to use async/await everywhere

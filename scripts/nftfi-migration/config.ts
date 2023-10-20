@@ -35,7 +35,7 @@ export const V3_LOAN_INTEREST_RATE = ethers.utils.parseUnits("2.75", 18); // new
 // collection wide offer parameters
 export const LENDER_SPECIFIED_COLLATERAL_ID = 8170;
 export const LENDER_SPECIFIED_COLLATERAL = "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d"; // BAYC
-export const MIN_LOAN_PRINCIPAL = ethers.utils.parseUnits("22.0", 18);;
+export const MIN_LOAN_PRINCIPAL = ethers.utils.parseUnits("22.0", 18);
 
 ///////////////////////////////
 //// NFTFI CONTRACT ABIS /////

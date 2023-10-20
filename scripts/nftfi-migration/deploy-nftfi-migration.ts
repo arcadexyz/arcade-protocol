@@ -1,13 +1,15 @@
 import hre, { ethers } from "hardhat";
 import { loadContracts, DeployedResources } from "../utils/deploy";
 
-import { BALANCER_ADDRESS } from "./config";
+import { BALANCER_ADDRESS, NFTFI_DIRECT_LOAN_COORDINATOR_ADDRESS, NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS } from "./config";
 import { LP1Migration, LP1MigrationWithItems } from "../../typechain";
 
 export async function deploy(resources: DeployedResources): Promise<void> {
     const args = [
         BALANCER_ADDRESS,
         {
+            directLoanFixedOffer: NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS,
+            loanCoordinator: NFTFI_DIRECT_LOAN_COORDINATOR_ADDRESS,
             feeControllerV3: resources.feeController.address,
             originationControllerV3: resources.originationController.address,
             loanCoreV3: resources.loanCore.address,
