@@ -30,7 +30,8 @@ import {
     DIRECT_LOAN_FIXED_OFFER_ABI,
     NFTFI_OBLIGATION_RECEIPT_TOKEN_ABI,
     NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS,
-    MIN_LOAN_PRINCIPAL
+    MIN_LOAN_PRINCIPAL,
+    NFTFI_DIRECT_LOAN_COORDINATOR_ADDRESS
 } from "./config";
 
 import { createLoanItemsSignature } from "../../test/utils/eip712";
@@ -103,8 +104,8 @@ export async function main(): Promise<void> {
 
     // Using mainnet addresses for migration
     const contracts = {
-        directLoanFixedOffer: "0xE52Cec0E90115AbeB3304BaA36bc2655731f7934",
-        loanCoordinator: "0x0C90C8B4aa8549656851964d5fB787F0e4F54082",
+        directLoanFixedOffer: NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS,
+        loanCoordinator: NFTFI_DIRECT_LOAN_COORDINATOR_ADDRESS,
         feeControllerV3: feeController.address,
         originationControllerV3: originationController.address,
         loanCoreV3: loanCore.address,
