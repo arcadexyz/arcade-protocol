@@ -1,13 +1,15 @@
 import hre, { ethers } from "hardhat";
 import { loadContracts, DeployedResources } from "../utils/deploy";
 
-import { BALANCER_ADDRESS } from "./config";
+import { BALANCER_ADDRESS, NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS, NFTFI_DIRECT_LOAN_COORDINATOR_ADDRESS } from "./config";
 import { LP1Migration, LP1MigrationWithItems } from "../../typechain";
 
 export async function deploy(resources: DeployedResources): Promise<void> {
     const args = [
         BALANCER_ADDRESS,
         {
+            directLoanFixedOffer: NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS,
+            loanCoordinator: NFTFI_DIRECT_LOAN_COORDINATOR_ADDRESS,
             feeControllerV3: resources.feeController.address,
             originationControllerV3: resources.originationController.address,
             loanCoreV3: resources.loanCore.address,
@@ -46,7 +48,7 @@ export async function deploy(resources: DeployedResources): Promise<void> {
     );
     console.log("\n");
 
-    if (process.env.VERIFY) {
+    if (!process.env.NO_VERIFY) {
         await hre.run("verify:verify", {
             address: migration.address,
             constructorArguments: args,

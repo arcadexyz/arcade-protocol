@@ -51,7 +51,6 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
         IERC721 borrowerNoteV3;
     }
 
-
     // Balancer vault contract
     /* solhint-disable var-name-mixedcase */
     IVault public immutable VAULT; // 0xBA12222222228d8Ba445958a75a0704d566BF2C8
@@ -142,12 +141,13 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
      *         Repays the loan, and ensures this contract holds the collateral after the loan is repaid.
      *
      * @param loanTerms                The loan terms for the loan to be repaid.
-     * @param borrower                 The address of the borrower for the loan to be repaid.
+     * @param borrower_                The address of the borrower for the loan to be repaid (trailing underscore
+                                        to differentiate from the borrower state variable)
      * @param loanId                   The id of the loan to be repaid.
      */
     function _repayLoan(
         LoanData.LoanTerms memory loanTerms,
-        address borrower,
+        address borrower_,
         uint32 loanId
     ) internal {
         // Take obligationReceiptToken from borrower
@@ -156,7 +156,7 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
         uint64 smartNftId = loanData.smartNftId;
 
         IERC721(IDirectLoanCoordinator(loanCoordinator).obligationReceiptToken()).safeTransferFrom(
-            borrower,
+            borrower_,
             address(this),
             smartNftId
         );
