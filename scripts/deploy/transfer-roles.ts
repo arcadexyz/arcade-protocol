@@ -54,7 +54,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     // ============= CallWhitelist ==============
 
     let calldata: string;
-    let index = 0;
+    let index = 1;
 
     const { whitelist } = resources;
 
@@ -100,19 +100,19 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
         calldata
     });
 
-    calldata = whitelist.interface.encodeFunctionData(
-        "renounceRole",
-        [WHITELIST_MANAGER_ROLE, OLD_ADMIN]
-    );
+    // calldata = whitelist.interface.encodeFunctionData(
+    //     "renounceRole",
+    //     [WHITELIST_MANAGER_ROLE, OLD_ADMIN]
+    // );
 
-    txs.push({
-        index: index++,
-        contractName: "CallWhitelistAllExtensions",
-        to: whitelist.address,
-        functionName: "renounceRole",
-        description: "Current owner renounces whitelist manager role",
-        calldata
-    });
+    // txs.push({
+    //     index: index++,
+    //     contractName: "CallWhitelistAllExtensions",
+    //     to: whitelist.address,
+    //     functionName: "renounceRole",
+    //     description: "Current owner renounces whitelist manager role",
+    //     calldata
+    // });
 
     console.log(`CallWhitelistAllExtensions: admin role to be granted to ${CALL_WHITELIST_MANAGER}`);
     console.log(`CallWhitelistAllExtensions: whitelist manager role to be granted to ${CALL_WHITELIST_MANAGER}`);
@@ -122,19 +122,19 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
 
     // =========== vaultFactoryURIDescriptor ============
 
-    const { vaultFactoryURIDescriptor } = resources;
-    calldata = vaultFactoryURIDescriptor.interface.encodeFunctionData("transferOwnership", [RESOURCE_MANAGER]);
-    txs.push({
-        index: index++,
-        contractName: "VaultFactoryURIDescriptor",
-        to: vaultFactoryURIDescriptor.address,
-        functionName: "transferOwnership",
-        description: "Transfer ownership to resource manager",
-        calldata
-    });
+    // const { vaultFactoryURIDescriptor } = resources;
+    // calldata = vaultFactoryURIDescriptor.interface.encodeFunctionData("transferOwnership", [RESOURCE_MANAGER]);
+    // txs.push({
+    //     index: index++,
+    //     contractName: "VaultFactoryURIDescriptor",
+    //     to: vaultFactoryURIDescriptor.address,
+    //     functionName: "transferOwnership",
+    //     description: "Transfer ownership to resource manager",
+    //     calldata
+    // });
 
-    console.log(`VaultFactoryURIDescriptor: ownership to be transferred to ${RESOURCE_MANAGER}`);
-    console.log(SUBSECTION_SEPARATOR);
+    // console.log(`VaultFactoryURIDescriptor: ownership to be transferred to ${RESOURCE_MANAGER}`);
+    // console.log(SUBSECTION_SEPARATOR);
 
     // ============= FeeController ==============
 
@@ -175,15 +175,15 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
         calldata
     });
 
-    calldata = vaultFactory.interface.encodeFunctionData("grantRole", [RESOURCE_MANAGER_ROLE, RESOURCE_MANAGER]);
-    txs.push({
-        index: index++,
-        contractName: "VaultFactory",
-        to: vaultFactory.address,
-        functionName: "grantRole",
-        description: "Grant the resource manager role",
-        calldata
-    });
+    // calldata = vaultFactory.interface.encodeFunctionData("grantRole", [RESOURCE_MANAGER_ROLE, RESOURCE_MANAGER]);
+    // txs.push({
+    //     index: index++,
+    //     contractName: "VaultFactory",
+    //     to: vaultFactory.address,
+    //     functionName: "grantRole",
+    //     description: "Grant the resource manager role",
+    //     calldata
+    // });
 
     calldata = vaultFactory.interface.encodeFunctionData("renounceRole", [ADMIN_ROLE, OLD_ADMIN]);
     txs.push({
@@ -205,15 +205,15 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
         calldata
     });
 
-    calldata = vaultFactory.interface.encodeFunctionData("renounceRole", [RESOURCE_MANAGER_ROLE, OLD_ADMIN]);
-    txs.push({
-        index: index++,
-        contractName: "VaultFactory",
-        to: vaultFactory.address,
-        functionName: "renounceRole",
-        description: "Current owner renounces resource manager role",
-        calldata
-    });
+    // calldata = vaultFactory.interface.encodeFunctionData("renounceRole", [RESOURCE_MANAGER_ROLE, OLD_ADMIN]);
+    // txs.push({
+    //     index: index++,
+    //     contractName: "VaultFactory",
+    //     to: vaultFactory.address,
+    //     functionName: "renounceRole",
+    //     description: "Current owner renounces resource manager role",
+    //     calldata
+    // });
 
     console.log(`VaultFactory: admin role to be granted to ${ADMIN}`);
     console.log(`VaultFactory: fee claimer role to be granted to ${FEE_CLAIMER}`);
@@ -223,89 +223,89 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
 
     // =========== borrowerNoteURIDescriptor ============
 
-    const { borrowerNoteURIDescriptor } = resources;
-    calldata = borrowerNoteURIDescriptor.interface.encodeFunctionData("transferOwnership", [RESOURCE_MANAGER]);
-    txs.push({
-        index: index++,
-        contractName: "BorrowerNoteURIDescriptor",
-        to: borrowerNoteURIDescriptor.address,
-        functionName: "transferOwnership",
-        description: "Transfer ownership to resource manager",
-        calldata
-    });
+    // const { borrowerNoteURIDescriptor } = resources;
+    // calldata = borrowerNoteURIDescriptor.interface.encodeFunctionData("transferOwnership", [RESOURCE_MANAGER]);
+    // txs.push({
+    //     index: index++,
+    //     contractName: "BorrowerNoteURIDescriptor",
+    //     to: borrowerNoteURIDescriptor.address,
+    //     functionName: "transferOwnership",
+    //     description: "Transfer ownership to resource manager",
+    //     calldata
+    // });
 
-    console.log(`BorrowerNoteURIDescriptor: ownership to be transferred to ${RESOURCE_MANAGER}`);
-    console.log(SUBSECTION_SEPARATOR);
+    // console.log(`BorrowerNoteURIDescriptor: ownership to be transferred to ${RESOURCE_MANAGER}`);
+    // console.log(SUBSECTION_SEPARATOR);
 
     // ============= BorrowerNote ==============
 
-    const { borrowerNote } = resources;
-    calldata = borrowerNote.interface.encodeFunctionData("grantRole", [RESOURCE_MANAGER_ROLE, RESOURCE_MANAGER]);
-    txs.push({
-        index: index++,
-        contractName: "BorrowerNote",
-        to: borrowerNote.address,
-        functionName: "grantRole",
-        description: "Grant the resource manager role",
-        calldata
-    });
+    // const { borrowerNote } = resources;
+    // calldata = borrowerNote.interface.encodeFunctionData("grantRole", [RESOURCE_MANAGER_ROLE, RESOURCE_MANAGER]);
+    // txs.push({
+    //     index: index++,
+    //     contractName: "BorrowerNote",
+    //     to: borrowerNote.address,
+    //     functionName: "grantRole",
+    //     description: "Grant the resource manager role",
+    //     calldata
+    // });
 
-    const borrowerNoteAdmin = await borrowerNote.getRoleMember(RESOURCE_MANAGER_ROLE, 0);
-    calldata = borrowerNote.interface.encodeFunctionData("renounceRole", [RESOURCE_MANAGER_ROLE, borrowerNoteAdmin]);
-    txs.push({
-        index: index++,
-        contractName: "BorrowerNote",
-        to: borrowerNote.address,
-        functionName: "renounceRole",
-        description: "Current owner renounces resource manager role",
-        calldata
-    });
+    // const borrowerNoteAdmin = await borrowerNote.getRoleMember(RESOURCE_MANAGER_ROLE, 0);
+    // calldata = borrowerNote.interface.encodeFunctionData("renounceRole", [RESOURCE_MANAGER_ROLE, borrowerNoteAdmin]);
+    // txs.push({
+    //     index: index++,
+    //     contractName: "BorrowerNote",
+    //     to: borrowerNote.address,
+    //     functionName: "renounceRole",
+    //     description: "Current owner renounces resource manager role",
+    //     calldata
+    // });
 
-    console.log(`BorrowerNote: resource manager role to be granted to ${RESOURCE_MANAGER}`);
-    console.log(`BorrowerNote: old admin to renounce resource manager role`);
+    // console.log(`BorrowerNote: resource manager role to be granted to ${RESOURCE_MANAGER}`);
+    // console.log(`BorrowerNote: old admin to renounce resource manager role`);
 
     // =========== lenderNoteURIDescriptor ============
 
-    const { lenderNoteURIDescriptor } = resources;
-    calldata = lenderNoteURIDescriptor.interface.encodeFunctionData("transferOwnership", [RESOURCE_MANAGER]);
-    txs.push({
-        index: index++,
-        contractName: "LenderNoteURIDescriptor",
-        to: lenderNoteURIDescriptor.address,
-        functionName: "transferOwnership",
-        description: "Transfer ownership to resource manager",
-        calldata
-    });
+    // const { lenderNoteURIDescriptor } = resources;
+    // calldata = lenderNoteURIDescriptor.interface.encodeFunctionData("transferOwnership", [RESOURCE_MANAGER]);
+    // txs.push({
+    //     index: index++,
+    //     contractName: "LenderNoteURIDescriptor",
+    //     to: lenderNoteURIDescriptor.address,
+    //     functionName: "transferOwnership",
+    //     description: "Transfer ownership to resource manager",
+    //     calldata
+    // });
 
-    console.log(`LenderNoteURIDescriptor: ownership to be transferred to ${RESOURCE_MANAGER}`);
-    console.log(SUBSECTION_SEPARATOR);
+    // console.log(`LenderNoteURIDescriptor: ownership to be transferred to ${RESOURCE_MANAGER}`);
+    // console.log(SUBSECTION_SEPARATOR);
 
     // ============= LenderNote ==============
 
-    const { lenderNote } = resources;
-    calldata = lenderNote.interface.encodeFunctionData("grantRole", [RESOURCE_MANAGER_ROLE, RESOURCE_MANAGER]);
-    txs.push({
-        index: index++,
-        contractName: "LenderNote",
-        to: lenderNote.address,
-        functionName: "grantRole",
-        description: "Grant the resource manager role",
-        calldata
-    });
+    // const { lenderNote } = resources;
+    // calldata = lenderNote.interface.encodeFunctionData("grantRole", [RESOURCE_MANAGER_ROLE, RESOURCE_MANAGER]);
+    // txs.push({
+    //     index: index++,
+    //     contractName: "LenderNote",
+    //     to: lenderNote.address,
+    //     functionName: "grantRole",
+    //     description: "Grant the resource manager role",
+    //     calldata
+    // });
 
-    const lenderNoteAdmin = await lenderNote.getRoleMember(RESOURCE_MANAGER_ROLE, 0);
-    calldata = lenderNote.interface.encodeFunctionData("renounceRole", [RESOURCE_MANAGER_ROLE, lenderNoteAdmin]);
-    txs.push({
-        index: index++,
-        contractName: "LenderNote",
-        to: lenderNote.address,
-        functionName: "renounceRole",
-        description: "Current owner renounces resource manager role",
-        calldata
-    });
+    // const lenderNoteAdmin = await lenderNote.getRoleMember(RESOURCE_MANAGER_ROLE, 0);
+    // calldata = lenderNote.interface.encodeFunctionData("renounceRole", [RESOURCE_MANAGER_ROLE, lenderNoteAdmin]);
+    // txs.push({
+    //     index: index++,
+    //     contractName: "LenderNote",
+    //     to: lenderNote.address,
+    //     functionName: "renounceRole",
+    //     description: "Current owner renounces resource manager role",
+    //     calldata
+    // });
 
-    console.log(`LenderNote: resource manager role to be granted to ${RESOURCE_MANAGER}`);
-    console.log(`LenderNote: old admin to renounce resource manager role`);
+    // console.log(`LenderNote: resource manager role to be granted to ${RESOURCE_MANAGER}`);
+    // console.log(`LenderNote: old admin to renounce resource manager role`);
 
     // ============= LoanCore ==============
 

@@ -1,0 +1,242 @@
+[
+    {
+        "index": 1,
+        "contractName": "CallWhitelistAllExtensions",
+        "to": "0x28992ca7BA49a83f3bc391E9312730dE78Bf51Ca",
+        "functionName": "grantRole",
+        "description": "Grant the admin role",
+        "calldata": "0x2f2ff15ddf8b4c520ffe197c5343c6f5aec59570151ef9a492f2c624fd45ddde6135ec4200000000000000000000000054b7235db74103395dd48a2c3dd993e3b7d39856"
+    },
+    {
+        "index": 2,
+        "contractName": "CallWhitelistAllExtensions",
+        "to": "0x28992ca7BA49a83f3bc391E9312730dE78Bf51Ca",
+        "functionName": "grantRole",
+        "description": "Grant the whitelist manager role",
+        "calldata": "0x2f2ff15d827de50cc5532fcea9338402dc65442c2567a37fbd0cd8eb56858d00e9e842bd000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 3,
+        "contractName": "CallWhitelistAllExtensions",
+        "to": "0x28992ca7BA49a83f3bc391E9312730dE78Bf51Ca",
+        "functionName": "renounceRole",
+        "description": "Current owner renounces admin role",
+        "calldata": "0x36568abedf8b4c520ffe197c5343c6f5aec59570151ef9a492f2c624fd45ddde6135ec42000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 4,
+        "contractName": "CallWhitelistAllExtensions",
+        "to": "0x28992ca7BA49a83f3bc391E9312730dE78Bf51Ca",
+        "functionName": "renounceRole",
+        "description": "Current owner renounces whitelist manager role",
+        "calldata": "0x36568abe827de50cc5532fcea9338402dc65442c2567a37fbd0cd8eb56858d00e9e842bd000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 5,
+        "contractName": "VaultFactoryURIDescriptor",
+        "to": "0xaD8a07804389842758d215aBAD7C722B6bA79f22",
+        "functionName": "transferOwnership",
+        "description": "Transfer ownership to resource manager",
+        "calldata": "0xf2fde38b000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 6,
+        "contractName": "FeeController",
+        "to": "0xf764442856Eb3fe68A0828e07246a4B395e800fa",
+        "functionName": "transferOwnership",
+        "description": "Transfer ownership to admin",
+        "calldata": "0xf2fde38b00000000000000000000000054b7235db74103395dd48a2c3dd993e3b7d39856"
+    },
+    {
+        "index": 7,
+        "contractName": "VaultFactory",
+        "to": "0x269363665Dbb1582b143099a3cb467E98a476D55",
+        "functionName": "grantRole",
+        "description": "Grant the admin role",
+        "calldata": "0x2f2ff15ddf8b4c520ffe197c5343c6f5aec59570151ef9a492f2c624fd45ddde6135ec4200000000000000000000000054b7235db74103395dd48a2c3dd993e3b7d39856"
+    },
+    {
+        "index": 8,
+        "contractName": "VaultFactory",
+        "to": "0x269363665Dbb1582b143099a3cb467E98a476D55",
+        "functionName": "grantRole",
+        "description": "Grant the fee claimer role",
+        "calldata": "0x2f2ff15ddc43895cfc822a45cb77eccebfff1143d490fffb619f1141baf172b83c53ecf900000000000000000000000054b7235db74103395dd48a2c3dd993e3b7d39856"
+    },
+    {
+        "index": 9,
+        "contractName": "VaultFactory",
+        "to": "0x269363665Dbb1582b143099a3cb467E98a476D55",
+        "functionName": "grantRole",
+        "description": "Grant the resource manager role",
+        "calldata": "0x2f2ff15da08df8e9779f89161e9d4aa6eaffa8e1f95bfbc9b9812ee5dec3c3b19090625d000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 10,
+        "contractName": "VaultFactory",
+        "to": "0x269363665Dbb1582b143099a3cb467E98a476D55",
+        "functionName": "renounceRole",
+        "description": "Current owner renounces admin role",
+        "calldata": "0x36568abedf8b4c520ffe197c5343c6f5aec59570151ef9a492f2c624fd45ddde6135ec42000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 11,
+        "contractName": "VaultFactory",
+        "to": "0x269363665Dbb1582b143099a3cb467E98a476D55",
+        "functionName": "renounceRole",
+        "description": "Current owner renounces admin role",
+        "calldata": "0x36568abedc43895cfc822a45cb77eccebfff1143d490fffb619f1141baf172b83c53ecf9000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 12,
+        "contractName": "VaultFactory",
+        "to": "0x269363665Dbb1582b143099a3cb467E98a476D55",
+        "functionName": "renounceRole",
+        "description": "Current owner renounces resource manager role",
+        "calldata": "0x36568abea08df8e9779f89161e9d4aa6eaffa8e1f95bfbc9b9812ee5dec3c3b19090625d000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 13,
+        "contractName": "BorrowerNoteURIDescriptor",
+        "to": "0xA3e495088c2481Fe76F28b16357654fCE13Cc5e9",
+        "functionName": "transferOwnership",
+        "description": "Transfer ownership to resource manager",
+        "calldata": "0xf2fde38b000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 14,
+        "contractName": "BorrowerNote",
+        "to": "0xe5B12BEfaf3a91065DA7FDD461dEd2d8F8ECb7BE",
+        "functionName": "grantRole",
+        "description": "Grant the resource manager role",
+        "calldata": "0x2f2ff15da08df8e9779f89161e9d4aa6eaffa8e1f95bfbc9b9812ee5dec3c3b19090625d000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 15,
+        "contractName": "BorrowerNote",
+        "to": "0xe5B12BEfaf3a91065DA7FDD461dEd2d8F8ECb7BE",
+        "functionName": "renounceRole",
+        "description": "Current owner renounces resource manager role",
+        "calldata": "0x36568abea08df8e9779f89161e9d4aa6eaffa8e1f95bfbc9b9812ee5dec3c3b19090625d000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 16,
+        "contractName": "LenderNoteURIDescriptor",
+        "to": "0xFde563e83FA013E3EECCf0e357C6c6759784cFcC",
+        "functionName": "transferOwnership",
+        "description": "Transfer ownership to resource manager",
+        "calldata": "0xf2fde38b000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 17,
+        "contractName": "LenderNote",
+        "to": "0x92ED78b41537C902Ad287608d8535bb6780A7618",
+        "functionName": "grantRole",
+        "description": "Grant the resource manager role",
+        "calldata": "0x2f2ff15da08df8e9779f89161e9d4aa6eaffa8e1f95bfbc9b9812ee5dec3c3b19090625d000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 18,
+        "contractName": "LenderNote",
+        "to": "0x92ED78b41537C902Ad287608d8535bb6780A7618",
+        "functionName": "renounceRole",
+        "description": "Current owner renounces resource manager role",
+        "calldata": "0x36568abea08df8e9779f89161e9d4aa6eaffa8e1f95bfbc9b9812ee5dec3c3b19090625d000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 19,
+        "contractName": "LoanCore",
+        "to": "0x89bc08BA00f135d608bc335f6B33D7a9ABCC98aF",
+        "functionName": "grantRole",
+        "description": "Grant the admin role",
+        "calldata": "0x2f2ff15ddf8b4c520ffe197c5343c6f5aec59570151ef9a492f2c624fd45ddde6135ec4200000000000000000000000054b7235db74103395dd48a2c3dd993e3b7d39856"
+    },
+    {
+        "index": 20,
+        "contractName": "LoanCore",
+        "to": "0x89bc08BA00f135d608bc335f6B33D7a9ABCC98aF",
+        "functionName": "grantRole",
+        "description": "Grant the affiliate manager role",
+        "calldata": "0x2f2ff15dc3f1c35a56b30573b2f110479735bf30cf052375c7d5b4436731da1087a01f680000000000000000000000002b6f11b2a783c928799c4e561da89cd06894a279"
+    },
+    {
+        "index": 21,
+        "contractName": "LoanCore",
+        "to": "0x89bc08BA00f135d608bc335f6B33D7a9ABCC98aF",
+        "functionName": "grantRole",
+        "description": "Grant the fee claimer role",
+        "calldata": "0x2f2ff15ddc43895cfc822a45cb77eccebfff1143d490fffb619f1141baf172b83c53ecf900000000000000000000000054b7235db74103395dd48a2c3dd993e3b7d39856"
+    },
+    {
+        "index": 22,
+        "contractName": "LoanCore",
+        "to": "0x89bc08BA00f135d608bc335f6B33D7a9ABCC98aF",
+        "functionName": "grantRole",
+        "description": "Grant the shutdown role",
+        "calldata": "0x2f2ff15d2b22d873f791abe31d4310d327f02daef6f297a9bbbce4a994bf2bbeadf02d57000000000000000000000000e004727641b3c9a2441ee21fa73bec51f6029543"
+    },
+    {
+        "index": 23,
+        "contractName": "LoanCore",
+        "to": "0x89bc08BA00f135d608bc335f6B33D7a9ABCC98aF",
+        "functionName": "renounceRole",
+        "description": "Current owner renounces admin role",
+        "calldata": "0x36568abedf8b4c520ffe197c5343c6f5aec59570151ef9a492f2c624fd45ddde6135ec42000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 24,
+        "contractName": "LoanCore",
+        "to": "0x89bc08BA00f135d608bc335f6B33D7a9ABCC98aF",
+        "functionName": "renounceRole",
+        "description": "Current owner renounces affiliate manager role",
+        "calldata": "0x36568abec3f1c35a56b30573b2f110479735bf30cf052375c7d5b4436731da1087a01f68000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 25,
+        "contractName": "LoanCore",
+        "to": "0x89bc08BA00f135d608bc335f6B33D7a9ABCC98aF",
+        "functionName": "renounceRole",
+        "description": "Current owner renounces fee claimer role",
+        "calldata": "0x36568abedc43895cfc822a45cb77eccebfff1143d490fffb619f1141baf172b83c53ecf9000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 26,
+        "contractName": "LoanCore",
+        "to": "0x89bc08BA00f135d608bc335f6B33D7a9ABCC98aF",
+        "functionName": "renounceRole",
+        "description": "Current owner renounces shutdown role",
+        "calldata": "0x36568abe2b22d873f791abe31d4310d327f02daef6f297a9bbbce4a994bf2bbeadf02d57000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 27,
+        "contractName": "OriginationController",
+        "to": "0xB7BFcca7D7ff0f371867B770856FAc184B185878",
+        "functionName": "grantRole",
+        "description": "Grant the admin role",
+        "calldata": "0x2f2ff15ddf8b4c520ffe197c5343c6f5aec59570151ef9a492f2c624fd45ddde6135ec4200000000000000000000000054b7235db74103395dd48a2c3dd993e3b7d39856"
+    },
+    {
+        "index": 28,
+        "contractName": "OriginationController",
+        "to": "0xB7BFcca7D7ff0f371867B770856FAc184B185878",
+        "functionName": "grantRole",
+        "description": "Grant the whitelist manager role",
+        "calldata": "0x2f2ff15d827de50cc5532fcea9338402dc65442c2567a37fbd0cd8eb56858d00e9e842bd00000000000000000000000054b7235db74103395dd48a2c3dd993e3b7d39856"
+    },
+    {
+        "index": 29,
+        "contractName": "OriginationController",
+        "to": "0xB7BFcca7D7ff0f371867B770856FAc184B185878",
+        "functionName": "renounceRole",
+        "description": "Current owner renounces admin role",
+        "calldata": "0x36568abedf8b4c520ffe197c5343c6f5aec59570151ef9a492f2c624fd45ddde6135ec42000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    },
+    {
+        "index": 30,
+        "contractName": "OriginationController",
+        "to": "0xB7BFcca7D7ff0f371867B770856FAc184B185878",
+        "functionName": "renounceRole",
+        "description": "Current owner renounces whitelist manager role",
+        "calldata": "0x36568abe827de50cc5532fcea9338402dc65442c2567a37fbd0cd8eb56858d00e9e842bd000000000000000000000000398e92c827c5fa0f33f171dc8e20570c5cff330e"
+    }
+]

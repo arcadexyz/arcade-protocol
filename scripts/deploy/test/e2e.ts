@@ -194,6 +194,8 @@ describe("Deployment", function () {
         const deployment = getLatestDeployment();
         const [deployer] = await ethers.getSigners();
 
+        console.log("FILENAME", filename);
+
         if (!ADMIN) {
             throw new Error("did not get admin address!");
         } else {

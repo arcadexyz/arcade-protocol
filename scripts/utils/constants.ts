@@ -30,17 +30,17 @@ export const LENDER_NOTE_BASE_URI = "ipfs://QmTKTPKZx6qTnVJZxo1SYr53woDtMLZjuy1q
 export const LENDER_NOTE_NAME = "Arcade.xyz Lender Note";
 export const LENDER_NOTE_SYMBOL = "aLN";
 
-export const OLD_ADMIN = "0xAdD93e738a415c5248f7cB044FCFC71d86b18572";
+export const OLD_ADMIN = "0x398e92C827C5FA0F33F171DC8E20570c5CfF330e";
 
 // To fill in after deployment
-export const ADMIN = "0x398e92C827C5FA0F33F171DC8E20570c5CfF330e";
-export const RESOURCE_MANAGER = ADMIN;
-export const CALL_WHITELIST_MANAGER = ADMIN;
-export const LOAN_WHITELIST_MANAGER = ADMIN;
-export const MIGRATION_MANAGER = ADMIN;
-export const FEE_CLAIMER = ADMIN;
-export const AFFILIATE_MANAGER = ADMIN;
-export const SHUTDOWN_CALLER = ADMIN;
+export const ADMIN = "0x54B7235dB74103395dD48A2c3dd993E3b7d39856";                      // ArcadeCoreVoting
+export const RESOURCE_MANAGER = "0x398e92C827C5FA0F33F171DC8E20570c5CfF330e";           // Launch Partner Multisig
+export const CALL_WHITELIST_MANAGER = "0x398e92C827C5FA0F33F171DC8E20570c5CfF330e";     // Launch Partner Multisig
+export const LOAN_WHITELIST_MANAGER = "0x54B7235dB74103395dD48A2c3dd993E3b7d39856";     // ArcadeCoreVoting
+export const MIGRATION_MANAGER = "0xE004727641b3C9A2441eE21fa73BEc51f6029543";          // Foundation Multisig
+export const FEE_CLAIMER = "0x54B7235dB74103395dD48A2c3dd993E3b7d39856";                // ArcadeCoreVoting
+export const AFFILIATE_MANAGER = "0x2b6F11B2A783C928799C4E561dA89cD06894A279";          // ArcadeGSCCoreVoting
+export const SHUTDOWN_CALLER = "0xE004727641b3C9A2441eE21fa73BEc51f6029543";            // Foundation Multisig
 
 export const allowedCurrencies = [
     "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",       // WETH
