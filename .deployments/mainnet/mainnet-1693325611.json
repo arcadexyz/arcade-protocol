@@ -122,5 +122,33 @@
   "ReflectiveURIDescriptor": {
     "contractAddress": "0x7FA888A801fC7B7E5e847239E58DD4e2dc621Fd5",
     "constructorArgs": "https://api.arcade.xyz/api/v2/collections/"
+  },
+  "LP1Migration": {
+    "contractAddress": "0xd4bD6295e0581f97191DdA1562ba6de7a40EC5b9",
+    "constructorArgs": [
+      "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+      {
+        "directLoanFixedOffer": "0xE52Cec0E90115AbeB3304BaA36bc2655731f7934",
+        "loanCoordinator": "0x0c90c8b4aa8549656851964d5fb787f0e4f54082",
+        "feeControllerV3": "0xf764442856Eb3fe68A0828e07246a4B395e800fa",
+        "originationControllerV3": "0xB7BFcca7D7ff0f371867B770856FAc184B185878",
+        "loanCoreV3": "0x89bc08BA00f135d608bc335f6B33D7a9ABCC98aF",
+        "borrowerNoteV3": "0xe5B12BEfaf3a91065DA7FDD461dEd2d8F8ECb7BE"
+      }
+    ]
+  },
+  "LP1MigrationWithItems": {
+    "contractAddress": "0xaD8e69f2A97541D1e3524d08A89D3dCbeFa0adad",
+    "constructorArgs": [
+      "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+      {
+        "directLoanFixedOffer": "0xE52Cec0E90115AbeB3304BaA36bc2655731f7934",
+        "loanCoordinator": "0x0c90c8b4aa8549656851964d5fb787f0e4f54082",
+        "feeControllerV3": "0xf764442856Eb3fe68A0828e07246a4B395e800fa",
+        "originationControllerV3": "0xB7BFcca7D7ff0f371867B770856FAc184B185878",
+        "loanCoreV3": "0x89bc08BA00f135d608bc335f6B33D7a9ABCC98aF",
+        "borrowerNoteV3": "0xe5B12BEfaf3a91065DA7FDD461dEd2d8F8ECb7BE"
+      }
+    ]
   }
 }
