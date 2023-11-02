@@ -29,10 +29,24 @@ import {
  *
  * This contract only works with ERC721 collateral.
  */
-contract LP1MigrationWithItems is IMigrationWithItems, LP1MigrationBase {
+contract LP1MigrationWithItems is LP1MigrationBase {
     using SafeERC20 for IERC20;
 
-    constructor(IVault _vault, OperationContracts memory _opContracts) LP1MigrationBase(_vault, _opContracts) {}
+    struct OperationDataWithItems {
+        uint256 loanId;
+        address borrower;
+        LoanLibrary.LoanTerms newLoanTerms;
+        address lender;
+        uint160 nonce;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+        LoanLibrary.Predicate[] itemPredicates;
+        LoanType loanType;
+    }
+
+    constructor(IVault _vault, OperationContracts memory _opContracts, LP1Deployment[] memory _deployments)
+        LP1MigrationBase(_vault, _opContracts, _deployments) {}
 
     /**
      * @notice Mirage a loan from LP1 to V3 using an items signature. Validates new
@@ -43,9 +57,7 @@ contract LP1MigrationWithItems is IMigrationWithItems, LP1MigrationBase {
      * @param newLoanTerms           The terms of the new loan.
      * @param lender                 The address of the lender.
      * @param nonce                  The nonce for the signature.
-     * @param v                      The v value of signature for new loan.
-     * @param r                      The r value of signature for new loan.
-     * @param s                      The s value of signature for new loan.
+     * @param sig                    The signature for new loan.
      * @param itemPredicates         The item predicates specified by lender for new loan.
      */
     function migrateLoanWithItems(
@@ -53,15 +65,14 @@ contract LP1MigrationWithItems is IMigrationWithItems, LP1MigrationBase {
         LoanLibrary.LoanTerms calldata newLoanTerms,
         address lender,
         uint160 nonce,
-        uint8 v,
-        bytes32 r,
-        bytes32 s,
-        LoanLibrary.Predicate[] calldata itemPredicates
-    ) external override whenBorrowerReset {
+        Signature calldata sig,
+        LoanLibrary.Predicate[] calldata itemPredicates,
+        LoanType loanType
+    ) external whenBorrowerReset {
         if (paused) revert MR_Paused();
 
-        LoanData.LoanTerms memory loanTerms = _getLoanTerms(loanId);
-        (address _borrower) = _validateMigration(loanTerms, newLoanTerms, loanId);
+        LoanData.LoanTerms memory loanTerms = _getLoanTerms(loanId, loanType);
+        (address _borrower) = _validateMigration(loanTerms, newLoanTerms, loanId, loanType);
 
         // cache borrower address for flash loan callback
         borrower = _borrower;
@@ -73,22 +84,25 @@ contract LP1MigrationWithItems is IMigrationWithItems, LP1MigrationBase {
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = loanTerms.maximumRepaymentAmount;
 
-        bytes memory params = abi.encode(
-            OperationDataWithItems({
-                loanId: loanId,
-                borrower: borrower,
-                newLoanTerms: newLoanTerms,
-                lender: lender,
-                nonce: nonce,
-                v: v,
-                r: r,
-                s: s,
-                itemPredicates: itemPredicates
-            })
-        );
+        {
+            bytes memory params = abi.encode(
+                OperationDataWithItems({
+                    loanId: loanId,
+                    borrower: borrower,
+                    newLoanTerms: newLoanTerms,
+                    lender: lender,
+                    nonce: nonce,
+                    v: sig.v,
+                    r: sig.r,
+                    s: sig.s,
+                    itemPredicates: itemPredicates,
+                    loanType: loanType
+                })
+            );
 
-        // Flash loan based on principal + interest
-        VAULT.flashLoan(this, assets, amounts, params);
+            // Flash loan based on principal + interest
+            VAULT.flashLoan(this, assets, amounts, params);
+        }
     }
 
     /**
@@ -135,16 +149,14 @@ contract LP1MigrationWithItems is IMigrationWithItems, LP1MigrationBase {
         uint256[] calldata premiums,
         OperationDataWithItems memory opData
     ) internal {
-        // Get smartNFTId to look up lender promissoryNote and borrower obligationReceipt
-        IDirectLoanCoordinator.Loan memory loanData = IDirectLoanCoordinator(loanCoordinator).getLoanData(
-            uint32(opData.loanId)
-        );
-        uint64 smartNftId = loanData.smartNftId;
+        LP1Deployment memory addresses = deployments[uint256(opData.loanType)];
+        IDirectLoanCoordinator loanCoordinator = IDirectLoanCoordinator(addresses.loanCoordinator);
 
-        address borrower = IERC721(IDirectLoanCoordinator(loanCoordinator).obligationReceiptToken()).ownerOf(
-            smartNftId
-        );
-        address lender = IERC721(IDirectLoanCoordinator(loanCoordinator).promissoryNoteToken()).ownerOf(smartNftId);
+        // Get smartNFTId to look up lender promissoryNote and borrower obligationReceipt
+        IDirectLoanCoordinator.Loan memory loanData = loanCoordinator.getLoanData(uint32(opData.loanId));
+
+        address borrower = IERC721(loanCoordinator.obligationReceiptToken()).ownerOf(loanData.smartNftId);
+        address lender = IERC721(loanCoordinator.promissoryNoteToken()).ownerOf(loanData.smartNftId);
 
         // Do accounting to figure out amount each party needs to receive
         (uint256 flashAmountDue, uint256 needFromBorrower, uint256 leftoverPrincipal) = _ensureFunds(
@@ -175,9 +187,9 @@ contract LP1MigrationWithItems is IMigrationWithItems, LP1MigrationBase {
         }
 
         {
-            LoanData.LoanTerms memory loanTerms = _getLoanTerms(uint32(opData.loanId));
+            LoanData.LoanTerms memory loanTerms = _getLoanTerms(uint32(opData.loanId), opData.loanType);
 
-            _repayLoan(loanTerms, borrower, uint32(opData.loanId));
+            _repayLoan(loanTerms, borrower, uint32(opData.loanId), opData.loanType);
 
             uint256 newLoanId = _initializeNewLoanWithItems(borrower, opData.lender, opData);
 

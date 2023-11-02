@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.18;
 
-import "../interfaces/IMigration.sol";
+import "../interfaces/ILP1Migration.sol";
 
 import "./LP1MigrationBase.sol";
 
@@ -30,10 +30,11 @@ import {
  *
  * This contract only works with ERC721 collateral.
  */
-contract LP1Migration is IMigration, LP1MigrationBase {
+contract LP1Migration is ILP1Migration, LP1MigrationBase {
     using SafeERC20 for IERC20;
 
-    constructor(IVault _vault, OperationContracts memory _opContracts) LP1MigrationBase(_vault, _opContracts) {}
+    constructor(IVault _vault, OperationContracts memory _opContracts, LP1Deployment[] memory _deployments)
+        LP1MigrationBase(_vault, _opContracts, _deployments) {}
 
     /**
      * @notice Migrate a loan from LP1 to V3. Validates new loan terms against the
@@ -44,23 +45,20 @@ contract LP1Migration is IMigration, LP1MigrationBase {
      * @param newLoanTerms           The terms of the new loan.
      * @param lender                 The address of the lender.
      * @param nonce                  The nonce for the signature.
-     * @param v                      The v value of signature for new loan.
-     * @param r                      The r value of signature for new loan.
-     * @param s                      The s value of signature for new loan.
+     * @param sig                    The signature for new loan.
      */
     function migrateLoan(
         uint256 loanId, // LP1 loanId
         LoanLibrary.LoanTerms calldata newLoanTerms,
         address lender,
         uint160 nonce,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external override whenBorrowerReset {
+        Signature calldata sig,
+        LoanType loanType
+    ) external whenBorrowerReset {
         if (paused) revert MR_Paused();
 
-        LoanData.LoanTerms memory loanTerms = _getLoanTerms(loanId);
-        (address _borrower) = _validateMigration(loanTerms, newLoanTerms, loanId);
+        LoanData.LoanTerms memory loanTerms = _getLoanTerms(loanId, loanType);
+        (address _borrower) = _validateMigration(loanTerms, newLoanTerms, loanId, loanType);
 
         // cache borrower address for flash loan callback
         borrower = _borrower;
@@ -79,9 +77,10 @@ contract LP1Migration is IMigration, LP1MigrationBase {
                 newLoanTerms: newLoanTerms,
                 lender: lender,
                 nonce: nonce,
-                v: v,
-                r: r,
-                s: s
+                v: sig.v,
+                r: sig.r,
+                s: sig.s,
+                loanType: loanType
             })
         );
 
@@ -133,16 +132,14 @@ contract LP1Migration is IMigration, LP1MigrationBase {
         uint256[] calldata premiums,
         OperationData memory opData
     ) internal {
-        // Get smartNFTId to look up lender promissoryNote and borrower obligationReceipt
-        IDirectLoanCoordinator.Loan memory loanData = IDirectLoanCoordinator(loanCoordinator).getLoanData(
-            uint32(opData.loanId)
-        );
-        uint64 smartNftId = loanData.smartNftId;
+        LP1Deployment memory addresses = deployments[uint256(opData.loanType)];
+        IDirectLoanCoordinator loanCoordinator = IDirectLoanCoordinator(addresses.loanCoordinator);
 
-        address borrower = IERC721(IDirectLoanCoordinator(loanCoordinator).obligationReceiptToken()).ownerOf(
-            smartNftId
-        );
-        address lender = IERC721(IDirectLoanCoordinator(loanCoordinator).promissoryNoteToken()).ownerOf(smartNftId);
+        // Get smartNFTId to look up lender promissoryNote and borrower obligationReceipt
+        IDirectLoanCoordinator.Loan memory loanData = loanCoordinator.getLoanData(uint32(opData.loanId));
+
+        address borrower = IERC721(loanCoordinator.obligationReceiptToken()).ownerOf(loanData.smartNftId);
+        address lender = IERC721(loanCoordinator.promissoryNoteToken()).ownerOf(loanData.smartNftId);
 
         // Do accounting to figure out amount each party needs to receive
         (uint256 flashAmountDue, uint256 needFromBorrower, uint256 leftoverPrincipal) = _ensureFunds(
@@ -173,9 +170,9 @@ contract LP1Migration is IMigration, LP1MigrationBase {
         }
 
         {
-            LoanData.LoanTerms memory loanTerms = _getLoanTerms(uint32(opData.loanId));
+            LoanData.LoanTerms memory loanTerms = _getLoanTerms(uint32(opData.loanId), opData.loanType);
 
-            _repayLoan(loanTerms, borrower, uint32(opData.loanId));
+            _repayLoan(loanTerms, borrower, uint32(opData.loanId), opData.loanType);
 
             uint256 newLoanId = _initializeNewLoan(borrower, opData.lender, opData);
 

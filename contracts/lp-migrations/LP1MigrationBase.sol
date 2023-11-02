@@ -43,12 +43,40 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
     );
 
     struct OperationContracts {
-        DirectLoanFixedOffer directLoanFixedOffer;
-        IDirectLoanCoordinator loanCoordinator;
         IFeeController feeControllerV3;
         IOriginationController originationControllerV3;
         ILoanCore loanCoreV3;
         IERC721 borrowerNoteV3;
+    }
+
+    struct LP1Deployment {
+        address directLoanFixedOffer;
+        address loanCoordinator;
+    }
+
+    enum LoanType {
+        V2,
+        V2_1,
+        V2_3,
+        COLLECTION_V2_3
+    }
+
+    struct Signature {
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
+
+    struct OperationData {
+        uint256 loanId;
+        address borrower;
+        LoanLibrary.LoanTerms newLoanTerms;
+        address lender;
+        uint160 nonce;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+        LoanType loanType;
     }
 
     // Balancer vault contract
@@ -56,8 +84,8 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
     IVault public immutable VAULT; // 0xBA12222222228d8Ba445958a75a0704d566BF2C8
 
     /// @notice V3 lending protocol contract references
-    DirectLoanFixedOffer public immutable directLoanFixedOffer;
-    IDirectLoanCoordinator public immutable loanCoordinator;
+    LP1Deployment[4] public deployments;
+
     IFeeController public immutable feeController;
     IOriginationController public immutable originationController;
     ILoanCore public immutable loanCore;
@@ -71,11 +99,9 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
     /// @notice state variable for pausing the contract
     bool public paused;
 
-    constructor(IVault _vault, OperationContracts memory _opContracts) {
+    constructor(IVault _vault, OperationContracts memory _opContracts, LP1Deployment[] memory _deployments) {
         // input sanitization
         if (address(_vault) == address(0)) revert R_ZeroAddress("vault");
-        if (address(_opContracts.directLoanFixedOffer) == address(0)) revert R_ZeroAddress("directLoanFixedOffer");
-        if (address(_opContracts.loanCoordinator) == address(0)) revert R_ZeroAddress("loanCoordinator");
         if (address(_opContracts.feeControllerV3) == address(0)) revert R_ZeroAddress("feeControllerV3");
         if (address(_opContracts.originationControllerV3) == address(0)) revert R_ZeroAddress("originationControllerV3");
         if (address(_opContracts.loanCoreV3) == address(0)) revert R_ZeroAddress("loanCoreV3");
@@ -85,15 +111,19 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
         VAULT = _vault;
 
         // Set lending protocol contract references
-        directLoanFixedOffer = DirectLoanFixedOffer(_opContracts.directLoanFixedOffer);
-        loanCoordinator = IDirectLoanCoordinator(_opContracts.loanCoordinator);
         feeController = IFeeController(_opContracts.feeControllerV3);
         originationController = IOriginationController(_opContracts.originationControllerV3);
         loanCore = ILoanCore(_opContracts.loanCoreV3);
         borrowerNote = IERC721(_opContracts.borrowerNoteV3);
+
+        // Set LP1 deployment references
+        deployments[0] = _deployments[0];
+        deployments[1] = _deployments[1];
+        deployments[2] = _deployments[2];
+        deployments[3] = _deployments[3];
     }
 
-        /**
+    /**
      * @notice This helper function to calculate the net amounts required to repay the flash loan.
      *         This function will return the total amount due back to the lending pool. The amount
      *         that needs to be paid by the borrower, in the case that the new loan does not cover
@@ -148,14 +178,19 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
     function _repayLoan(
         LoanData.LoanTerms memory loanTerms,
         address borrower_,
-        uint32 loanId
+        uint32 loanId,
+        LoanType loanType
     ) internal {
+        LP1Deployment memory addresses = deployments[uint256(loanType)];
+        IDirectLoanCoordinator loanCoordinator = IDirectLoanCoordinator(addresses.loanCoordinator);
+        DirectLoanFixedOffer directLoanFixedOffer = DirectLoanFixedOffer(addresses.directLoanFixedOffer);
+
         // Take obligationReceiptToken from borrower
         // Must be approved for withdrawal
-        IDirectLoanCoordinator.Loan memory loanData = IDirectLoanCoordinator(loanCoordinator).getLoanData(loanId);
+        IDirectLoanCoordinator.Loan memory loanData = loanCoordinator.getLoanData(loanId);
         uint64 smartNftId = loanData.smartNftId;
 
-        IERC721(IDirectLoanCoordinator(loanCoordinator).obligationReceiptToken()).safeTransferFrom(
+        IERC721(loanCoordinator.obligationReceiptToken()).safeTransferFrom(
             borrower_,
             address(this),
             smartNftId
@@ -168,7 +203,7 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
         );
 
         // Repay loan
-        DirectLoanFixedOffer(address(directLoanFixedOffer)).payBackLoan(loanId);
+        directLoanFixedOffer.payBackLoan(loanId);
 
         address collateralOwner = IERC721(loanTerms.nftCollateralContract).ownerOf(loanTerms.nftCollateralId);
         if (collateralOwner != address(this)) revert MR_NotCollateralOwner(collateralOwner);
@@ -187,14 +222,18 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
     function _validateMigration(
         LoanData.LoanTerms memory sourceLoanTerms,
         LoanLibrary.LoanTerms calldata newLoanTerms,
-        uint256 loanId
+        uint256 loanId,
+        LoanType loanType
     ) internal view returns (address _borrower) {
-        IDirectLoanCoordinator.Loan memory loanCoordinatorData = IDirectLoanCoordinator(loanCoordinator).getLoanData(
+        LP1Deployment memory addresses = deployments[uint256(loanType)];
+        IDirectLoanCoordinator loanCoordinator = IDirectLoanCoordinator(addresses.loanCoordinator);
+
+        IDirectLoanCoordinator.Loan memory loanCoordinatorData = loanCoordinator.getLoanData(
             uint32(loanId)
         );
 
         uint256 smartNftId = loanCoordinatorData.smartNftId;
-        _borrower = IERC721(IDirectLoanCoordinator(loanCoordinator).obligationReceiptToken()).ownerOf(
+        _borrower = IERC721(loanCoordinator.obligationReceiptToken()).ownerOf(
             smartNftId
         );
 
@@ -220,7 +259,7 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
      *
      * @return loanTerms               The terms associated with the loan id.
      */
-    function _getLoanTerms(uint256 loanId) internal view returns (LoanData.LoanTerms memory) {
+    function _getLoanTerms(uint256 loanId, LoanType loanType) internal view returns (LoanData.LoanTerms memory) {
         (
             uint256 loanPrincipalAmount,
             uint256 maximumRepaymentAmount,
@@ -233,7 +272,7 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
             uint64 loanStartTime,
             address nftCollateralContract,
             address _borrower
-        ) = DirectLoanFixedOffer(address(directLoanFixedOffer)).loanIdToLoan(uint32(loanId));
+        ) = DirectLoanFixedOffer(deployments[uint256(loanType)].directLoanFixedOffer).loanIdToLoan(uint32(loanId));
 
         return LoanData.LoanTerms(
             loanPrincipalAmount,
