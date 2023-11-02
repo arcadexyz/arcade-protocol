@@ -1,20 +1,24 @@
 import hre, { ethers } from "hardhat";
 import { loadContracts, DeployedResources } from "../utils/deploy";
 
-import { BALANCER_ADDRESS, NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS, NFTFI_DIRECT_LOAN_COORDINATOR_ADDRESS } from "./config";
+import { BALANCER_ADDRESS, NFTFI_V2, NFTFI_V2_1, NFTFI_V2_3, NFTFI_COLLECTION_V2_3 } from "./config";
 import { LP1Migration, LP1MigrationWithItems } from "../../typechain";
 
 export async function deploy(resources: DeployedResources): Promise<void> {
     const args = [
         BALANCER_ADDRESS,
         {
-            directLoanFixedOffer: NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS,
-            loanCoordinator: NFTFI_DIRECT_LOAN_COORDINATOR_ADDRESS,
             feeControllerV3: resources.feeController.address,
             originationControllerV3: resources.originationController.address,
             loanCoreV3: resources.loanCore.address,
             borrowerNoteV3: resources.borrowerNote.address,
         },
+        [
+            NFTFI_V2,
+            NFTFI_V2_1,
+            NFTFI_V2_3,
+            NFTFI_COLLECTION_V2_3
+        ]
     ];
 
     const migrationBaseFactory = await ethers.getContractFactory("LP1Migration");
