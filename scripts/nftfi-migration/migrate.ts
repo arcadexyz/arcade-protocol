@@ -33,9 +33,12 @@ import {
     NFTFI_SMARTNFT_ID,
     DIRECT_LOAN_FIXED_OFFER_ABI,
     NFTFI_OBLIGATION_RECEIPT_TOKEN_ABI,
-    NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS,
     MIN_LOAN_PRINCIPAL,
-    NFTFI_DIRECT_LOAN_COORDINATOR_ADDRESS,
+    NFTFI_V2,
+    NFTFI_V2_1,
+    NFTFI_V2_3,
+    NFTFI_COLLECTION_V2_3,
+    NFTFI_COLLECTION_V2
 } from "./config";
 
 import { createLoanTermsSignature } from "../../test/utils/eip712";
@@ -62,9 +65,7 @@ export async function main(): Promise<void> {
 
     const {
         originationController,
-        feeController,
         loanCore,
-        borrowerNote
     } = resources;
 
     console.log(SECTION_SEPARATOR);
@@ -105,17 +106,25 @@ export async function main(): Promise<void> {
     console.log("Deploying rollover contract...");
 
     // Using mainnet addresses for migration
-    const contracts = {
-        directLoanFixedOffer: NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS,
-        loanCoordinator: NFTFI_DIRECT_LOAN_COORDINATOR_ADDRESS,
-        feeControllerV3: feeController.address,
-        originationControllerV3: originationController.address,
-        loanCoreV3: loanCore.address,
-        borrowerNoteV3: borrowerNote.address,
-    };
+    const args = [
+        BALANCER_ADDRESS,
+        {
+            feeControllerV3: resources.feeController.address,
+            originationControllerV3: resources.originationController.address,
+            loanCoreV3: resources.loanCore.address,
+            borrowerNoteV3: resources.borrowerNote.address,
+        },
+        [
+            NFTFI_V2,
+            NFTFI_V2_1,
+            NFTFI_V2_3,
+            NFTFI_COLLECTION_V2,
+            NFTFI_COLLECTION_V2_3
+        ]
+    ];
 
     const factory = await ethers.getContractFactory("LP1Migration");
-    const migration = <LP1Migration>await factory.deploy(BALANCER_ADDRESS, contracts);
+    const migration = <LP1Migration>await factory.deploy(...args);
     await migration.deployed();
     console.log("LP1Migration deployed to:", migration.address);
     const flashLoanFee: BigNumber = BigNumber.from("0"); // 0% flash loan fee on Balancer
@@ -150,7 +159,7 @@ export async function main(): Promise<void> {
 
     console.log("Borrower mints NFTFI obligationReceiptToken and approve it to rollover contract...");
     const directLoanFixedOffer = new ethers.Contract(
-        NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS,
+        NFTFI_COLLECTION_V2[0],
         DIRECT_LOAN_FIXED_OFFER_ABI,
         (await hre.ethers.getSigners())[0],
     );
@@ -204,7 +213,7 @@ export async function main(): Promise<void> {
     console.log("Execute NFTFI -> V3 rollover...");
     const tx = await migration
         .connect(borrower)
-        .migrateLoan(LOAN_ID, newLoanTerms, newLender.address, NONCE, sig.v, sig.r, sig.s);
+        .migrateLoan(LOAN_ID, newLoanTerms, newLender.address, NONCE, sig, 3); // LoanType 3: CollectionV2
 
     // send transaction
     console.log("✅ Transaction hash:", tx.hash);

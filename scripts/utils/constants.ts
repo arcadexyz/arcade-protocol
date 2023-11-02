@@ -49,7 +49,6 @@ export const minPrincipals = [
     ethers.utils.parseEther("0.0001"),      // WETH
     ethers.utils.parseUnits("0.00001", 8),  // WBTC
     ethers.utils.parseUnits("1", 6),        // USDC
-    ethers.utils.parseUnits("1", 6),        // USDT
     ethers.utils.parseEther("1"),           // DAI
     ethers.utils.parseEther("0.0001"),      // APE
 ];

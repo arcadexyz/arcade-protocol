@@ -29,9 +29,12 @@ import {
     NFTFI_SMARTNFT_ID,
     DIRECT_LOAN_FIXED_OFFER_ABI,
     NFTFI_OBLIGATION_RECEIPT_TOKEN_ABI,
-    NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS,
     MIN_LOAN_PRINCIPAL,
-    NFTFI_DIRECT_LOAN_COORDINATOR_ADDRESS
+    NFTFI_V2,
+    NFTFI_V2_1,
+    NFTFI_V2_3,
+    NFTFI_COLLECTION_V2_3,
+    NFTFI_COLLECTION_V2
 } from "./config";
 
 import { createLoanItemsSignature } from "../../test/utils/eip712";
@@ -103,17 +106,25 @@ export async function main(): Promise<void> {
     console.log("Deploying rollover contract...");
 
     // Using mainnet addresses for migration
-    const contracts = {
-        directLoanFixedOffer: NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS,
-        loanCoordinator: NFTFI_DIRECT_LOAN_COORDINATOR_ADDRESS,
-        feeControllerV3: feeController.address,
-        originationControllerV3: originationController.address,
-        loanCoreV3: loanCore.address,
-        borrowerNoteV3: borrowerNote.address,
-    };
+    const args = [
+        BALANCER_ADDRESS,
+        {
+            feeControllerV3: resources.feeController.address,
+            originationControllerV3: resources.originationController.address,
+            loanCoreV3: resources.loanCore.address,
+            borrowerNoteV3: resources.borrowerNote.address,
+        },
+        [
+            NFTFI_V2,
+            NFTFI_V2_1,
+            NFTFI_V2_3,
+            NFTFI_COLLECTION_V2,
+            NFTFI_COLLECTION_V2_3
+        ]
+    ];
 
     const factory = await ethers.getContractFactory("LP1MigrationWithItems");
-    const flashRollover = <LP1MigrationWithItems>await factory.deploy(BALANCER_ADDRESS, contracts);
+    const flashRollover = <LP1MigrationWithItems>await factory.deploy(...args);
     await flashRollover.deployed();
     console.log("LP1MigrationWithItems deployed to:", flashRollover.address);
     const flashLoanFee: BigNumber = BigNumber.from("0"); // 0% flash loan fee on Balancer
@@ -148,7 +159,7 @@ export async function main(): Promise<void> {
 
     console.log("Borrower mints NFTFI obligationReceiptToken and approve it to rollover contract...");
     const directLoanFixedOffer = new ethers.Contract(
-        NFTFI_DIRECT_LOAN_FIXED_OFFER_ADDRESS,
+        NFTFI_COLLECTION_V2[0],
         DIRECT_LOAN_FIXED_OFFER_ABI,
         (await hre.ethers.getSigners())[0],
     );
@@ -210,7 +221,7 @@ export async function main(): Promise<void> {
     console.log("Execute NFTFI -> V3 rollover...");
     const tx = await flashRollover
         .connect(borrower)
-        .migrateLoanWithItems(LOAN_ID, newLoanTerms, newLender.address, NONCE, sig.v, sig.r, sig.s, predicates);
+        .migrateLoanWithItems(LOAN_ID, newLoanTerms, newLender.address, NONCE, sig, predicates, 3);
 
     // send transaction
     console.log("✅ Transaction hash:", tx.hash);
