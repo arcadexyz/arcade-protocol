@@ -58,6 +58,7 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
         V2,
         V2_1,
         V2_3,
+        COLLECTION_V2,
         COLLECTION_V2_3
     }
 
@@ -84,7 +85,7 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
     IVault public immutable VAULT; // 0xBA12222222228d8Ba445958a75a0704d566BF2C8
 
     /// @notice V3 lending protocol contract references
-    LP1Deployment[4] public deployments;
+    LP1Deployment[5] public deployments;
 
     IFeeController public immutable feeController;
     IOriginationController public immutable originationController;
@@ -117,10 +118,13 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
         borrowerNote = IERC721(_opContracts.borrowerNoteV3);
 
         // Set LP1 deployment references
+        require(_deployments.length == 5, "Invalid versions");
+
         deployments[0] = _deployments[0];
         deployments[1] = _deployments[1];
         deployments[2] = _deployments[2];
         deployments[3] = _deployments[3];
+        deployments[4] = _deployments[4];
     }
 
     /**

@@ -1,7 +1,7 @@
 import hre, { ethers } from "hardhat";
 import { loadContracts, DeployedResources } from "../utils/deploy";
 
-import { BALANCER_ADDRESS, NFTFI_V2, NFTFI_V2_1, NFTFI_V2_3, NFTFI_COLLECTION_V2_3 } from "./config";
+import { BALANCER_ADDRESS, NFTFI_V2, NFTFI_V2_1, NFTFI_V2_3, NFTFI_COLLECTION_V2_3, NFTFI_COLLECTION_V2 } from "./config";
 import { LP1Migration, LP1MigrationWithItems } from "../../typechain";
 
 export async function deploy(resources: DeployedResources): Promise<void> {
@@ -17,6 +17,7 @@ export async function deploy(resources: DeployedResources): Promise<void> {
             NFTFI_V2,
             NFTFI_V2_1,
             NFTFI_V2_3,
+            NFTFI_COLLECTION_V2,
             NFTFI_COLLECTION_V2_3
         ]
     ];
