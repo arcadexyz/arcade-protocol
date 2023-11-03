@@ -124,31 +124,71 @@
     "constructorArgs": "https://api.arcade.xyz/api/v2/collections/"
   },
   "LP1Migration": {
-    "contractAddress": "0xd4bD6295e0581f97191DdA1562ba6de7a40EC5b9",
+    "contractAddress": "0xA78f3ec4A858341fc9Cae5672f7381e4e74E657B",
     "constructorArgs": [
       "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
       {
-        "directLoanFixedOffer": "0xE52Cec0E90115AbeB3304BaA36bc2655731f7934",
-        "loanCoordinator": "0x0c90c8b4aa8549656851964d5fb787f0e4f54082",
         "feeControllerV3": "0xf764442856Eb3fe68A0828e07246a4B395e800fa",
         "originationControllerV3": "0xB7BFcca7D7ff0f371867B770856FAc184B185878",
         "loanCoreV3": "0x89bc08BA00f135d608bc335f6B33D7a9ABCC98aF",
         "borrowerNoteV3": "0xe5B12BEfaf3a91065DA7FDD461dEd2d8F8ECb7BE"
-      }
+      },
+      [
+        [
+          "0xf896527c49b44aAb3Cf22aE356Fa3AF8E331F280",
+          "0x0C90C8B4aa8549656851964d5fB787F0e4F54082"
+        ],
+        [
+          "0x8252Df1d8b29057d1Afe3062bf5a64D503152BC8",
+          "0x0C90C8B4aa8549656851964d5fB787F0e4F54082"
+        ],
+        [
+          "0xd0a40eB7FD94eE97102BA8e9342243A2b2E22207",
+          "0x329E090aCE410aC8D86f1f0c2a13486884E7072a"
+        ],
+        [
+          "0xE52Cec0E90115AbeB3304BaA36bc2655731f7934",
+          "0x0c90c8b4aa8549656851964d5fb787f0e4f54082"
+        ],
+        [
+          "0xD0C6e59B50C32530C627107F50Acc71958C4341F",
+          "0x329E090aCE410aC8D86f1f0c2a13486884E7072a"
+        ]
+      ]
     ]
   },
   "LP1MigrationWithItems": {
-    "contractAddress": "0xaD8e69f2A97541D1e3524d08A89D3dCbeFa0adad",
+    "contractAddress": "0x466E3e08deB46F7bA9Ce269d2E0858347B359759",
     "constructorArgs": [
       "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
       {
-        "directLoanFixedOffer": "0xE52Cec0E90115AbeB3304BaA36bc2655731f7934",
-        "loanCoordinator": "0x0c90c8b4aa8549656851964d5fb787f0e4f54082",
         "feeControllerV3": "0xf764442856Eb3fe68A0828e07246a4B395e800fa",
         "originationControllerV3": "0xB7BFcca7D7ff0f371867B770856FAc184B185878",
         "loanCoreV3": "0x89bc08BA00f135d608bc335f6B33D7a9ABCC98aF",
         "borrowerNoteV3": "0xe5B12BEfaf3a91065DA7FDD461dEd2d8F8ECb7BE"
-      }
+      },
+      [
+        [
+          "0xf896527c49b44aAb3Cf22aE356Fa3AF8E331F280",
+          "0x0C90C8B4aa8549656851964d5fB787F0e4F54082"
+        ],
+        [
+          "0x8252Df1d8b29057d1Afe3062bf5a64D503152BC8",
+          "0x0C90C8B4aa8549656851964d5fB787F0e4F54082"
+        ],
+        [
+          "0xd0a40eB7FD94eE97102BA8e9342243A2b2E22207",
+          "0x329E090aCE410aC8D86f1f0c2a13486884E7072a"
+        ],
+        [
+          "0xE52Cec0E90115AbeB3304BaA36bc2655731f7934",
+          "0x0c90c8b4aa8549656851964d5fb787f0e4f54082"
+        ],
+        [
+          "0xD0C6e59B50C32530C627107F50Acc71958C4341F",
+          "0x329E090aCE410aC8D86f1f0c2a13486884E7072a"
+        ]
+      ]
     ]
   }
 }
