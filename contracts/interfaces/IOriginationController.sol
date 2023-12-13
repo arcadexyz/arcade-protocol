@@ -31,6 +31,7 @@ interface IOriginationController {
         uint256 amountToOldLender;
         uint256 amountToLender;
         uint256 amountToBorrower;
+        uint256 interestAmount;
     }
 
     // ================ Events =================

@@ -451,9 +451,13 @@ describe("Integration", () => {
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
             const preLenderBalance = await mockERC20.balanceOf(lender.address);
 
-            await expect(repaymentController.connect(borrower).repay(loanId))
+            await expect(repaymentController.connect(borrower).repay(loanId, repayAmount))
                 .to.emit(loanCore, "LoanRepaid").withArgs(loanId)
                 .to.emit(mockERC20, "Transfer").withArgs(borrower.address, loanCore.address, repayAmount);
+
+            // check loan state
+            const loan: LoanData = await loanCore.getLoan(loanId);
+            expect(loan.state).to.equal(2); // repaid
 
             // post-repaid state
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(borrower.address);
@@ -480,9 +484,13 @@ describe("Integration", () => {
             await mint(mockERC20, borrower, repayAmount);
             await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
 
-            await expect(repaymentController.connect(borrower).repay(loanId))
+            await expect(repaymentController.connect(borrower).repay(loanId, repayAmount))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId);
+
+            // check loan state
+            const loan: LoanData = await loanCore.getLoan(loanId);
+            expect(loan.state).to.equal(2); // repaid
 
             // create a new loan with the same bundleId
             const { loanId: newLoanId } = await initializeLoan(context, 2, {
@@ -503,7 +511,7 @@ describe("Integration", () => {
 
             await mint(mockERC20, borrower, repayAmount);
 
-            await expect(repaymentController.connect(borrower).repay(loanId)).to.be.revertedWith(
+            await expect(repaymentController.connect(borrower).repay(loanId, repayAmount)).to.be.revertedWith(
                 "ERC20: transfer amount exceeds allowance",
             );
         });
@@ -527,7 +535,8 @@ describe("Integration", () => {
             await mint(mockERC20, borrower, repayAmount);
             await mockERC20.connect(borrower).approve(repaymentController.address, repayAmount);
 
-            await expect(repaymentController.connect(borrower).repay(1234)).to.be.revertedWith("RC_CannotDereference");
+            await expect(repaymentController.connect(borrower).repay(1234, repayAmount))
+                .to.be.revertedWith("RC_CannotDereference");
         });
     });
 
@@ -684,13 +693,17 @@ describe("Integration", () => {
             // pre-repaid state
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
 
-            await expect(repaymentController.connect(borrower).repay(loanId))
+            await expect(repaymentController.connect(borrower).repay(loanId, repayAmount))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(borrower.address, loanCore.address, repayAmount)
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(loanCore.address, lender.address, repayAmount);
+
+            // check loan state
+            const loan: LoanData = await loanCore.getLoan(loanId);
+            expect(loan.state).to.equal(2); // repaid
 
             // post-repaid state
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(borrower.address);
@@ -739,13 +752,17 @@ describe("Integration", () => {
             // pre-repaid state
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
 
-            await expect(repaymentController.connect(borrower).repay(loanId))
+            await expect(repaymentController.connect(borrower).repay(loanId, repayAmount))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(borrower.address, loanCore.address, repayAmount)
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(loanCore.address, lender.address, lenderRepayment);
+
+            // check loan state
+            const loan: LoanData = await loanCore.getLoan(loanId);
+            expect(loan.state).to.equal(2); // repaid
 
             // post-repaid state
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(borrower.address);
@@ -810,13 +827,17 @@ describe("Integration", () => {
             // pre-repaid state
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
 
-            await expect(repaymentController.connect(borrower).forceRepay(loanId))
+            await expect(repaymentController.connect(borrower).forceRepay(loanId, repayAmount))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
                 .to.emit(loanCore, "ForceRepay")
                 .withArgs(loanId)
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(borrower.address, loanCore.address, repayAmount);
+
+            // check loan state
+            const loan: LoanData = await loanCore.getLoan(loanId);
+            expect(loan.state).to.equal(2); // repaid
 
             // post-repaid state
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(borrower.address);
@@ -939,7 +960,7 @@ describe("Integration", () => {
 
             const rolloverFee = loanTerms.principal.div(100).mul(3);
 
-            const loanData = await loanCore.getLoan(loanId);
+            const loanData: LoanData = await loanCore.getLoan(loanId);
 
             // get block timestamp the repayment call will be made at
             const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
@@ -989,6 +1010,12 @@ describe("Integration", () => {
             // NOTE: LENDER DOES NOT GET INTEREST FEE ON ROLLOVER
             .withArgs(loanCore.address, lender.address, lenderRepayment);
 
+            // check loan state
+            const oldLoan: LoanData = await loanCore.getLoan(loanId);
+            expect(oldLoan.state).to.equal(2); // repaid
+            const newLoan: LoanData = await loanCore.getLoan(newLoanId);
+            expect(newLoan.state).to.equal(1); // active
+
             const borrowerBalanceAfter = await mockERC20.balanceOf(borrower.address);
             const lenderBalanceAfter = await mockERC20.balanceOf(lender.address);
             const ocBalanceAfter = await mockERC20.balanceOf(originationController.address);
@@ -1007,7 +1034,7 @@ describe("Integration", () => {
             expect(await mockERC721.ownerOf(tokenId)).to.equal(loanCore.address);
 
             // get loan data for new loan
-            const newLoanData = await loanCore.getLoan(newLoanId);
+            const newLoanData: LoanData = await loanCore.getLoan(newLoanId);
 
             // get block timestamp the repayment call will be made at
             const t2 = (await ethers.provider.getBlock("latest")).timestamp + 3;
@@ -1030,13 +1057,17 @@ describe("Integration", () => {
 
             // Repay - loan was for same terms, so will earn
             // NOTE: LENDER DOES NOT GET INTEREST FEE ON ROLLOVER
-            await expect(repaymentController.connect(borrower).repay(newLoanId))
+            await expect(repaymentController.connect(borrower).repay(newLoanId, repayAmount2))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(newLoanId)
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(borrower.address, loanCore.address, repayAmount2)
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(loanCore.address, lender.address, repayAmount2.sub(interestFee2));
+
+            // check loan state
+            const loan2: LoanData = await loanCore.getLoan(newLoanId);
+            expect(loan2.state).to.equal(2); // repaid
 
             // post-repaid state
             expect(await mockERC721.ownerOf(tokenId)).to.equal(borrower.address);

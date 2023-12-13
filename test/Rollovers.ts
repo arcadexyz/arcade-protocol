@@ -268,7 +268,7 @@ describe("Rollovers", () => {
     let ctx: TestContext;
     let loan: LoanDef;
     const DURATION = 31536000;
-    const DEADLINE = 1754884800 + DURATION;
+    const DEADLINE = 1754884800 + (DURATION * 10);
     const affiliateCode = ethers.utils.id("FOO");
     const affiliateCode2 = ethers.utils.id("BAR");
 
@@ -350,7 +350,7 @@ describe("Rollovers", () => {
             // Repay the loan
             await mockERC20.connect(admin).mint(borrower.address, ethers.utils.parseEther("1000"));
             await mockERC20.connect(borrower).approve(loanCore.address, ethers.utils.parseEther("1000"));
-            await repaymentController.connect(borrower).repay(loanId);
+            await repaymentController.connect(borrower).repay(loanId, ethers.utils.parseEther("1000"));
 
             // create new terms for rollover and sign them
             const newTerms = createLoanTerms(mockERC20.address, vaultFactory.address, loanTerms);
@@ -466,10 +466,7 @@ describe("Rollovers", () => {
                 "l",
             );
 
-            // Figure out amounts owed
-            // With same terms, borrower will have to pay interest plus 0.1%
-            // 10% interest on 100, plus 0.1% eq 11.1
-
+            // approve more than enough to rollover
             await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
             await mockERC20.connect(borrower).approve(originationController.address, ethers.utils.parseEther("12"));
 
@@ -536,10 +533,7 @@ describe("Rollovers", () => {
                 "l",
             );
 
-            // Figure out amounts owed
-            // With same terms, borrower will have to pay interest plus 0.1%
-            // 10% interest on 100, plus 0.1% eq 11.1
-
+            // approve more than enough to rollover
             await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
             await mockERC20.connect(borrower).approve(originationController.address, ethers.utils.parseEther("25"));
 
@@ -590,10 +584,7 @@ describe("Rollovers", () => {
                 "l",
             );
 
-            // Figure out amounts owed
-            // With same terms, borrower will have to pay interest plus 0.1%
-            // 10% interest on 100, plus 0.1% eq 11.1
-
+            // approve more than enough to rollover
             await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
             await mockERC20.connect(borrower).approve(originationController.address, ethers.utils.parseEther("12"));
             await mockERC20.mint(newLender.address, ethers.utils.parseEther("100"));
@@ -671,10 +662,7 @@ describe("Rollovers", () => {
                 "b",
             );
 
-            // Figure out amounts owed
-            // With same terms, borrower will have to pay interest plus 0.1%
-            // 10% interest on 100, plus 0.1% eq 11.1
-
+            // approve more than enough to rollover
             await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
             await mockERC20.connect(borrower).approve(originationController.address, ethers.utils.parseEther("12"));
             await mockERC20.mint(newLender.address, ethers.utils.parseEther("100"));
@@ -757,8 +745,7 @@ describe("Rollovers", () => {
                 originationController
                     .connect(borrower)
                     .rolloverLoanWithItems(loanId, newTerms, newLender.address, sig, 2, predicates),
-            )
-                .to.be.revertedWith("OC_PredicatesArrayEmpty");
+            ).to.be.revertedWith("OC_PredicatesArrayEmpty");
         });
 
         it("rollover with items signature reverts if the verifier is not approved", async () => {
@@ -820,8 +807,7 @@ describe("Rollovers", () => {
                 originationController
                     .connect(borrower)
                     .rolloverLoanWithItems(loanId, newTerms, newLender.address, sig, 2, predicates),
-            )
-                .to.be.revertedWith("OC_InvalidVerifier");
+            ).to.be.revertedWith("OC_InvalidVerifier");
         });
 
         it("rollover with items signature reverts if invalid collateral in predicates", async () => {
@@ -882,8 +868,7 @@ describe("Rollovers", () => {
                 originationController
                     .connect(borrower)
                     .rolloverLoanWithItems(loanId, newTerms, newLender.address, sig, 2, predicates),
-            )
-                .to.be.revertedWith("OC_PredicateFailed");
+            ).to.be.revertedWith("OC_PredicateFailed");
         });
 
         it("should rollover to a different lender using an items signature", async () => {
@@ -937,10 +922,7 @@ describe("Rollovers", () => {
                 "l",
             );
 
-            // Figure out amounts owed
-            // With same terms, borrower will have to pay interest plus 0.1%
-            // 10% interest on 100, plus 0.1% eq 11.1
-
+            // approve more than enough to rollover
             await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
             await mockERC20.connect(borrower).approve(originationController.address, ethers.utils.parseEther("12"));
             await mockERC20.mint(newLender.address, ethers.utils.parseEther("100"));
@@ -1042,10 +1024,7 @@ describe("Rollovers", () => {
                 "l",
             );
 
-            // Figure out amounts owed
-            // With same terms, borrower will have to pay interest plus 0.1%
-            // 10% interest on 100, plus 0.1% eq 11.1
-
+            // approve more than enough to rollover
             await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
             await mockERC20.connect(borrower).approve(originationController.address, ethers.utils.parseEther("12"));
 
@@ -1123,10 +1102,7 @@ describe("Rollovers", () => {
                 "l",
             );
 
-            // Figure out amounts owed
-            // With same terms, borrower will have to pay interest plus 0.1%
-            // 10% interest on 100, plus 0.1% eq 11.1
-
+            // approve more than enough to rollover
             await mockERC20.mint(lender.address, ethers.utils.parseEther("200"));
             await mockERC20.connect(lender).approve(originationController.address, ethers.utils.parseEther("200"));
             await mockERC20.connect(borrower).approve(originationController.address, ethers.utils.parseEther("100"));
@@ -1201,13 +1177,10 @@ describe("Rollovers", () => {
                 "l",
             );
 
-            // Figure out amounts owed
-            // With same terms, borrower will have to pay interest plus 0.1%
-            // 10% interest on 100, plus 0.1% eq 11.1
-
+            // approve more than enough to rollover
             await mockERC20.mint(lender.address, ethers.utils.parseEther("100"));
-            await mockERC20.connect(lender).approve(originationController.address, ethers.utils.parseEther("100"));
             await mockERC20.connect(borrower).approve(originationController.address, ethers.utils.parseEther("100"));
+            await mockERC20.connect(lender).approve(originationController.address, ethers.utils.parseEther("100"));
 
             const borrowerBalanceBefore = await mockERC20.balanceOf(borrower.address);
             const lenderBalanceBefore = await mockERC20.balanceOf(lender.address);
@@ -1278,9 +1251,7 @@ describe("Rollovers", () => {
                 "l",
             );
 
-            // Figure out amounts owed
-            // With same terms, borrower will have to pay interest plus 0.1%
-            // 10% interest on 100, plus 0.1% eq 11.1
+            // approve more than enough to rollover
             await mockERC20.mint(newLender.address, ethers.utils.parseEther("200"));
             await mockERC20.connect(newLender).approve(originationController.address, ethers.utils.parseEther("200"));
 

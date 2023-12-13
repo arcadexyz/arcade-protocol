@@ -271,6 +271,19 @@ error RC_InvalidState(LoanLibrary.LoanState state);
  */
 error RC_OnlyLender(address lender, address caller);
 
+/**
+ * @notice Repayment amount specified is less than interest owed.
+ *
+ * @param amount                        Amount to repay.
+ * @param interestOwed                  Amount of interest owed on the loan.
+ */
+error RC_InvalidRepayment(uint256 amount, uint256 interestOwed);
+
+/**
+ * @notice Repayment amount must be greater than 0.
+ */
+error RC_ZeroAmount();
+
 // ==================================== Loan Core ======================================
 /// @notice All errors prefixed with LC_, to separate from other contracts in the protocol.
 
