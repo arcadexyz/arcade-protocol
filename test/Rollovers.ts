@@ -1,8 +1,11 @@
-import { expect } from "chai";
-import hre, { ethers, waffle } from "hardhat";
+import chai, { expect } from "chai";
+import { ethers, waffle } from "hardhat";
+import { solidity } from "ethereum-waffle";
 const { loadFixture } = waffle;
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { BigNumber, BigNumberish } from "ethers";
+
+chai.use(solidity);
 
 import {
     VaultFactory,
@@ -166,7 +169,7 @@ const createLoanTerms = (
     {
         durationSecs = BigNumber.from(3600000),
         principal = ethers.utils.parseEther("100"),
-        proratedInterestRate = ethers.utils.parseEther("1"),
+        interestRate = BigNumber.from(1),
         collateralId = 1,
         deadline = 1754884800,
         affiliateCode = ethers.constants.HashZero
@@ -175,7 +178,7 @@ const createLoanTerms = (
     return {
         durationSecs,
         principal,
-        proratedInterestRate,
+        interestRate,
         collateralAddress,
         collateralId,
         payableCurrency,
@@ -205,7 +208,7 @@ const initializeLoan = async (
     payableCurrency: string,
     durationSecs: BigNumberish,
     principal: BigNumber,
-    proratedInterestRate: BigNumber,
+    interestRate: BigNumber,
     deadline: BigNumberish,
     nonce = 1,
     affiliateCode = ethers.constants.HashZero
@@ -215,7 +218,7 @@ const initializeLoan = async (
     const loanTerms = createLoanTerms(payableCurrency, vaultFactory.address, {
         durationSecs,
         principal,
-        proratedInterestRate,
+        interestRate,
         deadline,
         collateralId: bundleId,
         affiliateCode
@@ -264,7 +267,8 @@ const initializeLoan = async (
 describe("Rollovers", () => {
     let ctx: TestContext;
     let loan: LoanDef;
-    const DEADLINE = 1754884800;
+    const DURATION = 31536000;
+    const DEADLINE = 1754884800 + DURATION;
     const affiliateCode = ethers.utils.id("FOO");
     const affiliateCode2 = ethers.utils.id("BAR");
 
@@ -273,9 +277,9 @@ describe("Rollovers", () => {
         loan = await initializeLoan(
             ctx,
             ctx.mockERC20.address,
-            BigNumber.from(86400),
+            BigNumber.from(DURATION),
             ethers.utils.parseEther("100"), // principal
-            ethers.utils.parseEther("1000"), // interest
+            BigNumber.from(1000), // interest
             DEADLINE,
             1,
             affiliateCode
@@ -435,7 +439,7 @@ describe("Rollovers", () => {
             ).to.be.revertedWith("OC_CallerNotParticipant");
         });
 
-        it("should roll over to the same lender", async () => {
+        it("should rollover to the same lender", async () => {
             const {
                 originationController,
                 mockERC20,
@@ -445,6 +449,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -475,6 +480,9 @@ describe("Rollovers", () => {
 
             const newLoanId = Number(loanId) + 1;
 
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
+
             await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
@@ -503,7 +511,7 @@ describe("Rollovers", () => {
             expect(await loanCore.canCallOn(borrower.address, bundleId.toString())).to.eq(true);
         });
 
-        it("should fail to roll over an already closed loan", async () => {
+        it("should fail to rollover an already closed loan", async () => {
             const {
                 originationController,
                 mockERC20,
@@ -511,6 +519,7 @@ describe("Rollovers", () => {
                 borrower,
                 lender,
                 loanCore,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms } = loan;
 
@@ -536,6 +545,9 @@ describe("Rollovers", () => {
 
             const newLoanId = Number(loanId) + 1;
 
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
+
             await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
@@ -550,7 +562,7 @@ describe("Rollovers", () => {
             ).to.be.revertedWith("OC_InvalidState");
         });
 
-        it("should roll over to a different lender", async () => {
+        it("should rollover to a different lender", async () => {
             const {
                 originationController,
                 mockERC20,
@@ -561,6 +573,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -594,8 +607,11 @@ describe("Rollovers", () => {
 
             const newLoanId = Number(loanId) + 1;
 
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 5);
+
             await expect(
-                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2),
+                await originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2)
             )
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
@@ -627,7 +643,7 @@ describe("Rollovers", () => {
             expect(await loanCore.canCallOn(borrower.address, bundleId.toString())).to.eq(true);
         });
 
-        it("should roll over to a different lender, called by the lender", async () => {
+        it("should rollover to a different lender, called by the lender", async () => {
             const {
                 originationController,
                 mockERC20,
@@ -638,6 +654,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -670,6 +687,9 @@ describe("Rollovers", () => {
             const loanCoreBalanceBefore = await mockERC20.balanceOf(loanCore.address);
 
             const newLoanId = Number(loanId) + 1;
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 5);
 
             await expect(
                 originationController.connect(newLender).rolloverLoan(loanId, newTerms, newLender.address, sig, 2),
@@ -804,7 +824,7 @@ describe("Rollovers", () => {
                 .to.be.revertedWith("OC_InvalidVerifier");
         });
 
-        it("rollover with items signature reverts if the predicate fails", async () => {
+        it("rollover with items signature reverts if invalid collateral in predicates", async () => {
             const {
                 originationController,
                 mockERC20,
@@ -813,16 +833,12 @@ describe("Rollovers", () => {
                 borrower,
                 newLender,
                 verifier,
-                admin,
-                loanCore,
-                repaymentController
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
-            // Repay the loan
-            await mockERC20.connect(admin).mint(borrower.address, ethers.utils.parseEther("1000"));
-            await mockERC20.connect(borrower).approve(loanCore.address, ethers.utils.parseEther("1000"));
-            await repaymentController.connect(borrower).repay(loanId);
+            // borrower approves interest
+            await mockERC20.mint(borrower.address, ethers.utils.parseEther("11.1"));
+            await mockERC20.connect(borrower).approve(originationController.address, ethers.utils.parseEther("11.1"));
 
             const collateralId = await mint721(mockERC721, borrower);
             const collateralId2 = await mint721(mockERC721, borrower);
@@ -859,15 +875,18 @@ describe("Rollovers", () => {
                 "l",
             );
 
+            await mint(mockERC20, newLender, newTerms.principal);
+            await approve(mockERC20, newLender, originationController.address, newTerms.principal);
+
             await expect(
                 originationController
                     .connect(borrower)
                     .rolloverLoanWithItems(loanId, newTerms, newLender.address, sig, 2, predicates),
             )
-                .to.be.revertedWith("OC_InvalidState");
+                .to.be.revertedWith("OC_PredicateFailed");
         });
 
-        it("should roll over to a different lender using an items signature", async () => {
+        it("should rollover to a different lender using an items signature", async () => {
             const {
                 originationController,
                 mockERC20,
@@ -880,6 +899,7 @@ describe("Rollovers", () => {
                 lenderNote,
                 loanCore,
                 verifier,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -934,6 +954,9 @@ describe("Rollovers", () => {
 
             const newLoanId = Number(loanId) + 1;
 
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 5);
+
             await expect(
                 originationController
                     .connect(borrower)
@@ -969,7 +992,7 @@ describe("Rollovers", () => {
             expect(await loanCore.canCallOn(borrower.address, bundleId.toString())).to.eq(true);
         });
 
-        it("should roll over to the same lender using an items signature", async () => {
+        it("should rollover to the same lender using an items signature", async () => {
             const {
                 originationController,
                 mockERC20,
@@ -981,6 +1004,7 @@ describe("Rollovers", () => {
                 lenderNote,
                 loanCore,
                 verifier,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1032,6 +1056,9 @@ describe("Rollovers", () => {
 
             const newLoanId = Number(loanId) + 1;
 
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
+
             await expect(
                 originationController
                     .connect(borrower)
@@ -1064,7 +1091,7 @@ describe("Rollovers", () => {
             expect(await loanCore.canCallOn(borrower.address, bundleId.toString())).to.eq(true);
         });
 
-        it("should roll over a loan with for the borrower and the same lender where no funds need to move", async () => {
+        it("should rollover a loan with for the borrower and the same lender where no funds need to move", async () => {
             const {
                 originationController,
                 mockERC20,
@@ -1074,6 +1101,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1109,6 +1137,9 @@ describe("Rollovers", () => {
             const loanCoreBalanceBefore = await mockERC20.balanceOf(loanCore.address);
 
             const newLoanId = Number(loanId) + 1;
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 4);
 
             await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2))
                 .to.emit(loanCore, "LoanRepaid")
@@ -1150,6 +1181,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1184,6 +1216,9 @@ describe("Rollovers", () => {
 
             const newLoanId = Number(loanId) + 1;
 
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 4);
+
             await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
@@ -1212,7 +1247,7 @@ describe("Rollovers", () => {
             expect(await loanCore.canCallOn(borrower.address, bundleId.toString())).to.eq(true);
         });
 
-        it("should roll over a loan with extra principal for the borrower and a different lender", async () => {
+        it("should rollover a loan with extra principal for the borrower and a different lender", async () => {
             const {
                 originationController,
                 mockERC20,
@@ -1223,6 +1258,7 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1255,6 +1291,9 @@ describe("Rollovers", () => {
             const loanCoreBalanceBefore = await mockERC20.balanceOf(loanCore.address);
 
             const newLoanId = Number(loanId) + 1;
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(
                 originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2),
@@ -1301,7 +1340,8 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1330,6 +1370,9 @@ describe("Rollovers", () => {
             const loanCoreBalanceBefore = await mockERC20.balanceOf(loanCore.address);
 
             const newLoanId = Number(loanId) + 1;
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 4);
 
             await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2))
                 .to.emit(loanCore, "LoanRepaid")
@@ -1369,7 +1412,8 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1399,6 +1443,9 @@ describe("Rollovers", () => {
             const loanCoreBalanceBefore = await mockERC20.balanceOf(loanCore.address);
 
             const newLoanId = Number(loanId) + 1;
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 5);
 
             await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2))
                 .to.emit(loanCore, "LoanRepaid")
@@ -1438,7 +1485,8 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1467,6 +1515,9 @@ describe("Rollovers", () => {
             const loanCoreBalanceBefore = await mockERC20.balanceOf(loanCore.address);
 
             const newLoanId = Number(loanId) + 1;
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 4);
 
             await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2))
                 .to.emit(loanCore, "LoanRepaid")
@@ -1506,7 +1557,8 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1543,6 +1595,9 @@ describe("Rollovers", () => {
             const loanCoreBalanceBefore = await mockERC20.balanceOf(loanCore.address);
 
             const newLoanId = Number(loanId) + 1;
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 4);
 
             await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2))
                 .to.emit(loanCore, "LoanRepaid")
@@ -1583,7 +1638,8 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1619,6 +1675,9 @@ describe("Rollovers", () => {
             const loanCoreBalanceBefore = await mockERC20.balanceOf(loanCore.address);
 
             const newLoanId = Number(loanId) + 1;
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 6);
 
             await expect(
                 originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2),
@@ -1664,7 +1723,8 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1702,9 +1762,10 @@ describe("Rollovers", () => {
 
             const newLoanId = Number(loanId) + 1;
 
-            await expect(
-                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2),
-            )
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 7);
+
+            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
                 .to.emit(loanCore, "LoanStarted")
@@ -1746,7 +1807,8 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1782,6 +1844,9 @@ describe("Rollovers", () => {
             const loanCoreBalanceBefore = await mockERC20.balanceOf(loanCore.address);
 
             const newLoanId = Number(loanId) + 1;
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 6);
 
             await expect(
                 originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2),
@@ -1827,7 +1892,8 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1866,6 +1932,9 @@ describe("Rollovers", () => {
             const loanCoreBalanceBefore = await mockERC20.balanceOf(loanCore.address);
 
             const newLoanId = Number(loanId) + 1;
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 6);
 
             await expect(
                 originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2),
@@ -1912,7 +1981,8 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -1954,6 +2024,9 @@ describe("Rollovers", () => {
             const loanCoreBalanceBefore = await mockERC20.balanceOf(loanCore.address);
 
             const newLoanId = Number(loanId) + 1;
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 7);
 
             await expect(
                 originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2),
@@ -2009,7 +2082,8 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -2060,6 +2134,9 @@ describe("Rollovers", () => {
             const loanCoreBalanceBefore = await mockERC20.balanceOf(loanCore.address);
 
             const newLoanId = Number(loanId) + 1;
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 7);
 
             await expect(
                 originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2),
@@ -2113,7 +2190,8 @@ describe("Rollovers", () => {
                 borrowerNote,
                 lenderNote,
                 loanCore,
-                feeController
+                feeController,
+                blockchainTime,
             } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
@@ -2152,6 +2230,9 @@ describe("Rollovers", () => {
             const loanCoreBalanceBefore = await mockERC20.balanceOf(loanCore.address);
 
             const newLoanId = Number(loanId) + 1;
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 4);
 
             await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2))
                 .to.emit(loanCore, "LoanRepaid")

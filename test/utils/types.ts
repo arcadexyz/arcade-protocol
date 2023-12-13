@@ -31,39 +31,43 @@ export interface ItemsPredicate {
 }
 
 export interface LoanTerms {
+    interestRate: BigNumberish;
     durationSecs: BigNumberish;
-    principal: BigNumber;
-    proratedInterestRate: BigNumber;
     collateralAddress: string;
-    collateralId: BigNumberish;
-    payableCurrency: string;
     deadline: BigNumberish;
+    payableCurrency: string;
+    principal: BigNumber;
+    collateralId: BigNumberish;
     affiliateCode: BytesLike;
 }
 
 export interface ItemsPayload {
+    interestRate: BigNumberish;
     durationSecs: BigNumberish;
-    principal: BigNumber;
-    proratedInterestRate: BigNumber;
     collateralAddress: string;
-    items: ItemsPredicate[];
+    deadline: BigNumberish;
     payableCurrency: string;
+    principal: BigNumber;
     affiliateCode: BytesLike;
+    items: ItemsPredicate[];
     nonce: BigNumberish;
     side: 0 | 1;
-    deadline: BigNumberish;
-}
-
-export interface LoanData {
-    terms: LoanTerms;
-    state: LoanState;
-    startDate: BigNumberish;
 }
 
 export interface FeeSnapshot {
-    lenderDefaultFee: BigNumber;
-    lenderInterestFee: BigNumber;
-    lenderPrincipalFee: BigNumber;
+    lenderDefaultFee: BigNumberish;
+    lenderInterestFee: BigNumberish;
+    lenderPrincipalFee: BigNumberish;
+}
+
+export interface LoanData {
+    state: LoanState;
+    startDate: BigNumberish;
+    lastAccrualTimestamp: BigNumberish;
+    terms: LoanTerms;
+    feeSnapshot: FeeSnapshot;
+    balance: BigNumber;
+    interestAmountPaid: BigNumber;
 }
 
 export interface InitializeLoanSignature {

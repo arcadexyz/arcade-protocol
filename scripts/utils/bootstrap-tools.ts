@@ -144,7 +144,7 @@ export async function vaultAssetsAndMakeLoans(
     const loan1Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(oneWeekMs),
         principal: ethers.utils.parseEther("10"),
-        proratedInterestRate: ethers.utils.parseEther("1500"),
+        interestRate: ethers.utils.parseEther("1500"),
         collateralAddress: factory.address,
         collateralId: av1A.address,
         payableCurrency: weth.address,
@@ -178,7 +178,7 @@ export async function vaultAssetsAndMakeLoans(
     const loan2Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(oneWeekMs) - 10,
         principal: ethers.utils.parseEther("10000"),
-        proratedInterestRate: ethers.utils.parseEther("500"),
+        interestRate: ethers.utils.parseEther("500"),
         collateralAddress: factory.address,
         collateralId: av1B.address,
         payableCurrency: pawnToken.address,
@@ -210,7 +210,7 @@ export async function vaultAssetsAndMakeLoans(
     const loan3Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(oneDayMs) - 10,
         principal: ethers.utils.parseUnits("1000", 6),
-        proratedInterestRate: ethers.utils.parseUnits("800"),
+        interestRate: ethers.utils.parseUnits("800"),
         collateralAddress: factory.address,
         collateralId: av3A.address,
         payableCurrency: usd.address,
@@ -242,7 +242,7 @@ export async function vaultAssetsAndMakeLoans(
     const loan4Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(oneMonthMs),
         principal: ethers.utils.parseUnits("1000", 6),
-        proratedInterestRate: ethers.utils.parseUnits("1400"),
+        interestRate: ethers.utils.parseUnits("1400"),
         collateralAddress: factory.address,
         collateralId: av3B.address,
         payableCurrency: usd.address,
@@ -274,7 +274,7 @@ export async function vaultAssetsAndMakeLoans(
     const loan5Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(9000000),
         principal: ethers.utils.parseEther("20"),
-        proratedInterestRate: ethers.utils.parseEther("200"),
+        interestRate: ethers.utils.parseEther("200"),
         collateralAddress: factory.address,
         collateralId: av3C.address,
         payableCurrency: weth.address,
@@ -306,7 +306,7 @@ export async function vaultAssetsAndMakeLoans(
     const loan6Terms: LoanTerms = {
         durationSecs: relSecondsFromMs(oneWeekMs),
         principal: ethers.utils.parseEther("300.33"),
-        proratedInterestRate: ethers.utils.parseEther("600"),
+        interestRate: ethers.utils.parseEther("600"),
         collateralAddress: factory.address,
         collateralId: av4A.address,
         payableCurrency: pawnToken.address,

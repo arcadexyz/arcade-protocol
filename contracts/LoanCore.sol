@@ -191,10 +191,13 @@ contract LoanCore is
 
         // Initiate loan state
         loans[loanId] = LoanLibrary.LoanData({
-            terms: terms,
-            startDate: uint160(block.timestamp),
             state: LoanLibrary.LoanState.Active,
-            feeSnapshot: _feeSnapshot
+            startDate: uint64(block.timestamp),
+            lastAccrualTimestamp: uint64(block.timestamp),
+            terms: terms,
+            feeSnapshot: _feeSnapshot,
+            balance: terms.principal,
+            interestAmountPaid: 0
         });
 
         // Distribute notes and principal
@@ -439,10 +442,13 @@ contract LoanCore is
         loanIdTracker.increment();
 
         loans[newLoanId] = LoanLibrary.LoanData({
-            terms: terms,
             state: LoanLibrary.LoanState.Active,
-            startDate: uint160(block.timestamp),
-            feeSnapshot: data.feeSnapshot
+            startDate: uint64(block.timestamp),
+            lastAccrualTimestamp: uint64(block.timestamp),
+            terms: terms,
+            feeSnapshot: data.feeSnapshot,
+            balance: terms.principal,
+            interestAmountPaid: 0
         });
 
         // Burn old notes
@@ -565,6 +571,46 @@ contract LoanCore is
      */
     function isNonceUsed(address user, uint160 nonce) external view override returns (bool) {
         return usedNonces[user][nonce];
+    }
+
+    /**
+     * @notice Returns the effective interest rate for a given loan. If the loan is active,
+     *         the interest rate is calculated based on the current timestamp and the prorated
+     *         interest due for the loan. If the loan is repaid, the interest rate is calculated
+     *         based on the total interest paid over the life of the loan.
+     *
+     * @param loanId                The ID of the given loan.
+     *
+     * @return interestRate         The effective interest rate for the loan.
+     */
+    function getCloseEffectiveInterestRate(uint256 loanId) external view returns (uint256) {
+        LoanLibrary.LoanData memory data = loans[loanId];
+
+        if (data.state == LoanLibrary.LoanState.Active) {
+            // if loan is active get the effective interest rate if the loan were to be closed now
+            return
+                InterestCalculator.closeNowEffectiveInterestRate(
+                    data.balance,
+                    data.terms.principal,
+                    data.interestAmountPaid,
+                    data.terms.interestRate,
+                    data.terms.durationSecs,
+                    data.startDate,
+                    data.lastAccrualTimestamp,
+                    block.timestamp
+                );
+        }
+        else if (data.state == LoanLibrary.LoanState.Repaid) {
+            // if loan is repaid get the effective interest rate based on the total interest paid
+            return
+                InterestCalculator.effectiveInterestRate(
+                    data.interestAmountPaid,
+                    data.lastAccrualTimestamp - data.startDate,
+                    data.terms.principal
+                );
+        } else {
+            revert LC_InvalidState(data.state);
+        }
     }
 
     // ========================================= FEE MANAGEMENT =========================================
@@ -699,6 +745,9 @@ contract LoanCore is
 
         // State changes and cleanup
         loans[loanId].state = LoanLibrary.LoanState.Repaid;
+        loans[loanId].interestAmountPaid = _amountFromPayer - data.balance;
+        loans[loanId].balance = 0;
+        loans[loanId].lastAccrualTimestamp = uint64(block.timestamp);
         collateralInUse[keccak256(abi.encode(data.terms.collateralAddress, data.terms.collateralId))] = false;
     }
 
