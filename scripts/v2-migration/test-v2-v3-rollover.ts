@@ -149,7 +149,7 @@ export async function main(): Promise<void> {
     const newLoanTerms: LoanTerms = {
         durationSecs: 86400,
         deadline: Math.floor(Date.now() / 1000) + 100_000,
-        proratedInterestRate: V3_LOAN_INTEREST_RATE,
+        interestRate: V3_LOAN_INTEREST_RATE,
         principal: V3_LOAN_PRINCIPAL,
         collateralAddress: LOAN_COLLATERAL_ADDRESS,
         collateralId: COLLATERAL_ID,

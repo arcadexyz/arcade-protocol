@@ -109,7 +109,15 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         if (lender != msg.sender) revert RC_OnlyLender(lender, msg.sender);
 
         LoanLibrary.LoanTerms memory terms = data.terms;
-        uint256 interest = getInterestAmount(terms.principal, terms.proratedInterestRate);
+
+        uint256 interest = getProratedInterestAmount(
+            data.balance,
+            terms.interestRate,
+            terms.durationSecs,
+            uint64(data.startDate),
+            uint64(data.lastAccrualTimestamp),
+            block.timestamp
+        );
         uint256 totalOwed = terms.principal + interest;
 
         uint256 claimFee = (totalOwed * data.feeSnapshot.lenderDefaultFee) / BASIS_POINTS_DENOMINATOR;
@@ -155,7 +163,14 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
 
         LoanLibrary.LoanTerms memory terms = data.terms;
 
-        uint256 interest = getInterestAmount(terms.principal, terms.proratedInterestRate);
+        uint256 interest = getProratedInterestAmount(
+            data.balance,
+            terms.interestRate,
+            terms.durationSecs,
+            uint64(data.startDate),
+            uint64(data.lastAccrualTimestamp),
+            block.timestamp
+        );
 
         uint256 interestFee = (interest * data.feeSnapshot.lenderInterestFee) / BASIS_POINTS_DENOMINATOR;
         uint256 principalFee = (terms.principal * data.feeSnapshot.lenderPrincipalFee) / BASIS_POINTS_DENOMINATOR;

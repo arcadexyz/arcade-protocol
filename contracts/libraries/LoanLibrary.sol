@@ -30,27 +30,28 @@ library LoanLibrary {
      * @dev The raw terms of a loan.
      */
     struct LoanTerms {
-        // Interest expressed as a rate, unlike V1 gross value.
-        // Input conversion: 0.01% = (1 * 10**18) ,  10.00% = (1000 * 10**18)
-        // This represents the rate over the lifetime of the loan, not APR.
-        // 0.01% is the minimum interest rate allowed by the protocol.
-        uint256 proratedInterestRate;
+        /// @dev Packed variables
+        // Interest expressed as an APR. Input conversion:
+        // 1 = .0001 = .01% APR (min)
+        // 100 = .01 = 1% APR
+        // 1000 = 0.1 = 10% APR
+        // 100,000,000 = 10,000 = 1,000,000% APR (max)
+        uint32 interestRate;
+        // The number of seconds representing relative due date of the loan.
+        // Max is 94,608,000, fits in 96 bits
+        uint64 durationSecs;
+        // The token ID of the address holding the collateral.
+        // Can be an AssetVault, or the NFT contract for unbundled collateral
+        address collateralAddress;
+        // Timestamp for when signature for terms expires
+        uint96 deadline;
+        // The payable currency for the loan principal and interest.
+        address payableCurrency;
         /// @dev Full-slot variables
         // The amount of principal in terms of the payableCurrency.
         uint256 principal;
-        // The token ID of the address holding the collateral.
-        /// @dev Can be an AssetVault, or the NFT contract for unbundled collateral
-        address collateralAddress;
-        /// @dev Packed variables
-        // The number of seconds representing relative due date of the loan.
-        /// @dev Max is 94,608,000, fits in 96 bits
-        uint96 durationSecs;
         // The token ID of the collateral.
         uint256 collateralId;
-        // The payable currency for the loan principal and interest.
-        address payableCurrency;
-        // Timestamp for when signature for terms expires
-        uint96 deadline;
         // Affiliate code used to start the loan.
         bytes32 affiliateCode;
     }
@@ -61,28 +62,29 @@ library LoanLibrary {
      *      is defined by 'bytes' in items.
      */
     struct LoanTermsWithItems {
-        // Interest expressed as a rate, unlike V1 gross value.
-        // Input conversion: 0.01% = (1 * 10**18) ,  10.00% = (1000 * 10**18)
-        // This represents the rate over the lifetime of the loan, not APR.
-        // 0.01% is the minimum interest rate allowed by the protocol.
-        uint256 proratedInterestRate;
+        /// @dev Packed variables
+        // Interest expressed as an APR. Input conversion:
+        // 1 = .0001 = .01% APR (min)
+        // 100 = .01 = 1% APR
+        // 1000 = 0.1 = 10% APR
+        // 100,000,000 = 10,000 = 1,000,000% APR (max)
+        uint32 interestRate;
+        // The number of seconds representing relative due date of the loan.
+        // Max is 94,608,000, fits in 96 bits
+        uint64 durationSecs;
+        // The tokenID of the address holding the collateral
+        address collateralAddress;
+        // Timestamp for when signature for terms expires
+        uint96 deadline;
+        // The payable currency for the loan principal and interest.
+        address payableCurrency;
         /// @dev Full-slot variables
         // The amount of principal in terms of the payableCurrency.
         uint256 principal;
-        // The tokenID of the address holding the collateral
-        address collateralAddress;
-        /// @dev Packed variables
-        // The number of seconds representing relative due date of the loan.
-        /// @dev Max is 94,608,000, fits in 96 bits
-        uint96 durationSecs;
-        // An encoded list of predicates, along with their verifiers.
-        bytes items;
-        // The payable currency for the loan principal and interest.
-        address payableCurrency;
-        // Timestamp for when signature for terms expires
-        uint96 deadline;
         // Affiliate code used to start the loan.
         bytes32 affiliateCode;
+        // An encoded list of predicates, along with their verifiers.
+        bytes items;
     }
 
     /**
@@ -115,11 +117,17 @@ library LoanLibrary {
         // The current state of the loan.
         LoanState state;
         // Start date of the loan, using block.timestamp.
-        uint160 startDate;
+        uint64 startDate;
+        // last time interest was accrued
+        uint64 lastAccrualTimestamp;
         /// @dev Full-slot variables
         // The raw terms of the loan.
         LoanTerms terms;
         // Record of lending fees at the time of loan creation.
         FeeSnapshot feeSnapshot;
+        // total principal minus amount of principal repaid
+        uint256 balance;
+        // total interest paid
+        uint256 interestAmountPaid;
     }
 }

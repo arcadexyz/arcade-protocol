@@ -35,13 +35,13 @@ const typedPermitData: TypeData = {
 const typedLoanTermsData: TypeData = {
     types: {
         LoanTerms: [
-            { name: "proratedInterestRate", type: "uint256" },
-            { name: "principal", type: "uint256" },
+            { name: "interestRate", type: "uint32" },
+            { name: "durationSecs", type: "uint64" },
             { name: "collateralAddress", type: "address" },
-            { name: "durationSecs", type: "uint96" },
-            { name: "collateralId", type: "uint256" },
-            { name: "payableCurrency", type: "address" },
             { name: "deadline", type: "uint96" },
+            { name: "payableCurrency", type: "address" },
+            { name: "principal", type: "uint256" },
+            { name: "collateralId", type: "uint256" },
             { name: "affiliateCode", type: "bytes32" },
             { name: "nonce", type: "uint160" },
             { name: "side", type: "uint8" },
@@ -53,14 +53,14 @@ const typedLoanTermsData: TypeData = {
 const typedLoanItemsData: TypeData = {
     types: {
         LoanTermsWithItems: [
-            { name: "proratedInterestRate", type: "uint256" },
-            { name: "principal", type: "uint256" },
+            { name: "interestRate", type: "uint32" },
+            { name: "durationSecs", type: "uint64" },
             { name: "collateralAddress", type: "address" },
-            { name: "durationSecs", type: "uint96" },
-            { name: "items", type: "Predicate[]" },
-            { name: "payableCurrency", type: "address" },
             { name: "deadline", type: "uint96" },
+            { name: "payableCurrency", type: "address" },
+            { name: "principal", type: "uint256" },
             { name: "affiliateCode", type: "bytes32" },
+            { name: "items", type: "Predicate[]" },
             { name: "nonce", type: "uint160" },
             { name: "side", type: "uint8" },
         ],
@@ -140,16 +140,16 @@ export async function createLoanItemsSignature(
     const side = _side === "b" ? 0 : 1;
 
     const message: ItemsPayload = {
+        interestRate: terms.interestRate,
         durationSecs: terms.durationSecs,
-        principal: terms.principal,
-        proratedInterestRate: terms.proratedInterestRate,
         collateralAddress: terms.collateralAddress,
-        items,
-        payableCurrency: terms.payableCurrency,
-        nonce,
-        side,
         deadline: terms.deadline,
-        affiliateCode: terms.affiliateCode
+        payableCurrency: terms.payableCurrency,
+        principal: terms.principal,
+        affiliateCode: terms.affiliateCode,
+        items,
+        nonce,
+        side
     };
 
     const data = buildData(verifyingContract, name, version, message, typedLoanItemsData);

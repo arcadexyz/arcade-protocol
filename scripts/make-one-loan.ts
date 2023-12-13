@@ -66,7 +66,7 @@ export async function makeLoan(resources: DeployedResources): Promise<void> {
     const terms: LoanTerms = {
         durationSecs: relSecondsFromMs(oneWeekMs),
         principal: amountBase,
-        proratedInterestRate: ethers.utils.parseEther("1.5"),
+        interestRate: ethers.utils.parseEther("1.5"),
         collateralAddress: vaultFactory.address,
         collateralId: vault.address,
         payableCurrency: weth.address,

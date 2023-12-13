@@ -19,7 +19,7 @@ import { BlockchainTime } from "./utils/time";
 import { BigNumber, BigNumberish } from "ethers";
 import { deploy } from "./utils/contracts";
 import { approve, mint, ZERO_ADDRESS } from "./utils/erc20";
-import { LoanTerms, LoanData } from "./utils/types";
+import { LoanTerms, LoanData, LoanState } from "./utils/types";
 import { createLoanTermsSignature } from "./utils/eip712";
 
 import {
@@ -148,7 +148,7 @@ const createLoanTerms = (
     payableCurrency: string,
     durationSecs: BigNumberish,
     principal: BigNumberish,
-    proratedInterestRate: BigNumberish,
+    interestRate: BigNumberish,
     collateralAddress: string,
     deadline: BigNumberish,
     collateralId: BigNumberish,
@@ -157,7 +157,7 @@ const createLoanTerms = (
     return {
         durationSecs,
         principal: BigNumber.from(principal),
-        proratedInterestRate: BigNumber.from(proratedInterestRate),
+        interestRate: BigNumber.from(interestRate),
         collateralAddress,
         collateralId,
         payableCurrency,
@@ -273,14 +273,14 @@ describe("RepaymentController", () => {
 
     describe("Repayment", () => {
         it("reverts if called for an invalid loanId", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, blockchainTime } = ctx;
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
@@ -292,6 +292,9 @@ describe("RepaymentController", () => {
             await mockERC20.connect(borrower).approve(loanCore.address, total);
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
 
             const invalidId = BigNumber.from(loanId).mul(10);
             await expect(
@@ -300,29 +303,36 @@ describe("RepaymentController", () => {
         });
 
         it("reverts if called for an non-active loan", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, blockchainTime } = ctx;
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
+            // borrower balance before
+            const borrowerBalanceBefore = await mockERC20.balanceOf(borrower.address);
+
             // total repayment amount
             const total = ethers.utils.parseEther("110");
-            const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
+            const repayAdditionalAmount = total.sub(borrowerBalanceBefore);
             // mint borrower exactly enough to repay loan
             await mint(mockERC20, borrower, repayAdditionalAmount);
             await mockERC20.connect(borrower).approve(loanCore.address, total);
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
 
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
+
             await expect(
                 repaymentController.connect(borrower).repay(loanId)
-            ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
+            ).to.emit(loanCore, "LoanRepaid").withArgs(loanId)
+            .to.emit(mockERC20, "Transfer").withArgs(borrower.address, loanCore.address, ethers.utils.parseEther("110"));
 
             expect(await mockERC20.balanceOf(borrower.address)).to.eq(0);
 
@@ -332,7 +342,7 @@ describe("RepaymentController", () => {
         });
 
         it("repays a loan with 0 amount due", async () => {
-            const { repaymentController, feeController, vaultFactory, mockERC20, loanCore, borrower, lender, admin } = ctx;
+            const { repaymentController, feeController, vaultFactory, mockERC20, loanCore, borrower, lender, admin, blockchainTime } = ctx;
 
             // Set up a new origination controller, that does not validate loan terms
             const mockOC = <MockNoValidationOC>await deploy("MockNoValidationOC", admin, [loanCore.address, feeController.address]);
@@ -349,9 +359,9 @@ describe("RepaymentController", () => {
 
             const loanTerms = createLoanTerms(
                 mockERC20.address,
-                86400,
+                31536000,
                 0, // 0 principal
-                ethers.utils.parseEther("1000"),
+                1000,
                 vaultFactory.address,
                 1754884800,
                 bundleId,
@@ -389,6 +399,9 @@ describe("RepaymentController", () => {
 
             const lenderBalanceBefore = await mockERC20.balanceOf(lender.address);
 
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000);
+
             await expect(
                 repaymentController.connect(borrower).repay(loanId)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
@@ -401,14 +414,14 @@ describe("RepaymentController", () => {
         });
 
         it("Repay interest and principal. 100 ETH principal, 10% interest rate.", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, blockchainTime } = ctx;
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
@@ -421,6 +434,9 @@ describe("RepaymentController", () => {
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
 
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
+
             await expect(
                 repaymentController.connect(borrower).repay(loanId)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
@@ -429,14 +445,14 @@ describe("RepaymentController", () => {
         });
 
         it("Repay interest and principal. 10 ETH principal, 7.5% interest rate.", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, blockchainTime } = ctx;
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("10"), // principal
-                ethers.utils.parseEther("750"), // interest
+                750, // interest
                 1754884800, // deadline
             );
 
@@ -449,6 +465,9 @@ describe("RepaymentController", () => {
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
 
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
+
             await expect(
                 repaymentController.connect(borrower).repay(loanId)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
@@ -457,14 +476,14 @@ describe("RepaymentController", () => {
         });
 
         it("Repay interest and principal. 25 ETH principal, 2.5% interest rate.", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, blockchainTime } = ctx;
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("25"), // principal
-                ethers.utils.parseEther("250"), // interest
+                250, // interest
                 1754884800, // deadline
             );
 
@@ -477,6 +496,9 @@ describe("RepaymentController", () => {
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
 
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
+
             await expect(
                 repaymentController.connect(borrower).repay(loanId)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
@@ -485,14 +507,14 @@ describe("RepaymentController", () => {
         });
 
         it("Third party repayment, interest and principal. 100 ETH principal, 10% interest rate.", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, other } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, other, blockchainTime } = ctx;
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
@@ -505,6 +527,9 @@ describe("RepaymentController", () => {
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
 
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
+
             await expect(
                 repaymentController.connect(other).repay(loanId)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
@@ -513,14 +538,14 @@ describe("RepaymentController", () => {
         });
 
         it("Repay interest and principal. 25 ETH principal, 2.5% interest rate. Borrower tries to repay with insufficient balance. Should revert.", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, blockchainTime } = ctx;
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("25"), // principal
-                ethers.utils.parseEther("250"), // interest
+                250, // interest
                 1754884800, // deadline
             );
 
@@ -531,22 +556,29 @@ describe("RepaymentController", () => {
             await mint(mockERC20, borrower, repayAdditionalAmount);
             await mockERC20.connect(borrower).approve(loanCore.address, total);
 
-            expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(repaymentController.connect(borrower).repay(loanId)).to.be.revertedWith(
                 "ERC20: transfer amount exceeds balance",
             );
+
+            expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            const loanData: LoanState = (await loanCore.getLoan(loanId)).state;
+
+            await expect(loanData).to.eq(1);
         });
 
         it("Repay interest and principal. 25 ETH principal, 2.5% interest rate. Borrower tries to repay with insufficient allowance. Should revert.", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, blockchainTime } = ctx;
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("25"), // principal
-                ethers.utils.parseEther("250"), // interest
+                250, // interest
                 1754884800, // deadline
             );
 
@@ -557,6 +589,9 @@ describe("RepaymentController", () => {
             await mint(mockERC20, borrower, repayAdditionalAmount);
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 2);
 
             await expect(repaymentController.connect(borrower).repay(loanId)).to.be.revertedWith(
                 "ERC20: transfer amount exceeds allowance",
@@ -570,28 +605,27 @@ describe("RepaymentController", () => {
                 initializeLoan(
                     ctx,
                     mockERC20.address,
-                    BigNumber.from(86400), // durationSecs
+                    BigNumber.from(31536000), // durationSecs
                     ethers.utils.parseEther(".000000000000009999"), // principal
-                    ethers.utils.parseEther("250"), // interest
-
+                    250, // interest
                     1754884800, // deadline
                 ),
             ).to.be.revertedWith("OC_PrincipalTooLow");
         });
 
         it("Repay interest and principal. 1000000 Wei principal, 2.5% interest rate.", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, blockchainTime } = ctx;
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther(".00000000001"), // principal
-                ethers.utils.parseEther("250"), // interest
+                250, // interest
                 1754884800, // deadline
             );
 
-            // total repayment amount less than 25.625ETH
+            // total repayment amount
             const total = ethers.utils.parseEther(".000000000010250");
             const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
             // mint borrower exactly enough to repay loan
@@ -599,6 +633,9 @@ describe("RepaymentController", () => {
             await mockERC20.connect(borrower).approve(loanCore.address, total);
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(
                 repaymentController.connect(borrower).repay(loanId)
@@ -612,7 +649,7 @@ describe("RepaymentController", () => {
         });
 
         it("100 ETH principal, 10% interest rate, 20% fee on interest", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, blockchainTime } = ctx;
 
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_06(), 20_00);
@@ -620,9 +657,9 @@ describe("RepaymentController", () => {
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
@@ -635,6 +672,9 @@ describe("RepaymentController", () => {
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
 
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
+
             await expect(
                 repaymentController.connect(borrower).repay(loanId)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
@@ -645,7 +685,7 @@ describe("RepaymentController", () => {
         });
 
         it("100 ETH principal, 10% interest rate, 20% fee on interest, 50% affiliate fee split (only on repay)", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, admin, feeController } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, admin, feeController, blockchainTime } = ctx;
 
             const code = ethers.utils.id("FOO");
 
@@ -655,9 +695,9 @@ describe("RepaymentController", () => {
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
                 code
             );
@@ -673,6 +713,9 @@ describe("RepaymentController", () => {
             await mockERC20.connect(borrower).approve(loanCore.address, total);
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(
                 repaymentController.connect(borrower).repay(loanId)
@@ -692,7 +735,7 @@ describe("RepaymentController", () => {
         });
 
         it("100 ETH principal, 10% interest rate, 20% fee on interest, 2% on principal", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, blockchainTime } = ctx;
 
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_06(), 20_00);
@@ -701,9 +744,9 @@ describe("RepaymentController", () => {
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
@@ -715,6 +758,9 @@ describe("RepaymentController", () => {
             await mockERC20.connect(borrower).approve(loanCore.address, total);
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(
                 repaymentController.connect(borrower).repay(loanId)
@@ -726,7 +772,7 @@ describe("RepaymentController", () => {
         });
 
         it("100 ETH principal, 10% interest rate, 5% on principal, none on interest", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, blockchainTime } = ctx;
 
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_07(), 5_00);
@@ -734,9 +780,9 @@ describe("RepaymentController", () => {
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
@@ -748,6 +794,9 @@ describe("RepaymentController", () => {
             await mockERC20.connect(borrower).approve(loanCore.address, total);
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(
                 repaymentController.connect(borrower).repay(loanId)
@@ -761,7 +810,7 @@ describe("RepaymentController", () => {
 
     describe("Two-Step Repayment", () => {
         it("100 ETH principal, 10% interest, borrower force repays (20% interest, 2% principal fee on lender)", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, lenderNote } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_06(), 20_00);
@@ -770,9 +819,9 @@ describe("RepaymentController", () => {
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
@@ -784,6 +833,9 @@ describe("RepaymentController", () => {
             await mockERC20.connect(borrower).approve(loanCore.address, total);
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(
                 repaymentController.connect(borrower).forceRepay(loanId)
@@ -809,7 +861,7 @@ describe("RepaymentController", () => {
         });
 
         it("forceRepay works even if lender cannot receive tokens", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_06(), 20_00);
@@ -818,9 +870,9 @@ describe("RepaymentController", () => {
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
@@ -835,6 +887,9 @@ describe("RepaymentController", () => {
 
             // Add lender to the mockERC20 blacklist
             await mockERC20.setBlacklisted(lender.address, true);
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
 
             // Repay should fail bc of blacklist
             await expect(
@@ -868,7 +923,7 @@ describe("RepaymentController", () => {
         });
 
         it("if lender blacklisted, redeemNote can send to 3rd party", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_06(), 20_00);
@@ -877,9 +932,9 @@ describe("RepaymentController", () => {
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
@@ -894,6 +949,9 @@ describe("RepaymentController", () => {
 
             // Add lender to the mockERC20 blacklist
             await mockERC20.setBlacklisted(lender.address, true);
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
 
             // Repay should fail bc of blacklist
             await expect(
@@ -925,7 +983,7 @@ describe("RepaymentController", () => {
         });
 
         it("lender cannot reclaim funds without holding note", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_06(), 20_00);
@@ -934,9 +992,9 @@ describe("RepaymentController", () => {
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
@@ -951,6 +1009,9 @@ describe("RepaymentController", () => {
 
             // Add lender to the mockERC20 blacklist
             await mockERC20.setBlacklisted(lender.address, true);
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
 
             // Repay should fail bc of blacklist
             await expect(
@@ -982,7 +1043,7 @@ describe("RepaymentController", () => {
         });
 
         it("lender cannot redeem same note twice", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, lenderNote } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_06(), 20_00);
@@ -991,9 +1052,9 @@ describe("RepaymentController", () => {
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
@@ -1005,6 +1066,9 @@ describe("RepaymentController", () => {
             await mockERC20.connect(borrower).approve(loanCore.address, total);
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(
                 repaymentController.connect(borrower).forceRepay(loanId)
@@ -1041,9 +1105,9 @@ describe("RepaymentController", () => {
             const { loanId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
@@ -1059,9 +1123,9 @@ describe("RepaymentController", () => {
             const { loanId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
@@ -1072,7 +1136,7 @@ describe("RepaymentController", () => {
         });
 
         it("100 ETH principal, 10% interest, borrower force repays (20% interest, 2% principal, 10% redeem fee on lender)", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, lenderNote } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_06(), 20_00);
@@ -1082,9 +1146,9 @@ describe("RepaymentController", () => {
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
@@ -1096,6 +1160,9 @@ describe("RepaymentController", () => {
             await mockERC20.connect(borrower).approve(loanCore.address, total);
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(
                 repaymentController.connect(borrower).forceRepay(loanId)
@@ -1126,7 +1193,7 @@ describe("RepaymentController", () => {
         });
 
         it("100 ETH principal, 10% interest, lender fees change during loan", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_06(), 20_00);
@@ -1136,9 +1203,9 @@ describe("RepaymentController", () => {
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
@@ -1157,6 +1224,9 @@ describe("RepaymentController", () => {
             await mockERC20.setBlacklisted(lender.address, true);
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(
                 repaymentController.connect(borrower).forceRepay(loanId)
@@ -1187,7 +1257,7 @@ describe("RepaymentController", () => {
         });
 
         it("100 ETH principal, 10% interest, lender fees and redeem note fee change during loan", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote } = ctx;
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_06(), 20_00);
@@ -1197,9 +1267,9 @@ describe("RepaymentController", () => {
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
-                BigNumber.from(86400), // durationSecs
+                BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
             );
 
@@ -1219,6 +1289,9 @@ describe("RepaymentController", () => {
             await mockERC20.setBlacklisted(lender.address, true);
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(
                 repaymentController.connect(borrower).forceRepay(loanId)
@@ -1252,25 +1325,25 @@ describe("RepaymentController", () => {
     describe("Defaults", () => {
         let loanId: BigNumberish;
         let bundleId: BigNumberish;
-        const duration = 86400;
+        const duration = 31536000;
         const affiliateCode = ethers.utils.id("FOO");
 
         it("100 ETH principal, 10% interest, borrower defaults and lender claims (zero fee)", async () => {
-            const { lender, repaymentController, loanCore, vaultFactory, mockERC20 } = ctx;
+            const { lender, repaymentController, loanCore, vaultFactory, mockERC20, blockchainTime } = ctx;
 
             ({ loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
                 duration, // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
                 affiliateCode
             ));
 
             // Wind to expiry to include grace period
-            await hre.network.provider.send("evm_increaseTime", [duration + 600]);
-            await hre.network.provider.send("evm_mine");
+            // go to 1 block before grace period ends. In the next block, the loan will be claimable
+            await blockchainTime.increaseTime(31536000 + 600);
 
             await expect(repaymentController.connect(lender).claim(loanId))
                 .to.emit(loanCore, "LoanClaimed")
@@ -1280,7 +1353,7 @@ describe("RepaymentController", () => {
         });
 
         it("100 ETH principal, 10% interest, borrower defaults and lender claims (5% fee)", async () => {
-            const { lender, repaymentController, loanCore, vaultFactory, mockERC20, feeController } = ctx;
+            const { lender, repaymentController, loanCore, vaultFactory, mockERC20, feeController, blockchainTime } = ctx;
 
             // Set 5% claim fee (assessed on total owed)
             await feeController.setLendingFee(await feeController.FL_05(), 5_00);
@@ -1290,14 +1363,14 @@ describe("RepaymentController", () => {
                 mockERC20.address,
                 duration, // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
                 affiliateCode
             ));
 
             // Wind to expiry to include grace period
-            await hre.network.provider.send("evm_increaseTime", [duration + 600]);
-            await hre.network.provider.send("evm_mine");
+            // go to 1 block before grace period ends. In the next block, the loan will be claimable
+            await blockchainTime.increaseTime(31536000 + 600);
 
             // Mint to lender
             const fee = ethers.utils.parseEther("5.5");
@@ -1316,7 +1389,7 @@ describe("RepaymentController", () => {
         });
 
         it("100 ETH principal, 10% interest, borrower defaults and lender claims (5% fee, 10% affiliate split)", async () => {
-            const { lender, borrower, admin, repaymentController, loanCore, vaultFactory, feeController, mockERC20 } = ctx;
+            const { lender, borrower, admin, repaymentController, loanCore, vaultFactory, feeController, mockERC20, blockchainTime } = ctx;
 
             // Set 5% claim fee (assessed on total owed)
             await feeController.setLendingFee(await feeController.FL_05(), 5_00);
@@ -1326,14 +1399,10 @@ describe("RepaymentController", () => {
                 mockERC20.address,
                 duration, // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
                 affiliateCode
             ));
-
-            // Wind to expiry to include grace period
-            await hre.network.provider.send("evm_increaseTime", [duration + 600]);
-            await hre.network.provider.send("evm_mine");
 
             // Register affiliate
             await loanCore.connect(admin).setAffiliateSplits([affiliateCode], [{ affiliate: borrower.address, splitBps: 10_00 }])
@@ -1344,6 +1413,10 @@ describe("RepaymentController", () => {
             await approve(mockERC20, lender, loanCore.address, fee);
 
             expect(await mockERC20.balanceOf(lender.address)).to.eq(fee);
+
+            // Wind to expiry to include grace period
+            // go to 1 block before grace period ends. In the next block, the loan will be claimable
+            await blockchainTime.increaseTime(31536000 - 3 + 600);
 
             await expect(repaymentController.connect(lender).claim(loanId))
                 .to.emit(loanCore, "LoanClaimed")
@@ -1363,49 +1436,49 @@ describe("RepaymentController", () => {
         });
 
         it("100 ETH principal, 10% interest, lender cannot claim before expiry, reverts", async () => {
-            const { repaymentController, lender, mockERC20 } = ctx;
+            const { repaymentController, lender, mockERC20, blockchainTime } = ctx;
 
             ({ loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
                 duration, // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
                 affiliateCode
             ));
 
-            // Wind to before expiry
-            await hre.network.provider.send("evm_increaseTime", [duration + 590]);
-            await hre.network.provider.send("evm_mine");
+            // Wind to expiry to include grace period
+            // go to 10 blocks before grace period ends. Loan is not claimable yet
+            await blockchainTime.increaseTime(31536000 + 590);
 
             await expect(repaymentController.connect(lender).claim(loanId))
                 .to.be.revertedWith("LC_NotExpired");
         });
 
         it("100 ETH principal, 10% interest, borrower defaults, non-lender, reverts", async () => {
-            const { repaymentController, borrower, mockERC20 } = ctx;
+            const { repaymentController, borrower, mockERC20, blockchainTime } = ctx;
 
             ({ loanId, bundleId } = await initializeLoan(
                 ctx,
                 mockERC20.address,
                 duration, // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
                 affiliateCode
             ));
 
             // Wind to expiry to include grace period
-            await hre.network.provider.send("evm_increaseTime", [duration + 600]);
-            await hre.network.provider.send("evm_mine");
+            // go to 1 block before grace period ends. In the next block, the loan will be claimable
+            await blockchainTime.increaseTime(31536000 + 600);
 
             await expect(repaymentController.connect(borrower).claim(loanId))
                 .to.be.revertedWith("RC_OnlyLender");
         });
 
         it("100 ETH principal, 10% interest, borrower defaults, lender cannot pay claim fee, reverts", async () => {
-            const { lender, repaymentController, mockERC20, feeController } = ctx;
+            const { lender, repaymentController, mockERC20, feeController, blockchainTime } = ctx;
 
             // Set 5% claim fee (assessed on total owed)
             await feeController.setLendingFee(await feeController.FL_05(), 5_00);
@@ -1415,14 +1488,14 @@ describe("RepaymentController", () => {
                 mockERC20.address,
                 duration, // durationSecs
                 ethers.utils.parseEther("100"), // principal
-                ethers.utils.parseEther("1000"), // interest
+                1000, // interest
                 1754884800, // deadline
                 affiliateCode
             ));
 
             // Wind to expiry to include grace period
-            await hre.network.provider.send("evm_increaseTime", [duration + 600]);
-            await hre.network.provider.send("evm_mine");
+            // go to 1 block before grace period ends. In the next block, the loan will be claimable
+            await blockchainTime.increaseTime(31536000 + 600);
 
             // Lender has no coins
             expect(await mockERC20.balanceOf(lender.address)).to.eq(0);

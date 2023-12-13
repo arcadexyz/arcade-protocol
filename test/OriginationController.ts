@@ -158,7 +158,7 @@ const createLoanTermsExpired = (
     {
         durationSecs = BigNumber.from(360000),
         principal = ethers.utils.parseEther("100"),
-        proratedInterestRate = ethers.utils.parseEther("1"),
+        interestRate = BigNumber.from(1),
         collateralId = "1",
         deadline = 808113600, // August 11, 1995
         affiliateCode = ethers.constants.HashZero
@@ -167,7 +167,7 @@ const createLoanTermsExpired = (
     return {
         durationSecs,
         principal,
-        proratedInterestRate,
+        interestRate,
         collateralId,
         collateralAddress,
         payableCurrency,
@@ -182,7 +182,7 @@ const createLoanTerms = (
     {
         durationSecs = BigNumber.from(360000),
         principal = ethers.utils.parseEther("100"),
-        proratedInterestRate = ethers.utils.parseEther("1"),
+        interestRate = BigNumber.from(1),
         collateralId = "1",
         deadline = 1754884800,
         affiliateCode = ethers.constants.HashZero
@@ -191,7 +191,7 @@ const createLoanTerms = (
     return {
         durationSecs,
         principal,
-        proratedInterestRate,
+        interestRate,
         collateralId,
         collateralAddress,
         payableCurrency,
@@ -356,7 +356,7 @@ describe("OriginationController", () => {
             const bundleId = await initializeBundle(vaultFactory, borrower);
             const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, {
                 collateralId: bundleId,
-                proratedInterestRate: ethers.utils.parseEther("0.1") // 1/10th bps
+                interestRate: BigNumber.from(0) // 1/10th bps
             });
             await mint(mockERC20, lender, loanTerms.principal);
 
@@ -385,7 +385,7 @@ describe("OriginationController", () => {
             const bundleId = await initializeBundle(vaultFactory, borrower);
             const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, {
                 collateralId: bundleId,
-                proratedInterestRate: ethers.utils.parseEther("10000000") // 100,000%, 1e6 bps
+                interestRate: BigNumber.from(100_000_001) // 1,000,000.01 bps
             });
             await mint(mockERC20, lender, loanTerms.principal);
 
@@ -2611,7 +2611,7 @@ describe("OriginationController", () => {
                 // ethers encode
                 const calldata = ethers.utils.defaultAbiCoder.encode(
                     [ // types
-                        "tuple(uint256, uint256, address, uint96, uint256, address, uint96, bytes32)", // loan terms
+                        "tuple(uint32, uint64, address, uint96, address, uint256, uint256, bytes32)", // loan terms
                         "address", // borrower
                         "address", // lender
                         "tuple(uint8, bytes32, bytes32, bytes)", // signature
@@ -2619,13 +2619,13 @@ describe("OriginationController", () => {
                     ],
                     [ // values
                         [
-                            loanTerms.proratedInterestRate,
-                            loanTerms.principal,
-                            loanTerms.collateralAddress,
+                            loanTerms.interestRate,
                             loanTerms.durationSecs,
-                            loanTerms.collateralId,
-                            loanTerms.payableCurrency,
+                            loanTerms.collateralAddress,
                             loanTerms.deadline,
+                            loanTerms.payableCurrency,
+                            loanTerms.principal,
+                            loanTerms.collateralId,
                             loanTerms.affiliateCode
                         ],
                         borrower.address,
@@ -2694,7 +2694,7 @@ describe("OriginationController", () => {
                         [
                             loanTerms.durationSecs,
                             loanTerms.deadline,
-                            loanTerms.proratedInterestRate,
+                            loanTerms.interestRate,
                             loanTerms.principal,
                             loanTerms.collateralAddress,
                             loanTerms.collateralId,

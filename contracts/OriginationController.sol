@@ -75,14 +75,14 @@ contract OriginationController is
     bytes32 private constant _TOKEN_ID_TYPEHASH =
         keccak256(
             // solhint-disable-next-line max-line-length
-            "LoanTerms(uint256 proratedInterestRate,uint256 principal,address collateralAddress,uint96 durationSecs,uint256 collateralId,address payableCurrency,uint96 deadline,bytes32 affiliateCode,uint160 nonce,uint8 side)"
+            "LoanTerms(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,uint256 collateralId,bytes32 affiliateCode,uint160 nonce,uint8 side)"
         );
 
     /// @notice EIP712 type hash for item-based signatures.
     bytes32 private constant _ITEMS_TYPEHASH =
         keccak256(
             // solhint-disable max-line-length
-            "LoanTermsWithItems(uint256 proratedInterestRate,uint256 principal,address collateralAddress,uint96 durationSecs,Predicate[] items,address payableCurrency,uint96 deadline,bytes32 affiliateCode,uint160 nonce,uint8 side)Predicate(bytes data,address verifier)"
+            "LoanTermsWithItems(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,bytes32 affiliateCode,Predicate[] items,uint160 nonce,uint8 side)Predicate(bytes data,address verifier)"
         );
 
     /// @notice EIP712 type hash for Predicate.
@@ -265,7 +265,7 @@ contract OriginationController is
         );
 
         loanId = initializeLoan(loanTerms, borrower, lender, sig, nonce);
-}
+    }
 
     /**
      * @notice Initializes a loan with Loan Core, with a permit signature instead of pre-approved collateral.
@@ -505,13 +505,13 @@ contract OriginationController is
         bytes32 loanHash = keccak256(
             abi.encode(
                 _TOKEN_ID_TYPEHASH,
-                loanTerms.proratedInterestRate,
-                loanTerms.principal,
-                loanTerms.collateralAddress,
+                loanTerms.interestRate,
                 loanTerms.durationSecs,
-                loanTerms.collateralId,
-                loanTerms.payableCurrency,
+                loanTerms.collateralAddress,
                 loanTerms.deadline,
+                loanTerms.payableCurrency,
+                loanTerms.principal,
+                loanTerms.collateralId,
                 loanTerms.affiliateCode,
                 nonce,
                 uint8(side)
@@ -546,14 +546,14 @@ contract OriginationController is
         bytes32 loanHash = keccak256(
             abi.encode(
                 _ITEMS_TYPEHASH,
-                loanTerms.proratedInterestRate,
-                loanTerms.principal,
-                loanTerms.collateralAddress,
+                loanTerms.interestRate,
                 loanTerms.durationSecs,
-                itemsHash,
-                loanTerms.payableCurrency,
+                loanTerms.collateralAddress,
                 loanTerms.deadline,
+                loanTerms.payableCurrency,
+                loanTerms.principal,
                 loanTerms.affiliateCode,
+                itemsHash,
                 nonce,
                 uint8(side)
             )
@@ -706,9 +706,8 @@ contract OriginationController is
         // loan duration must be greater or equal to 1 hr and less or equal to 3 years
         if (terms.durationSecs < 3600 || terms.durationSecs > 94_608_000) revert OC_LoanDuration(terms.durationSecs);
 
-        // interest rate must be greater than or equal to 0.01%
-        // and less or equal to 10,000% (1e6 basis points)
-        if (terms.proratedInterestRate < 1e18 || terms.proratedInterestRate > 1e24) revert OC_InterestRate(terms.proratedInterestRate);
+        // interest rate must be greater than or equal to 0.01% and less or equal to 1,000,000%
+        if (terms.interestRate < 1 || terms.interestRate > 1e8) revert OC_InterestRate(terms.interestRate);
 
         // signature must not have already expired
         if (terms.deadline < block.timestamp) revert OC_SignatureIsExpired(terms.deadline);
@@ -918,14 +917,13 @@ contract OriginationController is
         address lender
     ) internal nonReentrant returns (uint256 loanId) {
         LoanLibrary.LoanData memory oldLoanData = loanCore.getLoan(oldLoanId);
-        LoanLibrary.LoanTerms memory oldTerms = oldLoanData.terms;
 
         address oldLender = loanCore.lenderNote().ownerOf(oldLoanId);
-        IERC20 payableCurrency = IERC20(oldTerms.payableCurrency);
+        IERC20 payableCurrency = IERC20(oldLoanData.terms.payableCurrency);
 
         // Calculate settle amounts
         RolloverAmounts memory amounts = _calculateRolloverAmounts(
-            oldTerms,
+            oldLoanData,
             newTerms,
             lender,
             oldLender
@@ -971,7 +969,7 @@ contract OriginationController is
      *      Determine the amount to either pay or withdraw from the borrower, and
      *      any payments to be sent to the old lender.
      *
-     * @param oldTerms              The terms struct for the old loan.
+     * @param oldLoanData           The loan data struct for the old loan.
      * @param newTerms              The terms struct for the new loan.
      * @param lender                The lender for the new loan.
      * @param oldLender             The lender for the existing loan.
@@ -979,7 +977,7 @@ contract OriginationController is
      * @return amounts              The net amounts owed to each party.
      */
     function _calculateRolloverAmounts(
-        LoanLibrary.LoanTerms memory oldTerms,
+        LoanLibrary.LoanData memory oldLoanData,
         LoanLibrary.LoanTerms calldata newTerms,
         address lender,
         address oldLender
@@ -987,9 +985,16 @@ contract OriginationController is
         // get rollover fees
         IFeeController.FeesRollover memory feeData = feeController.getFeesRollover();
 
-        // Calculate repay amount of old loan
-        uint256 interest = getInterestAmount(oldTerms.principal, oldTerms.proratedInterestRate);
-        uint256 repayAmount = oldTerms.principal + interest;
+        // Calculate prorated repayment amount for old loan
+        uint256 interest = getProratedInterestAmount(
+            oldLoanData.balance,
+            oldLoanData.terms.interestRate,
+            oldLoanData.terms.durationSecs,
+            uint64(oldLoanData.startDate),
+            uint64(oldLoanData.lastAccrualTimestamp),
+            block.timestamp
+        );
+        uint256 repayAmount = oldLoanData.terms.principal + interest;
 
         // Calculate amount to be sent to borrower for new loan minus rollover fees
         uint256 borrowerFee = (newTerms.principal * feeData.borrowerRolloverFee) / BASIS_POINTS_DENOMINATOR;
