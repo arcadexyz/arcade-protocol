@@ -1004,8 +1004,9 @@ contract OriginationController is
         uint256 borrowerOwedForNewLoan = newTerms.principal - borrowerFee;
 
         // Calculate amount to be collected from the lender for new loan plus rollover fees
+        uint256 interestFee = (interest * oldLoanData.feeSnapshot.lenderInterestFee) / BASIS_POINTS_DENOMINATOR;
         uint256 lenderFee = (newTerms.principal * feeData.lenderRolloverFee) / BASIS_POINTS_DENOMINATOR;
-        amounts.amountFromLender = newTerms.principal + lenderFee;
+        amounts.amountFromLender = newTerms.principal + lenderFee + interestFee;
 
         // Calculate net amounts based on if repayment amount for old loan is greater than
         // new loan principal minus fees
