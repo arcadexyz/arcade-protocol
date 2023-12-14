@@ -896,6 +896,19 @@ contract OriginationController is
         uint256 amountFromLender = loanTerms.principal + lenderFee;
         uint256 amountToBorrower = loanTerms.principal - borrowerFee;
 
+        // Collect funds from lender and send to borrower minus fees
+        IERC20(loanTerms.payableCurrency).safeTransferFrom(lender, address(this), amountFromLender);
+        // send principal to borrower
+        IERC20(loanTerms.payableCurrency).safeTransfer(borrower, amountToBorrower);
+
+        // TODO Optimisic settlement; call callback function on borrower with params
+
+        // Post-callback: collect collateral from borrower and send to LoanCore
+        IERC721(loanTerms.collateralAddress).transferFrom(borrower, address(loanCore), loanTerms.collateralId);
+        // Send fees to LoanCore
+        IERC20(loanTerms.payableCurrency).safeTransfer(address(loanCore), borrowerFee + lenderFee);
+
+        // Create loan in LoanCore
         loanId = loanCore.startLoan(lender, borrower, loanTerms, amountFromLender, amountToBorrower, feeSnapshot);
     }
 
