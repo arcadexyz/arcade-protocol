@@ -256,7 +256,7 @@ contract OriginationController is
     ) external override returns (uint256 loanId) {
         IERC721Permit(loanTerms.collateralAddress).permit(
             borrower,
-            address(loanCore),
+            address(this),
             loanTerms.collateralId,
             permitDeadline,
             collateralSig.v,
@@ -298,7 +298,7 @@ contract OriginationController is
     ) external override returns (uint256 loanId) {
         IERC721Permit(loanTerms.collateralAddress).permit(
             borrower,
-            address(loanCore),
+            address(this),
             loanTerms.collateralId,
             permitDeadline,
             collateralSig.v,
@@ -901,7 +901,7 @@ contract OriginationController is
         // send principal to borrower
         IERC20(loanTerms.payableCurrency).safeTransfer(borrower, amountToBorrower);
 
-        // TODO Optimisic settlement; call callback function on borrower with params
+        // TODO Optimistic settlement; call callback function on borrower with params
 
         // Post-callback: collect collateral from borrower and send to LoanCore
         IERC721(loanTerms.collateralAddress).transferFrom(borrower, address(loanCore), loanTerms.collateralId);
