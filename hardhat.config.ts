@@ -79,6 +79,7 @@ function createHardhatConfig(): HardhatNetworkUserConfig {
             strict: true,
             only: [":ERC20$"],
         },
+        initialDate: "2023-12-16 01:15:15 PM",
     };
 
     if (forkMainnet) {

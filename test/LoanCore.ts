@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import hre, { ethers, waffle } from "hardhat";
 const { loadFixture } = waffle;
-import { BigNumber, BigNumberish, Signer } from "ethers";
+import { BigNumber, BigNumberish } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 import {
@@ -951,12 +951,12 @@ describe("LoanCore", () => {
             const loanDataBefore: LoanData = await loanCore.getLoan(loanId);
             const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
             const grossInterest = await loanCore.getProratedInterestAmount(
-                 terms.principal,
-                 terms.interestRate,
-                 terms.durationSecs,
-                 loanDataBefore.startDate,
-                 loanDataBefore.startDate,
-                 t1
+                terms.principal,
+                terms.interestRate,
+                terms.durationSecs,
+                loanDataBefore.startDate,
+                loanDataBefore.startDate,
+                t1
             );
             const repayAmount = terms.principal.add(grossInterest);
 
@@ -1126,12 +1126,12 @@ describe("LoanCore", () => {
             const loanDataBefore: LoanData = await loanCore.getLoan(loanId);
             const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
             const grossInterest = await loanCore.getProratedInterestAmount(
-                 terms.principal,
-                 terms.interestRate,
-                 terms.durationSecs,
-                 loanDataBefore.startDate,
-                 loanDataBefore.startDate,
-                 t1
+                terms.principal,
+                terms.interestRate,
+                terms.durationSecs,
+                loanDataBefore.startDate,
+                loanDataBefore.startDate,
+                t1
             );
             const repayAmount = terms.principal.add(grossInterest);
 
@@ -1813,12 +1813,12 @@ describe("LoanCore", () => {
             const loanDataBefore: LoanData = await loanCore.getLoan(loanId);
             const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
             const grossInterest = await loanCore.getProratedInterestAmount(
-                 terms.principal,
-                 terms.interestRate,
-                 terms.durationSecs,
-                 loanDataBefore.startDate,
-                 loanDataBefore.startDate,
-                 t1
+                terms.principal,
+                terms.interestRate,
+                terms.durationSecs,
+                loanDataBefore.startDate,
+                loanDataBefore.startDate,
+                t1
             );
             const repayAmount = grossInterest;
 
@@ -1850,12 +1850,12 @@ describe("LoanCore", () => {
             const loanDataBefore: LoanData = await loanCore.getLoan(loanId);
             const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
             const grossInterest = await loanCore.getProratedInterestAmount(
-                 terms.principal,
-                 terms.interestRate,
-                 terms.durationSecs,
-                 loanDataBefore.startDate,
-                 loanDataBefore.startDate,
-                 t1
+                terms.principal,
+                terms.interestRate,
+                terms.durationSecs,
+                loanDataBefore.startDate,
+                loanDataBefore.startDate,
+                t1
             );
             const repayAmount = terms.principal.add(grossInterest);
 
@@ -1920,12 +1920,12 @@ describe("LoanCore", () => {
             const loanDataBefore: LoanData = await loanCore.getLoan(loanId);
             const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
             const grossInterest = await loanCore.getProratedInterestAmount(
-                 terms.principal,
-                 terms.interestRate,
-                 terms.durationSecs,
-                 loanDataBefore.startDate,
-                 loanDataBefore.startDate,
-                 t1
+                terms.principal,
+                terms.interestRate,
+                terms.durationSecs,
+                loanDataBefore.startDate,
+                loanDataBefore.startDate,
+                t1
             );
             const repayAmount = grossInterest;
 
@@ -1955,12 +1955,12 @@ describe("LoanCore", () => {
             const loanDataBefore: LoanData = await loanCore.getLoan(loanId);
             const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
             const grossInterest = await loanCore.getProratedInterestAmount(
-                 terms.principal,
-                 terms.interestRate,
-                 terms.durationSecs,
-                 loanDataBefore.startDate,
-                 loanDataBefore.startDate,
-                 t1
+                terms.principal,
+                terms.interestRate,
+                terms.durationSecs,
+                loanDataBefore.startDate,
+                loanDataBefore.startDate,
+                t1
             );
             const repayAmount = grossInterest;
 
@@ -1990,12 +1990,12 @@ describe("LoanCore", () => {
             const loanDataBefore: LoanData = await loanCore.getLoan(loanId);
             const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
             const grossInterest = await loanCore.getProratedInterestAmount(
-                 terms.principal,
-                 terms.interestRate,
-                 terms.durationSecs,
-                 loanDataBefore.startDate,
-                 loanDataBefore.startDate,
-                 t1
+                terms.principal,
+                terms.interestRate,
+                terms.durationSecs,
+                loanDataBefore.startDate,
+                loanDataBefore.startDate,
+                t1
             );
             const repayAmount = grossInterest;
 

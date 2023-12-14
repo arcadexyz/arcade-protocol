@@ -625,9 +625,9 @@ contract LoanCore is
                     data.terms.principal,
                     data.interestAmountPaid,
                     data.terms.interestRate,
-                    data.terms.durationSecs,
-                    data.startDate,
-                    data.lastAccrualTimestamp,
+                    uint256(data.terms.durationSecs),
+                    uint256(data.startDate),
+                    uint256(data.lastAccrualTimestamp),
                     block.timestamp
                 );
         }
@@ -636,7 +636,7 @@ contract LoanCore is
             return
                 InterestCalculator.effectiveInterestRate(
                     data.interestAmountPaid,
-                    data.lastAccrualTimestamp - data.startDate,
+                    uint256(data.lastAccrualTimestamp) - uint256(data.startDate),
                     data.terms.principal
                 );
         } else {

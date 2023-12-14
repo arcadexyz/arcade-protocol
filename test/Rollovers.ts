@@ -268,12 +268,16 @@ describe("Rollovers", () => {
     let ctx: TestContext;
     let loan: LoanDef;
     const DURATION = 31536000;
-    const DEADLINE = 1754884800 + (DURATION * 10);
     const affiliateCode = ethers.utils.id("FOO");
     const affiliateCode2 = ethers.utils.id("BAR");
 
     beforeEach(async () => {
         ctx = await loadFixture(fixture);
+        const {blockchainTime} = ctx;
+
+        const currentTimestamp = await blockchainTime.secondsFromNow(0);
+        const DEADLINE = currentTimestamp + (31536000 * 2); // good for 2 yrs since the rollover sig is the same terms
+
         loan = await initializeLoan(
             ctx,
             ctx.mockERC20.address,
@@ -288,7 +292,7 @@ describe("Rollovers", () => {
 
     describe("Rollover Loan", () => {
         it("should not allow a rollover if the collateral doesn't match", async () => {
-            const { originationController, vaultFactory, borrower, lender } = ctx;
+            const { originationController, vaultFactory, borrower, lender, } = ctx;
             const { loanId, loanTerms, bundleId } = loan;
 
             // create new terms for rollover and sign them
