@@ -875,6 +875,82 @@ describe("Rollovers", () => {
             ).to.be.revertedWith("OC_PredicateFailed");
         });
 
+        it("rollover with items signature reverts if already repaid", async () => {
+        const {
+            originationController,
+            mockERC20,
+            mockERC721,
+            vaultFactory,
+            borrower,
+            lender,
+            loanCore,
+            verifier,
+            blockchainTime,
+        } = ctx;
+        const { loanId, loanTerms, bundleId } = loan;
+
+        const collateralId = await mint721(mockERC721, borrower);
+        await mockERC721.connect(borrower).transferFrom(borrower.address, bundleId.toString(), collateralId);
+
+        // create new terms for rollover and sign them
+        const newTerms = createLoanTerms(mockERC20.address, vaultFactory.address, loanTerms);
+
+        const signatureItems: SignatureItem[] = [
+            {
+                cType: 0,
+                asset: mockERC721.address,
+                tokenId: collateralId,
+                amount: 1,
+                anyIdAllowed: false
+            },
+        ];
+
+        const predicates: ItemsPredicate[] = [
+            {
+                verifier: verifier.address,
+                data: encodeSignatureItems(signatureItems),
+            },
+        ];
+
+        const sig = await createLoanItemsSignature(
+            originationController.address,
+            "OriginationController",
+            newTerms,
+            predicates,
+            lender,
+            "3",
+            "2",
+            "l",
+        );
+
+        // approve more than enough to rollover
+        await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
+        await mockERC20.connect(borrower).approve(originationController.address, ethers.utils.parseEther("12"));
+
+        const newLoanId = Number(loanId) + 1;
+
+        // go to 1 block before loan expires
+        await blockchainTime.increaseTime(31536000 - 3);
+
+        await expect(
+            originationController
+                .connect(borrower)
+                .rolloverLoanWithItems(loanId, newTerms, lender.address, sig, 2, predicates),
+        )
+            .to.emit(loanCore, "LoanRepaid")
+            .withArgs(loanId)
+            .to.emit(loanCore, "LoanStarted")
+            .withArgs(newLoanId, lender.address, borrower.address)
+            .to.emit(loanCore, "LoanRolledOver")
+            .withArgs(loanId, newLoanId);
+
+        await expect(
+            originationController
+                .connect(borrower)
+                .rolloverLoanWithItems(loanId, newTerms, lender.address, sig, 2, predicates),
+        ).to.be.revertedWith("OC_InvalidState");
+        });
+
         it("should rollover to a different lender using an items signature", async () => {
             const {
                 originationController,

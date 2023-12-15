@@ -22,6 +22,7 @@ interface ILoanCore {
     // ================ Events =================
 
     event LoanStarted(uint256 loanId, address lender, address borrower);
+    event LoanPayment(uint256 loanId);
     event LoanRepaid(uint256 loanId);
     event ForceRepay(uint256 loanId);
     event LoanRolledOver(uint256 oldLoanId, uint256 newLoanId);

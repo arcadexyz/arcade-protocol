@@ -560,7 +560,7 @@ describe("RepaymentController", () => {
             await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(repaymentController.connect(borrower).repay(loanId, total))
-                .to.emit(loanCore, "LoanRepaid").withArgs(loanId);
+                .to.emit(loanCore, "LoanPayment").withArgs(loanId);
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
 

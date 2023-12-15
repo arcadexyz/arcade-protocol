@@ -253,12 +253,15 @@ contract LoanCore is
         // send repayment less fees to lender
         _transferIfNonzero(IERC20(data.terms.payableCurrency), lender, _amountToLender - extraPrinicipal);
 
-        // if loan is completely repaid redistribute collateral
         if (loanRepaid) {
+            // if loan is completely repaid redistribute collateral and emit repaid event
             IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
-        }
 
-        emit LoanRepaid(loanId);
+            emit LoanRepaid(loanId);
+        } else {
+            // if loan is not completely repaid emit payment event
+            emit LoanPayment(loanId);
+        }
     }
 
     /**
@@ -289,10 +292,13 @@ contract LoanCore is
         );
 
         // DO NOT send collected principal, but make it available for withdrawal by a holder of the LenderNote
-        noteReceipts[loanId] = NoteReceipt({
-            token: data.terms.payableCurrency,
-            amount: _amountToLender - extraPrinicipal
-        });
+        NoteReceipt storage receipt = noteReceipts[loanId];
+        if (receipt.token == address(0)) {
+            receipt.token = data.terms.payableCurrency;
+            receipt.amount = _amountToLender - extraPrinicipal;
+        } else {
+            unchecked { receipt.amount += _amountToLender - extraPrinicipal; }
+        }
 
         // get owner of the BorrowerNote, and burn only if loan is fully repaid.
         // DO NOT burn LenderNote until receipt is redeemed
@@ -302,12 +308,16 @@ contract LoanCore is
         // collect repayment amount from payer
         _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, _amountFromPayer - extraPrinicipal);
 
-        // redistribute collateral to borrower if the loan is completely repaid
         if (loanRepaid) {
+            // if loan is completely repaid redistribute collateral and emit repaid event
             IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
+
+            emit LoanRepaid(loanId);
+        } else {
+            // if loan is not completely repaid emit payment event
+            emit LoanPayment(loanId);
         }
 
-        emit LoanRepaid(loanId);
         emit ForceRepay(loanId);
     }
 
