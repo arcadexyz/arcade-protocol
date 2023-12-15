@@ -49,8 +49,8 @@ interface ILoanCore {
         address payer,
         uint256 _amountFromPayer,
         uint256 _amountToLender,
-        uint256 interestAmount,
-        uint256 paymentToPrincipal
+        uint256 _interestAmount,
+        uint256 _paymentToPrincipal
     ) external;
 
     function forceRepay(
@@ -58,8 +58,8 @@ interface ILoanCore {
         address payer,
         uint256 _amountFromPayer,
         uint256 _amountToLender,
-        uint256 interestAmount,
-        uint256 paymentToPrincipal
+        uint256 _interestAmount,
+        uint256 _paymentToPrincipal
     ) external;
 
     function claim(
