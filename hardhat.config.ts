@@ -78,7 +78,7 @@ function createHardhatConfig(): HardhatNetworkUserConfig {
             runOnCompile: true,
             strict: true,
             only: [":ERC20$"],
-        }
+        },
     };
 
     if (forkMainnet) {
