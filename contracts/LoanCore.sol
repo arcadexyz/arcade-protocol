@@ -224,21 +224,23 @@ contract LoanCore is
      * @param payer                 The party repaying the loan.
      * @param _amountFromPayer      The amount of tokens to be collected from the repayer.
      * @param _amountToLender       The amount of tokens to be distributed to the lender (net after fees).
+     * @param _interestAmount       The interest amount to be paid.
+     * @param _paymentToPrincipal   The portion of the repayment amount that goes to principal.
      */
     function repay(
         uint256 loanId,
         address payer,
         uint256 _amountFromPayer,
         uint256 _amountToLender,
-        uint256 interestAmount,
-        uint256 paymentToPrincipal
+        uint256 _interestAmount,
+        uint256 _paymentToPrincipal
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         (LoanLibrary.LoanData memory data, uint256 extraPrinicipal, bool loanRepaid) = _handleRepay(
             loanId,
             _amountFromPayer,
             _amountToLender,
-            interestAmount,
-            paymentToPrincipal
+            _interestAmount,
+            _paymentToPrincipal
         );
 
         // get promissory notes from two parties involved
@@ -274,21 +276,23 @@ contract LoanCore is
      * @param payer                 The party repaying the loan.
      * @param _amountFromPayer      The amount of tokens to be collected from the repayer.
      * @param _amountToLender       The amount of tokens to be distributed to the lender (net after fees).
+     * @param _interestAmount       The interest amount to be paid.
+     * @param _paymentToPrincipal   The portion of the repayment amount that goes to principal.
      */
     function forceRepay(
         uint256 loanId,
         address payer,
         uint256 _amountFromPayer,
         uint256 _amountToLender,
-        uint256 interestAmount,
-        uint256 paymentToPrincipal
+        uint256 _interestAmount,
+        uint256 _paymentToPrincipal
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         (LoanLibrary.LoanData memory data, uint256 extraPrinicipal, bool loanRepaid) = _handleRepay(
             loanId,
             _amountFromPayer,
             _amountToLender,
-            interestAmount,
-            paymentToPrincipal
+            _interestAmount,
+            _paymentToPrincipal
         );
 
         // DO NOT send collected principal, but make it available for withdrawal by a holder of the LenderNote
@@ -403,13 +407,20 @@ contract LoanCore is
         if (protocolFee > 0) _feesWithdrawable[address(this)] += protocolFee;
         if (affiliateFee > 0) _feesWithdrawable[affiliate] += affiliateFee;
 
-        // Delete the receipt
-        delete noteReceipts[loanId];
-
-        // Get owner of the LenderNote, then burn
+        // Get owner of the LenderNote
         address lender = lenderNote.ownerOf(loanId);
-        // Burn ONLY the LenderNote
-        lenderNote.burn(loanId);
+
+        // if the loan has been completely repaid and no more repayments are expected
+        if (loans[loanId].balance == 0) {
+            // delete the receipt
+            delete noteReceipts[loanId];
+
+            // Burn ONLY the LenderNote
+            lenderNote.burn(loanId);
+        } else {
+            // zero out the total amount owed in the receipt
+            noteReceipts[loanId].amount = 0;
+        }
 
         // Transfer the held tokens to the lender-specified address
         _transferIfNonzero(IERC20(token), to, amount);
@@ -755,20 +766,20 @@ contract LoanCore is
      *      Will validate loan state, perform accounting calculations, update storage and burn loan notes.
      *      Transfers should occur in the calling function.
      *
-     * @param loanId                The ID of the loan to repay.
-     * @param _amountFromPayer      The amount of tokens to be collected from the repayer.
-     * @param _amountToLender       The amount of tokens to be distributed to the lender (net after fees).
-     * @param interestAmount        The amount of interest to be paid.
-     * @param paymentToPrincipal    The amount of principal to be paid.
+     * @param loanId                 The ID of the loan to repay.
+     * @param _amountFromPayer       The amount of tokens to be collected from the repayer.
+     * @param _amountToLender        The amount of tokens to be distributed to the lender (net after fees).
+     * @param _interestAmount        The amount of interest to be paid.
+     * @param _paymentToPrincipal    The amount of principal to be paid.
      *
-     * @return data                 The loan data for the repay operation.
+     * @return data                  The loan data for the repay operation.
      */
     function _handleRepay(
         uint256 loanId,
         uint256 _amountFromPayer,
         uint256 _amountToLender,
-        uint256 interestAmount,
-        uint256 paymentToPrincipal
+        uint256 _interestAmount,
+        uint256 _paymentToPrincipal
     ) internal returns (LoanLibrary.LoanData memory data, uint256 extraPrinicipal, bool loanRepaid) {
         data = loans[loanId];
         // Ensure valid initial loan state when repaying loan
@@ -791,7 +802,7 @@ contract LoanCore is
         // state changes
         extraPrinicipal = 0;
         loanRepaid = false;
-        if (paymentToPrincipal >= data.balance) {
+        if (_paymentToPrincipal >= data.balance) {
             // if the payment is greater than or equal to the balance, the loan is repaid
             loans[loanId].state = LoanLibrary.LoanState.Repaid;
             // tell the calling function that the loan is repaid
@@ -800,12 +811,12 @@ contract LoanCore is
             collateralInUse[keccak256(abi.encode(data.terms.collateralAddress, data.terms.collateralId))] = false;
 
             // if the payment is greater than the balance, the extra principal is the difference
-            if (paymentToPrincipal > data.balance) {
-                extraPrinicipal = paymentToPrincipal - data.balance;
+            if (_paymentToPrincipal > data.balance) {
+                extraPrinicipal = _paymentToPrincipal - data.balance;
             }
         }
-        loans[loanId].interestAmountPaid += interestAmount;
-        loans[loanId].balance -= (paymentToPrincipal - extraPrinicipal);
+        loans[loanId].interestAmountPaid += _interestAmount;
+        loans[loanId].balance -= (_paymentToPrincipal - extraPrinicipal);
         loans[loanId].lastAccrualTimestamp = uint64(block.timestamp);
     }
 

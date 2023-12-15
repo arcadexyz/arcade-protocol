@@ -1114,7 +1114,7 @@ describe("RepaymentController", () => {
             // Should fail, since loan has not been repaid
             await expect(
                 repaymentController.connect(lender).redeemNote(loanId, lender.address)
-            ).to.be.revertedWith("RC_InvalidState");
+            ).to.be.revertedWith("LC_NoReceipt");
         });
 
         it("reverts if redeemNote() is called to address zero", async () => {
