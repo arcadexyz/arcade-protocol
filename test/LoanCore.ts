@@ -526,7 +526,7 @@ describe("LoanCore", () => {
             await mockERC20.connect(borrower).mint(borrower.address, repayAmount);
             await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
 
-            await loanCore.connect(borrower).repay(loanId, borrower.address, repayAmount, repayAmount, grossInterest, principal);
+            await loanCore.connect(borrower).repay(loanId, borrower.address, repayAmount, grossInterest, principal);
 
             // check loan state
             const loanDataAfter: LoanData = await loanCore.getLoan(loanId);
@@ -720,7 +720,6 @@ describe("LoanCore", () => {
                 loanId,
                 borrower.address,
                 repayAmount,
-                repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
             ))
@@ -738,7 +737,6 @@ describe("LoanCore", () => {
             await expect(loanCore.connect(other).repay(
                 loanId,
                 borrower.address,
-                repayAmount,
                 repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
@@ -762,7 +760,6 @@ describe("LoanCore", () => {
                 loanId,
                 borrower.address,
                 repayAmount,
-                repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
             )).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
@@ -771,7 +768,7 @@ describe("LoanCore", () => {
         it("should fail if the loan does not exist", async () => {
             const { loanCore, user: borrower } = await setupLoan();
             const loanId = "123412341324";
-            await expect(loanCore.connect(borrower).repay(loanId, borrower.address, 0, 0, 0, 0)).to.be.revertedWith("LC_InvalidState");
+            await expect(loanCore.connect(borrower).repay(loanId, borrower.address, 0, 0, 0)).to.be.revertedWith("LC_InvalidState");
         });
 
         it("should fail if the loan is not active", async () => {
@@ -779,7 +776,7 @@ describe("LoanCore", () => {
             const collateralId = await initializeBundle(vaultFactory, borrower);
             terms.collateralId = collateralId;
             const loanId = 1000;
-            await expect(loanCore.connect(borrower).repay(loanId, borrower.address, 0, 0, 0, 0)).to.be.revertedWith("LC_InvalidState");
+            await expect(loanCore.connect(borrower).repay(loanId, borrower.address, 0, 0, 0)).to.be.revertedWith("LC_InvalidState");
         });
 
         it("should fail if the loan is already repaid", async () => {
@@ -794,7 +791,6 @@ describe("LoanCore", () => {
                 loanId,
                 borrower.address,
                 repayAmount,
-                repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
             );
@@ -803,7 +799,6 @@ describe("LoanCore", () => {
             await expect(loanCore.connect(borrower).repay(
                 loanId,
                 borrower.address,
-                repayAmount,
                 repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
@@ -824,7 +819,6 @@ describe("LoanCore", () => {
                 loanId,
                 borrower.address,
                 repayAmount,
-                repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
             )).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
@@ -837,7 +831,6 @@ describe("LoanCore", () => {
             await expect(loanCore.connect(borrower).repay(
                 loanId,
                 borrower.address,
-                repayAmount,
                 repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
@@ -864,7 +857,7 @@ describe("LoanCore", () => {
            await mockERC20.connect(borrower).mint(borrower.address, repayAmount.sub(1));
            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount.sub(1));
 
-            await loanCore.connect(borrower).repay(loanId, borrower.address, repayAmount.sub(1), repayAmount.sub(1), grossInterest, terms.principal.sub(1));
+            await loanCore.connect(borrower).repay(loanId, borrower.address, repayAmount.sub(1), grossInterest, terms.principal.sub(1));
 
             // get loan data
             const loanDataAfter: LoanData = await loanCore.getLoan(loanId);
@@ -882,7 +875,6 @@ describe("LoanCore", () => {
             await expect(loanCore.connect(borrower).repay(
                 loanId,
                 borrower.address,
-                repayAmount,
                 amountToLender,
                 ethers.utils.parseEther(".5"),
                 terms.principal
@@ -905,7 +897,6 @@ describe("LoanCore", () => {
             await expect(loanCore.connect(borrower).repay(
                 loanId,
                 borrower.address,
-                repayAmount,
                 repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
@@ -967,7 +958,6 @@ describe("LoanCore", () => {
                 loanId,
                 borrower.address,
                 repayAmount,
-                repayAmount,
                 grossInterest,
                 terms.principal
             ))
@@ -996,7 +986,6 @@ describe("LoanCore", () => {
                 loanId,
                 borrower.address,
                 repayAmount,
-                repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
             )).to.be.revertedWith(
@@ -1019,7 +1008,6 @@ describe("LoanCore", () => {
                 loanId,
                 borrower.address,
                 repayAmount,
-                repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
             )).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
@@ -1028,7 +1016,7 @@ describe("LoanCore", () => {
         it("should fail if the loan does not exist", async () => {
             const { loanCore, user: borrower } = await setupLoan();
             const loanId = "123412341324";
-            await expect(loanCore.connect(borrower).forceRepay(loanId, borrower.address, 0, 0, 0, 0))
+            await expect(loanCore.connect(borrower).forceRepay(loanId, borrower.address, 0, 0, 0))
                 .to.be.revertedWith("LC_InvalidState");
         });
 
@@ -1037,7 +1025,7 @@ describe("LoanCore", () => {
             const collateralId = await initializeBundle(vaultFactory, borrower);
             terms.collateralId = collateralId;
             const loanId = 1000;
-            await expect(loanCore.connect(borrower).forceRepay(loanId, borrower.address, 0, 0, 0, 0))
+            await expect(loanCore.connect(borrower).forceRepay(loanId, borrower.address, 0, 0, 0))
                 .to.be.revertedWith("LC_InvalidState");
         });
 
@@ -1052,7 +1040,6 @@ describe("LoanCore", () => {
             await loanCore.connect(borrower).forceRepay(loanId,
                 borrower.address,
                 repayAmount,
-                repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
             );
@@ -1061,7 +1048,6 @@ describe("LoanCore", () => {
             await expect(loanCore.connect(borrower).forceRepay(
                 loanId,
                 borrower.address,
-                repayAmount,
                 repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
@@ -1085,7 +1071,6 @@ describe("LoanCore", () => {
                 loanId,
                 borrower.address,
                 repayAmount,
-                repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
             )).to.be.revertedWith("LC_InvalidState");
@@ -1098,7 +1083,6 @@ describe("LoanCore", () => {
             await expect(loanCore.connect(borrower).forceRepay(
                 loanId,
                 borrower.address,
-                repayAmount,
                 repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
@@ -1113,7 +1097,6 @@ describe("LoanCore", () => {
 
             await expect(loanCore.connect(borrower).forceRepay(loanId,
                 borrower.address,
-                repayAmount,
                 repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
@@ -1142,7 +1125,6 @@ describe("LoanCore", () => {
                 loanId,
                 borrower.address,
                 repayAmount.sub(1),
-                repayAmount.sub(1),
                 grossInterest,
                 terms.principal.sub(1)
             );
@@ -1163,7 +1145,6 @@ describe("LoanCore", () => {
             await expect(loanCore.connect(borrower).forceRepay(
                 loanId,
                 borrower.address,
-                repayAmount,
                 amountToLender,
                 ethers.utils.parseEther(".5"),
                 terms.principal
@@ -1186,7 +1167,6 @@ describe("LoanCore", () => {
             await expect(loanCore.connect(borrower).forceRepay(
                 loanId,
                 borrower.address,
-                repayAmount,
                 repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
@@ -1270,7 +1250,6 @@ describe("LoanCore", () => {
             await loanCore.connect(borrower).repay(
                 loanId,
                 borrower.address,
-                repayAmount,
                 repayAmount,
                 ethers.utils.parseEther("1"),
                 terms.principal
@@ -1375,7 +1354,6 @@ describe("LoanCore", () => {
             await expect(loanCore.connect(borrower).forceRepay(
                 loanId,
                 borrower.address,
-                repayAmount,
                 repayAmount,
                 grossInterest,
                 terms.principal
@@ -1865,7 +1843,6 @@ describe("LoanCore", () => {
             await expect(loanCore.connect(borrower).repay(
                 loanId,
                 borrower.address,
-                repayAmount,
                 repayAmount,
                 grossInterest,
                 terms.principal

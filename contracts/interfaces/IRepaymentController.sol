@@ -7,7 +7,11 @@ interface IRepaymentController {
 
     function repay(uint256 loanId, uint256 amount) external;
 
+    function repayFull(uint256 loanId) external;
+
     function forceRepay(uint256 loanId, uint256 amount) external;
+
+    function forceRepayFull(uint256 loanId) external;
 
     function claim(uint256 loanId) external;
 

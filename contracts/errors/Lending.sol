@@ -389,6 +389,11 @@ error LC_CallerNotLoanCore();
  */
 error LC_Shutdown();
 
+/**
+ * @notice The payment to principal must be less than the balance due.
+ */
+error LC_ExceedsBalance(uint256 paymentToPrincipal, uint256 balance);
+
 // ==================================== Promissory Note ======================================
 /// @notice All errors prefixed with PN_, to separate from other contracts in the protocol.
 
