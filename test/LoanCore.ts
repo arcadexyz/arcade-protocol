@@ -401,6 +401,9 @@ describe("LoanCore", () => {
                 terms.principal
             );
 
+            // Transfer vault to LoanCore
+            await vaultFactory.connect(borrower).transferFrom(borrower.address, loanCore.address, collateralId);
+
             return { ...context, loanId, terms, borrower, lender };
         };
 
@@ -635,6 +638,9 @@ describe("LoanCore", () => {
                 terms.principal,
                 terms.principal
             );
+
+            // Transfer vault to LoanCore
+            await vaultFactory.connect(borrower).transferFrom(borrower.address, loanCore.address, collateralId);
 
             return { ...context, loanId, terms, borrower, lender };
         };
@@ -909,6 +915,9 @@ describe("LoanCore", () => {
                 terms.principal
             );
 
+            // Transfer vault to LoanCore
+            await vaultFactory.connect(borrower).transferFrom(borrower.address, loanCore.address, collateralId);
+
             return { ...context, loanId, terms, borrower, lender };
         };
 
@@ -1014,16 +1023,6 @@ describe("LoanCore", () => {
 
             const terms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId });
 
-            // run originator controller logic inline then invoke loanCore
-            // borrower is originator with originator role
-            await vaultFactory
-                .connect(borrower)
-                .transferFrom(borrower.address, borrower.address, collateralId);
-            await vaultFactory.connect(borrower).approve(loanCore.address, collateralId);
-
-            await mockERC20.connect(lender).mint(lender.address, terms.principal);
-            await mockERC20.connect(lender).approve(loanCore.address, terms.principal);
-
             const loanId = await startLoan(
                 loanCore,
                 borrower,
@@ -1033,6 +1032,9 @@ describe("LoanCore", () => {
                 terms.principal,
                 terms.principal
             );
+
+            // Transfer vault to LoanCore
+            await vaultFactory.connect(borrower).transferFrom(borrower.address, loanCore.address, collateralId);
 
             // get loan data
             const loanData = await loanCore.getLoan(loanId);
@@ -1239,6 +1241,8 @@ describe("LoanCore", () => {
             const fee = principal.mul(5).div(1000);
             await startLoan(loanCore, borrower, lender.address, borrower.address, terms, principal, principal.sub(fee));
 
+            // Mint fee to LoanCore
+            await mockERC20.mint(loanCore.address, fee);
 
             expect(await mockERC20.balanceOf(loanCore.address)).to.equal(fee);
             await expect(loanCore.connect(borrower).withdrawProtocolFees(mockERC20.address, borrower.address))
@@ -1254,12 +1258,32 @@ describe("LoanCore", () => {
             const fee = principal.mul(5).div(1000);
             await startLoan(loanCore, borrower, lender.address, borrower.address, terms, principal, principal.sub(fee));
 
+            // Mint fee to LoanCore
+            await mockERC20.mint(loanCore.address, fee);
+
             expect(await mockERC20.balanceOf(loanCore.address)).to.equal(fee);
 
             await expect(loanCore.connect(lender).withdrawProtocolFees(mockERC20.address, borrower.address)).to.be.revertedWith(
                 `AccessControl: account ${(
                     lender.address
                 ).toLowerCase()} is missing role ${FEE_CLAIMER_ROLE}`,
+            );
+        });
+
+        it("only admin should be able to change fee claimer", async () => {
+            const { loanCore, terms, borrower, lender } = await setupLoan();
+            const { principal } = terms;
+
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, principal, principal);
+
+            await loanCore.connect(borrower).grantRole(FEE_CLAIMER_ROLE, lender.address);
+            await loanCore.connect(borrower).revokeRole(FEE_CLAIMER_ROLE, borrower.address);
+            await expect(
+                loanCore.connect(lender).grantRole(FEE_CLAIMER_ROLE, borrower.address),
+            ).to.be.revertedWith(
+                `AccessControl: account ${(
+                    lender.address
+                ).toLowerCase()} is missing role ${ADMIN_ROLE}`,
             );
         });
 
@@ -1326,6 +1350,9 @@ describe("LoanCore", () => {
                 terms.principal,
                 terms.principal
             );
+
+            // Transfer vault to LoanCore
+            await vaultFactory.connect(borrower).transferFrom(borrower.address, loanCore.address, collateralId);
 
             return { ...context, loanId, terms, borrower, lender };
         };
@@ -2072,6 +2099,9 @@ describe("LoanCore", () => {
                     terms.principal.add(fee),
                     terms.principal,
                 );
+
+                // Mint fee to LoanCore - accounted for in startLoan
+                await mockERC20.mint(loanCore.address, fee.mul(2));
 
                 return  { ...context, loanId, terms, borrower, lender };
             };
