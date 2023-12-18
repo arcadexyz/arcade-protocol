@@ -771,6 +771,43 @@ describe("RepaymentController", () => {
             expect(await mockERC20.balanceOf(lender.address)).to.eq(ethers.utils.parseEther("106"));
         });
 
+        it("100 ETH principal, 10% interest rate, 20% fee on interest, 2% on principal. Borrower sends extra principal", async () => {
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, blockchainTime } = ctx;
+
+            // Assess fee on lender
+            await feeController.setLendingFee(await feeController.FL_06(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_07(), 2_00);
+
+            const { loanId, bundleId } = await initializeLoan(
+                ctx,
+                mockERC20.address,
+                BigNumber.from(31536000), // durationSecs
+                ethers.utils.parseEther("100"), // principal
+                1000, // interest
+                1754884800, // deadline
+            );
+
+            // total repayment amount
+            const total = ethers.utils.parseEther("110").add(ethers.utils.parseEther("1"));
+            const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
+            // mint borrower exactly enough to repay loan
+            await mint(mockERC20, borrower, repayAdditionalAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, total);
+
+            expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
+
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
+
+            await expect(
+                repaymentController.connect(borrower).repay(loanId, total)
+            ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
+
+            expect(await mockERC20.balanceOf(borrower.address)).to.eq(ethers.utils.parseEther("1"));
+            expect(await mockERC20.balanceOf(loanCore.address)).to.eq(ethers.utils.parseEther("4"));
+            expect(await mockERC20.balanceOf(lender.address)).to.eq(ethers.utils.parseEther("106"));
+        });
+
         it("100 ETH principal, 10% interest rate, 5% on principal, none on interest", async () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, blockchainTime } = ctx;
 

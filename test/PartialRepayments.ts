@@ -631,6 +631,61 @@ describe("PartialRepayments", () => {
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
             expect(await mockERC20.balanceOf(lender.address)).to.eq(0);
         });
+
+        it("borrower sends extra principal", async () => {
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, blockchainTime } = ctx;
+
+            const { loanId, bundleId, loanData } = await initializeLoan(
+                ctx,
+                mockERC20.address,
+                BigNumber.from(31536000), // durationSecs (3600*24*365)
+                ethers.utils.parseEther("100"), // principal
+                2000, // interest
+                Date.now() + 604800, // deadline
+            );
+
+            // ------------------ First Repayment ------------------
+            // increase time to half the duration
+            await blockchainTime.increaseTime((31536000 / 2) - 3);
+
+            // calculate interest payment
+            const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
+            const grossInterest1: BigNumber = await repaymentController.getProratedInterestAmount(
+                loanData.balance,
+                loanData.terms.interestRate,
+                loanData.terms.durationSecs,
+                loanData.startDate,
+                loanData.lastAccrualTimestamp,
+                t1
+            );
+            expect(grossInterest1).to.eq(ethers.utils.parseEther("10"));
+
+            // borrower sends 101ETH to pay the principal
+            const repayAmount1 = ethers.utils.parseEther("101").add(grossInterest1);
+
+            // mint borrower interest and extra principal
+            await mint(mockERC20, borrower, grossInterest1.add(ethers.utils.parseEther("1")));
+            // approve loan core to spend interest + 101 ETH
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount1);
+
+            // partial repayment
+            await expect(
+                repaymentController.connect(borrower).repay(loanId, repayAmount1)
+            ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
+
+            // check loan data
+            const loadData1: LoanData = await loanCore.getLoan(loanId);
+            expect(loadData1.state).to.eq(2);
+            expect(loadData1.lastAccrualTimestamp).to.eq(t1);
+            expect(loadData1.balance).to.eq(ethers.utils.parseEther("0"));
+            expect(loadData1.interestAmountPaid).to.eq(grossInterest1);
+
+            // check balances
+            expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
+            expect(await mockERC20.balanceOf(borrower.address)).to.eq(ethers.utils.parseEther("1"));
+            expect(await mockERC20.balanceOf(lender.address)).to.eq(ethers.utils.parseEther("100").add(grossInterest1));
+            expect(await mockERC20.balanceOf(loanCore.address)).to.eq(0);
+        });
     });
 
     describe("Multiple force repayments", () => {
@@ -983,6 +1038,62 @@ describe("PartialRepayments", () => {
             expect(await mockERC20.balanceOf(borrower.address)).to.eq(0);
             expect(await mockERC20.balanceOf(lender.address)).to.eq(0);
             expect((await loanCore.noteReceipts(loanId)).amount).to.eq(ethers.utils.parseEther("100").add(grossInterest1).add(grossInterest2));
+        });
+
+        it("borrower sends extra principal", async () => {
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, blockchainTime } = ctx;
+
+            const { loanId, bundleId, loanData } = await initializeLoan(
+                ctx,
+                mockERC20.address,
+                BigNumber.from(31536000), // durationSecs (3600*24*365)
+                ethers.utils.parseEther("100"), // principal
+                2000, // interest
+                Date.now() + 604800, // deadline
+            );
+
+            // ------------------ First Repayment ------------------
+            // increase time to half the duration
+            await blockchainTime.increaseTime((31536000 / 2) - 3);
+
+            // calculate interest payment
+            const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
+            const grossInterest1: BigNumber = await repaymentController.getProratedInterestAmount(
+                loanData.balance,
+                loanData.terms.interestRate,
+                loanData.terms.durationSecs,
+                loanData.startDate,
+                loanData.lastAccrualTimestamp,
+                t1
+            );
+            expect(grossInterest1).to.eq(ethers.utils.parseEther("10"));
+
+            // borrower sends 101ETH to pay the principal
+            const repayAmount1 = ethers.utils.parseEther("101").add(grossInterest1);
+
+            // mint borrower interest and extra principal
+            await mint(mockERC20, borrower, grossInterest1.add(ethers.utils.parseEther("1")));
+            // approve loan core to spend interest + 101 ETH
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount1);
+
+            // partial repayment
+            await expect(
+                repaymentController.connect(borrower).forceRepay(loanId, repayAmount1)
+            ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
+
+            // check loan data
+            const loadData1: LoanData = await loanCore.getLoan(loanId);
+            expect(loadData1.state).to.eq(2);
+            expect(loadData1.lastAccrualTimestamp).to.eq(t1);
+            expect(loadData1.balance).to.eq(ethers.utils.parseEther("0"));
+            expect(loadData1.interestAmountPaid).to.eq(grossInterest1);
+
+            // check balances
+            expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
+            expect(await mockERC20.balanceOf(borrower.address)).to.eq(ethers.utils.parseEther("1"));
+            expect(await mockERC20.balanceOf(lender.address)).to.eq(0);
+            expect((await loanCore.noteReceipts(loanId)).amount).to.eq(ethers.utils.parseEther("100").add(grossInterest1));
+            expect(await mockERC20.balanceOf(loanCore.address)).to.eq(ethers.utils.parseEther("100").add(grossInterest1));
         });
     });
 

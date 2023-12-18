@@ -235,7 +235,7 @@ contract LoanCore is
         uint256 _interestAmount,
         uint256 _paymentToPrincipal
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
-        (LoanLibrary.LoanData memory data, uint256 extraPrinicipal, bool loanRepaid) = _handleRepay(
+        (LoanLibrary.LoanData memory data, bool loanRepaid) = _handleRepay(
             loanId,
             _amountFromPayer,
             _amountToLender,
@@ -251,9 +251,9 @@ contract LoanCore is
         if (loanRepaid) _burnLoanNotes(loanId);
 
         // collect prinicpal and interest from borrower
-        _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, _amountFromPayer - extraPrinicipal);
+        _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, _amountFromPayer);
         // send repayment less fees to lender
-        _transferIfNonzero(IERC20(data.terms.payableCurrency), lender, _amountToLender - extraPrinicipal);
+        _transferIfNonzero(IERC20(data.terms.payableCurrency), lender, _amountToLender);
 
         if (loanRepaid) {
             // if loan is completely repaid redistribute collateral and emit repaid event
@@ -287,7 +287,7 @@ contract LoanCore is
         uint256 _interestAmount,
         uint256 _paymentToPrincipal
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
-        (LoanLibrary.LoanData memory data, uint256 extraPrinicipal, bool loanRepaid) = _handleRepay(
+        (LoanLibrary.LoanData memory data, bool loanRepaid) = _handleRepay(
             loanId,
             _amountFromPayer,
             _amountToLender,
@@ -299,9 +299,9 @@ contract LoanCore is
         NoteReceipt storage receipt = noteReceipts[loanId];
         if (receipt.token == address(0)) {
             receipt.token = data.terms.payableCurrency;
-            receipt.amount = _amountToLender - extraPrinicipal;
+            receipt.amount = _amountToLender;
         } else {
-            unchecked { receipt.amount += _amountToLender - extraPrinicipal; }
+            receipt.amount += _amountToLender;
         }
 
         // get owner of the BorrowerNote, and burn only if loan is fully repaid.
@@ -310,7 +310,7 @@ contract LoanCore is
         if (loanRepaid) borrowerNote.burn(loanId);
 
         // collect repayment amount from payer
-        _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, _amountFromPayer - extraPrinicipal);
+        _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, _amountFromPayer);
 
         if (loanRepaid) {
             // if loan is completely repaid redistribute collateral and emit repaid event
@@ -773,6 +773,7 @@ contract LoanCore is
      * @param _paymentToPrincipal    The amount of principal to be paid.
      *
      * @return data                  The loan data for the repay operation.
+     * @return loanRepaid            Bool denoting whether the loan is repaid.
      */
     function _handleRepay(
         uint256 loanId,
@@ -780,7 +781,7 @@ contract LoanCore is
         uint256 _amountToLender,
         uint256 _interestAmount,
         uint256 _paymentToPrincipal
-    ) internal returns (LoanLibrary.LoanData memory data, uint256 extraPrinicipal, bool loanRepaid) {
+    ) internal returns (LoanLibrary.LoanData memory data, bool loanRepaid) {
         data = loans[loanId];
         // Ensure valid initial loan state when repaying loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
@@ -800,23 +801,18 @@ contract LoanCore is
         if (affiliateFee > 0) _feesWithdrawable[affiliate] += affiliateFee;
 
         // state changes
-        extraPrinicipal = 0;
         loanRepaid = false;
         if (_paymentToPrincipal >= data.balance) {
             // if the payment is greater than or equal to the balance, the loan is repaid
             loans[loanId].state = LoanLibrary.LoanState.Repaid;
             // tell the calling function that the loan is repaid
             loanRepaid = true;
-            // Mark collateral as no longer escrowed
+            // mark collateral as no longer escrowed
             collateralInUse[keccak256(abi.encode(data.terms.collateralAddress, data.terms.collateralId))] = false;
-
-            // if the payment is greater than the balance, the extra principal is the difference
-            if (_paymentToPrincipal > data.balance) {
-                extraPrinicipal = _paymentToPrincipal - data.balance;
-            }
         }
+
         loans[loanId].interestAmountPaid += _interestAmount;
-        loans[loanId].balance -= (_paymentToPrincipal - extraPrinicipal);
+        loans[loanId].balance -= _paymentToPrincipal;
         loans[loanId].lastAccrualTimestamp = uint64(block.timestamp);
     }
 

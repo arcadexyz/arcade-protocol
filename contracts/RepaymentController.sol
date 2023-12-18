@@ -212,12 +212,18 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         // calculate the amount of the repayment that goes to the principal
         paymentToPrincipal = amount - interestAmount;
 
+        // check if payment to principal is greater than the loan balance
+        if (paymentToPrincipal > data.balance) {
+            // if so, set payment to principal to the loan balance
+            paymentToPrincipal = data.balance;
+        }
+
         // calculate fees on interest and principal
         uint256 interestFee = (interestAmount * data.feeSnapshot.lenderInterestFee) / BASIS_POINTS_DENOMINATOR;
         uint256 principalFee = (paymentToPrincipal * data.feeSnapshot.lenderPrincipalFee) / BASIS_POINTS_DENOMINATOR;
 
         // the amount to collect from the caller
-        amountFromBorrower = amount;
+        amountFromBorrower = paymentToPrincipal + interestAmount;
         // the amount to send to the lender
         amountToLender = amountFromBorrower - interestFee - principalFee;
     }

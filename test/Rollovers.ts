@@ -1231,7 +1231,7 @@ describe("Rollovers", () => {
             expect(await loanCore.canCallOn(borrower.address, bundleId.toString())).to.eq(true);
         });
 
-        it("should roll over a loan with extra principal for the borrower and the same lender", async () => {
+        it("should rollover a loan with extra principal for the borrower and the same lender", async () => {
             const {
                 originationController,
                 mockERC20,
@@ -1248,8 +1248,7 @@ describe("Rollovers", () => {
             // create new terms for rollover and sign them
             const newTerms = await createLoanTerms(mockERC20.address, vaultFactory.address, {
                 ...loanTerms,
-                principal: ethers.utils.parseEther("200"),
-                deadline: DEADLINE,
+                principal: ethers.utils.parseEther("200")
             });
 
             const sig = await createLoanTermsSignature(
@@ -1323,8 +1322,7 @@ describe("Rollovers", () => {
             // create new terms for rollover and sign them
             const newTerms = await createLoanTerms(mockERC20.address, vaultFactory.address, {
                 ...loanTerms,
-                principal: ethers.utils.parseEther("200"),
-                deadline: DEADLINE,
+                principal: ethers.utils.parseEther("200")
             });
 
             const sig = await createLoanTermsSignature(
@@ -2239,7 +2237,7 @@ describe("Rollovers", () => {
                 .withArgs(loanCore.address, lender.address, ethers.utils.parseEther("0.44"));
         });
 
-        it("should roll over a loan with for the borrower and the same lender where no funds need to move, with fees", async () => {
+        it("should rollover a loan with for the borrower and the same lender where no funds need to move, with fees", async () => {
             const {
                 originationController,
                 mockERC20,
