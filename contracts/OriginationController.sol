@@ -962,7 +962,7 @@ contract OriginationController is
         }
 
         // approve LoanCore to take the total settled amount
-        payableCurrency.approve(address(loanCore), settledAmount);
+        payableCurrency.safeApprove(address(loanCore), settledAmount);
 
         loanId = loanCore.rollover(
             oldLoanId,
