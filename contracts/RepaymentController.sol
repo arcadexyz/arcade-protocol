@@ -41,6 +41,8 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     IPromissoryNote private immutable lenderNote;
     IFeeController private immutable feeController;
 
+    uint256 public constant MAX_INT = 2**256 - 1;
+
     // ========================================= CONSTRUCTOR ============================================
 
     /**
@@ -71,6 +73,9 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
      *         repayment amounts are calculated, control is passed to LoanCore to complete repayment and
      *         update LoanData accounting.
      *
+     * @dev To close a loan and initiate a full repayment of interest and remaining balance, use MAX_UINT as
+     *      the amount input.
+     *
      * @param  loanId               The ID of the loan.
      * @param  amount               The amount to repay.
      */
@@ -88,26 +93,6 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     }
 
     /**
-     * @notice Send a full repayment for an active loan, referenced by BorrowerNote ID (equivalent to loan ID).
-     *         Calling this function will repay the full amount of the loan, including interest and mark it as
-     *         repaid. The full repayment amount is withdrawn from the caller. Anyone can repay a loan. After
-     *         the repayment amounts are calculated, control is passed to LoanCore to complete repayment and
-     *         update LoanData accounting.
-     *
-     * @param  loanId               The ID of the loan.
-     */
-    function repayFull(uint256 loanId) external override {
-        (
-            uint256 amountToLender,
-            uint256 interestAmount,
-            uint256 paymentToPrincipal
-        ) = _prepareRepayFull(loanId);
-
-        // call repay function in LoanCore - msg.sender will pay the amountFromBorrower
-        loanCore.repay(loanId, msg.sender, amountToLender, interestAmount, paymentToPrincipal);
-    }
-
-    /**
      * @notice Send a repayment for an active loan, referenced by BorrowerNote ID (equivalent to loan ID).
      *         The interest for a loan is calculated, and the repayment amount plus interest is withdrawn
      *         from the caller. The repayment amount at a minimum must cover any interest accrued. There are
@@ -116,6 +101,9 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
      * @dev Using forceRepay will not send funds to the lender: instead, those funds will be made available
      *      for withdrawal in LoanCore. Can be used in cases where a borrower has funds to repay but the
      *      lender is not able to receive those tokens (e.g. token blacklist).
+     *
+     * @dev To close a loan and initiate a full repayment of interest and remaining balance, use MAX_UINT as
+     *      the amount input.
      *
      * @param  loanId               The ID of the loan.
      * @param  amount               The amount to repay.
@@ -128,28 +116,6 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
             uint256 interestAmount,
             uint256 paymentToPrincipal
         ) = _prepareRepay(loanId, amount);
-
-        // call repay function in LoanCore - msg.sender will pay the amountFromBorrower
-        loanCore.forceRepay(loanId, msg.sender, amountToLender, interestAmount, paymentToPrincipal);
-    }
-
-    /**
-     * @notice Send a full repayment for an active loan, referenced by BorrowerNote ID (equivalent to loan ID).
-     *         Calling this function will repay the full amount of the loan, including interest and mark it as
-     *         repaid. The full repayment amount is withdrawn from the caller. Anyone can repay a loan.
-     *
-     * @dev Using forceRepayFull will not send funds to the lender: instead, those funds will be made available
-     *      for withdrawal in LoanCore. Can be used in cases where a borrower has funds to repay but the
-     *      lender is not able to receive those tokens (e.g. token blacklist).
-     *
-     * @param  loanId               The ID of the loan.
-     */
-    function forceRepayFull(uint256 loanId) external override {
-        (
-            uint256 amountToLender,
-            uint256 interestAmount,
-            uint256 paymentToPrincipal
-        ) = _prepareRepayFull(loanId);
 
         // call repay function in LoanCore - msg.sender will pay the amountFromBorrower
         loanCore.forceRepay(loanId, msg.sender, amountToLender, interestAmount, paymentToPrincipal);
@@ -245,16 +211,21 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
             block.timestamp
         );
 
-        // make sure that repayment amount is greater than interest due
-        if (amount < interestAmount) revert RC_InvalidRepayment(amount, interestAmount);
-
-        // calculate the amount of the repayment that goes to the principal
-        paymentToPrincipal = amount - interestAmount;
-
-        // check if payment to principal is greater than the loan balance
-        if (paymentToPrincipal > data.balance) {
-            // if so, set payment to principal to the loan balance
+        if(amount == MAX_INT) {
+            // shortcut for full repayment
             paymentToPrincipal = data.balance;
+        } else {
+            // make sure that repayment amount is greater than interest due
+            if (amount < interestAmount) revert RC_InvalidRepayment(amount, interestAmount);
+
+            // calculate the amount of the repayment that goes to the principal
+            paymentToPrincipal = amount - interestAmount;
+
+            // check if payment to principal is greater than the loan balance
+            if (paymentToPrincipal > data.balance) {
+                // if so, set payment to principal to the loan balance
+                paymentToPrincipal = data.balance;
+            }
         }
 
         // calculate fees on interest and principal
@@ -263,55 +234,6 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
 
         // the amount to collect from the caller
         uint256 amountFromBorrower = paymentToPrincipal + interestAmount;
-        // the amount to send to the lender
-        amountToLender = amountFromBorrower - interestFee - principalFee;
-    }
-
-    /**
-     * @dev Shared logic to perform validation and calculations for repayFull and forceRepayFull.
-     *      This function does not take a repayment amount because the full amount of the loan is
-     *      repaid.
-     *
-     * @param loanId               The ID of the loan.
-     *
-     * @return amountToLender       The amount owed to the lender.
-     * @return interestAmount       The amount of interest due.
-     * @return paymentToPrincipal   The portion of the repayment amount that goes to principal.
-     */
-    function _prepareRepayFull(uint256 loanId)
-        internal
-        view
-        returns (
-            uint256 amountToLender,
-            uint256 interestAmount,
-            uint256 paymentToPrincipal
-        )
-    {
-        // get loan data
-        LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
-
-        // loan state checks
-        if (data.state == LoanLibrary.LoanState.DUMMY_DO_NOT_USE) revert RC_CannotDereference(loanId);
-        if (data.state != LoanLibrary.LoanState.Active) revert RC_InvalidState(data.state);
-
-        // get interest amount due
-        interestAmount = getProratedInterestAmount(
-            data.balance,
-            data.terms.interestRate,
-            data.terms.durationSecs,
-            uint64(data.startDate),
-            uint64(data.lastAccrualTimestamp),
-            block.timestamp
-        );
-
-        paymentToPrincipal = data.balance;
-
-        // calculate fees on interest and principal
-        uint256 interestFee = (interestAmount * data.feeSnapshot.lenderInterestFee) / BASIS_POINTS_DENOMINATOR;
-        uint256 principalFee = (data.balance * data.feeSnapshot.lenderPrincipalFee) / BASIS_POINTS_DENOMINATOR;
-
-        // the amount to collect from the caller
-        uint256 amountFromBorrower = data.balance + interestAmount;
         // the amount to send to the lender
         amountToLender = amountFromBorrower - interestFee - principalFee;
     }

@@ -1123,7 +1123,7 @@ describe("PartialRepayments", () => {
             await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(
-                repaymentController.connect(borrower).repayFull(loanId)
+                repaymentController.connect(borrower).repay(loanId, ethers.constants.MaxUint256)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
 
             expect(await mockERC20.balanceOf(borrower.address)).to.eq(0);
@@ -1154,51 +1154,10 @@ describe("PartialRepayments", () => {
             await blockchainTime.increaseTime((31536000 / 2) - 3);
 
             await expect(
-                repaymentController.connect(borrower).repayFull(loanId)
+                repaymentController.connect(borrower).repay(loanId, ethers.constants.MaxUint256)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
 
             expect(await mockERC20.balanceOf(borrower.address)).to.eq(0);
-        });
-
-        it("Repay full, revert loan must be active.", async () => {
-            const { repaymentController, mockERC20, loanCore, borrower, blockchainTime } = ctx;
-
-            const { loanId } = await initializeLoan(
-                ctx,
-                mockERC20.address,
-                BigNumber.from(31536000), // durationSecs
-                ethers.utils.parseEther("100"), // principal
-                1000, // interest
-                1754884800, // deadline
-            );
-
-            // total repayment amount
-            const total = ethers.utils.parseEther("110");
-            const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
-            // mint borrower exactly enough to repay loan
-            await mint(mockERC20, borrower, repayAdditionalAmount);
-            await mockERC20.connect(borrower).approve(loanCore.address, total);
-
-            // go to 1 block before loan expires
-            await blockchainTime.increaseTime(31536000 - 3);
-
-            await expect(
-                repaymentController.connect(borrower).repayFull(loanId)
-            ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
-
-            await expect(
-                repaymentController.connect(borrower).repayFull(loanId)
-            ).to.be.revertedWith("RC_InvalidState");
-        });
-
-        it("Repay full, non-existent loan", async () => {
-            const { repaymentController, borrower } = ctx;
-
-            const loanId = 123;
-
-            await expect(
-                repaymentController.connect(borrower).repayFull(loanId)
-            ).to.be.revertedWith("RC_CannotDereference");
         });
 
         it("Force repay full. 100 ETH principal, 10% interest rate, full duration.", async () => {
@@ -1226,7 +1185,7 @@ describe("PartialRepayments", () => {
             await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(
-                repaymentController.connect(borrower).forceRepayFull(loanId)
+                repaymentController.connect(borrower).forceRepay(loanId, ethers.constants.MaxUint256)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
 
             expect(await mockERC20.balanceOf(borrower.address)).to.eq(0);
@@ -1261,7 +1220,7 @@ describe("PartialRepayments", () => {
             await blockchainTime.increaseTime((31536000 / 2) - 3);
 
             await expect(
-                repaymentController.connect(borrower).forceRepayFull(loanId)
+                repaymentController.connect(borrower).forceRepay(loanId, ethers.constants.MaxUint256)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
 
             expect(await mockERC20.balanceOf(borrower.address)).to.eq(0);
@@ -1269,47 +1228,6 @@ describe("PartialRepayments", () => {
             const noteReceipt = await loanCore.noteReceipts(loanId);
             expect(noteReceipt.token).to.eq(mockERC20.address);
             expect((noteReceipt).amount).to.eq(ethers.utils.parseEther("105"));
-        });
-
-        it("Force repay full, revert loan must be active.", async () => {
-            const { repaymentController, mockERC20, loanCore, borrower, blockchainTime } = ctx;
-
-            const { loanId, bundleId } = await initializeLoan(
-                ctx,
-                mockERC20.address,
-                BigNumber.from(31536000), // durationSecs
-                ethers.utils.parseEther("100"), // principal
-                1000, // interest
-                1754884800, // deadline
-            );
-
-            // total repayment amount
-            const total = ethers.utils.parseEther("110");
-            const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
-            // mint borrower exactly enough to repay loan
-            await mint(mockERC20, borrower, repayAdditionalAmount);
-            await mockERC20.connect(borrower).approve(loanCore.address, total);
-
-            // go to 1 block before loan expires
-            await blockchainTime.increaseTime(31536000 - 3);
-
-            await expect(
-                repaymentController.connect(borrower).forceRepayFull(loanId)
-            ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
-
-            await expect(
-                repaymentController.connect(borrower).forceRepayFull(loanId)
-            ).to.be.revertedWith("RC_InvalidState");
-        });
-
-        it("Force repay full, non-existent loan", async () => {
-            const { repaymentController, borrower } = ctx;
-
-            const loanId = 123;
-
-            await expect(
-                repaymentController.connect(borrower).forceRepayFull(loanId)
-            ).to.be.revertedWith("RC_CannotDereference");
         });
     });
 
