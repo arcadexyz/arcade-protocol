@@ -390,7 +390,8 @@ contract LoanCore is
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         NoteReceipt memory receipt = noteReceipts[loanId];
         (address token, uint256 amount) = (receipt.token, receipt.amount);
-        if (token == address(0) || amount == 0) revert LC_NoReceipt(loanId);
+        if (token == address(0)) revert LC_NoReceipt(loanId);
+        if (amount == 0) revert LC_ZeroAmount();
 
         // Deduct the redeem fee from the amount and assign for withdrawal
         amount -= _amountFromLender;
@@ -799,7 +800,10 @@ contract LoanCore is
 
         // state changes
         if (_paymentToPrincipal == data.balance) {
-            // if the payment is greater than or equal to the balance, the loan is repaid
+            // If the payment is equal to the balance, the loan is repaid.
+            // Full repayments set the _paymentToPrincipal to the balance.
+            // For partial repayments where the amount to pay is greater than the balance,
+            // the _paymentToPrincipal is set to the balance.
             loans[loanId].state = LoanLibrary.LoanState.Repaid;
             // mark collateral as no longer escrowed
             collateralInUse[keccak256(abi.encode(data.terms.collateralAddress, data.terms.collateralId))] = false;

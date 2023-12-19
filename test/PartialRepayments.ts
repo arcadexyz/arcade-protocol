@@ -1374,6 +1374,10 @@ describe("PartialRepayments", () => {
                 .to.emit(loanCore, "NoteRedeemed")
                 .withArgs(mockERC20.address,lender.address, lender.address, loanId, ethers.utils.parseEther("10").add(grossInterest1));
 
+            // tries to redeem again, fails no receipt balance
+            await expect(repaymentController.connect(lender).redeemNote(loanId, lender.address))
+                .to.be.revertedWith("LC_ZeroAmount");
+
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
             expect(await mockERC20.balanceOf(borrower.address)).to.eq(ethers.utils.parseEther("110"));
