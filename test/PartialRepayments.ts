@@ -1545,5 +1545,61 @@ describe("PartialRepayments", () => {
             expect(await mockERC20.balanceOf(loanCore.address)).to.eq(0);
             expect((await loanCore.noteReceipts(loanId)).amount).to.eq(0);
         });
+
+        it("1 force repayment, then the lender claims the collateral after loan duration", async () => {
+            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, blockchainTime } = ctx;
+
+            const { loanId, bundleId, loanData } = await initializeLoan(
+                ctx,
+                mockERC20.address,
+                BigNumber.from(31536000), // durationSecs (3600*24*365)
+                ethers.utils.parseEther("100"), // principal
+                2000, // interest
+                Date.now() + 604800, // deadline
+            );
+
+            // ------------------ First Repayment ------------------
+            // increase time to half the duration
+            await blockchainTime.increaseTime((31536000 / 2) - 3);
+
+            // calculate interest payment
+            const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
+            const grossInterest1: BigNumber = await repaymentController.getProratedInterestAmount(
+                loanData.balance,
+                loanData.terms.interestRate,
+                loanData.terms.durationSecs,
+                loanData.startDate,
+                loanData.lastAccrualTimestamp,
+                t1
+            );
+            expect(grossInterest1).to.eq(ethers.utils.parseEther("10"));
+
+            // borrower sends 50ETH to pay the principal
+            const repayAmount1 = ethers.utils.parseEther("50").add(grossInterest1);
+
+            // mint borrower interest
+            await mint(mockERC20, borrower, grossInterest1);
+            // approve loan core to spend interest + 50 ETH
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount1);
+
+            // partial repayment
+            await expect(
+                repaymentController.connect(borrower).forceRepay(loanId, repayAmount1)
+            ).to.emit(loanCore, "LoanPayment").withArgs(loanId);
+
+            // borrower defaults, fast forwards to end of loan
+            await blockchainTime.increaseTime((31536000 / 2) - 3);
+
+            // lender tries to claim collateral before withdrawing borrower payment
+            await expect(
+                repaymentController.connect(lender).claim(loanId)
+            ).to.be.revertedWith("LC_AwaitingWithdrawal");
+
+            // lender redeems 50 ETH + interest
+            await expect(repaymentController.connect(lender).redeemNote(loanId, lender.address))
+                .to.emit(loanCore, "NoteRedeemed")
+                .withArgs(mockERC20.address,lender.address, lender.address, loanId, ethers.utils.parseEther("50").add(grossInterest1));
+
+        });
     });
 });

@@ -32,7 +32,8 @@ import {
     LC_CallerNotLoanCore,
     LC_NoReceipt,
     LC_Shutdown,
-    LC_ExceedsBalance
+    LC_ExceedsBalance,
+    LC_AwaitingWithdrawal
 } from "./errors/Lending.sol";
 
 /**
@@ -230,12 +231,14 @@ contract LoanCore is
     function repay(
         uint256 loanId,
         address payer,
+        uint256 _amountFromPayer,
         uint256 _amountToLender,
         uint256 _interestAmount,
         uint256 _paymentToPrincipal
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
-        (LoanLibrary.LoanData memory data, uint256 _amountFromPayer) = _handleRepay(
+        (LoanLibrary.LoanData memory data) = _handleRepay(
             loanId,
+            _amountFromPayer,
             _amountToLender,
             _interestAmount,
             _paymentToPrincipal
@@ -278,12 +281,14 @@ contract LoanCore is
     function forceRepay(
         uint256 loanId,
         address payer,
+        uint256 _amountFromPayer,
         uint256 _amountToLender,
         uint256 _interestAmount,
         uint256 _paymentToPrincipal
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
-        (LoanLibrary.LoanData memory data, uint256 _amountFromPayer) = _handleRepay(
+        (LoanLibrary.LoanData memory data) = _handleRepay(
             loanId,
+            _amountFromPayer,
             _amountToLender,
             _interestAmount,
             _paymentToPrincipal
@@ -323,6 +328,9 @@ contract LoanCore is
      *         collateral to the lender. All promissory notes will be burned and the loan
      *         will be marked as complete.
      *
+     * @dev If LoanCore is holding a withdrawal balance for this loan's NoteReceipt. The collateral
+     *      cannot be claimed until the available balance is withdrawn.
+     *
      * @param loanId                              The ID of the loan to claim.
      * @param _amountFromLender                   Any claiming fees to be collected from the lender.
      */
@@ -336,6 +344,9 @@ contract LoanCore is
         LoanLibrary.LoanData memory data = loans[loanId];
         // Ensure valid initial loan state when claiming loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
+
+        // Check that loan has a noteReceipt of zero amount
+        if (noteReceipts[loanId].amount != 0) revert LC_AwaitingWithdrawal(noteReceipts[loanId].amount);
 
         // First check if the call is being made after the due date plus 10 min grace period.
         uint256 dueDate = data.startDate + data.terms.durationSecs + GRACE_PERIOD;
@@ -767,15 +778,14 @@ contract LoanCore is
      */
     function _handleRepay(
         uint256 loanId,
+        uint256 _amountFromPayer,
         uint256 _amountToLender,
         uint256 _interestAmount,
         uint256 _paymentToPrincipal
-    ) internal returns (LoanLibrary.LoanData memory data, uint256 _amountFromPayer) {
+    ) internal returns (LoanLibrary.LoanData memory data) {
         data = loans[loanId];
         // Ensure valid initial loan state when repaying loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
-
-        _amountFromPayer = _paymentToPrincipal + _interestAmount;
 
         // Check that we will not net lose tokens
         if (_amountToLender > _amountFromPayer) revert LC_CannotSettle(_amountToLender, _amountFromPayer);

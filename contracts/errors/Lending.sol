@@ -394,6 +394,12 @@ error LC_Shutdown();
  */
 error LC_ExceedsBalance(uint256 paymentToPrincipal, uint256 balance);
 
+/**
+ * @notice LoanCore is holding a withdrawal balance for this loan. The collateral
+ * cannot be claimed until the available balance is withdrawn.
+ */
+error LC_AwaitingWithdrawal(uint256 availableAmount);
+
 // ==================================== Promissory Note ======================================
 /// @notice All errors prefixed with PN_, to separate from other contracts in the protocol.
 

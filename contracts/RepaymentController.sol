@@ -73,9 +73,6 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
      *         repayment amounts are calculated, control is passed to LoanCore to complete repayment and
      *         update LoanData accounting.
      *
-     * @dev To close a loan and initiate a full repayment of interest and remaining balance, use MAX_UINT as
-     *      the amount input.
-     *
      * @param  loanId               The ID of the loan.
      * @param  amount               The amount to repay.
      */
@@ -83,13 +80,34 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         // no zero amount check, minimum principal could be 0 for this payable currency
 
         (
+            uint256 amountFromBorrower,
             uint256 amountToLender,
             uint256 interestAmount,
             uint256 paymentToPrincipal
         ) = _prepareRepay(loanId, amount);
 
         // call repay function in LoanCore - msg.sender will pay the amountFromBorrower
-        loanCore.repay(loanId, msg.sender, amountToLender, interestAmount, paymentToPrincipal);
+        loanCore.repay(loanId, msg.sender, amountFromBorrower, amountToLender, interestAmount, paymentToPrincipal);
+    }
+
+    /**
+     * @notice Completely repay an active loan, referenced by BorrowerNote ID (equivalent to loan ID).
+     *         The interest for the loan is calculated, and the remaining balance plus interest is withdrawn
+     *         from the caller. Anyone can repay a loan. After the repayment amounts are calculated, control
+     *         is passed to LoanCore to complete repayment and update LoanData accounting.
+     *
+     * @param  loanId               The ID of the loan.
+     */
+    function repayFull(uint256 loanId) external override {
+        (
+            uint256 amountFromBorrower,
+            uint256 amountToLender,
+            uint256 interestAmount,
+            uint256 paymentToPrincipal
+        ) = _prepareRepay(loanId, type(uint256).max);
+
+        // call repay function in LoanCore - msg.sender will pay the amountFromBorrower
+        loanCore.repay(loanId, msg.sender, amountFromBorrower, amountToLender, interestAmount, paymentToPrincipal);
     }
 
     /**
@@ -102,9 +120,6 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
      *      for withdrawal in LoanCore. Can be used in cases where a borrower has funds to repay but the
      *      lender is not able to receive those tokens (e.g. token blacklist).
      *
-     * @dev To close a loan and initiate a full repayment of interest and remaining balance, use MAX_UINT as
-     *      the amount input.
-     *
      * @param  loanId               The ID of the loan.
      * @param  amount               The amount to repay.
      */
@@ -112,13 +127,14 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         // no zero amount check, minimum principal could be 0 for this payable currency
 
         (
+            uint256 amountFromBorrower,
             uint256 amountToLender,
             uint256 interestAmount,
             uint256 paymentToPrincipal
         ) = _prepareRepay(loanId, amount);
 
         // call repay function in LoanCore - msg.sender will pay the amountFromBorrower
-        loanCore.forceRepay(loanId, msg.sender, amountToLender, interestAmount, paymentToPrincipal);
+        loanCore.forceRepay(loanId, msg.sender, amountFromBorrower, amountToLender, interestAmount, paymentToPrincipal);
     }
 
     /**
@@ -181,6 +197,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
      * @param loanId               The ID of the loan.
      * @param amount               The amount to repay.
      *
+     * @return amountFromBorrower   The amount to collect from the borrower.
      * @return amountToLender       The amount owed to the lender.
      * @return interestAmount       The amount of interest due.
      * @return paymentToPrincipal   The portion of the repayment amount that goes to principal.
@@ -189,6 +206,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         internal
         view
         returns (
+            uint256 amountFromBorrower,
             uint256 amountToLender,
             uint256 interestAmount,
             uint256 paymentToPrincipal
@@ -233,7 +251,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         uint256 principalFee = (paymentToPrincipal * data.feeSnapshot.lenderPrincipalFee) / BASIS_POINTS_DENOMINATOR;
 
         // the amount to collect from the caller
-        uint256 amountFromBorrower = paymentToPrincipal + interestAmount;
+        amountFromBorrower = paymentToPrincipal + interestAmount;
         // the amount to send to the lender
         amountToLender = amountFromBorrower - interestFee - principalFee;
     }
