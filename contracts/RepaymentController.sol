@@ -80,14 +80,13 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         // no zero amount check, minimum principal could be 0 for this payable currency
 
         (
-            uint256 amountFromBorrower,
             uint256 amountToLender,
             uint256 interestAmount,
             uint256 paymentToPrincipal
         ) = _prepareRepay(loanId, amount);
 
         // call repay function in LoanCore - msg.sender will pay the amountFromBorrower
-        loanCore.repay(loanId, msg.sender, amountFromBorrower, amountToLender, interestAmount, paymentToPrincipal);
+        loanCore.repay(loanId, msg.sender, amountToLender, interestAmount, paymentToPrincipal);
     }
 
     /**
@@ -100,14 +99,13 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
      */
     function repayFull(uint256 loanId) external override {
         (
-            uint256 amountFromBorrower,
             uint256 amountToLender,
             uint256 interestAmount,
             uint256 paymentToPrincipal
         ) = _prepareRepay(loanId, type(uint256).max);
 
         // call repay function in LoanCore - msg.sender will pay the amountFromBorrower
-        loanCore.repay(loanId, msg.sender, amountFromBorrower, amountToLender, interestAmount, paymentToPrincipal);
+        loanCore.repay(loanId, msg.sender, amountToLender, interestAmount, paymentToPrincipal);
     }
 
     /**
@@ -127,14 +125,13 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         // no zero amount check, minimum principal could be 0 for this payable currency
 
         (
-            uint256 amountFromBorrower,
             uint256 amountToLender,
             uint256 interestAmount,
             uint256 paymentToPrincipal
         ) = _prepareRepay(loanId, amount);
 
         // call repay function in LoanCore - msg.sender will pay the amountFromBorrower
-        loanCore.forceRepay(loanId, msg.sender, amountFromBorrower, amountToLender, interestAmount, paymentToPrincipal);
+        loanCore.forceRepay(loanId, msg.sender, amountToLender, interestAmount, paymentToPrincipal);
     }
 
     /**
@@ -197,7 +194,6 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
      * @param loanId               The ID of the loan.
      * @param amount               The amount to repay.
      *
-     * @return amountFromBorrower   The amount to collect from the borrower.
      * @return amountToLender       The amount owed to the lender.
      * @return interestAmount       The amount of interest due.
      * @return paymentToPrincipal   The portion of the repayment amount that goes to principal.
@@ -206,7 +202,6 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         internal
         view
         returns (
-            uint256 amountFromBorrower,
             uint256 amountToLender,
             uint256 interestAmount,
             uint256 paymentToPrincipal
@@ -251,7 +246,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         uint256 principalFee = (paymentToPrincipal * data.feeSnapshot.lenderPrincipalFee) / BASIS_POINTS_DENOMINATOR;
 
         // the amount to collect from the caller
-        amountFromBorrower = paymentToPrincipal + interestAmount;
+        uint256 amountFromBorrower = paymentToPrincipal + interestAmount;
         // the amount to send to the lender
         amountToLender = amountFromBorrower - interestFee - principalFee;
     }

@@ -231,14 +231,12 @@ contract LoanCore is
     function repay(
         uint256 loanId,
         address payer,
-        uint256 _amountFromPayer,
         uint256 _amountToLender,
         uint256 _interestAmount,
         uint256 _paymentToPrincipal
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
-        (LoanLibrary.LoanData memory data) = _handleRepay(
+        (LoanLibrary.LoanData memory data, uint256 amountFromPayer) = _handleRepay(
             loanId,
-            _amountFromPayer,
             _amountToLender,
             _interestAmount,
             _paymentToPrincipal
@@ -249,7 +247,7 @@ contract LoanCore is
         address borrower = borrowerNote.ownerOf(loanId);
 
         // collect principal and interest from borrower
-        _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, _amountFromPayer);
+        _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, amountFromPayer);
         // send repayment less fees to lender
         _transferIfNonzero(IERC20(data.terms.payableCurrency), lender, _amountToLender);
 
@@ -281,14 +279,12 @@ contract LoanCore is
     function forceRepay(
         uint256 loanId,
         address payer,
-        uint256 _amountFromPayer,
         uint256 _amountToLender,
         uint256 _interestAmount,
         uint256 _paymentToPrincipal
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
-        (LoanLibrary.LoanData memory data) = _handleRepay(
+        (LoanLibrary.LoanData memory data, uint256 amountFromPayer) = _handleRepay(
             loanId,
-            _amountFromPayer,
             _amountToLender,
             _interestAmount,
             _paymentToPrincipal
@@ -304,7 +300,7 @@ contract LoanCore is
         }
 
         // collect repayment amount from payer
-        _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, _amountFromPayer);
+        _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, amountFromPayer);
 
         if (loans[loanId].state == LoanLibrary.LoanState.Repaid) {
             // if loan is completely repaid
@@ -775,25 +771,27 @@ contract LoanCore is
      * @param _paymentToPrincipal    The amount of principal to be paid.
      *
      * @return data                  The loan data for the repay operation.
+     * @return amountFromPayer       The principal plus interest to be collected from the payer.
      */
     function _handleRepay(
         uint256 loanId,
-        uint256 _amountFromPayer,
         uint256 _amountToLender,
         uint256 _interestAmount,
         uint256 _paymentToPrincipal
-    ) internal returns (LoanLibrary.LoanData memory data) {
+    ) internal returns (LoanLibrary.LoanData memory data, uint256 amountFromPayer) {
         data = loans[loanId];
         // Ensure valid initial loan state when repaying loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
 
+        amountFromPayer = _paymentToPrincipal + _interestAmount;
+
         // Check that we will not net lose tokens
-        if (_amountToLender > _amountFromPayer) revert LC_CannotSettle(_amountToLender, _amountFromPayer);
+        if (_amountToLender > amountFromPayer) revert LC_CannotSettle(_amountToLender, amountFromPayer);
         // Check that the payment to principal is not greater than the balance
         if (_paymentToPrincipal > data.balance) revert LC_ExceedsBalance(_paymentToPrincipal, data.balance);
 
         uint256 feesEarned;
-        unchecked { feesEarned = _amountFromPayer - _amountToLender; }
+        unchecked { feesEarned = amountFromPayer - _amountToLender; }
 
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
             _getAffiliateSplit(feesEarned, data.terms.affiliateCode);

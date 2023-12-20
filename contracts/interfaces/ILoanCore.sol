@@ -47,7 +47,6 @@ interface ILoanCore {
     function repay(
         uint256 loanId,
         address payer,
-        uint256 _amountFromPayer,
         uint256 _amountToLender,
         uint256 _interestAmount,
         uint256 _paymentToPrincipal
@@ -56,7 +55,6 @@ interface ILoanCore {
     function forceRepay(
         uint256 loanId,
         address payer,
-        uint256 _amountFromPayer,
         uint256 _amountToLender,
         uint256 _interestAmount,
         uint256 _paymentToPrincipal
