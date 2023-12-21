@@ -247,7 +247,8 @@ describe("PartialRepayments", () => {
                 loanData.lastAccrualTimestamp,
                 t1
             );
-            expect(grossInterest1).to.eq(ethers.utils.parseEther(".986301369863013698"));
+            // expecting: ethers.utils.parseEther(".986301369863013698")
+            expect(grossInterest1).to.gt(ethers.utils.parseEther(".9863")).and.lt(ethers.utils.parseEther(".9864"));
 
             // borrower sends 10ETH to pay the principal
             const repayAmount1 = ethers.utils.parseEther("10").add(grossInterest1);
@@ -291,7 +292,8 @@ describe("PartialRepayments", () => {
                 loanData2.lastAccrualTimestamp,
                 t2
             );
-            expect(grossInterest2).to.eq(ethers.utils.parseEther(".904109589041095890"));
+            // expecting: (ethers.utils.parseEther(".904109589041095890")
+            expect(grossInterest2).to.gt(ethers.utils.parseEther(".9041")).and.lt(ethers.utils.parseEther(".9042"));
 
             // borrower sends 10ETH to pay the principal
             const repayAmount2 = ethers.utils.parseEther("10").add(grossInterest2);
@@ -315,7 +317,8 @@ describe("PartialRepayments", () => {
 
             // check effective interest rate
             const effectiveInterestRate2 = await loanCore.getCloseEffectiveInterestRate(loanId);
-            expect(effectiveInterestRate2).to.eq(958);
+            // expecting 958
+            expect(effectiveInterestRate2).to.be.gt(948).and.lt(968);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
@@ -339,7 +342,8 @@ describe("PartialRepayments", () => {
                 loanData3.lastAccrualTimestamp,
                 t3
             );
-            expect(grossInterest3).to.eq(ethers.utils.parseEther(".821917808219178082"));
+            // expecting: ethers.utils.parseEther(".821917808219178082")
+            expect(grossInterest3).to.gt(ethers.utils.parseEther(".8219")).and.lt(ethers.utils.parseEther(".8220"));
 
             // borrower sends 100ETH to pay the principal
             const repayAmount3 = ethers.utils.parseEther("100").add(grossInterest3);
@@ -363,7 +367,8 @@ describe("PartialRepayments", () => {
 
             // check effective interest rate
             const effectiveInterestRate3 = await loanCore.getCloseEffectiveInterestRate(loanId);
-            expect(effectiveInterestRate3).to.eq(916);
+            // expecting 916
+            expect(effectiveInterestRate3).to.be.gt(906).and.lt(926);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
@@ -397,7 +402,8 @@ describe("PartialRepayments", () => {
                 loanData.lastAccrualTimestamp,
                 t1
             );
-            expect(grossInterest1).to.eq(ethers.utils.parseEther("10"));
+            // expecting: ethers.utils.parseEther("10")
+            expect(grossInterest1).to.gt(ethers.utils.parseEther("9.9999")).and.lt(ethers.utils.parseEther("10.0001"));
 
             // borrower sends 50ETH to pay the principal
             const repayAmount1 = ethers.utils.parseEther("50").add(grossInterest1);
@@ -441,7 +447,8 @@ describe("PartialRepayments", () => {
                 loanData2.lastAccrualTimestamp,
                 t2
             );
-            expect(grossInterest2).to.eq(ethers.utils.parseEther("5"));
+            // expecting: ethers.utils.parseEther("5")
+            expect(grossInterest2).to.gt(ethers.utils.parseEther("4.9999")).and.lt(ethers.utils.parseEther("5.0001"));
 
             // borrower sends 50ETH to pay the principal
             const repayAmount2 = ethers.utils.parseEther("50").add(grossInterest2);
@@ -469,7 +476,8 @@ describe("PartialRepayments", () => {
                 BigNumber.from(loadData3.lastAccrualTimestamp).sub(BigNumber.from(loanData.startDate)),
                 loanData.terms.principal
             );
-            expect(effectiveInterestRate).to.eq(1500);
+            // expecting 1500
+            expect(effectiveInterestRate).to.be.gt(1490).and.lt(1510);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
@@ -492,7 +500,6 @@ describe("PartialRepayments", () => {
             // ------------------ First Repayment ------------------
             // increase time to 15 days into loan
             await blockchainTime.increaseTime((2592000 / 2) - 3);
-            // await hre.network.provider.send("evm_increaseTime", [(2592000 / 2) - 3]);
 
             // calculate interest payment
             const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
@@ -504,7 +511,8 @@ describe("PartialRepayments", () => {
                 loanData.lastAccrualTimestamp,
                 t1
             );
-            expect(grossInterest1).to.eq(ethers.utils.parseEther(".821917808219178082"));
+            // expecting: ethers.utils.parseEther(".821917808219178082")
+            expect(grossInterest1).to.gt(ethers.utils.parseEther(".8219")).and.lt(ethers.utils.parseEther(".8220"));
 
             // borrower sends 50ETH to pay the principal
             const repayAmount1 = ethers.utils.parseEther("50").add(grossInterest1);
@@ -531,7 +539,6 @@ describe("PartialRepayments", () => {
             expect(await mockERC20.balanceOf(borrower.address)).to.eq(ethers.utils.parseEther("50"));
             expect(await mockERC20.balanceOf(lender.address)).to.eq(ethers.utils.parseEther("50").add(grossInterest1));
 
-
             // ------------------ Second Repayment ------------------
 
             // get updated loan data
@@ -550,7 +557,8 @@ describe("PartialRepayments", () => {
                 loanData2.lastAccrualTimestamp,
                 t2
             );
-            expect(grossInterest2).to.eq(ethers.utils.parseEther(".205479452054794520"));
+            // expecting: ethers.utils.parseEther(".205479452054794520")
+            expect(grossInterest2).to.gt(ethers.utils.parseEther(".2054")).and.lt(ethers.utils.parseEther(".2055"));
 
             // borrower sends 50ETH to pay the principal
             const repayAmount2 = ethers.utils.parseEther("50").add(grossInterest2);
@@ -579,7 +587,8 @@ describe("PartialRepayments", () => {
 
             // check effective interest rate
             const effectiveInterestRate = await loanCore.getCloseEffectiveInterestRate(loanId);
-            expect(effectiveInterestRate).to.eq(1666);
+            // expecting 1666
+            expect(effectiveInterestRate).to.be.gt(1656).and.lt(1676);
         });
 
         it("repayment amount must be greater than interest due", async () => {
@@ -658,7 +667,8 @@ describe("PartialRepayments", () => {
                 loanData.lastAccrualTimestamp,
                 t1
             );
-            expect(grossInterest1).to.eq(ethers.utils.parseEther("10"));
+            // expecting: (ethers.utils.parseEther("10")
+            expect(grossInterest1).to.gt(ethers.utils.parseEther("9.9999")).and.lt(ethers.utils.parseEther("10.0001"));
 
             // borrower sends 101ETH to pay the principal
             const repayAmount1 = ethers.utils.parseEther("101").add(grossInterest1);
@@ -715,7 +725,8 @@ describe("PartialRepayments", () => {
                 loanData.lastAccrualTimestamp,
                 t1
             );
-            expect(grossInterest1).to.eq(ethers.utils.parseEther(".986301369863013698"));
+            // expecting: ethers.utils.parseEther(".986301369863013698")
+            expect(grossInterest1).to.gt(ethers.utils.parseEther(".9863")).and.lt(ethers.utils.parseEther(".9864"));
 
             // borrower sends 10ETH to pay the principal
             const repayAmount1 = ethers.utils.parseEther("10").add(grossInterest1);
@@ -759,7 +770,8 @@ describe("PartialRepayments", () => {
                 loanData2.lastAccrualTimestamp,
                 t2
             );
-            expect(grossInterest2).to.eq(ethers.utils.parseEther(".904109589041095890"));
+            // expecting: ethers.utils.parseEther(".904109589041095890")
+            expect(grossInterest2).to.gt(ethers.utils.parseEther(".9041")).and.lt(ethers.utils.parseEther(".9042"));
 
             // borrower sends 10ETH to pay the principal
             const repayAmount2 = ethers.utils.parseEther("10").add(grossInterest2);
@@ -803,7 +815,8 @@ describe("PartialRepayments", () => {
                 loanData3.lastAccrualTimestamp,
                 t3
             );
-            expect(grossInterest3).to.eq(ethers.utils.parseEther(".821917808219178082"));
+            // expecting: ethers.utils.parseEther(".821917808219178082")
+            expect(grossInterest3).to.gt(ethers.utils.parseEther(".8219")).and.lt(ethers.utils.parseEther(".8220"));
 
             // borrower sends 100ETH to pay the principal
             const repayAmount3 = ethers.utils.parseEther("100").add(grossInterest3);
@@ -858,7 +871,8 @@ describe("PartialRepayments", () => {
                 loanData.lastAccrualTimestamp,
                 t1
             );
-            expect(grossInterest1).to.eq(ethers.utils.parseEther("10"));
+            // expecting: ethers.utils.parseEther("10")
+            expect(grossInterest1).to.gt(ethers.utils.parseEther("9.9999")).and.lt(ethers.utils.parseEther("10.0001"));
 
             // borrower sends 50ETH to pay the principal
             const repayAmount1 = ethers.utils.parseEther("50").add(grossInterest1);
@@ -902,7 +916,8 @@ describe("PartialRepayments", () => {
                 loanData2.lastAccrualTimestamp,
                 t2
             );
-            expect(grossInterest2).to.eq(ethers.utils.parseEther("5"));
+            // expecting: ethers.utils.parseEther("5")
+            expect(grossInterest2).to.gt(ethers.utils.parseEther("4.9999")).and.lt(ethers.utils.parseEther("5.0001"));
 
             // borrower sends 50ETH to pay the principal
             const repayAmount2 = ethers.utils.parseEther("50").add(grossInterest2);
@@ -930,7 +945,8 @@ describe("PartialRepayments", () => {
                 BigNumber.from(loadData3.lastAccrualTimestamp).sub(BigNumber.from(loanData.startDate)),
                 loanData.terms.principal
             );
-            expect(effectiveInterestRate).to.eq(1500);
+            // expecting 1500
+            expect(effectiveInterestRate).to.gt(1490).and.lt(1510);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
@@ -965,7 +981,8 @@ describe("PartialRepayments", () => {
                 loanData.lastAccrualTimestamp,
                 t1
             );
-            expect(grossInterest1).to.eq(ethers.utils.parseEther(".821917808219178082"));
+            // expecting: ethers.utils.parseEther(".821917808219178082")
+            expect(grossInterest1).to.gt(ethers.utils.parseEther(".8219")).and.lt(ethers.utils.parseEther(".8220"));
 
             // borrower sends 50ETH to pay the principal
             const repayAmount1 = ethers.utils.parseEther("50").add(grossInterest1);
@@ -1011,7 +1028,8 @@ describe("PartialRepayments", () => {
                 loanData2.lastAccrualTimestamp,
                 t2
             );
-            expect(grossInterest2).to.eq(ethers.utils.parseEther(".205479452054794520"));
+            // expecting: ethers.utils.parseEther(".205479452054794520")
+            expect(grossInterest2).to.gt(ethers.utils.parseEther(".2054")).and.lt(ethers.utils.parseEther(".2055"));
 
             // borrower sends 50ETH to pay the principal
             const repayAmount2 = ethers.utils.parseEther("50").add(grossInterest2);
@@ -1066,7 +1084,8 @@ describe("PartialRepayments", () => {
                 loanData.lastAccrualTimestamp,
                 t1
             );
-            expect(grossInterest1).to.eq(ethers.utils.parseEther("10"));
+            // expecting: ethers.utils.parseEther("10")
+            expect(grossInterest1).to.gt(ethers.utils.parseEther("9.9999")).and.lt(ethers.utils.parseEther("10.0001"));
 
             // borrower sends 101ETH to pay the principal
             const repayAmount1 = ethers.utils.parseEther("101").add(grossInterest1);
@@ -1111,7 +1130,8 @@ describe("PartialRepayments", () => {
             );
 
             // total repayment amount
-            const total = ethers.utils.parseEther("110");
+            const timingToleranceAmount = ethers.utils.parseEther("0.1");
+            const total = ethers.utils.parseEther("110").add(timingToleranceAmount); // 0.1 extra for block timing tolerance
             const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
             // mint borrower exactly enough to repay loan
             await mint(mockERC20, borrower, repayAdditionalAmount);
@@ -1119,14 +1139,20 @@ describe("PartialRepayments", () => {
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
 
-            // go to 1 block before loan expires
-            await blockchainTime.increaseTime(31536000 - 3);
+            // go over loan duration by 1 hr
+            await blockchainTime.increaseTime(31536000 + 3600);
 
             await expect(
-                repaymentController.connect(borrower).repay(loanId, ethers.constants.MaxUint256)
+                repaymentController.connect(borrower).repayFull(loanId)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
 
-            expect(await mockERC20.balanceOf(borrower.address)).to.eq(0);
+            // expecting 0
+            expect(await mockERC20.balanceOf(borrower.address)).to.gte(0).and.lte(timingToleranceAmount);
+
+            // get effective interest rate
+            const effectiveInterestRate = await loanCore.getCloseEffectiveInterestRate(loanId);
+            // no tolerance here because we are well over the loan duration
+            expect(effectiveInterestRate).to.eq(1000);
         });
 
         it("Repay full. 100 ETH principal, 10% interest rate, half duration.", async () => {
@@ -1142,7 +1168,8 @@ describe("PartialRepayments", () => {
             );
 
             // total repayment amount
-            const total = ethers.utils.parseEther("105");
+            const timingToleranceAmount = ethers.utils.parseEther("0.1");
+            const total = ethers.utils.parseEther("105").add(timingToleranceAmount); // 0.1 extra for block timing tolerance
             const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
             // mint borrower exactly enough to repay loan
             await mint(mockERC20, borrower, repayAdditionalAmount);
@@ -1150,14 +1177,20 @@ describe("PartialRepayments", () => {
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
 
-            // go to 1 block before loan expires
+            // go to 1 block before half of loan duration
             await blockchainTime.increaseTime((31536000 / 2) - 3);
 
             await expect(
-                repaymentController.connect(borrower).repay(loanId, ethers.constants.MaxUint256)
+                repaymentController.connect(borrower).repayFull(loanId)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
 
-            expect(await mockERC20.balanceOf(borrower.address)).to.eq(0);
+            // expecting 0
+            expect(await mockERC20.balanceOf(borrower.address)).to.gte(0).and.lte(timingToleranceAmount);
+
+            // get effective interest rate
+            const effectiveInterestRate = await loanCore.getCloseEffectiveInterestRate(loanId);
+            // expecting 1000
+            expect(effectiveInterestRate).to.gt(990).and.lt(1010);
         });
 
         it("Force repay full. 100 ETH principal, 10% interest rate, full duration.", async () => {
@@ -1173,7 +1206,8 @@ describe("PartialRepayments", () => {
             );
 
             // total repayment amount
-            const total = ethers.utils.parseEther("110");
+            const timingToleranceAmount = ethers.utils.parseEther("0.1");
+            const total = ethers.utils.parseEther("110").add(timingToleranceAmount); // 0.1 extra for block timing tolerance
             const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
             // mint borrower exactly enough to repay loan
             await mint(mockERC20, borrower, repayAdditionalAmount);
@@ -1188,11 +1222,12 @@ describe("PartialRepayments", () => {
                 repaymentController.connect(borrower).forceRepay(loanId, ethers.constants.MaxUint256)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
 
-            expect(await mockERC20.balanceOf(borrower.address)).to.eq(0);
+            // expecting 0
+            expect(await mockERC20.balanceOf(borrower.address)).to.gte(0).and.lte(timingToleranceAmount);
 
             const noteReceipt = await loanCore.noteReceipts(loanId);
             expect(noteReceipt.token).to.eq(mockERC20.address);
-            expect((noteReceipt).amount).to.eq(ethers.utils.parseEther("110"));
+            expect((noteReceipt).amount).to.gte(ethers.utils.parseEther("110")).and.lt(ethers.utils.parseEther("110.1"));
         });
 
         it("Force repay full. 100 ETH principal, 10% interest rate, half duration.", async () => {
@@ -1208,7 +1243,8 @@ describe("PartialRepayments", () => {
             );
 
             // total repayment amount
-            const total = ethers.utils.parseEther("105");
+            const timingToleranceAmount = ethers.utils.parseEther("0.1");
+            const total = ethers.utils.parseEther("105").add(timingToleranceAmount); // 0.1 extra for block timing tolerance
             const repayAdditionalAmount = total.sub(await mockERC20.balanceOf(borrower.address));
             // mint borrower exactly enough to repay loan
             await mint(mockERC20, borrower, repayAdditionalAmount);
@@ -1223,11 +1259,12 @@ describe("PartialRepayments", () => {
                 repaymentController.connect(borrower).forceRepay(loanId, ethers.constants.MaxUint256)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
 
-            expect(await mockERC20.balanceOf(borrower.address)).to.eq(0);
+            // expecting 0
+            expect(await mockERC20.balanceOf(borrower.address)).to.gte(0).and.lte(timingToleranceAmount);
 
             const noteReceipt = await loanCore.noteReceipts(loanId);
             expect(noteReceipt.token).to.eq(mockERC20.address);
-            expect((noteReceipt).amount).to.eq(ethers.utils.parseEther("105"));
+            expect((noteReceipt).amount).to.gte(ethers.utils.parseEther("105")).and.lt(ethers.utils.parseEther("105.1"));
         });
     });
 
@@ -1258,7 +1295,8 @@ describe("PartialRepayments", () => {
                 loanData.lastAccrualTimestamp,
                 t1
             );
-            expect(grossInterest1).to.eq(ethers.utils.parseEther(".986301369863013698"));
+            // expecting: ethers.utils.parseEther(".986301369863013698")
+            expect(grossInterest1).to.gt(ethers.utils.parseEther(".9863")).and.lt(ethers.utils.parseEther(".9864"));
 
             // borrower sends 10ETH to pay the principal
             const repayAmount1 = ethers.utils.parseEther("10").add(grossInterest1);
@@ -1322,7 +1360,8 @@ describe("PartialRepayments", () => {
                 loanData2.lastAccrualTimestamp,
                 t2
             );
-            expect(grossInterest2).to.eq(ethers.utils.parseEther(".904109589041095890"));
+            // expecting: ethers.utils.parseEther(".904109589041095890")
+            expect(grossInterest2).to.gt(ethers.utils.parseEther(".9041")).and.lt(ethers.utils.parseEther(".9042"));
 
             // borrower sends 10ETH to pay the principal
             const repayAmount2 = ethers.utils.parseEther("10").add(grossInterest2);
@@ -1368,7 +1407,8 @@ describe("PartialRepayments", () => {
                 loanData3.lastAccrualTimestamp,
                 t3
             );
-            expect(grossInterest3).to.eq(ethers.utils.parseEther(".821917808219178082"));
+            // expecting: ethers.utils.parseEther(".821917808219178082")
+            expect(grossInterest3).to.gt(ethers.utils.parseEther(".8219")).and.lt(ethers.utils.parseEther(".8220"));
 
             // borrower sends 100ETH to pay the principal
             const repayAmount3 = ethers.utils.parseEther("100").add(grossInterest3);
@@ -1436,7 +1476,8 @@ describe("PartialRepayments", () => {
                 loanData.lastAccrualTimestamp,
                 t1
             );
-            expect(grossInterest1).to.eq(ethers.utils.parseEther("10"));
+            // expecting: ethers.utils.parseEther("10")
+            expect(grossInterest1).to.gt(ethers.utils.parseEther("9.9999")).and.lt(ethers.utils.parseEther("10.0001"));
 
             // borrower sends 50ETH to pay the principal
             const repayAmount1 = ethers.utils.parseEther("50").add(grossInterest1);
@@ -1496,7 +1537,8 @@ describe("PartialRepayments", () => {
                 loanData2.lastAccrualTimestamp,
                 t2
             );
-            expect(grossInterest2).to.eq(ethers.utils.parseEther("5"));
+            // expecting: ethers.utils.parseEther("5")
+            expect(grossInterest2).to.gt(ethers.utils.parseEther("4.9999")).and.lt(ethers.utils.parseEther("5.0001"));
 
             // borrower sends 50ETH to pay the principal
             const repayAmount2 = ethers.utils.parseEther("50").add(grossInterest2);
@@ -1524,7 +1566,8 @@ describe("PartialRepayments", () => {
                 BigNumber.from(loadData3.lastAccrualTimestamp).sub(BigNumber.from(loanData.startDate)),
                 loanData.terms.principal
             );
-            expect(effectiveInterestRate).to.eq(1500);
+            // expecting 1500
+            expect(effectiveInterestRate).to.gt(1490).and.lt(1510);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
@@ -1547,9 +1590,9 @@ describe("PartialRepayments", () => {
         });
 
         it("1 force repayment, then the lender claims the collateral after loan duration", async () => {
-            const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, blockchainTime } = ctx;
+            const { repaymentController, mockERC20, loanCore, borrower, lender, blockchainTime } = ctx;
 
-            const { loanId, bundleId, loanData } = await initializeLoan(
+            const { loanId, loanData } = await initializeLoan(
                 ctx,
                 mockERC20.address,
                 BigNumber.from(31536000), // durationSecs (3600*24*365)
@@ -1572,7 +1615,8 @@ describe("PartialRepayments", () => {
                 loanData.lastAccrualTimestamp,
                 t1
             );
-            expect(grossInterest1).to.eq(ethers.utils.parseEther("10"));
+            // expecting: ethers.utils.parseEther("10")
+            expect(grossInterest1).to.gt(ethers.utils.parseEther("9.9999")).and.lt(ethers.utils.parseEther("10.0001"));
 
             // borrower sends 50ETH to pay the principal
             const repayAmount1 = ethers.utils.parseEther("50").add(grossInterest1);

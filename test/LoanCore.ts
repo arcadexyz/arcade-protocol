@@ -881,6 +881,22 @@ describe("LoanCore", () => {
             )).to.be.revertedWith("LC_CannotSettle");
         });
 
+        it("should fail if payment to principal is larger than remaining balance", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, terms } = await setupLoan();
+            const repayAmount = terms.principal.add(ethers.utils.parseEther(".5"));
+
+            await mockERC20.connect(borrower).mint(borrower.address, repayAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
+
+            await expect(loanCore.connect(borrower).repay(
+                loanId,
+                borrower.address,
+                repayAmount,
+                ethers.utils.parseEther(".5"),
+                terms.principal.add(ethers.utils.parseEther("1"))
+            )).to.be.revertedWith("LC_ExceedsBalance");
+        });
+
         it("should still work when shutdown", async () => {
             const { mockERC20, loanId, loanCore, user: borrower, terms } = await setupLoan();
             // approve more than enough to repay

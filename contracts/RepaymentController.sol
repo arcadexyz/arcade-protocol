@@ -41,8 +41,6 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     IPromissoryNote private immutable lenderNote;
     IFeeController private immutable feeController;
 
-    uint256 public constant MAX_INT = 2**256 - 1;
-
     // ========================================= CONSTRUCTOR ============================================
 
     /**
@@ -91,9 +89,9 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
 
     /**
      * @notice Completely repay an active loan, referenced by BorrowerNote ID (equivalent to loan ID).
-     *         The interest for the loan is calculated, and the remaining balance plus interest is withdrawn
-     *         from the caller. Anyone can repay a loan. After the repayment amounts are calculated, control
-     *         is passed to LoanCore to complete repayment and update LoanData accounting.
+     *         The interest for the loan is calculated, and the full balance plus interest is withdrawn
+     *         from the caller. Anyone can repay a loan. After the repayment amounts are calculated,
+     *         control is passed to LoanCore to complete repayment and update LoanData accounting.
      *
      * @param  loanId               The ID of the loan.
      */
@@ -224,21 +222,16 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
             block.timestamp
         );
 
-        if(amount == MAX_INT) {
-            // shortcut for full repayment
+        // make sure that repayment amount is greater than interest due
+        if (amount < interestAmount) revert RC_InvalidRepayment(amount, interestAmount);
+
+        // calculate the amount of the repayment that goes to the principal
+        paymentToPrincipal = amount - interestAmount;
+
+        // check if payment to principal is greater than the loan balance
+        if (paymentToPrincipal > data.balance) {
+            // if so, set payment to principal to the loan balance
             paymentToPrincipal = data.balance;
-        } else {
-            // make sure that repayment amount is greater than interest due
-            if (amount < interestAmount) revert RC_InvalidRepayment(amount, interestAmount);
-
-            // calculate the amount of the repayment that goes to the principal
-            paymentToPrincipal = amount - interestAmount;
-
-            // check if payment to principal is greater than the loan balance
-            if (paymentToPrincipal > data.balance) {
-                // if so, set payment to principal to the loan balance
-                paymentToPrincipal = data.balance;
-            }
         }
 
         // calculate fees on interest and principal

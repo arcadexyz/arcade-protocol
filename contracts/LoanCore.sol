@@ -650,9 +650,21 @@ contract LoanCore is
                     uint256(data.lastAccrualTimestamp),
                     block.timestamp
                 );
-        }
-        else if (data.state == LoanLibrary.LoanState.Repaid) {
-            // if loan is repaid get the effective interest rate based on the total interest paid
+        } else if (data.state == LoanLibrary.LoanState.Repaid) {
+            if (data.lastAccrualTimestamp > data.startDate + data.terms.durationSecs) {
+                // If loan is repaid and last interest accrual was after the loan duration,
+                // get the effective interest rate based on the loan duration.
+                // Interest cannot accrue past the loan duration.
+                return
+                    InterestCalculator.effectiveInterestRate(
+                        data.interestAmountPaid,
+                        uint256(data.terms.durationSecs),
+                        data.terms.principal
+                    );
+            }
+
+            // If loan is repaid before loan duration get the effective interest
+            // rate based on the total interest paid adn time elapsed.
             return
                 InterestCalculator.effectiveInterestRate(
                     data.interestAmountPaid,
