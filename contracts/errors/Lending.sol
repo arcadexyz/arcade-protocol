@@ -271,6 +271,19 @@ error RC_InvalidState(LoanLibrary.LoanState state);
  */
 error RC_OnlyLender(address lender, address caller);
 
+/**
+ * @notice Repayment amount specified is less than interest owed.
+ *
+ * @param amount                        Amount to repay.
+ * @param interestOwed                  Amount of interest owed on the loan.
+ */
+error RC_InvalidRepayment(uint256 amount, uint256 interestOwed);
+
+/**
+ * @notice Repayment amount must be greater than 0.
+ */
+error RC_ZeroAmount();
+
 // ==================================== Loan Core ======================================
 /// @notice All errors prefixed with LC_, to separate from other contracts in the protocol.
 
@@ -375,6 +388,17 @@ error LC_CallerNotLoanCore();
  * @notice The loan core contract has been irreversibly shut down.
  */
 error LC_Shutdown();
+
+/**
+ * @notice The payment to principal must be less than the balance due.
+ */
+error LC_ExceedsBalance(uint256 paymentToPrincipal, uint256 balance);
+
+/**
+ * @notice LoanCore is holding a withdrawal balance for this loan. The collateral
+ * cannot be claimed until the available balance is withdrawn.
+ */
+error LC_AwaitingWithdrawal(uint256 availableAmount);
 
 // ==================================== Promissory Note ======================================
 /// @notice All errors prefixed with PN_, to separate from other contracts in the protocol.

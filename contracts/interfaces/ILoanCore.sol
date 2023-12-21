@@ -22,6 +22,7 @@ interface ILoanCore {
     // ================ Events =================
 
     event LoanStarted(uint256 loanId, address lender, address borrower);
+    event LoanPayment(uint256 loanId);
     event LoanRepaid(uint256 loanId);
     event ForceRepay(uint256 loanId);
     event LoanRolledOver(uint256 oldLoanId, uint256 newLoanId);
@@ -46,15 +47,17 @@ interface ILoanCore {
     function repay(
         uint256 loanId,
         address payer,
-        uint256 _amountFromPayer,
-        uint256 _amountToLender
+        uint256 _amountToLender,
+        uint256 _interestAmount,
+        uint256 _paymentToPrincipal
     ) external;
 
     function forceRepay(
         uint256 loanId,
         address payer,
-        uint256 _amountFromPayer,
-        uint256 _amountToLender
+        uint256 _amountToLender,
+        uint256 _interestAmount,
+        uint256 _paymentToPrincipal
     ) external;
 
     function claim(
@@ -70,13 +73,15 @@ interface ILoanCore {
 
     function rollover(
         uint256 oldLoanId,
+        address oldLender,
         address borrower,
         address lender,
         LoanLibrary.LoanTerms calldata terms,
         uint256 _settledAmount,
         uint256 _amountToOldLender,
         uint256 _amountToLender,
-        uint256 _amountToBorrower
+        uint256 _amountToBorrower,
+        uint256 _interestAmount
     ) external returns (uint256 newLoanId);
 
     // ============== Nonce Management ==============

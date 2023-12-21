@@ -3,11 +3,13 @@
 pragma solidity 0.8.18;
 
 interface IRepaymentController {
-    // ============== Lifeycle Operations ==============
+    // ============== Lifecycle Operations ==============
 
-    function repay(uint256 loanId) external;
+    function repay(uint256 loanId, uint256 amount) external;
 
-    function forceRepay(uint256 loanId) external;
+    function repayFull(uint256 loanId) external;
+
+    function forceRepay(uint256 loanId, uint256 amount) external;
 
     function claim(uint256 loanId) external;
 

@@ -1277,7 +1277,7 @@ describe("OriginationController", () => {
                 .to.be.revertedWith(`OC_InvalidCurrency("${unapprovedERC20.address}")`);
         });
 
-        it("Initalizes a loan signed by the borrower", async () => {
+        it("Initializes a loan signed by the borrower", async () => {
             const { loanCore, originationController, mockERC20, mockERC721, vaultFactory, user: lender, other: borrower } = ctx;
 
             const bundleId = await initializeBundle(vaultFactory, borrower);
@@ -1334,7 +1334,7 @@ describe("OriginationController", () => {
                 .withArgs(lender.address, loanCore.address, loanTerms.principal);
         });
 
-        it("Initalizes a loan signed by the lender", async () => {
+        it("Initializes a loan signed by the lender", async () => {
             const { loanCore, originationController, mockERC20, mockERC721, vaultFactory, user: lender, other: borrower } = ctx;
 
             const bundleId = await initializeBundle(vaultFactory, borrower);

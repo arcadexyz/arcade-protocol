@@ -953,13 +953,15 @@ contract OriginationController is
 
         loanId = loanCore.rollover(
             oldLoanId,
+            oldLender,
             borrower,
             lender,
             newTerms,
             settledAmount,
             amounts.amountToOldLender,
             amounts.amountToLender,
-            amounts.amountToBorrower
+            amounts.amountToBorrower,
+            amounts.interestAmount
         );
     }
 
@@ -985,7 +987,7 @@ contract OriginationController is
         // get rollover fees
         IFeeController.FeesRollover memory feeData = feeController.getFeesRollover();
 
-        // Calculate prorated repayment amount for old loan
+        // Calculate prorated interest amount for old loan
         uint256 interest = getProratedInterestAmount(
             oldLoanData.balance,
             oldLoanData.terms.interestRate,
@@ -994,6 +996,7 @@ contract OriginationController is
             uint64(oldLoanData.lastAccrualTimestamp),
             block.timestamp
         );
+        amounts.interestAmount = interest;
         uint256 repayAmount = oldLoanData.terms.principal + interest;
 
         // Calculate amount to be sent to borrower for new loan minus rollover fees

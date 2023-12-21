@@ -31,7 +31,9 @@ import {
     LC_AffiliateCodeAlreadySet,
     LC_CallerNotLoanCore,
     LC_NoReceipt,
-    LC_Shutdown
+    LC_Shutdown,
+    LC_ExceedsBalance,
+    LC_AwaitingWithdrawal
 } from "./errors/Lending.sol";
 
 /**
@@ -222,30 +224,44 @@ contract LoanCore is
      *
      * @param loanId                The ID of the loan to repay.
      * @param payer                 The party repaying the loan.
-     * @param _amountFromPayer      The amount of tokens to be collected from the repayer.
      * @param _amountToLender       The amount of tokens to be distributed to the lender (net after fees).
+     * @param _interestAmount       The interest amount to be paid.
+     * @param _paymentToPrincipal   The portion of the repayment amount that goes to principal.
      */
     function repay(
         uint256 loanId,
         address payer,
-        uint256 _amountFromPayer,
-        uint256 _amountToLender
+        uint256 _amountToLender,
+        uint256 _interestAmount,
+        uint256 _paymentToPrincipal
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
-        LoanLibrary.LoanData memory data = _handleRepay(loanId, _amountFromPayer, _amountToLender);
+        (LoanLibrary.LoanData memory data, uint256 amountFromPayer) = _handleRepay(
+            loanId,
+            _amountToLender,
+            _interestAmount,
+            _paymentToPrincipal
+        );
 
-        // Get promissory notes from two parties involved, then burn
+        // get promissory notes from two parties involved
         address lender = lenderNote.ownerOf(loanId);
         address borrower = borrowerNote.ownerOf(loanId);
-        _burnLoanNotes(loanId);
 
-        // Send collected principal + interest, less fees, to lender
-        _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, _amountFromPayer);
+        // collect principal and interest from borrower
+        _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, amountFromPayer);
+        // send repayment less fees to lender
         _transferIfNonzero(IERC20(data.terms.payableCurrency), lender, _amountToLender);
 
-        // Redistribute collateral
-        IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
+        if (loans[loanId].state == LoanLibrary.LoanState.Repaid) {
+            // if loan is completely repaid
+            // burn both notes
+            _burnLoanNotes(loanId);
+            // redistribute collateral and emit event
+            IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
 
-        emit LoanRepaid(loanId);
+            emit LoanRepaid(loanId);
+        }
+
+        emit LoanPayment(loanId);
     }
 
     /**
@@ -256,34 +272,48 @@ contract LoanCore is
      *
      * @param loanId                The ID of the loan to repay.
      * @param payer                 The party repaying the loan.
-     * @param _amountFromPayer      The amount of tokens to be collected from the repayer.
      * @param _amountToLender       The amount of tokens to be distributed to the lender (net after fees).
+     * @param _interestAmount       The interest amount to be paid.
+     * @param _paymentToPrincipal   The portion of the repayment amount that goes to principal.
      */
     function forceRepay(
         uint256 loanId,
         address payer,
-        uint256 _amountFromPayer,
-        uint256 _amountToLender
+        uint256 _amountToLender,
+        uint256 _interestAmount,
+        uint256 _paymentToPrincipal
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
-        LoanLibrary.LoanData memory data = _handleRepay(loanId, _amountFromPayer, _amountToLender);
+        (LoanLibrary.LoanData memory data, uint256 amountFromPayer) = _handleRepay(
+            loanId,
+            _amountToLender,
+            _interestAmount,
+            _paymentToPrincipal
+        );
 
-        // Do not send collected principal, but make it available for withdrawal by a holder of the lender note
-        noteReceipts[loanId] = NoteReceipt({
-            token: data.terms.payableCurrency,
-            amount: _amountToLender
-        });
+        // DO NOT send collected principal, but make it available for withdrawal by a holder of the LenderNote
+        NoteReceipt storage receipt = noteReceipts[loanId];
+        if (receipt.token == address(0)) {
+            receipt.token = data.terms.payableCurrency;
+            receipt.amount = _amountToLender;
+        } else {
+            receipt.amount += _amountToLender;
+        }
 
-        // Get promissory notes from two parties involved, then burn
-        // borrower note _only_ - do not burn lender note until receipt
-        // is redeemed
-        address borrower = borrowerNote.ownerOf(loanId);
-        borrowerNote.burn(loanId);
+        // collect repayment amount from payer
+        _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, amountFromPayer);
 
-        // Collect from borrower and redistribute collateral
-        _collectIfNonzero(IERC20(data.terms.payableCurrency), payer, _amountFromPayer);
-        IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
+        if (loans[loanId].state == LoanLibrary.LoanState.Repaid) {
+            // if loan is completely repaid
+            // burn BorrowerNote, DO NOT burn LenderNote until receipt is redeemed
+            address borrower = borrowerNote.ownerOf(loanId);
+            borrowerNote.burn(loanId);
+            // redistribute collateral and emit event
+            IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), borrower, data.terms.collateralId);
 
-        emit LoanRepaid(loanId);
+            emit LoanRepaid(loanId);
+        }
+
+        emit LoanPayment(loanId);
         emit ForceRepay(loanId);
     }
 
@@ -293,6 +323,9 @@ contract LoanCore is
      *         date has passed, and the grace period of 10 mins has also passed. Then it distributes
      *         collateral to the lender. All promissory notes will be burned and the loan
      *         will be marked as complete.
+     *
+     * @dev If LoanCore is holding a withdrawal balance for this loan's NoteReceipt. The collateral
+     *      cannot be claimed until the available balance is withdrawn.
      *
      * @param loanId                              The ID of the loan to claim.
      * @param _amountFromLender                   Any claiming fees to be collected from the lender.
@@ -307,6 +340,9 @@ contract LoanCore is
         LoanLibrary.LoanData memory data = loans[loanId];
         // Ensure valid initial loan state when claiming loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
+
+        // Check that loan has a noteReceipt of zero amount
+        if (noteReceipts[loanId].amount != 0) revert LC_AwaitingWithdrawal(noteReceipts[loanId].amount);
 
         // First check if the call is being made after the due date plus 10 min grace period.
         uint256 dueDate = data.startDate + data.terms.durationSecs + GRACE_PERIOD;
@@ -326,8 +362,9 @@ contract LoanCore is
             if (affiliateFee > 0) _feesWithdrawable[affiliate] += affiliateFee;
         }
 
-        // Get promissory notes from two parties involved, then burn
+        // Get owner of the LenderNote
         address lender = lenderNote.ownerOf(loanId);
+        // Burn both notes
         _burnLoanNotes(loanId);
 
         // Collateral redistribution
@@ -355,7 +392,8 @@ contract LoanCore is
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         NoteReceipt memory receipt = noteReceipts[loanId];
         (address token, uint256 amount) = (receipt.token, receipt.amount);
-        if (token == address(0) || amount == 0) revert LC_NoReceipt(loanId);
+        if (token == address(0)) revert LC_NoReceipt(loanId);
+        if (amount == 0) revert LC_ZeroAmount();
 
         // Deduct the redeem fee from the amount and assign for withdrawal
         amount -= _amountFromLender;
@@ -368,12 +406,20 @@ contract LoanCore is
         if (protocolFee > 0) _feesWithdrawable[address(this)] += protocolFee;
         if (affiliateFee > 0) _feesWithdrawable[affiliate] += affiliateFee;
 
-        // Delete the receipt
-        delete noteReceipts[loanId];
-
-        // Burn the note
+        // Get owner of the LenderNote
         address lender = lenderNote.ownerOf(loanId);
-        lenderNote.burn(loanId);
+
+        // if the loan has been completely repaid and no more repayments are expected
+        if (loans[loanId].state == LoanLibrary.LoanState.Repaid) {
+            // delete the receipt
+            delete noteReceipts[loanId];
+
+            // Burn ONLY the LenderNote
+            lenderNote.burn(loanId);
+        } else {
+            // zero out the total amount owed in the receipt
+            noteReceipts[loanId].amount = 0;
+        }
 
         // Transfer the held tokens to the lender-specified address
         _transferIfNonzero(IERC20(token), to, amount);
@@ -389,6 +435,7 @@ contract LoanCore is
      *         net payments have been collected by the RepaymentController for withdrawal.
      *
      * @param oldLoanId             The ID of the old loan.
+     * @param oldLender             The lender for the old loan.
      * @param borrower              The borrower for the loan.
      * @param lender                The lender for the old loan.
      * @param terms                 The terms of the new loan.
@@ -396,18 +443,21 @@ contract LoanCore is
      * @param _amountToOldLender    The payment to the old lender (if lenders are changing).
      * @param _amountToLender       The payment to the lender (if same as old lender).
      * @param _amountToBorrower     The payment to the borrower (in the case of leftover principal).
+     * @param _interestAmount       The interest amount to be paid.
      *
      * @return newLoanId            The ID of the new loan.
      */
     function rollover(
         uint256 oldLoanId,
+        address oldLender,
         address borrower,
         address lender,
         LoanLibrary.LoanTerms calldata terms,
         uint256 _settledAmount,
         uint256 _amountToOldLender,
         uint256 _amountToLender,
-        uint256 _amountToBorrower
+        uint256 _amountToBorrower,
+        uint256 _interestAmount
     ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 newLoanId) {
         LoanLibrary.LoanData storage data = loans[oldLoanId];
         // Ensure valid loan state for old loan
@@ -415,8 +465,9 @@ contract LoanCore is
 
         // State change for old loan
         data.state = LoanLibrary.LoanState.Repaid;
+        data.balance = 0;
+        data.interestAmountPaid += _interestAmount;
 
-        address oldLender = lenderNote.ownerOf(oldLoanId);
         IERC20 payableCurrency = IERC20(data.terms.payableCurrency);
 
         // Check that contract will not net lose tokens
@@ -594,18 +645,30 @@ contract LoanCore is
                     data.terms.principal,
                     data.interestAmountPaid,
                     data.terms.interestRate,
-                    data.terms.durationSecs,
-                    data.startDate,
-                    data.lastAccrualTimestamp,
+                    uint256(data.terms.durationSecs),
+                    uint256(data.startDate),
+                    uint256(data.lastAccrualTimestamp),
                     block.timestamp
                 );
-        }
-        else if (data.state == LoanLibrary.LoanState.Repaid) {
-            // if loan is repaid get the effective interest rate based on the total interest paid
+        } else if (data.state == LoanLibrary.LoanState.Repaid) {
+            if (data.lastAccrualTimestamp > data.startDate + data.terms.durationSecs) {
+                // If loan is repaid and last interest accrual was after the loan duration,
+                // get the effective interest rate based on the loan duration.
+                // Interest cannot accrue past the loan duration.
+                return
+                    InterestCalculator.effectiveInterestRate(
+                        data.interestAmountPaid,
+                        uint256(data.terms.durationSecs),
+                        data.terms.principal
+                    );
+            }
+
+            // If loan is repaid before loan duration get the effective interest
+            // rate based on the total interest paid adn time elapsed.
             return
                 InterestCalculator.effectiveInterestRate(
                     data.interestAmountPaid,
-                    data.lastAccrualTimestamp - data.startDate,
+                    uint256(data.lastAccrualTimestamp) - uint256(data.startDate),
                     data.terms.principal
                 );
         } else {
@@ -714,26 +777,33 @@ contract LoanCore is
      *      Will validate loan state, perform accounting calculations, update storage and burn loan notes.
      *      Transfers should occur in the calling function.
      *
-     * @param loanId                The ID of the loan to repay.
-     * @param _amountFromPayer      The amount of tokens to be collected from the repayer.
-     * @param _amountToLender       The amount of tokens to be distributed to the lender (net after fees).
+     * @param loanId                 The ID of the loan to repay.
+     * @param _amountToLender        The amount of tokens to be distributed to the lender (net after fees).
+     * @param _interestAmount        The amount of interest to be paid.
+     * @param _paymentToPrincipal    The amount of principal to be paid.
      *
-     * @return data                 The loan data for the repay operation.
+     * @return data                  The loan data for the repay operation.
+     * @return amountFromPayer       The principal plus interest to be collected from the payer.
      */
     function _handleRepay(
         uint256 loanId,
-        uint256 _amountFromPayer,
-        uint256 _amountToLender
-    ) internal returns (LoanLibrary.LoanData memory data) {
+        uint256 _amountToLender,
+        uint256 _interestAmount,
+        uint256 _paymentToPrincipal
+    ) internal returns (LoanLibrary.LoanData memory data, uint256 amountFromPayer) {
         data = loans[loanId];
         // Ensure valid initial loan state when repaying loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
 
-        // Check that we will not net lose tokens.
-        if (_amountToLender > _amountFromPayer) revert LC_CannotSettle(_amountToLender, _amountFromPayer);
+        amountFromPayer = _paymentToPrincipal + _interestAmount;
+
+        // Check that we will not net lose tokens
+        if (_amountToLender > amountFromPayer) revert LC_CannotSettle(_amountToLender, amountFromPayer);
+        // Check that the payment to principal is not greater than the balance
+        if (_paymentToPrincipal > data.balance) revert LC_ExceedsBalance(_paymentToPrincipal, data.balance);
 
         uint256 feesEarned;
-        unchecked { feesEarned = _amountFromPayer - _amountToLender; }
+        unchecked { feesEarned = amountFromPayer - _amountToLender; }
 
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
             _getAffiliateSplit(feesEarned, data.terms.affiliateCode);
@@ -743,12 +813,17 @@ contract LoanCore is
         if (protocolFee > 0) _feesWithdrawable[address(this)] += protocolFee;
         if (affiliateFee > 0) _feesWithdrawable[affiliate] += affiliateFee;
 
-        // State changes and cleanup
-        loans[loanId].state = LoanLibrary.LoanState.Repaid;
-        loans[loanId].interestAmountPaid = _amountFromPayer - data.balance;
-        loans[loanId].balance = 0;
+        // state changes
+        if (_paymentToPrincipal == data.balance) {
+            // If the payment is equal to the balance, the loan is repaid
+            loans[loanId].state = LoanLibrary.LoanState.Repaid;
+            // mark collateral as no longer escrowed
+            collateralInUse[keccak256(abi.encode(data.terms.collateralAddress, data.terms.collateralId))] = false;
+        }
+
+        loans[loanId].interestAmountPaid += _interestAmount;
+        loans[loanId].balance -= _paymentToPrincipal;
         loans[loanId].lastAccrualTimestamp = uint64(block.timestamp);
-        collateralInUse[keccak256(abi.encode(data.terms.collateralAddress, data.terms.collateralId))] = false;
     }
 
     /**
