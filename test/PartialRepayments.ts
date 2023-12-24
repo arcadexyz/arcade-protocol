@@ -185,8 +185,8 @@ const initializeLoan = async (
     );
 
     // lender accepts loan terms
-    await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
-    await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+    await approve(mockERC20, lender, originationController.address, loanTerms.principal);
+    await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
 
     const tx = await originationController
         .connect(lender)

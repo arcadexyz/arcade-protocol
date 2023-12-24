@@ -1058,7 +1058,7 @@ describe("Integration", () => {
             await approve(mockERC20, borrower, loanCore.address, repayAmount2);
 
             // Repay - loan was for same terms, so will earn
-            await expect(repaymentController.connect(borrower).repay(newLoanId))
+            await expect(repaymentController.connect(borrower).repayFull(newLoanId))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(newLoanId)
                 .to.emit(mockERC20, "Transfer")
