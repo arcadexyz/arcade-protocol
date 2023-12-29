@@ -206,8 +206,8 @@ const initializeLoan = async (
         "b",
     );
 
-    await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
-    await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+    await approve(mockERC20, lender, originationController.address, loanTerms.principal);
+    await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
 
     const tx = await originationController
         .connect(lender)
@@ -355,7 +355,7 @@ describe("RepaymentController", () => {
             );
 
             const bundleId = await initializeBundle(vaultFactory, borrower);
-            await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+            await vaultFactory.connect(borrower).approve(mockOC.address, bundleId);
 
             const loanTerms = createLoanTerms(
                 mockERC20.address,

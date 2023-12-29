@@ -224,8 +224,8 @@ const initializeLoan = async (
         "b",
     );
 
-    await approve(mockERC20, lender, loanCore.address, lenderWillSend);
-    await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+    await approve(mockERC20, lender, originationController.address, lenderWillSend);
+    await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
 
     const tx = await originationController
         .connect(lender)
@@ -331,8 +331,8 @@ describe("Integration", () => {
                 "b",
             );
 
-            await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
-            await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+            await approve(mockERC20, lender, originationController.address, loanTerms.principal);
+            await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
 
             await expect(
                 originationController
@@ -340,7 +340,9 @@ describe("Integration", () => {
                     .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1),
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, loanCore.address, loanTerms.principal)
+                .withArgs(lender.address, originationController.address, loanTerms.principal)
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(originationController.address, borrower.address, loanTerms.principal)
                 .to.emit(loanCore, "LoanStarted");
         });
 
@@ -361,8 +363,8 @@ describe("Integration", () => {
                 "b",
             );
 
-            await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
-            await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+            await approve(mockERC20, lender, originationController.address, loanTerms.principal);
+            await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
             // simulate someone trying to withdraw just before initializing the loan
             await AssetVault__factory.connect(bundleId, borrower).connect(borrower).enableWithdraw();
             await expect(
@@ -390,7 +392,7 @@ describe("Integration", () => {
                 "b",
             );
 
-            await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
+            await approve(mockERC20, lender, originationController.address, loanTerms.principal);
             await expect(
                 originationController
                     .connect(lender)
@@ -399,7 +401,7 @@ describe("Integration", () => {
         });
 
         it("should fail to create a loan with passed due date", async () => {
-            const { loanCore, originationController, mockERC20, vaultFactory, lender, borrower } = await loadFixture(fixture);
+            const { originationController, mockERC20, vaultFactory, lender, borrower } = await loadFixture(fixture);
             const bundleId = await createWnft(vaultFactory, borrower);
             const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, {
                 collateralId: bundleId,
@@ -417,8 +419,8 @@ describe("Integration", () => {
                 "b",
             );
 
-            await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
-            await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+            await approve(mockERC20, lender, originationController.address, loanTerms.principal);
+            await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
             await expect(
                 originationController
                     .connect(lender)
@@ -566,8 +568,8 @@ describe("Integration", () => {
                 "b",
             );
 
-            await approve(mockERC20, lender, loanCore.address, loanTerms.principal);
-            await vaultFactory.connect(borrower).approve(loanCore.address, bundleId);
+            await approve(mockERC20, lender, originationController.address, loanTerms.principal);
+            await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
             const tx = await originationController
                 .connect(lender)
                 .initializeLoan(loanTerms, borrower.address, lender.address, sig, nonce);
@@ -886,7 +888,7 @@ describe("Integration", () => {
             await loanCore.connect(admin).setAffiliateSplits([code], [{ affiliate: borrower.address, splitBps: 10_00 }]);
 
             const tokenId = await mint721(mockERC721, borrower);
-            await mockERC721.connect(borrower).approve(loanCore.address, tokenId);
+            await mockERC721.connect(borrower).approve(originationController.address, tokenId);
             const loanTerms = createLoanTerms(mockERC20.address, mockERC721.address, { collateralId: tokenId, affiliateCode: code });
 
             const lenderFeeBps = await feeController.getLendingFee(await feeController.FL_02());
@@ -913,7 +915,7 @@ describe("Integration", () => {
                 "b",
             );
 
-            await approve(mockERC20, lender, loanCore.address, lenderWillSend);
+            await approve(mockERC20, lender, originationController.address, lenderWillSend);
 
             const tx = await originationController
                 .connect(lender)
@@ -972,10 +974,11 @@ describe("Integration", () => {
                 loanData.startDate,
                 t1
             );
-            const lenderRepayment = grossInterest;
+            const interestFee = grossInterest.mul(1000).div(10000);
+            const lenderRepayment = grossInterest.sub(interestFee);
             const borrowerRepayment = grossInterest.add(rolloverFee);
             const principalFee = loanTerms.principal.mul(50).div(10000);
-            const totalFees = principalFee.add(rolloverFee);
+            const totalFees = principalFee.add(rolloverFee).add(interestFee);
 
             await mint(mockERC20, borrower, borrowerRepayment);
             await approve(mockERC20, borrower, originationController.address, borrowerRepayment);
@@ -1007,7 +1010,6 @@ describe("Integration", () => {
             .to.emit(mockERC20, "Transfer")
             .withArgs(borrower.address, originationController.address, borrowerRepayment)
             .to.emit(mockERC20, "Transfer")
-            // NOTE: LENDER DOES NOT GET INTEREST FEE ON ROLLOVER
             .withArgs(loanCore.address, lender.address, lenderRepayment);
 
             // check loan state
@@ -1024,11 +1026,11 @@ describe("Integration", () => {
             // Borrower pays interest + rollover fee
             expect(borrowerBalanceBefore.sub(borrowerBalanceAfter)).to.eq(borrowerRepayment);
             // Lender collects interest
-            expect(lenderBalanceAfter.sub(lenderBalanceBefore)).to.eq(grossInterest);
+            expect(lenderBalanceAfter.sub(lenderBalanceBefore)).to.eq(lenderRepayment);
             // Nothing left in Origination Controller
             expect(ocBalanceAfter.sub(ocBalanceBefore)).to.eq(0);
             // LoanCore accumulates rollover fee
-            expect(loanCoreBalanceAfter.sub(loanCoreBalanceBefore)).to.eq(rolloverFee);
+            expect(loanCoreBalanceAfter.sub(loanCoreBalanceBefore)).to.eq(rolloverFee.add(interestFee));
 
             // pre-repaid state
             expect(await mockERC721.ownerOf(tokenId)).to.equal(loanCore.address);
@@ -1056,8 +1058,7 @@ describe("Integration", () => {
             await approve(mockERC20, borrower, loanCore.address, repayAmount2);
 
             // Repay - loan was for same terms, so will earn
-            // NOTE: LENDER DOES NOT GET INTEREST FEE ON ROLLOVER
-            await expect(repaymentController.connect(borrower).repay(newLoanId, repayAmount2))
+            await expect(repaymentController.connect(borrower).repayFull(newLoanId))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(newLoanId)
                 .to.emit(mockERC20, "Transfer")

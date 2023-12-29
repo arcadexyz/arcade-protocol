@@ -205,13 +205,6 @@ contract LoanCore is
         // Distribute notes and principal
         _mintLoanNotes(loanId, borrower, lender);
 
-        // Collect collateral from borrower
-        IERC721(terms.collateralAddress).transferFrom(borrower, address(this), terms.collateralId);
-
-        // Collect principal from lender and send net (minus fees) amount to borrower
-        _collectIfNonzero(IERC20(terms.payableCurrency), lender, _amountFromLender);
-        _transferIfNonzero(IERC20(terms.payableCurrency), borrower, _amountToBorrower);
-
         emit LoanStarted(loanId, lender, borrower);
     }
 

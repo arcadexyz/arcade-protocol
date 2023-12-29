@@ -256,7 +256,7 @@ contract OriginationController is
     ) external override returns (uint256 loanId) {
         IERC721Permit(loanTerms.collateralAddress).permit(
             borrower,
-            address(loanCore),
+            address(this),
             loanTerms.collateralId,
             permitDeadline,
             collateralSig.v,
@@ -298,7 +298,7 @@ contract OriginationController is
     ) external override returns (uint256 loanId) {
         IERC721Permit(loanTerms.collateralAddress).permit(
             borrower,
-            address(loanCore),
+            address(this),
             loanTerms.collateralId,
             permitDeadline,
             collateralSig.v,
@@ -896,6 +896,19 @@ contract OriginationController is
         uint256 amountFromLender = loanTerms.principal + lenderFee;
         uint256 amountToBorrower = loanTerms.principal - borrowerFee;
 
+        // Collect funds from lender and send to borrower minus fees
+        IERC20(loanTerms.payableCurrency).safeTransferFrom(lender, address(this), amountFromLender);
+        // send principal to borrower
+        IERC20(loanTerms.payableCurrency).safeTransfer(borrower, amountToBorrower);
+
+        // TODO Optimistic settlement; call callback function on borrower with params
+
+        // Post-callback: collect collateral from borrower and send to LoanCore
+        IERC721(loanTerms.collateralAddress).transferFrom(borrower, address(loanCore), loanTerms.collateralId);
+        // Send fees to LoanCore
+        IERC20(loanTerms.payableCurrency).safeTransfer(address(loanCore), borrowerFee + lenderFee);
+
+        // Create loan in LoanCore
         loanId = loanCore.startLoan(lender, borrower, loanTerms, amountFromLender, amountToBorrower, feeSnapshot);
     }
 
@@ -949,7 +962,7 @@ contract OriginationController is
         }
 
         // approve LoanCore to take the total settled amount
-        payableCurrency.approve(address(loanCore), settledAmount);
+        payableCurrency.safeApprove(address(loanCore), settledAmount);
 
         loanId = loanCore.rollover(
             oldLoanId,
@@ -1004,8 +1017,9 @@ contract OriginationController is
         uint256 borrowerOwedForNewLoan = newTerms.principal - borrowerFee;
 
         // Calculate amount to be collected from the lender for new loan plus rollover fees
+        uint256 interestFee = (interest * oldLoanData.feeSnapshot.lenderInterestFee) / BASIS_POINTS_DENOMINATOR;
         uint256 lenderFee = (newTerms.principal * feeData.lenderRolloverFee) / BASIS_POINTS_DENOMINATOR;
-        amounts.amountFromLender = newTerms.principal + lenderFee;
+        amounts.amountFromLender = newTerms.principal + lenderFee + interestFee;
 
         // Calculate net amounts based on if repayment amount for old loan is greater than
         // new loan principal minus fees
