@@ -43,7 +43,7 @@ abstract contract V2ToV3RolloverBase is IMigrationBase, ReentrancyGuard, ERC721H
         IERC721 borrowerNoteV2;
         IRepaymentControllerV2 repaymentControllerV2;
         IFeeController feeControllerV3;
-        IOriginationController originationControllerV3;
+        IOriginationControllerV3 originationControllerV3;
         ILoanCore loanCoreV3;
         IERC721 borrowerNoteV3;
     }
@@ -57,7 +57,7 @@ abstract contract V2ToV3RolloverBase is IMigrationBase, ReentrancyGuard, ERC721H
     IERC721 public immutable borrowerNoteV2;
     IRepaymentControllerV2 public immutable repaymentControllerV2;
     IFeeController public immutable feeControllerV3;
-    IOriginationController public immutable originationControllerV3;
+    IOriginationControllerV3 public immutable originationControllerV3;
     ILoanCore public immutable loanCoreV3;
     IERC721 public immutable borrowerNoteV3;
 
@@ -88,7 +88,7 @@ abstract contract V2ToV3RolloverBase is IMigrationBase, ReentrancyGuard, ERC721H
         borrowerNoteV2 = IERC721(_opContracts.borrowerNoteV2);
         repaymentControllerV2 = IRepaymentControllerV2(_opContracts.repaymentControllerV2);
         feeControllerV3 = IFeeController(_opContracts.feeControllerV3);
-        originationControllerV3 = IOriginationController(_opContracts.originationControllerV3);
+        originationControllerV3 = IOriginationControllerV3(_opContracts.originationControllerV3);
         loanCoreV3 = ILoanCore(_opContracts.loanCoreV3);
         borrowerNoteV3 = IERC721(_opContracts.borrowerNoteV3);
     }

@@ -14,6 +14,7 @@ import "./interfaces/ILoanCore.sol";
 import "./interfaces/IERC721Permit.sol";
 import "./interfaces/ISignatureVerifier.sol";
 import "./interfaces/IFeeController.sol";
+import "./interfaces/IExpressBorrow.sol";
 
 import "./libraries/InterestCalculator.sol";
 import "./libraries/FeeLookups.sol";
@@ -145,7 +146,7 @@ contract OriginationController is
      * @dev The external signer must come from the opposite side of the loan as the caller.
      *
      * @param loanTerms                     The terms agreed by the lender and borrower.
-     * @param borrower                      Address of the borrower.
+     * @param borrowerData                  Struct containing borrower address and any callback data.
      * @param lender                        Address of the lender.
      * @param sig                           The loan terms signature, with v, r, s fields, and a nonce.
      * @param nonce                         The signature nonce.
@@ -154,7 +155,7 @@ contract OriginationController is
      */
     function initializeLoan(
         LoanLibrary.LoanTerms calldata loanTerms,
-        address borrower,
+        BorrowerData calldata borrowerData,
         address lender,
         Signature calldata sig,
         uint160 nonce
@@ -162,7 +163,7 @@ contract OriginationController is
         _validateLoanTerms(loanTerms);
 
         // Determine if signature needs to be on the borrow or lend side
-        Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
+        Side neededSide = isSelfOrApproved(borrowerData.borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
         (bytes32 sighash, address externalSigner) = recoverTokenSignature(
             loanTerms,
@@ -171,10 +172,10 @@ contract OriginationController is
             neededSide
         );
 
-        _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
+        _validateCounterparties(borrowerData.borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
 
         loanCore.consumeNonce(externalSigner, nonce);
-        loanId = _initialize(loanTerms, borrower, lender);
+        loanId = _initialize(loanTerms, borrowerData, lender);
     }
 
     /**
@@ -186,7 +187,7 @@ contract OriginationController is
      * @dev The external signer must come from the opposite side of the loan as the caller.
      *
      * @param loanTerms                     The terms agreed by the lender and borrower.
-     * @param borrower                      Address of the borrower.
+     * @param borrowerData                  Struct containing borrower address and any callback data.
      * @param lender                        Address of the lender.
      * @param sig                           The loan terms signature, with v, r, s fields, and a nonce.
      * @param nonce                         The signature nonce.
@@ -196,7 +197,7 @@ contract OriginationController is
      */
     function initializeLoanWithItems(
         LoanLibrary.LoanTerms calldata loanTerms,
-        address borrower,
+        BorrowerData calldata borrowerData,
         address lender,
         Signature calldata sig,
         uint160 nonce,
@@ -208,7 +209,7 @@ contract OriginationController is
         bytes32 encodedPredicates = _encodePredicates(itemPredicates);
 
         // Determine if signature needs to be on the borrow or lend side
-        Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
+        Side neededSide = isSelfOrApproved(borrowerData.borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
         (bytes32 sighash, address externalSigner) = recoverItemsSignature(
             loanTerms,
@@ -218,14 +219,14 @@ contract OriginationController is
             encodedPredicates
         );
 
-        _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
+        _validateCounterparties(borrowerData.borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
 
         loanCore.consumeNonce(externalSigner, nonce);
-        loanId = _initialize(loanTerms, borrower, lender);
+        loanId = _initialize(loanTerms, borrowerData, lender);
 
         // Run predicates check at the end of the function, after vault is in escrow. This makes sure
         // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
-        _runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
+        _runPredicatesCheck(borrowerData.borrower, lender, loanTerms, itemPredicates);
     }
 
     /**
@@ -236,7 +237,7 @@ contract OriginationController is
      * @dev The external signer must come from the opposite side of the loan as the caller.
      *
      * @param loanTerms                     The terms agreed by the lender and borrower.
-     * @param borrower                      Address of the borrower.
+     * @param borrowerData                  Struct containing borrower address and any callback data.
      * @param lender                        Address of the lender.
      * @param sig                           The loan terms signature, with v, r, s fields.
      * @param nonce                         The signature nonce for the loan terms signature.
@@ -247,7 +248,7 @@ contract OriginationController is
      */
     function initializeLoanWithCollateralPermit(
         LoanLibrary.LoanTerms calldata loanTerms,
-        address borrower,
+        BorrowerData calldata borrowerData,
         address lender,
         Signature calldata sig,
         uint160 nonce,
@@ -255,7 +256,7 @@ contract OriginationController is
         uint256 permitDeadline
     ) external override returns (uint256 loanId) {
         IERC721Permit(loanTerms.collateralAddress).permit(
-            borrower,
+            borrowerData.borrower,
             address(this),
             loanTerms.collateralId,
             permitDeadline,
@@ -264,7 +265,7 @@ contract OriginationController is
             collateralSig.s
         );
 
-        loanId = initializeLoan(loanTerms, borrower, lender, sig, nonce);
+        loanId = initializeLoan(loanTerms, borrowerData, lender, sig, nonce);
     }
 
     /**
@@ -276,7 +277,7 @@ contract OriginationController is
      * @dev The external signer must come from the opposite side of the loan as the caller.
      *
      * @param loanTerms                     The terms agreed by the lender and borrower.
-     * @param borrower                      Address of the borrower.
+     * @param borrowerData                  Struct containing borrower address and any callback data.
      * @param lender                        Address of the lender.
      * @param sig                           The loan terms signature, with v, r, s fields.
      * @param nonce                         The signature nonce for the loan terms signature.
@@ -288,7 +289,7 @@ contract OriginationController is
      */
     function initializeLoanWithCollateralPermitAndItems(
         LoanLibrary.LoanTerms calldata loanTerms,
-        address borrower,
+        BorrowerData calldata borrowerData,
         address lender,
         Signature calldata sig,
         uint160 nonce,
@@ -297,7 +298,7 @@ contract OriginationController is
         LoanLibrary.Predicate[] calldata itemPredicates
     ) external override returns (uint256 loanId) {
         IERC721Permit(loanTerms.collateralAddress).permit(
-            borrower,
+            borrowerData.borrower,
             address(this),
             loanTerms.collateralId,
             permitDeadline,
@@ -306,7 +307,7 @@ contract OriginationController is
             collateralSig.s
         );
 
-        loanId = initializeLoanWithItems(loanTerms, borrower, lender, sig, nonce, itemPredicates);
+        loanId = initializeLoanWithItems(loanTerms, borrowerData, lender, sig, nonce, itemPredicates);
     }
 
     /**
@@ -869,14 +870,14 @@ contract OriginationController is
      *      collateral, and tell LoanCore to create and start a loan.
      *
      * @param loanTerms                     The terms agreed by the lender and borrower.
-     * @param borrower                      Address of the borrower.
+     * @param borrowerData                  Struct containing borrower address and any callback data.
      * @param lender                        Address of the lender.
      *
      * @return loanId                       The unique ID of the new loan.
      */
     function _initialize(
         LoanLibrary.LoanTerms calldata loanTerms,
-        address borrower,
+        BorrowerData calldata borrowerData,
         address lender
     ) internal nonReentrant returns (uint256 loanId) {
         // get lending origination fees from fee controller
@@ -896,20 +897,29 @@ contract OriginationController is
         uint256 amountFromLender = loanTerms.principal + lenderFee;
         uint256 amountToBorrower = loanTerms.principal - borrowerFee;
 
+        // ---------------------- Borrower receives principal ----------------------
         // Collect funds from lender and send to borrower minus fees
         IERC20(loanTerms.payableCurrency).safeTransferFrom(lender, address(this), amountFromLender);
         // send principal to borrower
-        IERC20(loanTerms.payableCurrency).safeTransfer(borrower, amountToBorrower);
+        IERC20(loanTerms.payableCurrency).safeTransfer(borrowerData.borrower, amountToBorrower);
 
-        // TODO Optimistic settlement; call callback function on borrower with params
+        // ----------------------- Express borrow callback --------------------------
+        // If callback params are not bytes(0), call the callback function on the borrower
+        bytes memory zeroBytes = new bytes(0);
+        if (keccak256(borrowerData.callbackData) != keccak256(zeroBytes)) {
+            IExpressBorrow(borrowerData.borrower).executeOperation(msg.sender, lender, loanTerms, amountToBorrower, borrowerData.callbackData);
+        }
 
+        // ---------------------- LoanCore collects collateral ----------------------
         // Post-callback: collect collateral from borrower and send to LoanCore
-        IERC721(loanTerms.collateralAddress).transferFrom(borrower, address(loanCore), loanTerms.collateralId);
+        IERC721(loanTerms.collateralAddress).transferFrom(borrowerData.borrower, address(loanCore), loanTerms.collateralId);
+
+        // ------------------------ Send fees to LoanCore ---------------------------
         // Send fees to LoanCore
         IERC20(loanTerms.payableCurrency).safeTransfer(address(loanCore), borrowerFee + lenderFee);
 
         // Create loan in LoanCore
-        loanId = loanCore.startLoan(lender, borrower, loanTerms, amountFromLender, amountToBorrower, feeSnapshot);
+        loanId = loanCore.startLoan(lender, borrowerData.borrower, loanTerms, amountFromLender, amountToBorrower, feeSnapshot);
     }
 
     /**

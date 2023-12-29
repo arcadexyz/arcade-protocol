@@ -233,11 +233,11 @@ contract LP1MigrationWithItems is LP1MigrationBase {
 
         // start new loan
         // stand in for borrower to meet OriginationController's requirements
-        uint256 newLoanId = IOriginationController(originationController).initializeLoanWithItems(
+        uint256 newLoanId = IOriginationControllerV3(originationController).initializeLoanWithItems(
             opData.newLoanTerms,
             address(this),
             lender,
-            IOriginationController.Signature({ v: opData.v, r: opData.r, s: opData.s, extraData: "0x" }),
+            IOriginationControllerV3.Signature({ v: opData.v, r: opData.r, s: opData.s, extraData: "0x" }),
             opData.nonce,
             opData.itemPredicates
         );

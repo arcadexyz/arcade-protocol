@@ -2,19 +2,14 @@
 
 pragma solidity 0.8.18;
 
-import "../libraries/LoanLibrary.sol";
+import "../../libraries/LoanLibrary.sol";
 
-interface IOriginationController {
+interface IOriginationControllerV3 {
     // ================ Data Types =============
 
     struct Currency {
         bool isAllowed;
         uint256 minPrincipal;
-    }
-
-    struct BorrowerData {
-        address borrower;
-        bytes callbackData;
     }
 
     enum Side {
@@ -50,7 +45,7 @@ interface IOriginationController {
 
     function initializeLoan(
         LoanLibrary.LoanTerms calldata loanTerms,
-        BorrowerData calldata borrowerData,
+        address borrower,
         address lender,
         Signature calldata sig,
         uint160 nonce
@@ -58,7 +53,7 @@ interface IOriginationController {
 
     function initializeLoanWithItems(
         LoanLibrary.LoanTerms calldata loanTerms,
-        BorrowerData calldata borrowerData,
+        address borrower,
         address lender,
         Signature calldata sig,
         uint160 nonce,
@@ -67,7 +62,7 @@ interface IOriginationController {
 
     function initializeLoanWithCollateralPermit(
         LoanLibrary.LoanTerms calldata loanTerms,
-        BorrowerData calldata borrowerData,
+        address borrower,
         address lender,
         Signature calldata sig,
         uint160 nonce,
@@ -77,7 +72,7 @@ interface IOriginationController {
 
     function initializeLoanWithCollateralPermitAndItems(
         LoanLibrary.LoanTerms calldata loanTerms,
-        BorrowerData calldata borrowerData,
+        address borrower,
         address lender,
         Signature calldata sig,
         uint160 nonce,
