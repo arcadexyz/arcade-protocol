@@ -65,11 +65,6 @@ error OC_PredicateFailed(
 );
 
 /**
- * @notice The predicates array is empty.
- */
-error OC_PredicatesArrayEmpty();
-
-/**
  * @notice A caller attempted to approve themselves.
  *
  * @param caller                        The caller of the approve function.

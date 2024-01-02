@@ -720,7 +720,7 @@ describe("Rollovers", () => {
             expect(await loanCore.canCallOn(borrower.address, bundleId.toString())).to.eq(true);
         });
 
-        it("rollover with items signature reverts if the required predicates array is empty", async () => {
+        it.skip("rollover with items signature reverts if the required predicates array is empty", async () => {
             const {
                 originationController,
                 mockERC20,

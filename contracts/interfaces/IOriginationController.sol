@@ -5,7 +5,7 @@ pragma solidity 0.8.18;
 import "../libraries/LoanLibrary.sol";
 
 interface IOriginationController {
-    // ================ Data Types =============
+    // ============= Data Types =============
 
     struct Currency {
         bool isAllowed;
@@ -39,51 +39,24 @@ interface IOriginationController {
         uint256 interestAmount;
     }
 
-    // ================ Events =================
+    // ================ Events ================
 
     event Approval(address indexed owner, address indexed signer, bool isApproved);
     event SetAllowedVerifier(address indexed verifier, bool isAllowed);
     event SetAllowedCurrency(address indexed currency, bool isAllowed, uint256 minPrincipal);
     event SetAllowedCollateral(address indexed collateral, bool isAllowed);
 
-    // ============== Origination Operations ==============
+    // ============= Loan Origination =============
 
     function initializeLoan(
-        LoanLibrary.LoanTerms calldata loanTerms,
-        BorrowerData calldata borrowerData,
-        address lender,
-        Signature calldata sig,
-        uint160 nonce
-    ) external returns (uint256 loanId);
-
-    function initializeLoanWithItems(
-        LoanLibrary.LoanTerms calldata loanTerms,
+       LoanLibrary.LoanTerms calldata loanTerms,
         BorrowerData calldata borrowerData,
         address lender,
         Signature calldata sig,
         uint160 nonce,
-        LoanLibrary.Predicate[] calldata itemPredicates
-    ) external returns (uint256 loanId);
-
-    function initializeLoanWithCollateralPermit(
-        LoanLibrary.LoanTerms calldata loanTerms,
-        BorrowerData calldata borrowerData,
-        address lender,
-        Signature calldata sig,
-        uint160 nonce,
-        Signature calldata collateralSig,
-        uint256 permitDeadline
-    ) external returns (uint256 loanId);
-
-    function initializeLoanWithCollateralPermitAndItems(
-        LoanLibrary.LoanTerms calldata loanTerms,
-        BorrowerData calldata borrowerData,
-        address lender,
-        Signature calldata sig,
-        uint160 nonce,
-        Signature calldata collateralSig,
+        LoanLibrary.Predicate[] calldata itemPredicates,
         uint256 permitDeadline,
-        LoanLibrary.Predicate[] calldata itemPredicates
+        Signature calldata collateralSig
     ) external returns (uint256 loanId);
 
     function rolloverLoan(
@@ -91,19 +64,11 @@ interface IOriginationController {
         LoanLibrary.LoanTerms calldata loanTerms,
         address lender,
         Signature calldata sig,
-        uint160 nonce
-    ) external returns (uint256 newLoanId);
-
-    function rolloverLoanWithItems(
-        uint256 oldLoanId,
-        LoanLibrary.LoanTerms calldata loanTerms,
-        address lender,
-        Signature calldata sig,
         uint160 nonce,
         LoanLibrary.Predicate[] calldata itemPredicates
     ) external returns (uint256 newLoanId);
 
-    // ================ Permission Management =================
+    // ================ Permission Management ================
 
     function approve(address signer, bool approved) external;
 
