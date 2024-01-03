@@ -158,7 +158,7 @@ contract OriginationController is
      * @param loanTerms                     The terms agreed by the lender and borrower.
      * @param borrowerData                  Struct containing borrower address and any callback data.
      * @param lender                        Address of the lender.
-     * @param sig                           The loan terms signature, with v, r, s fields, and a nonce.
+     * @param sig                           The loan terms signature, with v, r, s fields, and possible extra data.
      * @param nonce                         The signature nonce.
      * @param itemPredicates                The predicate rules for the items in the bundle.
      * @param collateralSig                 The collateral permit signature, with v, r, s fields.
@@ -193,28 +193,7 @@ contract OriginationController is
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrowerData.borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
-        bytes32 sighash;
-        address externalSigner;
-
-        if (itemPredicates.length > 0) {
-            // If predicates are specified, use the item-based signature
-            bytes32 encodedPredicates = _encodePredicates(itemPredicates);
-
-            (sighash, externalSigner) = recoverItemsSignature(
-                loanTerms,
-                sig,
-                nonce,
-                neededSide,
-                encodedPredicates
-            );
-        } else {
-            (sighash, externalSigner) = recoverTokenSignature(
-                loanTerms,
-                sig,
-                nonce,
-                neededSide
-            );
-        }
+        (bytes32 sighash, address externalSigner) = _recoverSignature(loanTerms, sig, nonce, neededSide, itemPredicates);
 
         _validateCounterparties(borrowerData.borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
 
@@ -237,7 +216,7 @@ contract OriginationController is
      * @param oldLoanId                     The ID of the old loan.
      * @param loanTerms                     The terms agreed by the lender and borrower.
      * @param lender                        Address of the lender.
-     * @param sig                           The loan terms signature, with v, r, s fields.
+     * @param sig                           The loan terms signature, with v, r, s fields and possible extra data.
      * @param nonce                         The signature nonce for the loan terms signature.
      * @param itemPredicates                The predicate rules for the items in the bundle.
      *
@@ -262,28 +241,7 @@ contract OriginationController is
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
-        bytes32 sighash;
-        address externalSigner;
-
-        if (itemPredicates.length > 0) {
-            // If predicates are specified, use the item-based signature
-            bytes32 encodedPredicates = _encodePredicates(itemPredicates);
-
-            (sighash, externalSigner) = recoverItemsSignature(
-                loanTerms,
-                sig,
-                nonce,
-                neededSide,
-                encodedPredicates
-            );
-        } else {
-            (sighash, externalSigner) = recoverTokenSignature(
-                loanTerms,
-                sig,
-                nonce,
-                neededSide
-            );
-        }
+        (bytes32 sighash, address externalSigner) = _recoverSignature(loanTerms, sig, nonce, neededSide, itemPredicates);
 
         _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
 
@@ -744,6 +702,48 @@ contract OriginationController is
             unchecked {
                 i++;
             }
+        }
+    }
+
+    /**
+     * @notice Determine the sighash and external signer given the loan terms, signature, nonce,
+     *         and side the expected signer is on. If item predicates are passed, item-based signature
+     *         recovery is used.
+     *
+     * @param loanTerms                     The terms of the loan to be started.
+     * @param sig                           The signature, with v, r, s fields.
+     * @param nonce                         The signature nonce.
+     * @param neededSide                    The side of the loan the signature will take (lend or borrow).
+     * @param itemPredicates                The predicate rules for the items in the bundle.
+     *
+     * @return sighash                      The hash that was signed.
+     * @return externalSigner               The address of the recovered signer.
+     */
+    function _recoverSignature(
+        LoanLibrary.LoanTerms calldata loanTerms,
+        Signature calldata sig,
+        uint160 nonce,
+        Side neededSide,
+        LoanLibrary.Predicate[] calldata itemPredicates
+    ) internal view returns (bytes32 sighash, address externalSigner) {
+        if (itemPredicates.length > 0) {
+            // If predicates are specified, use the item-based signature
+            bytes32 encodedPredicates = _encodePredicates(itemPredicates);
+
+            (sighash, externalSigner) = recoverItemsSignature(
+                loanTerms,
+                sig,
+                nonce,
+                neededSide,
+                encodedPredicates
+            );
+        } else {
+            (sighash, externalSigner) = recoverTokenSignature(
+                loanTerms,
+                sig,
+                nonce,
+                neededSide
+            );
         }
     }
 
