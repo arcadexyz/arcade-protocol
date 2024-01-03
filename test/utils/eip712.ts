@@ -183,3 +183,8 @@ export async function createPermitSignature(
 
     return { v: sig.v, r: sig.r, s: sig.s, extraData };
 }
+
+export function createEmptyPermitSignature(): InitializeLoanSignature {
+    const emptyBuffer = Buffer.alloc(32); // Creating a 32-byte buffer filled with zeros
+    return { v: 0, r: emptyBuffer, s: emptyBuffer, extraData: "0x" };
+}

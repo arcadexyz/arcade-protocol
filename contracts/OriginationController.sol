@@ -173,8 +173,8 @@ contract OriginationController is
         Signature calldata sig,
         uint160 nonce,
         LoanLibrary.Predicate[] calldata itemPredicates,
-        uint256 permitDeadline,
-        Signature calldata collateralSig
+        Signature calldata collateralSig,
+        uint256 permitDeadline
     ) public override returns (uint256 loanId) {
         if (permitDeadline > 0) {
             IERC721Permit(loanTerms.collateralAddress).permit(

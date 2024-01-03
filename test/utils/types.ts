@@ -76,3 +76,8 @@ export interface InitializeLoanSignature {
     s: Buffer;
     extraData: string;
 }
+
+export interface Borrower {
+    borrower: string;
+    callbackData: BytesLike;
+}

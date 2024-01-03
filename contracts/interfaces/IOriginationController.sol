@@ -55,8 +55,8 @@ interface IOriginationController {
         Signature calldata sig,
         uint160 nonce,
         LoanLibrary.Predicate[] calldata itemPredicates,
-        uint256 permitDeadline,
-        Signature calldata collateralSig
+        Signature calldata collateralSig,
+        uint256 permitDeadline
     ) external returns (uint256 loanId);
 
     function rolloverLoan(
