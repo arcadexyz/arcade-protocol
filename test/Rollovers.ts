@@ -1752,7 +1752,7 @@ describe("Rollovers", () => {
             await blockchainTime.increaseTime(31536000 - 6);
 
             await expect(
-                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2, []),
+                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2, [], { gasLimit: 5000000 }),
             )
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)

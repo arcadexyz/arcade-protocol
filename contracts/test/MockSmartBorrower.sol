@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
 import "../interfaces/IExpressBorrow.sol";
 import "../interfaces/IOriginationController.sol";
+
 import "../libraries/LoanLibrary.sol";
 
 /**
@@ -14,10 +15,9 @@ import "../libraries/LoanLibrary.sol";
  *         for testing purposes.
  */
 contract MockSmartBorrower is IExpressBorrow, ERC721Holder {
-
     address public immutable originationController;
 
-    event opExecuted();
+    event OpExecuted();
 
     constructor(address _originationController) {
         originationController = _originationController;
@@ -28,18 +28,18 @@ contract MockSmartBorrower is IExpressBorrow, ERC721Holder {
         address, // lender
         LoanLibrary.LoanTerms calldata, // loanTerms
         uint256, // borrowerNet
-        bytes calldata // callback params
+        bytes calldata // callbackData
     ) external virtual override {
-        // This contract receives the borrowerNet amount of tokens from the lender
+        // This contract receives the borrowerNet amount of tokens from the OriginationController
 
-        // This contract can do whatever it wants with the tokens
+        // After receiving tokens this contract can do whatever it wants with the tokens
         // For example:
-        //     - convert them to another token,
-        //     - buy the NFT from the loanTerms off of a marketplace
-        //     - deposit into a yield farming protocol
-        //     - etc.
+        //     - Convert them to another token
+        //     - Buy the NFT from the loanTerms off of a marketplace
+        //     - Deposit into a yield farming protocol
+        //     - etc...
 
-        emit opExecuted();
+        emit OpExecuted();
     }
 
     function approveSigner(address target, bool approved) external {
@@ -51,6 +51,10 @@ contract MockSmartBorrower is IExpressBorrow, ERC721Holder {
     }
 }
 
+/**
+ * @notice Mock smart contract that implements IExpressBorrow::executeOperation.
+ *         This variant of the contract is used to test callbacks to the OriginationController.
+ */
 contract MockSmartBorrowerTest is MockSmartBorrower {
 
     constructor(address _originationController) MockSmartBorrower(_originationController) {}
@@ -60,7 +64,7 @@ contract MockSmartBorrowerTest is MockSmartBorrower {
         address, // lender
         LoanLibrary.LoanTerms calldata, // loanTerms
         uint256, // borrowerNet
-        bytes calldata callbackData // callback params
+        bytes calldata callbackData // callbackData
     ) external override {
         // This contract receives the borrowerNet amount of tokens from the lender
 
@@ -69,7 +73,7 @@ contract MockSmartBorrowerTest is MockSmartBorrower {
 
         require(success, "MockSmartBorrowerRollover: Operation failed");
 
-        emit opExecuted();
+        emit OpExecuted();
     }
 
     function initializeLoan(
