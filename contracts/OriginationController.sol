@@ -300,8 +300,7 @@ contract OriginationController is
         bytes memory signature = abi.encodePacked(sig.r, sig.s, sig.v);
 
         // Append extra data if it exists
-        bytes memory zeroBytes = new bytes(0);
-        if (keccak256(sig.extraData) != keccak256(zeroBytes)) {
+        if (sig.extraData.length > 0) {
             signature = bytes.concat(signature, sig.extraData);
         }
 
