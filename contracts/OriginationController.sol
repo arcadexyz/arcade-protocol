@@ -786,9 +786,8 @@ contract OriginationController is
         IERC20(loanTerms.payableCurrency).safeTransfer(borrowerData.borrower, amountToBorrower);
 
         // ----------------------- Express borrow callback --------------------------
-        // If callback params are not bytes(0), call the callback function on the borrower
-        bytes memory zeroBytes = new bytes(0);
-        if (keccak256(borrowerData.callbackData) != keccak256(zeroBytes)) {
+        // If callback params present, call the callback function on the borrower
+        if (borrowerData.callbackData.length > 0) {
             IExpressBorrow(borrowerData.borrower).executeOperation(msg.sender, lender, loanTerms, amountToBorrower, borrowerData.callbackData);
         }
 
