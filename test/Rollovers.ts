@@ -26,7 +26,7 @@ import { mint as mint721 } from "./utils/erc721";
 import { deploy } from "./utils/contracts";
 import { approve, mint } from "./utils/erc20";
 import { LoanTerms, LoanData, ItemsPredicate, SignatureItem, Borrower } from "./utils/types";
-import { createLoanTermsSignature, createLoanItemsSignature, createEmptyPermitSignature } from "./utils/eip712";
+import { createLoanTermsSignature, createLoanItemsSignature } from "./utils/eip712";
 import { encodeSignatureItems } from "./utils/loans";
 
 import {
@@ -244,7 +244,6 @@ const initializeLoan = async (
     await approve(mockERC20, lender, originationController.address, loanTerms.principal);
     await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
 
-    const emptyPermitSig = createEmptyPermitSignature();
     const borrowerStruct: Borrower = {
         borrower: borrower.address,
         callbackData: "0x",
@@ -258,9 +257,7 @@ const initializeLoan = async (
             lender.address,
             sig,
             nonce,
-            [],
-            emptyPermitSig,
-            0
+            []
         );
     const receipt = await tx.wait();
 

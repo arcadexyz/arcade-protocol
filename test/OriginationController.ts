@@ -30,7 +30,7 @@ import {
 import { approve, mint, ZERO_ADDRESS } from "./utils/erc20";
 import { mint as mint721 } from "./utils/erc721";
 import { Borrower, InitializeLoanSignature, ItemsPredicate, LoanTerms, SignatureItem } from "./utils/types";
-import { createLoanTermsSignature, createLoanItemsSignature, createPermitSignature, createEmptyPermitSignature } from "./utils/eip712";
+import { createLoanTermsSignature, createLoanItemsSignature, createPermitSignature } from "./utils/eip712";
 import { encodeSignatureItems, encodeItemCheck, initializeBundle } from "./utils/loans";
 
 import {
@@ -238,13 +238,11 @@ describe("OriginationController", () => {
     describe("initializeLoan", () => {
         let ctx: TestContext;
         let borrowerStruct: Borrower;
-        let emptyPermitSig: InitializeLoanSignature;
 
         beforeEach(async () => {
             ctx = await loadFixture(fixture);
             const { other: borrower } = ctx;
 
-            emptyPermitSig = createEmptyPermitSignature();
             borrowerStruct = {
                 borrower: borrower.address,
                 callbackData: "0x"
@@ -276,7 +274,7 @@ describe("OriginationController", () => {
                 originationController
                     // some random guy
                     .connect(signers[3])
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
             ).to.be.revertedWith("OC_CallerNotParticipant");
         });
 
@@ -303,7 +301,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
             ).to.be.revertedWith("ERC721: transfer caller is not owner nor approved");
         });
 
@@ -330,7 +328,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
             ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
         });
 
@@ -360,7 +358,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
             ).to.be.revertedWith("OC_PrincipalTooLow");
         });
 
@@ -390,7 +388,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
             ).to.be.revertedWith("OC_InterestRate");
         });
 
@@ -420,7 +418,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
             ).to.be.revertedWith("OC_InterestRate");
         });
 
@@ -448,7 +446,7 @@ describe("OriginationController", () => {
                 originationController
                     // sender is the borrower, signer is also the borrower
                     .connect(borrower)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
 
@@ -476,7 +474,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
 
@@ -504,7 +502,7 @@ describe("OriginationController", () => {
                 originationController
                     .connect(lender)
                     // Use nonce of 2, skipping nonce 1
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 2, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 2, []),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
 
@@ -533,7 +531,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
             ).to.be.revertedWith("OC_SignatureIsExpired");
         });
 
@@ -560,7 +558,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
 
@@ -587,7 +585,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, originationController.address, loanTerms.principal)
@@ -618,7 +616,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, originationController.address, loanTerms.principal)
@@ -655,7 +653,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(caller)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
             ).to.be.revertedWith("SideMismatch");
         });
 
@@ -683,7 +681,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, originationController.address, loanTerms.principal)
@@ -714,7 +712,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, originationController.address, loanTerms.principal)
@@ -725,7 +723,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
             ).to.be.revertedWith("LC_NonceUsed");
         });
     });
@@ -788,7 +786,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoan(
+                    .initializeLoanWithPermit(
                         loanTerms,
                         borrowerStruct,
                         lender.address,
@@ -843,7 +841,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoan(
+                    .initializeLoanWithPermit(
                         loanTerms,
                         borrowerStruct,
                         lender.address,
@@ -893,7 +891,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(
+                    .initializeLoanWithPermit(
                         loanTerms,
                         borrowerStruct,
                         lender.address,
@@ -917,7 +915,6 @@ describe("OriginationController", () => {
         let uvVerifier: UnvaultedItemsVerifier;
         let cwoVerifier: CollectionWideOfferVerifier;
         let borrowerStruct: Borrower;
-        let emptyPermitSig: InitializeLoanSignature;
 
         beforeEach(async () => {
             ctx = await loadFixture(fixture);
@@ -933,7 +930,6 @@ describe("OriginationController", () => {
                 cwoVerifier.address
             ], [true, true, true]);
 
-            emptyPermitSig = createEmptyPermitSignature();
             borrowerStruct = {
                 borrower: borrower.address,
                 callbackData: "0x"
@@ -988,9 +984,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        predicates,
-                        emptyPermitSig,
-                        0
+                        predicates
                     ),
             ).to.be.revertedWith("function selector was not recognized and there's no fallback function");
         });
@@ -1042,9 +1036,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        predicates,
-                        emptyPermitSig,
-                        0
+                        predicates
                     ),
             ).to.be.revertedWith("OC_PredicateFailed");
         });
@@ -1080,9 +1072,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        predicates,
-                        emptyPermitSig,
-                        0
+                        predicates
                     ),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
@@ -1140,9 +1130,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        predicates,
-                        emptyPermitSig,
-                        0
+                        predicates
                     ),
             ).to.be.revertedWith("OC_InvalidVerifier");
         });
@@ -1186,9 +1174,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        predicates,
-                        emptyPermitSig,
-                        0
+                        predicates
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -1236,9 +1222,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        predicates,
-                        emptyPermitSig,
-                        0
+                        predicates
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -1286,9 +1270,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        predicates,
-                        emptyPermitSig,
-                        0
+                        predicates
                     ),
             )
                 .to.be.revertedWith("OC_PredicateFailed");
@@ -1333,9 +1315,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        predicates,
-                        emptyPermitSig,
-                        0
+                        predicates
                     ),
             )
                 .to.be.revertedWith("OC_PredicateFailed");
@@ -1380,9 +1360,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        predicates,
-                        emptyPermitSig,
-                        0
+                        predicates
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -1431,9 +1409,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        predicates,
-                        emptyPermitSig,
-                        0
+                        predicates
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -1527,7 +1503,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(
+                    .initializeLoanWithPermit(
                         loanTerms,
                         borrowerStruct,
                         lender.address,
@@ -1615,7 +1591,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(
+                    .initializeLoanWithPermit(
                         loanTerms,
                         borrowerStructNotOwner,
                         lender.address,
@@ -1693,7 +1669,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(
+                    .initializeLoanWithPermit(
                         loanTerms,
                         borrowerStruct,
                         lender.address,
@@ -1837,13 +1813,11 @@ describe("OriginationController", () => {
     describe("approvals", () => {
         let ctx: TestContext;
         let borrowerStruct: Borrower;
-        let emptyPermitSig: InitializeLoanSignature;
 
         beforeEach(async () => {
             ctx = await loadFixture(fixture);
             const { other: borrower } = ctx;
 
-            emptyPermitSig = createEmptyPermitSignature();
             borrowerStruct = {
                 borrower: borrower.address,
                 callbackData: "0x"
@@ -1892,9 +1866,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -1937,9 +1909,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -1982,9 +1952,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -2027,9 +1995,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -2071,9 +2037,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     ),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
@@ -2111,9 +2075,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     ),
             ).to.be.revertedWith("OC_ApprovedOwnLoan");
         });
@@ -2155,9 +2117,7 @@ describe("OriginationController", () => {
                             lenderContract.address,
                             sig,
                             1,
-                            [],
-                            emptyPermitSig,
-                            0
+                            []
                         ),
                 )
                     .to.emit(mockERC20, "Transfer")
@@ -2203,9 +2163,7 @@ describe("OriginationController", () => {
                             lenderContract.address,
                             sig,
                             1,
-                            [],
-                            emptyPermitSig,
-                            0
+                            []
                         ),
                 ).to.be.revertedWith("OC_InvalidSignature");
             });
@@ -2247,9 +2205,7 @@ describe("OriginationController", () => {
                             lenderContract.address,
                             sig,
                             1,
-                            [],
-                            emptyPermitSig,
-                            0
+                            []
                         ),
                 ).to.be.revertedWith("OC_InvalidSignature");
             });
@@ -2291,9 +2247,7 @@ describe("OriginationController", () => {
                             lenderContract.address,
                             sig,
                             1,
-                            [],
-                            emptyPermitSig,
-                            0
+                            []
                         ),
                 )
                     .to.emit(mockERC20, "Transfer")
@@ -2338,9 +2292,7 @@ describe("OriginationController", () => {
                             lenderContract.address,
                             sig,
                             1,
-                            [],
-                            emptyPermitSig,
-                            0
+                            []
                         ),
                 )
                     .to.emit(mockERC20, "Transfer")
@@ -2386,9 +2338,7 @@ describe("OriginationController", () => {
                             lenderContract.address,
                             sig,
                             1,
-                            [],
-                            emptyPermitSig,
-                            0
+                            []
                         ),
                 )
                     .to.emit(mockERC20, "Transfer")
@@ -2434,9 +2384,7 @@ describe("OriginationController", () => {
                             lenderContract.address,
                             sig,
                             1,
-                            [],
-                            emptyPermitSig,
-                            0
+                            []
                         ),
                 ).to.be.revertedWith("OC_InvalidSignature");
             });
@@ -2479,8 +2427,6 @@ describe("OriginationController", () => {
                         "tuple(uint8, bytes32, bytes32, bytes)", // signature
                         "uint160", // nonce
                         "tuple(bytes, address)[]", // predicate array
-                        "tuple(uint8, bytes32, bytes32, bytes)", // permit signature
-                        "uint256" // permit deadline
                     ],
                     [ // values
                         [
@@ -2506,13 +2452,6 @@ describe("OriginationController", () => {
                         ],
                         1,
                         [],
-                        [
-                            0,
-                            emptyBuffer,
-                            emptyBuffer,
-                            "0x"
-                        ],
-                        0
                     ]
                 );
 
@@ -2570,8 +2509,6 @@ describe("OriginationController", () => {
                         "tuple(uint8, bytes32, bytes32)", // signature, no extra data
                         "uint160", // nonce
                         "tuple(bytes, address)[]", // predicate array
-                        "tuple(uint8, bytes32, bytes32, bytes)", // permit signature
-                        "uint256" // permit deadline
                     ],
                     [ // values
                         [
@@ -2597,13 +2534,6 @@ describe("OriginationController", () => {
                         ],
                         1,
                         [],
-                        [
-                            0,
-                            emptyBuffer,
-                            emptyBuffer,
-                            "0x"
-                        ],
-                        0
                     ]
                 );
 
@@ -2624,13 +2554,11 @@ describe("OriginationController", () => {
     describe("Origination Fees", () => {
         let ctx: TestContext;
         let borrowerStruct: Borrower;
-        let emptyPermitSig: InitializeLoanSignature;
 
         beforeEach(async () => {
             ctx = await loadFixture(fixture);
             const { other: borrower } = ctx;
 
-            emptyPermitSig = createEmptyPermitSignature();
             borrowerStruct = {
                 borrower: borrower.address,
                 callbackData: "0x"
@@ -2672,9 +2600,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -2724,9 +2650,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -2778,9 +2702,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -2799,13 +2721,11 @@ describe("OriginationController", () => {
     describe("Collateral and currency whitelisting", () => {
         let ctx: TestContext;
         let borrowerStruct: Borrower;
-        let emptyPermitSig: InitializeLoanSignature;
 
         beforeEach(async () => {
             ctx = await loadFixture(fixture);
             const { other: borrower } = ctx;
 
-            emptyPermitSig = createEmptyPermitSignature();
             borrowerStruct = {
                 borrower: borrower.address,
                 callbackData: "0x"
@@ -2854,9 +2774,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     ),
             )
                 .to.be.revertedWith(`OC_InvalidCurrency("${unapprovedERC20.address}")`);
@@ -2893,9 +2811,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     ),
             )
                 .to.be.revertedWith(`OC_InvalidCollateral("${unapprovedERC721.address}")`);
@@ -3090,12 +3006,9 @@ describe("OriginationController", () => {
 
     describe("Express borrow callback", () => {
         let ctx: TestContext;
-        let emptyPermitSig: InitializeLoanSignature;
 
         beforeEach(async () => {
             ctx = await loadFixture(fixture);
-
-            emptyPermitSig = createEmptyPermitSignature();
         });
 
         it("Execute borrower callback", async () => {
@@ -3142,9 +3055,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -3251,9 +3162,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     )
             ).to.be.revertedWith("MockSmartBorrowerRollover: Operation failed");
         });
@@ -3293,7 +3202,7 @@ describe("OriginationController", () => {
 
             await originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [], emptyPermitSig, 0)
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [])
 
             // lender signs rollover terms
             const sigCallback = await createLoanTermsSignature(
@@ -3373,7 +3282,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms2, borrowerStruct2, lender.address, sig2, 2, [], emptyPermitSig, 0, { gasLimit: 10000000 })
+                    .initializeLoan(loanTerms2, borrowerStruct2, lender.address, sig2, 2, [], { gasLimit: 10000000 })
             ).to.be.revertedWith("MockSmartBorrowerRollover: Operation failed");
 
             // expect borrower contract to be holder of just one borrower note
@@ -3485,9 +3394,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     )
             ).to.be.revertedWith("MockSmartBorrowerRollover: Operation failed");
         });
@@ -3531,9 +3438,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     )
             )
                 .to.emit(mockERC20, "Transfer")
@@ -3642,9 +3547,7 @@ describe("OriginationController", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     )
             ).to.be.revertedWith("MockSmartBorrowerRollover: Operation failed");
         });

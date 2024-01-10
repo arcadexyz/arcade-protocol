@@ -149,7 +149,49 @@ contract OriginationController is
      * @notice Initializes a loan with Loan Core.
      *
      * @notice If item predicates are passed, they are used to verify collateral.
-     * @notice If a permit signature is passed, it is used to pull the collateral. No user approval required.
+     *
+     * @dev The caller must be a borrower or lender, or approved by a borrower or lender.
+     * @dev The external signer must be a borrower or lender, or approved by a borrower or lender.
+     * @dev The external signer must come from the opposite side of the loan as the caller.
+     *
+     * @param loanTerms                     The terms agreed by the lender and borrower.
+     * @param borrowerData                  Struct containing borrower address and any callback data.
+     * @param lender                        Address of the lender.
+     * @param sig                           The loan terms signature, with v, r, s fields, and possible extra data.
+     * @param nonce                         The signature nonce.
+     * @param itemPredicates                The predicate rules for the items in the bundle.
+     *
+     * @return loanId                       The unique ID of the new loan.
+     */
+    function initializeLoan(
+        LoanLibrary.LoanTerms calldata loanTerms,
+        BorrowerData calldata borrowerData,
+        address lender,
+        Signature calldata sig,
+        uint160 nonce,
+        LoanLibrary.Predicate[] calldata itemPredicates
+    ) public override returns (uint256 loanId) {
+        _validateLoanTerms(loanTerms);
+
+        // Determine if signature needs to be on the borrow or lend side
+        Side neededSide = isSelfOrApproved(borrowerData.borrower, msg.sender) ? Side.LEND : Side.BORROW;
+
+        (bytes32 sighash, address externalSigner) = _recoverSignature(loanTerms, sig, nonce, neededSide, itemPredicates);
+
+        _validateCounterparties(borrowerData.borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
+
+        loanCore.consumeNonce(externalSigner, nonce);
+        loanId = _initialize(loanTerms, borrowerData, lender);
+
+        // Run predicates check at the end of the function, after vault is in escrow. This makes sure
+        // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
+        if (itemPredicates.length > 0) _runPredicatesCheck(borrowerData.borrower, lender, loanTerms, itemPredicates);
+    }
+
+    /**
+     * @notice Initializes a loan with Loan Core, with a permit signature instead of pre-approved collateral.
+     *
+     * @notice If item predicates are passed, they are used to verify collateral.
      *
      * @dev The caller must be a borrower or lender, or approved by a borrower or lender.
      * @dev The external signer must be a borrower or lender, or approved by a borrower or lender.
@@ -166,7 +208,7 @@ contract OriginationController is
      *
      * @return loanId                       The unique ID of the new loan.
      */
-    function initializeLoan(
+    function initializeLoanWithPermit(
         LoanLibrary.LoanTerms calldata loanTerms,
         BorrowerData calldata borrowerData,
         address lender,
@@ -175,34 +217,25 @@ contract OriginationController is
         LoanLibrary.Predicate[] calldata itemPredicates,
         Signature calldata collateralSig,
         uint256 permitDeadline
-    ) public override returns (uint256 loanId) {
-        if (permitDeadline > 0) {
-            IERC721Permit(loanTerms.collateralAddress).permit(
-                borrowerData.borrower,
-                address(this),
-                loanTerms.collateralId,
-                permitDeadline,
-                collateralSig.v,
-                collateralSig.r,
-                collateralSig.s
-            );
-        }
+    ) external override returns (uint256 loanId) {
+        IERC721Permit(loanTerms.collateralAddress).permit(
+            borrowerData.borrower,
+            address(this),
+            loanTerms.collateralId,
+            permitDeadline,
+            collateralSig.v,
+            collateralSig.r,
+            collateralSig.s
+        );
 
-        _validateLoanTerms(loanTerms);
-
-        // Determine if signature needs to be on the borrow or lend side
-        Side neededSide = isSelfOrApproved(borrowerData.borrower, msg.sender) ? Side.LEND : Side.BORROW;
-
-        (bytes32 sighash, address externalSigner) = _recoverSignature(loanTerms, sig, nonce, neededSide, itemPredicates);
-
-        _validateCounterparties(borrowerData.borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
-
-        loanCore.consumeNonce(externalSigner, nonce);
-        loanId = _initialize(loanTerms, borrowerData, lender);
-
-        // Run predicates check at the end of the function, after vault is in escrow. This makes sure
-        // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
-        if (itemPredicates.length > 0) _runPredicatesCheck(borrowerData.borrower, lender, loanTerms, itemPredicates);
+        loanId = initializeLoan(
+            loanTerms,
+            borrowerData,
+            lender,
+            sig,
+            nonce,
+            itemPredicates
+        );
     }
 
     /**

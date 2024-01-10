@@ -25,7 +25,7 @@ import { deploy } from "./utils/contracts";
 import { approve, mint } from "./utils/erc20";
 import { mint as mint721 } from "./utils/erc721";
 import { LoanTerms, LoanData, ItemsPredicate, Borrower } from "./utils/types";
-import { createLoanItemsSignature, createLoanTermsSignature, createEmptyPermitSignature } from "./utils/eip712";
+import { createLoanItemsSignature, createLoanTermsSignature } from "./utils/eip712";
 import { encodeItemCheck } from "./utils/loans";
 
 import {
@@ -229,7 +229,6 @@ const initializeLoan = async (
     await approve(mockERC20, lender, originationController.address, lenderWillSend);
     await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
 
-    const emptyPermitSig = createEmptyPermitSignature();
     const borrowerStruct: Borrower = {
         borrower: borrower.address,
         callbackData: "0x",
@@ -243,9 +242,7 @@ const initializeLoan = async (
             lender.address,
             sig,
             nonce,
-            [],
-            emptyPermitSig,
-            0
+            []
         );
     const receipt = await tx.wait();
 
@@ -351,7 +348,6 @@ describe("Integration", () => {
             await approve(mockERC20, lender, originationController.address, loanTerms.principal);
             await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
 
-            const emptyPermitSig = createEmptyPermitSignature();
             const borrowerStruct: Borrower = {
                 borrower: borrower.address,
                 callbackData: "0x",
@@ -366,9 +362,7 @@ describe("Integration", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
@@ -400,7 +394,6 @@ describe("Integration", () => {
             // call enableWithdraw before initializing the loan
             await AssetVault__factory.connect(bundleId, borrower).connect(borrower).enableWithdraw();
 
-            const emptyPermitSig = createEmptyPermitSignature();
             const borrowerStruct: Borrower = {
                 borrower: borrower.address,
                 callbackData: "0x",
@@ -415,15 +408,13 @@ describe("Integration", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     ),
             ).to.be.revertedWith("VF_NoTransferWithdrawEnabled");
         });
 
         it("should fail to create a loan with nonexistent collateral", async () => {
-            const { loanCore, originationController, mockERC20, lender, borrower, vaultFactory } = await loadFixture(fixture);
+            const { originationController, mockERC20, lender, borrower, vaultFactory } = await loadFixture(fixture);
 
             const mockOpenVault = await deploy("MockOpenVault", borrower, []);
             const bundleId = mockOpenVault.address;
@@ -442,7 +433,6 @@ describe("Integration", () => {
 
             await approve(mockERC20, lender, originationController.address, loanTerms.principal);
 
-            const emptyPermitSig = createEmptyPermitSignature();
             const borrowerStruct: Borrower = {
                 borrower: borrower.address,
                 callbackData: "0x",
@@ -457,9 +447,7 @@ describe("Integration", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     ),
             ).to.be.revertedWith("ERC721: operator query for nonexistent token");
         });
@@ -486,7 +474,6 @@ describe("Integration", () => {
             await approve(mockERC20, lender, originationController.address, loanTerms.principal);
             await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
 
-            const emptyPermitSig = createEmptyPermitSignature();
             const borrowerStruct: Borrower = {
                 borrower: borrower.address,
                 callbackData: "0x",
@@ -501,9 +488,7 @@ describe("Integration", () => {
                         lender.address,
                         sig,
                         1,
-                        [],
-                        emptyPermitSig,
-                        0
+                        []
                     ),
             ).to.be.revertedWith("OC_LoanDuration");
         });
@@ -944,7 +929,6 @@ describe("Integration", () => {
 
             await approve(mockERC20, lender, originationController.address, lenderWillSend);
 
-            const emptyPermitSig = createEmptyPermitSignature();
             const borrowerStruct: Borrower = {
                 borrower: borrower.address,
                 callbackData: "0x",
@@ -958,9 +942,7 @@ describe("Integration", () => {
                     lender.address,
                     sig,
                     1,
-                    predicates,
-                    emptyPermitSig,
-                    0
+                    predicates
                 );
 
             const receipt = await tx.wait();

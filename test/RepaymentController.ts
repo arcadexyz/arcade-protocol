@@ -20,7 +20,7 @@ import { BigNumber, BigNumberish } from "ethers";
 import { deploy } from "./utils/contracts";
 import { approve, mint, ZERO_ADDRESS } from "./utils/erc20";
 import { LoanTerms, LoanData, LoanState, Borrower } from "./utils/types";
-import { createEmptyPermitSignature, createLoanTermsSignature } from "./utils/eip712";
+import { createLoanTermsSignature } from "./utils/eip712";
 
 import {
     ORIGINATOR_ROLE,
@@ -209,7 +209,6 @@ const initializeLoan = async (
     await approve(mockERC20, lender, originationController.address, loanTerms.principal);
     await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
 
-    const emptyPermitSig = createEmptyPermitSignature();
     const borrowerStruct: Borrower = {
         borrower: borrower.address,
         callbackData: "0x",
@@ -223,9 +222,7 @@ const initializeLoan = async (
             lender.address,
             sig,
             1,
-            [],
-            emptyPermitSig,
-            0
+            []
         );
     const receipt = await tx.wait();
 
@@ -393,7 +390,6 @@ describe("RepaymentController", () => {
                 "b",
             );
 
-            const emptyPermitSig = createEmptyPermitSignature();
             const borrowerStruct: Borrower = {
                 borrower: borrower.address,
                 callbackData: "0x",
@@ -407,9 +403,7 @@ describe("RepaymentController", () => {
                     lender.address,
                     sig,
                     1,
-                    [],
-                    emptyPermitSig,
-                    0
+                    []
                 );
             const receipt = await tx.wait();
 

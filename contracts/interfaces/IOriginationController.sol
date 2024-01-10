@@ -54,6 +54,15 @@ interface IOriginationController {
         address lender,
         Signature calldata sig,
         uint160 nonce,
+        LoanLibrary.Predicate[] calldata itemPredicates
+    ) external returns (uint256 loanId);
+
+    function initializeLoanWithPermit(
+        LoanLibrary.LoanTerms calldata loanTerms,
+        BorrowerData calldata borrowerData,
+        address lender,
+        Signature calldata sig,
+        uint160 nonce,
         LoanLibrary.Predicate[] calldata itemPredicates,
         Signature calldata collateralSig,
         uint256 permitDeadline
