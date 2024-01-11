@@ -9,7 +9,7 @@ interface IExpressBorrow {
         address loanOriginationCaller,
         address lender,
         LoanLibrary.LoanTerms calldata loanTerms,
-        uint256 borrowerNet,
+        uint256 borrowerFee,
         bytes calldata params
     ) external;
 }

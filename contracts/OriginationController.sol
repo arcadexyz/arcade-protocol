@@ -820,7 +820,7 @@ contract OriginationController is
         // ----------------------- Express borrow callback --------------------------
         // If callback params present, call the callback function on the borrower
         if (borrowerData.callbackData.length > 0) {
-            IExpressBorrow(borrowerData.borrower).executeOperation(msg.sender, lender, loanTerms, amountToBorrower, borrowerData.callbackData);
+            IExpressBorrow(borrowerData.borrower).executeOperation(msg.sender, lender, loanTerms, borrowerFee, borrowerData.callbackData);
         }
 
         // ---------------------- LoanCore collects collateral ----------------------

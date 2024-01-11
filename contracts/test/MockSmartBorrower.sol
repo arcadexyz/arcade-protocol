@@ -27,7 +27,7 @@ contract MockSmartBorrower is IExpressBorrow, ERC721Holder {
         address, // loanOriginationCaller
         address, // lender
         LoanLibrary.LoanTerms calldata, // loanTerms
-        uint256, // borrowerNet
+        uint256, // borrowerFee
         bytes calldata // callbackData
     ) external virtual override {
         // This contract receives the borrowerNet amount of tokens from the OriginationController
@@ -63,7 +63,7 @@ contract MockSmartBorrowerTest is MockSmartBorrower {
         address, // loanOriginationCaller
         address, // lender
         LoanLibrary.LoanTerms calldata, // loanTerms
-        uint256, // borrowerNet
+        uint256, // borrowerFee
         bytes calldata callbackData // callbackData
     ) external override {
         // This contract receives the borrowerNet amount of tokens from the lender
