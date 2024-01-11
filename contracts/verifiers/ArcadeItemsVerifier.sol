@@ -78,10 +78,8 @@ contract ArcadeItemsVerifier is ISignatureVerifier {
 
     /**
      * @notice Verify that the items specified by the packed SignatureItem array are held by the vault.
-     * @dev    Reverts on a malformed SignatureItem, returns false on missing contents.
      *
-     *         Verification for empty predicates array has been addressed in initializeLoanWithItems and
-     *         rolloverLoanWithItems.
+     * @dev    Reverts on a malformed SignatureItem, returns false on missing contents.
      *
      * @param collateralAddress             The address of the loan's collateral.
      * @param collateralId                  The tokenId of the loan's collateral.

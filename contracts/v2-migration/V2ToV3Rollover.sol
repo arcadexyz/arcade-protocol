@@ -219,7 +219,7 @@ contract V2ToV3Rollover is IMigration, V2ToV3RolloverBase, FeeLookups {
             opData.newLoanTerms,
             address(this),
             lender,
-            IOriginationController.Signature({
+            IOriginationControllerV3.Signature({
                 v: opData.v,
                 r: opData.r,
                 s: opData.s,

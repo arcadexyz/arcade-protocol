@@ -44,7 +44,7 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
 
     struct OperationContracts {
         IFeeController feeControllerV3;
-        IOriginationController originationControllerV3;
+        IOriginationControllerV3 originationControllerV3;
         ILoanCore loanCoreV3;
         IERC721 borrowerNoteV3;
     }
@@ -88,7 +88,7 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
     LP1Deployment[5] public deployments;
 
     IFeeController public immutable feeController;
-    IOriginationController public immutable originationController;
+    IOriginationControllerV3 public immutable originationController;
     ILoanCore public immutable loanCore;
     IERC721 public immutable borrowerNote;
 
@@ -113,7 +113,7 @@ abstract contract LP1MigrationBase is IMigrationBase, ReentrancyGuard, ERC721Hol
 
         // Set lending protocol contract references
         feeController = IFeeController(_opContracts.feeControllerV3);
-        originationController = IOriginationController(_opContracts.originationControllerV3);
+        originationController = IOriginationControllerV3(_opContracts.originationControllerV3);
         loanCore = ILoanCore(_opContracts.loanCoreV3);
         borrowerNote = IERC721(_opContracts.borrowerNoteV3);
 

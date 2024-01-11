@@ -19,7 +19,7 @@ import { BlockchainTime } from "./utils/time";
 import { BigNumber, BigNumberish } from "ethers";
 import { deploy } from "./utils/contracts";
 import { approve, mint, ZERO_ADDRESS } from "./utils/erc20";
-import { LoanTerms, LoanData, LoanState } from "./utils/types";
+import { LoanTerms, LoanData, LoanState, Borrower } from "./utils/types";
 import { createLoanTermsSignature } from "./utils/eip712";
 
 import {
@@ -209,9 +209,21 @@ const initializeLoan = async (
     await approve(mockERC20, lender, originationController.address, loanTerms.principal);
     await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
 
+    const borrowerStruct: Borrower = {
+        borrower: borrower.address,
+        callbackData: "0x",
+    };
+
     const tx = await originationController
         .connect(lender)
-        .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1);
+        .initializeLoan(
+            loanTerms,
+            borrowerStruct,
+            lender.address,
+            sig,
+            1,
+            []
+        );
     const receipt = await tx.wait();
 
     let loanId;
@@ -378,9 +390,21 @@ describe("RepaymentController", () => {
                 "b",
             );
 
+            const borrowerStruct: Borrower = {
+                borrower: borrower.address,
+                callbackData: "0x",
+            };
+
             const tx = await mockOC
                 .connect(lender)
-                .initializeLoan(loanTerms, borrower.address, lender.address, sig, 1);
+                .initializeLoan(
+                    loanTerms,
+                    borrowerStruct,
+                    lender.address,
+                    sig,
+                    1,
+                    []
+                );
             const receipt = await tx.wait();
 
             let loanId;
