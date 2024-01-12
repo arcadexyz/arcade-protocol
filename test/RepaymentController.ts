@@ -27,7 +27,8 @@ import {
     REPAYER_ROLE,
     AFFILIATE_MANAGER_ROLE,
     BASE_URI,
-    MIN_LOAN_PRINCIPAL
+    MIN_LOAN_PRINCIPAL,
+    EIP712_VERSION
 } from "./utils/constants";
 
 interface TestContext {
@@ -202,7 +203,7 @@ const initializeLoan = async (
         "OriginationController",
         loanTerms,
         borrower,
-        "4",
+        EIP712_VERSION,
         sigProperties,
         "b",
     );
@@ -387,7 +388,7 @@ describe("RepaymentController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 sigProperties,
                 "b",
             );

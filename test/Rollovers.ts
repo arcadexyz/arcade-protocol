@@ -34,7 +34,8 @@ import {
     REPAYER_ROLE,
     AFFILIATE_MANAGER_ROLE,
     BASE_URI,
-    MIN_LOAN_PRINCIPAL
+    MIN_LOAN_PRINCIPAL,
+    EIP712_VERSION
 } from "./utils/constants";
 
 interface TestContext {
@@ -242,7 +243,7 @@ const initializeLoan = async (
         "OriginationController",
         loanTerms,
         borrower,
-        "4",
+        EIP712_VERSION,
         sigProperties,
         "b",
     );
@@ -327,7 +328,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -356,7 +357,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -384,7 +385,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -406,7 +407,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -429,7 +430,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -452,7 +453,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 newLender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -485,7 +486,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -553,7 +554,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -606,7 +607,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 newLender,
-                "4",
+                EIP712_VERSION,
                 sigProperties,
                 "l",
             );
@@ -685,7 +686,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "b",
             );
@@ -764,7 +765,7 @@ describe("Rollovers", () => {
                 newTerms,
                 predicates,
                 newLender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -826,7 +827,7 @@ describe("Rollovers", () => {
                 newTerms,
                 predicates,
                 newLender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -884,7 +885,7 @@ describe("Rollovers", () => {
                 newTerms,
                 predicates,
                 newLender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -942,7 +943,7 @@ describe("Rollovers", () => {
                 newTerms,
                 predicates,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -1022,7 +1023,7 @@ describe("Rollovers", () => {
                 newTerms,
                 predicates,
                 newLender,
-                "4",
+                EIP712_VERSION,
                 sigProperties,
                 "l",
             );
@@ -1124,7 +1125,7 @@ describe("Rollovers", () => {
                 newTerms,
                 predicates,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -1202,7 +1203,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -1277,7 +1278,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -1352,7 +1353,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 newLender,
-                "4",
+                EIP712_VERSION,
                 sigProperties,
                 "l",
             );
@@ -1430,7 +1431,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -1502,7 +1503,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -1576,7 +1577,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -1655,7 +1656,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );
@@ -1730,7 +1731,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 newLender,
-                "4",
+                EIP712_VERSION,
                 sigProperties,
                 "l",
             );
@@ -1815,7 +1816,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 newLender,
-                "4",
+                EIP712_VERSION,
                 sigProperties,
                 "l",
             );
@@ -1899,7 +1900,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 newLender,
-                "4",
+                EIP712_VERSION,
                 sigProperties,
                 "l",
             );
@@ -1987,7 +1988,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 newLender,
-                "4",
+                EIP712_VERSION,
                 sigProperties,
                 "l",
             );
@@ -2076,7 +2077,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 newLender,
-                "4",
+                EIP712_VERSION,
                 sigProperties,
                 "l",
             );
@@ -2178,7 +2179,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 newLender,
-                "4",
+                EIP712_VERSION,
                 sigProperties,
                 "l",
             );
@@ -2290,7 +2291,7 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );

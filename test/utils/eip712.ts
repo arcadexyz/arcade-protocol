@@ -3,6 +3,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { BigNumberish } from "ethers";
 import { LoanTerms, ItemsPayload, ItemsPredicate, InitializeLoanSignature, SignatureProperties } from "./types";
 import { fromRpcSig, ECDSASignature } from "ethereumjs-util";
+import { EIP712_VERSION } from "./constants";
 
 interface TypeData {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -105,7 +106,7 @@ export async function createLoanTermsSignature(
     name: string,
     terms: LoanTerms,
     signer: SignerWithAddress,
-    version = "4",
+    version = EIP712_VERSION,
     sigProperties: SignatureProperties,
     _side: "b" | "l",
     extraData = "0x",
@@ -138,7 +139,7 @@ export async function createLoanItemsSignature(
     terms: LoanTerms,
     items: ItemsPredicate[],
     signer: SignerWithAddress,
-    version = "4",
+    version = EIP712_VERSION,
     sigProperties: SignatureProperties,
     _side: "b" | "l",
     extraData = "0x",

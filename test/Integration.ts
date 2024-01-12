@@ -39,7 +39,8 @@ import {
     MINT_BURN_ROLE,
     WHITELIST_MANAGER_ROLE,
     MIN_LOAN_PRINCIPAL,
-    SHUTDOWN_ROLE
+    SHUTDOWN_ROLE,
+    EIP712_VERSION
 } from "./utils/constants";
 
 chai.use(solidity);
@@ -231,7 +232,7 @@ const initializeLoan = async (
         "OriginationController",
         loanTerms,
         borrower,
-        "4",
+        EIP712_VERSION,
         sigProperties,
         "b",
     );
@@ -350,7 +351,7 @@ describe("Integration", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -394,7 +395,7 @@ describe("Integration", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -436,7 +437,7 @@ describe("Integration", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -476,7 +477,7 @@ describe("Integration", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -932,7 +933,7 @@ describe("Integration", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -986,7 +987,7 @@ describe("Integration", () => {
                 loanTerms,
                 rolloverPredicates,
                 lender,
-                "4",
+                EIP712_VERSION,
                 rolloverSigProperties,
                 "l",
             );

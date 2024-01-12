@@ -1,5 +1,7 @@
 import { ethers } from "hardhat"
 
+export const EIP712_VERSION = "4";
+
 export const ORIGINATOR_ROLE = ethers.utils.id("ORIGINATOR");
 export const REPAYER_ROLE = ethers.utils.id("REPAYER");
 export const ADMIN_ROLE = ethers.utils.id("ADMIN");

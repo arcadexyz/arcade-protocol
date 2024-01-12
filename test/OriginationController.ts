@@ -38,7 +38,8 @@ import {
     ADMIN_ROLE,
     WHITELIST_MANAGER_ROLE,
     BASE_URI,
-    MIN_LOAN_PRINCIPAL
+    MIN_LOAN_PRINCIPAL,
+    EIP712_VERSION
 } from "./utils/constants";
 
 type Signer = SignerWithAddress;
@@ -267,7 +268,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -295,7 +296,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -322,7 +323,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -352,7 +353,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -382,7 +383,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -412,7 +413,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -439,7 +440,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -468,7 +469,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 signers[3],
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -500,7 +501,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 sigProperties, // Use nonce 3
                 "b",
             );
@@ -532,7 +533,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties, // Use nonce 3
                 "b",
             );
@@ -559,7 +560,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -590,7 +591,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
@@ -627,7 +628,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
@@ -655,7 +656,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -686,7 +687,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
@@ -763,7 +764,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -818,7 +819,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -866,7 +867,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -955,7 +956,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 lender,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
@@ -1005,7 +1006,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 lender,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
@@ -1041,7 +1042,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 lender,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
@@ -1099,7 +1100,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -1144,7 +1145,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -1192,7 +1193,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -1240,7 +1241,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -1285,7 +1286,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -1330,7 +1331,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -1378,7 +1379,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -1479,7 +1480,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -1563,7 +1564,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -1644,7 +1645,7 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -1834,7 +1835,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 newSigner, // Now signed by a third party
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -1877,7 +1878,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 newSigner, // Now signed by a third party
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
@@ -1920,7 +1921,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
@@ -1963,7 +1964,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -2005,7 +2006,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -2043,7 +2044,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
@@ -2085,7 +2086,7 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "4",
+                    EIP712_VERSION,
                     defaultSigProperties,
                     "l",
                 );
@@ -2130,7 +2131,7 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "4",
+                    EIP712_VERSION,
                     defaultSigProperties,
                     "l",
                     "0x00001234"
@@ -2173,7 +2174,7 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "4",
+                    EIP712_VERSION,
                     defaultSigProperties,
                     "l",
                 );
@@ -2214,7 +2215,7 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "4",
+                    EIP712_VERSION,
                     defaultSigProperties,
                     "l",
                     "0x00001234",
@@ -2260,7 +2261,7 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "4",
+                    EIP712_VERSION,
                     defaultSigProperties,
                     "l",
                 );
@@ -2305,7 +2306,7 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "4",
+                    EIP712_VERSION,
                     defaultSigProperties,
                     "l",
                     "0x00001234",
@@ -2351,7 +2352,7 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "4",
+                    EIP712_VERSION,
                     defaultSigProperties,
                     "l",
                     "0x0000",
@@ -2394,7 +2395,7 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "4",
+                    EIP712_VERSION,
                     defaultSigProperties,
                     "l",
                 );
@@ -2478,7 +2479,7 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "4",
+                    EIP712_VERSION,
                     defaultSigProperties,
                     "l",
                 );
@@ -2569,7 +2570,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -2622,7 +2623,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -2674,7 +2675,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -2747,7 +2748,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -2784,7 +2785,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -3020,7 +3021,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -3077,7 +3078,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -3091,7 +3092,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 sigProperties,
                 "l",
             );
@@ -3178,7 +3179,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -3203,7 +3204,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 sigProperties,
                 "l",
             );
@@ -3259,7 +3260,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms2,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 sigProperties,
                 "b",
             );
@@ -3304,7 +3305,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "b",
             );
@@ -3315,7 +3316,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
@@ -3411,7 +3412,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
@@ -3459,7 +3460,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
@@ -3471,7 +3472,7 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "4",
+                EIP712_VERSION,
                 sigProperties,
                 "l",
             );
