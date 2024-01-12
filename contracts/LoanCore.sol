@@ -28,6 +28,7 @@ import {
     LC_InvalidState,
     LC_NotExpired,
     LC_NonceUsed,
+    LC_MaxNonceUses,
     LC_AffiliateCodeAlreadySet,
     LC_CallerNotLoanCore,
     LC_NoReceipt,
@@ -96,6 +97,10 @@ contract LoanCore is
     /// @dev Lookup table showing for which user, which nonces have been used.
     ///      user => nonce => isUsed
     mapping(address => mapping(uint160 => bool)) public usedNonces;
+
+    /// @dev Lookup table showing for a given user and nonce, how many times the nonce has been used.
+    ///      user => nonce => numberOfUses
+    mapping(address => mapping(uint160 => uint96)) public numNonceUses;
 
     // =================== Fee Management =====================
 
@@ -515,14 +520,20 @@ contract LoanCore is
     // ======================================== NONCE MANAGEMENT ========================================
 
     /**
-     * @notice Mark a nonce as used in the context of starting a loan. Reverts if
-     *         nonce has already been used. Can only be called by Origination Controller.
+     * @notice For a given user and nonce, increment the number of times the nonce has been used. If this
+     *         this is the last use, set the nonce to used. Reverts if nonce has reach its maximum amount
+     *         of uses. Can only be called by Origination Controller.
      *
      * @param user                  The user for whom to consume a nonce.
      * @param nonce                 The nonce to consume.
+     * @param maxUses               The maximum number of times the nonce can be used.
      */
-    function consumeNonce(address user, uint160 nonce) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) {
-        _useNonce(user, nonce);
+    function consumeNonce(
+        address user,
+        uint160 nonce,
+        uint96 maxUses
+    ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) {
+        _useNonce(user, nonce, maxUses);
     }
 
     /**
@@ -533,7 +544,13 @@ contract LoanCore is
      * @param nonce                 The nonce to consume.
      */
     function cancelNonce(uint160 nonce) external override {
-        _useNonce(msg.sender, nonce);
+        mapping(uint160 => bool) storage _usedNonces = usedNonces[msg.sender];
+
+        if (_usedNonces[nonce]) revert LC_NonceUsed(msg.sender, nonce);
+        // set nonce to used
+        _usedNonces[nonce] = true;
+
+        emit NonceUsed(msg.sender, nonce);
     }
 
     // ========================================= VIEW FUNCTIONS =========================================
@@ -615,6 +632,18 @@ contract LoanCore is
      */
     function isNonceUsed(address user, uint160 nonce) external view override returns (bool) {
         return usedNonces[user][nonce];
+    }
+
+    /**
+     * @notice Returns the number of times a nonce has been used to start a loan.
+     *
+     * @param user                  The user to check the nonce for.
+     * @param nonce                 The nonce to check.
+     *
+     * @return numUses              The number of times the nonce has been used.
+     */
+    function numberOfNonceUses(address user, uint160 nonce) external view override returns (uint96) {
+        return numNonceUses[user][nonce];
     }
 
     /**
@@ -846,20 +875,34 @@ contract LoanCore is
     }
 
     /**
-     * @dev Consume a nonce, by marking it as used for that user. Reverts if the nonce
-     *      has already been used.
+     * @dev Determine if a nonce has been used, and if not, increment the number of times
+     *      the nonce has been used. If the nonce has reached the maximum number of uses,
+     *      mark the nonce as used. Revert if the nonce has already been used.
      *
      * @param user                  The user for whom to consume a nonce.
      * @param nonce                 The nonce to consume.
+     * @param maxUses               The maximum number of times the nonce can be used.
      */
-    function _useNonce(address user, uint160 nonce) internal {
+    function _useNonce(address user, uint160 nonce, uint96 maxUses) internal {
+        // load nonce data
         mapping(uint160 => bool) storage _usedNonces = usedNonces[user];
+        uint96 _nonceUses = numNonceUses[user][nonce];
 
+        // check if nonce has been completely used or cancelled
         if (_usedNonces[nonce]) revert LC_NonceUsed(user, nonce);
-        // set nonce to used
-        _usedNonces[nonce] = true;
 
-        emit NonceUsed(user, nonce);
+        if (_nonceUses + 1 == maxUses) {
+            // if this is the last time nonce can be used, mark the nonce as completely used
+            // and update the number of times it has been used to the maxUses
+            _usedNonces[nonce] = true;
+            numNonceUses[user][nonce] = maxUses;
+
+            emit NonceUsed(user, nonce);
+        } else {
+            // if this nonce usage is not the last use and is not over the maxUses,
+            // increment the numNonceUses mapping
+            numNonceUses[user][nonce]++;
+        }
     }
 
     /**

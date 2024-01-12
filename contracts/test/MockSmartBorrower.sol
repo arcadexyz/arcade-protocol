@@ -81,7 +81,7 @@ contract MockSmartBorrowerTest is MockSmartBorrower {
         IOriginationController.BorrowerData calldata borrowerData,
         address lender,
         IOriginationController.Signature calldata sig,
-        uint160 nonce,
+        IOriginationController.SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates
     ) public {
         IOriginationController(originationController).initializeLoan(
@@ -89,7 +89,7 @@ contract MockSmartBorrowerTest is MockSmartBorrower {
             borrowerData,
             lender,
             sig,
-            nonce,
+            sigProperties,
             itemPredicates
         );
     }

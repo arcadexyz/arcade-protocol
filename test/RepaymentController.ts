@@ -19,7 +19,7 @@ import { BlockchainTime } from "./utils/time";
 import { BigNumber, BigNumberish } from "ethers";
 import { deploy } from "./utils/contracts";
 import { approve, mint, ZERO_ADDRESS } from "./utils/erc20";
-import { LoanTerms, LoanData, LoanState, Borrower } from "./utils/types";
+import { LoanTerms, LoanData, LoanState, Borrower, SignatureProperties } from "./utils/types";
 import { createLoanTermsSignature } from "./utils/eip712";
 
 import {
@@ -196,13 +196,14 @@ const initializeLoan = async (
     );
     await mint(mockERC20, lender, loanTerms.principal);
 
+    const sigProperties: SignatureProperties = {nonce: 1, maxUses: 1};
     const sig = await createLoanTermsSignature(
         originationController.address,
         "OriginationController",
         loanTerms,
         borrower,
-        "3",
-        1,
+        "4",
+        sigProperties,
         "b",
     );
 
@@ -221,7 +222,7 @@ const initializeLoan = async (
             borrowerStruct,
             lender.address,
             sig,
-            1,
+            sigProperties,
             []
         );
     const receipt = await tx.wait();
@@ -380,13 +381,14 @@ describe("RepaymentController", () => {
                 ethers.constants.HashZero
             );
 
+            const sigProperties: SignatureProperties = {nonce: 1, maxUses: 1};
             const sig = await createLoanTermsSignature(
                 mockOC.address,
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                "4",
+                sigProperties,
                 "b",
             );
 
@@ -402,7 +404,7 @@ describe("RepaymentController", () => {
                     borrowerStruct,
                     lender.address,
                     sig,
-                    1,
+                    sigProperties,
                     []
                 );
             const receipt = await tx.wait();

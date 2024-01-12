@@ -17,6 +17,11 @@ interface IOriginationController {
         bytes callbackData;
     }
 
+    struct SigProperties {
+        uint160 nonce;
+        uint96 maxUses;
+    }
+
     enum Side {
         BORROW,
         LEND
@@ -53,7 +58,7 @@ interface IOriginationController {
         BorrowerData calldata borrowerData,
         address lender,
         Signature calldata sig,
-        uint160 nonce,
+        SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates
     ) external returns (uint256 loanId);
 
@@ -62,7 +67,7 @@ interface IOriginationController {
         BorrowerData calldata borrowerData,
         address lender,
         Signature calldata sig,
-        uint160 nonce,
+        SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates,
         Signature calldata collateralSig,
         uint256 permitDeadline
@@ -73,7 +78,7 @@ interface IOriginationController {
         LoanLibrary.LoanTerms calldata loanTerms,
         address lender,
         Signature calldata sig,
-        uint160 nonce,
+        SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates
     ) external returns (uint256 newLoanId);
 
@@ -96,14 +101,14 @@ interface IOriginationController {
     function recoverTokenSignature(
         LoanLibrary.LoanTerms calldata loanTerms,
         Signature calldata sig,
-        uint160 nonce,
+        SigProperties calldata sigProperties,
         Side side
     ) external view returns (bytes32 sighash, address signer);
 
     function recoverItemsSignature(
         LoanLibrary.LoanTerms calldata loanTerms,
         Signature calldata sig,
-        uint160 nonce,
+        SigProperties calldata sigProperties,
         Side side,
         bytes32 itemsHash
     ) external view returns (bytes32 sighash, address signer);

@@ -25,7 +25,7 @@ import "../libraries/LoanLibrary.sol";
 error OC_ZeroAddress(string addressType);
 
 /**
- * @notice Ensure valid loan state for loan lifceycle operations.
+ * @notice Ensure valid loan state for loan lifecycle operations.
  *
  * @param state                         Current state of a loan according to LoanState enum.
  */
@@ -39,9 +39,10 @@ error OC_InvalidState(LoanLibrary.LoanState state);
 error OC_LoanDuration(uint256 durationSecs);
 
 /**
- * @notice Interest must be greater than 0.01% and less than 10,000%. (interestRate / 1e18 >= 1)
+ * @notice Interest rate must be greater than or equal to 1 (0.01%) and less than or equal
+ *         to 1e8 (1,000,000%).
  *
- * @param interestRate                  InterestRate with 1e18 multiplier.
+ * @param interestRate                  Interest rate in bps.
  */
 error OC_InterestRate(uint256 interestRate);
 
@@ -192,7 +193,7 @@ error IV_ItemMissingAddress();
  * @dev    Should never actually fire, since cType is defined by an enum, so will fail on decode.
  *
  * @param asset                        The NFT contract being checked.
- * @param cType                        The collateralTytpe provided.
+ * @param cType                        The collateralType provided.
  */
 error IV_InvalidCollateralType(address asset, uint256 cType);
 
@@ -252,7 +253,7 @@ error RC_ZeroAddress(string addressType);
 error RC_CannotDereference(uint256 target);
 
 /**
- * @notice Ensure valid loan state for loan lifceycle operations.
+ * @notice Ensure valid loan state for loan lifecycle operations.
  *
  * @param state                         Current state of a loan according to LoanState enum.
  */
@@ -279,7 +280,7 @@ error RC_InvalidRepayment(uint256 amount, uint256 interestOwed);
  */
 error RC_ZeroAmount();
 
-// ==================================== Loan Core ======================================
+// ====================================== LOAN CORE ======================================
 /// @notice All errors prefixed with LC_, to separate from other contracts in the protocol.
 
 /**
@@ -338,7 +339,7 @@ error LC_ArrayLengthMismatch();
 error LC_OverMaxSplit(uint96 splitBps, uint96 maxSplitBps);
 
 /**
- * @notice Ensure valid loan state for loan lifceycle operations.
+ * @notice Ensure valid loan state for loan lifecycle operations.
  *
  * @param state                         Current state of a loan according to LoanState enum.
  */
@@ -355,9 +356,17 @@ error LC_NotExpired(uint256 dueDate);
  * @notice User address and the specified nonce have already been used.
  *
  * @param user                          Address of collateral owner.
- * @param nonce                         Represents the number of transactions sent by address.
+ * @param nonce                         Unique identifier for a loan signature.
  */
 error LC_NonceUsed(address user, uint160 nonce);
+
+/**
+ * @notice The max uses for the specified nonce has been reached.
+ *
+ * @param nonce                         Unique identifier for a loan signature.
+ * @param maxUses                       The maximum number of times this nonce can be used.
+ */
+error LC_MaxNonceUses(uint160 nonce, uint96 maxUses);
 
 /**
  * @notice Protocol attempted to set an affiliate code which already exists. Affiliate
@@ -395,7 +404,7 @@ error LC_ExceedsBalance(uint256 paymentToPrincipal, uint256 balance);
  */
 error LC_AwaitingWithdrawal(uint256 availableAmount);
 
-// ==================================== Promissory Note ======================================
+// ==================================== PROMISSORY NOTE ======================================
 /// @notice All errors prefixed with PN_, to separate from other contracts in the protocol.
 
 /**
@@ -420,13 +429,13 @@ error PN_MintingRole(address caller);
 error PN_BurningRole(address caller);
 
 /**
- * @notice Non-existant token id provided as argument.
+ * @notice Non-existent token id provided as argument.
  *
  * @param tokenId                       The ID of the token to lookup the URI for.
  */
 error PN_DoesNotExist(uint256 tokenId);
 
-// ==================================== Fee Controller ======================================
+// ==================================== FEE CONTROLLER ======================================
 /// @notice All errors prefixed with FC_, to separate from other contracts in the protocol.
 
 /**
@@ -439,7 +448,7 @@ error FC_LendingFeeOverMax(bytes32 selector, uint256 fee, uint256 maxFee);
  */
 error FC_VaultMintFeeOverMax(uint256 fee, uint256 maxFee);
 
-// ==================================== ERC721 Permit ======================================
+// ==================================== ERC721 PERMIT ======================================
 /// @notice All errors prefixed with ERC721P_, to separate from other contracts in the protocol.
 
 /**
@@ -459,7 +468,7 @@ error ERC721P_NotTokenOwner(address owner);
 /**
  * @notice Invalid signature.
  *
- * @param signer                        Signer recovered from ECDSA sugnature hash.
+ * @param signer                        Signer recovered from ECDSA signature hash.
  */
 error ERC721P_InvalidSignature(address signer);
 

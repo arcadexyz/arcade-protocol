@@ -86,7 +86,7 @@ interface ILoanCore {
 
     // ============== Nonce Management ==============
 
-    function consumeNonce(address user, uint160 nonce) external;
+    function consumeNonce(address user, uint160 nonce, uint96 maxUses) external;
 
     function cancelNonce(uint160 nonce) external;
 
@@ -107,6 +107,8 @@ interface ILoanCore {
     function getNoteReceipt(uint256 loanId) external view returns (address token, uint256 amount);
 
     function isNonceUsed(address user, uint160 nonce) external view returns (bool);
+
+    function numberOfNonceUses(address user, uint160 nonce) external view returns (uint96);
 
     function borrowerNote() external view returns (IPromissoryNote);
 
