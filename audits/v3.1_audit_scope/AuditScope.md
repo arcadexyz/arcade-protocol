@@ -1,4 +1,4 @@
-# ✨ Arcade.xyz Lending Protocol V3.1 Audit Scope
+# ✨ Arcade.xyz Lending Protocol V4 Audit Scope
 
 Arcade.xyz is the first of its kind Web3 platform to enable liquid lending markets for NFTs. At Arcade.xyz, we think all assets will eventually become digitized and that NFTs represent a 0 to 1 innovation in storing value and ownership attribution for unique digital assets.
 
@@ -15,17 +15,31 @@ For more information about Arcade.xyz, please visit https://docs.arcadedao.xyz/d
 - Language - Solidity
 - Platform - Ethereum
 
-## Changes in V3.1
+## V4 Changes
 
 - Prorated interest repayments
-  - There is no minimum loan duration requirement on repayment allowing for Flash Loan style repayments.
+  - Formula used:
+    - $interestDue(t) = balance (t - lastTimeInterestPaid) (\frac{interestRate}{360 days})$
+    - Where `t` is the current time and `interstRate` is the annual interest rate (APY).
+  - There is no minimum loan duration requirement on the minimum delta of `t - lastTimeInterestPaid`. Allowing for same block repayments.
+  - _Contracts affected: LoanCore.sol, OriginationController.sol, RepaymentController.sol, InterestCalculator.sol, LoanLibrary.sol_
 - Partial borrower repayments
-  - Borrowers can now repay a loan in multiple transactions.
-  - Minimum repayment amount is the interest due on the loan at the time of repayment.
-  - New functions to calculate effective interest rate for partial repayments.
+  - Borrowers can repay a loan in multiple transactions.
+  - For each repayment, the minimum repayment amount is the interest due on the loan at the time of repayment.
+  - With the prorated interest changes, new functions have been added to the InterestCalculator to return the effective interest rate for partial repayments.
+  - _Contracts affected: LoanCore.sol, OriginationController.sol, RepaymentController.sol_
 - Optimistic settlement on loan origination
-  - Flow of funds during origination goes entirely through the OriginationController contract for both starting a loan and rolling over an existing loan.
-  - Callback function on borrower during loan origination.
+  - Flow of funds during origination goes entirely through OriginationController.sol contract for both starting a loan and rolling over an existing loan.
+  - Included with this change is an optional callback function. This callback mechanic makes a call back to the borrower during loan origination after the borrower has collected the loan principal from the lender. The borrower can pass in any data to be executed. This allows for many unique use cases, where the borrower can use these funds to preform many on-chain actions. It is imperative that anyone auditing the protocol look for possible reentrancy attacks here. If a borrower does not want to use this callback function, they can pass in bytes with a length of 0. (0x)
+  - _Contracts affected: LoanCore.sol, OriginationController.sol, IExpressBorrow.sol_
+- Reusable signatures
+  - Loans can be initiated multiple times with same signature. This is accomplished by adding a `maxUses` parameter to the signature type hash. This new `maxUses` parameter will inform the protocol on how many times a `nonce` can be used. Meaning a single nonce or signature can be reused until the max uses is reached.
+  - _Contracts affected: LoanCore.sol, OriginationController.sol_
+- Native V3 -> V4 migration
+  - Using optimistic settlements, we can migrate loans from V3 to V4 without integrating with an external flash loan provider. Using optimistic settlement, the loan prinicipal is collected from the lender before the loan is started, now can use the lender's funds from the V4 bid to pay off the V3 loan and start a new V4 loan.
+  - _Contracts affected: OriginationController.sol_
+- Collaction wide offer verifier for vaulted and un-vaulted assets
+  - CollectionWideOfferVerifier.sol logic change.
 
 ## Vulnerability Level Details
 
