@@ -12,13 +12,13 @@
 
 > The latest deployment of contracts is from the commit tagged `v3.core.01`.
 
-### ___See natspec for technical detail.___
-
+### **_See natspec for technical detail._**
 
 The Arcade Lending protocol's smart contracts can be grouped into three main categories:
-- __Core Lending__: These smart contracts define the core lending protocol mechanics. The main features implemented include collateral escrow, the loan lifecycle state machine, on-chain storage of loan information, and protocol invariants.
-- __Vaults__: The Asset Vault is a smart contract, whose ownership is tracked by an NFT, that can be used to bundle multiple items of collateral for a single loan. Vaults also provide additional utility for escrowed assets, such as delegation.
-- __Verifiers__: The Arcade Lending Protocol uses a flexible, predicate-based ruleset for governing mutual agreement to lending terms when originating a loan. Counterparties can sign payloads, targeted towards specific verifiers, that can run custom logic express rules under which loans can be originated.
+
+- **Core Lending**: These smart contracts define the core lending protocol mechanics. The main features implemented include collateral escrow, the loan lifecycle state machine, on-chain storage of loan information, and protocol invariants.
+- **Vaults**: The Asset Vault is a smart contract, whose ownership is tracked by an NFT, that can be used to bundle multiple items of collateral for a single loan. Vaults also provide additional utility for escrowed assets, such as delegation.
+- **Verifiers**: The Arcade Lending Protocol uses a flexible, predicate-based ruleset for governing mutual agreement to lending terms when originating a loan. Counterparties can sign payloads, targeted towards specific verifiers, that can run custom logic express rules under which loans can be originated.
 
 ## CoreLending
 
@@ -68,6 +68,7 @@ The fee controller is a contract containing functions that return values for ass
 fees at different parts of the loan lifecycle. The fee amounts can be updated by the contract owner.
 
 ## Vaults
+
 ### VaultFactory
 
 The Vault Factory is an ERC721 that tracks ownership of Asset Vault contracts (see OwnableERC721). Minting a new
@@ -122,17 +123,6 @@ The Arcade protocol contains three contracts that follow the ERC721 NFT standard
 - `StaticURIDescriptor.sol` contains a `tokenURI` function that returns the same URI value for any given tokenId.
 - `BaseURIDescriptor.sol` contains a `tokenURI` function that returns an incrementing tokenId appended to a base URI path. This allows a `<base uri>/<token id>` URI scheme which allows unique images per token ID.
 
-## Migrations
-
-This repo implements a number of smart contracts that enable migration from other lending protocols to Arcade V3. All migration (or "rollover") contracts use the same settlement mechanism: initially, a flash loan is taken to repay an open loan, with a loan using the same collateral instantly opened on Arcade V3. Funding from the new loan can be used to repay the old loan from the source protocol. This allows capital-efficient adoption of the Arcade V3 protocol for those currently with active borrows against their NFTs.
-
-Two source protocol migrations have been implemented:
-
-- `V2ToV3Rollover.sol` and `V2ToV3RolloverWithItems.sol` allow migrations from the Arcade V2 protocol to Arcade V3.
-- `LP1Migration.sol` and `LP1MigrationWithItems.sol` allow migrations from NFTfi loans to Arcade V3.
-
-In both cases, the "with items" version of the smart contract allows the borrower to provide an items-based signature from a lender, as opposed to a vault based signature.
-
 ## Version 2
 
 This is version 3 of the protocol. Version 2 of the protocol can be found [here](https://github.com/Non-fungible-Technologies/v2-contracts).
@@ -181,9 +171,10 @@ In the case where the Arcade Protocol itself were blacklisted, (`OriginationCont
 - Borrowers would also not be able to use rollovers to extend their loan's lifecycle.
 
 In the case where one of a loan's counterparties were blacklisted, the following mitigations exist:
+
 - A blacklisted borrower can repay a loan from a different address using `repay` or `forceRepay`. Collateral will still be returned to the original borrowing address.
 - A blacklisted lender will not be able to receive tokens, meaning that `repay` will revert. In this case, the borrower can use `forceRepay`. In order to reclaim their tokens,
-the lender can send their lender note to a different, non-blacklisted address, and call `redeemNote` to receive their tokens.
+  the lender can send their lender note to a different, non-blacklisted address, and call `redeemNote` to receive their tokens.
 
 ### `ERC20#permit` DoS vector
 
@@ -225,9 +216,9 @@ If use cases were to ever arise where signing approval was given to an untrusted
 
 The OriginationController's signing flow separates counterparties along the following dimensions:
 
-* The `borrower` vs. the `lender`
-* The `caller` (the user initiating the on-chain transaction to originate a loan) vs. the `signer` (the user providing the signature when originating a loan)
-* Self-signed signatures and "approved" signatures.
+- The `borrower` vs. the `lender`
+- The `caller` (the user initiating the on-chain transaction to originate a loan) vs. the `signer` (the user providing the signature when originating a loan)
+- Self-signed signatures and "approved" signatures.
 
 In some cases, open signatures for one of these roles (e.g. borrowing against an asset) can be used for other roles (e.g. to lend against the same asset). If users would like to borrow against an NFT, but then sell that NFT, they should cancel all open offers associated with that asset.
 
