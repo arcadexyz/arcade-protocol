@@ -18,7 +18,14 @@ import "./interfaces/IExpressBorrow.sol";
 
 import "./libraries/InterestCalculator.sol";
 import "./libraries/FeeLookups.sol";
+
 import "./verifiers/ArcadeItemsVerifier.sol";
+
+import "./v3/interfaces/ILoanCoreV3.sol";
+import "./v3/interfaces/IOriginationControllerV3.sol";
+import "./v3/interfaces/IRepaymentControllerV3.sol";
+import "./v3/libraries/LoanLibraryV3.sol";
+
 import {
     OC_ZeroAddress,
     OC_InvalidState,
@@ -39,7 +46,9 @@ import {
     OC_InvalidCurrency,
     OC_InvalidCollateral,
     OC_ZeroArrayElements,
-    OC_ArrayTooManyElements
+    OC_ArrayTooManyElements,
+    OC_InvalidState,
+    OC_InvalidStateMigration
 } from "./errors/Lending.sol";
 
 /**
@@ -106,6 +115,10 @@ contract OriginationController is
     ILoanCore private immutable loanCore;
     IFeeController private immutable feeController;
 
+    ILoanCoreV3 private immutable loanCoreV3;
+    IOriginationControllerV3 private immutable originationControllerV3;
+    IRepaymentControllerV3 private immutable repaymentControllerV3;
+
     // ================= Approval State ==================
 
     /// @notice Mapping from owner to operator approvals
@@ -129,9 +142,18 @@ contract OriginationController is
      * @param _loanCore                     The address of the loan core logic of the protocol.
      * @param _feeController                The address of the fee logic of the protocol.
      */
-    constructor(address _loanCore, address _feeController) EIP712("OriginationController", "4") {
+    constructor(
+        address _loanCore,
+        address _feeController,
+        address _loanCoreV3,
+        address _originationControllerV3,
+        address _repaymentControllerV3
+    ) EIP712("OriginationController", "4") {
         if (_loanCore == address(0)) revert OC_ZeroAddress("loanCore");
         if (_feeController == address(0)) revert OC_ZeroAddress("feeController");
+        if (_loanCoreV3 == address(0)) revert OC_ZeroAddress("loanCoreV3");
+        if (_originationControllerV3 == address(0)) revert OC_ZeroAddress("originationControllerV3");
+        if (_repaymentControllerV3 == address(0)) revert OC_ZeroAddress("repaymentControllerV3");
 
         _setupRole(ADMIN_ROLE, msg.sender);
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
@@ -141,6 +163,10 @@ contract OriginationController is
 
         loanCore = ILoanCore(_loanCore);
         feeController = IFeeController(_feeController);
+
+        loanCoreV3 = ILoanCoreV3(_loanCoreV3);
+        originationControllerV3 = IOriginationControllerV3(_originationControllerV3);
+        repaymentControllerV3 = IRepaymentControllerV3(_repaymentControllerV3);
     }
 
     // ======================================= LOAN ORIGINATION =========================================
@@ -285,6 +311,76 @@ contract OriginationController is
         // Run predicates check at the end of the function, after vault is in escrow. This makes sure
         // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
         if (itemPredicates.length > 0) _runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
+    }
+
+    // ======================================= V3 MIGRATION =============================================
+
+    function migrateV3Loan(
+        uint256 oldLoanId,
+        LoanLibrary.LoanTerms calldata newTerms,
+        address lender,
+        Signature calldata sig,
+        uint160 nonce,
+        // add maxUses param!
+        LoanLibrary.Predicate[] calldata itemPredicates
+    ) external override returns (uint256 newLoanId) {
+        //////////////////////////////// Loan Validation ////////////////////////////////
+        _validateLoanTerms(newTerms);
+
+        LoanLibraryV3.LoanData memory oldLoanData = loanCoreV3.getLoan(oldLoanId);
+        if (oldLoanData.state != LoanLibraryV3.LoanState.Active) revert OC_InvalidStateMigration(oldLoanData.state);
+        _validateMigration(oldLoanData.terms, newTerms);
+
+        address borrower = IERC721(loanCoreV3.borrowerNote()).ownerOf(oldLoanId);
+
+        // Determine if signature needs to be on the borrow or lend side
+        Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
+
+        (bytes32 sighash, address externalSigner) = _recoverSignature(newTerms, sig, nonce, neededSide, itemPredicates);
+
+        _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
+
+        //////////////////////////////// Collect V3 BorrowerNote ////////////////////////////////
+        IERC721(loanCoreV3.borrowerNote()).safeTransferFrom(borrower, address(this), oldLoanId);
+
+        //////////////////////////////// Start V4 Loan (Begin) ////////////////////////////////
+        loanCore.consumeNonce(externalSigner, nonce);
+
+        //////////////////////////////// Repay V3 loan ////////////////////////////////
+        // -------- Calculate and distribute settled amounts --------
+        (uint256 settledAmount, IERC20 payableCurrency) = _migrate(
+            oldLoanId,
+            oldLoanData,
+            newTerms,
+            borrower,
+            lender
+        );
+
+        // -------- Repay V3 loan --------
+        // approve LoanCoreV3 to take the total settled amount
+        payableCurrency.safeApprove(address(loanCoreV3), settledAmount);
+        repaymentControllerV3.repay(oldLoanId);
+
+        // this contract now holds collateral
+
+        //////////////////////////////// Start V4 Loan (Finish) ////////////////////////////////
+        // transfer collateral to LoanCore
+        IERC721(newTerms.collateralAddress).transferFrom(address(this), address(loanCore), newTerms.collateralId);
+
+        // get lending fees from fee controller and create LoanLibrary.FeeSnapshot from feeData
+        IFeeController.FeesOrigination memory feeData = feeController.getFeesOrigination();
+        LoanLibrary.FeeSnapshot memory feeSnapshot = LoanLibrary.FeeSnapshot({
+            lenderDefaultFee: feeData.lenderDefaultFee,
+            lenderInterestFee: feeData.lenderInterestFee,
+            lenderPrincipalFee: feeData.lenderPrincipalFee
+        });
+
+        // create loan in LoanCore
+        newLoanId = loanCore.startLoan(lender, borrower, newTerms, newTerms.principal, newTerms.principal, feeSnapshot);
+
+        // Run predicates check at the end of the function, after vault is in escrow. This makes sure
+        // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
+        if (itemPredicates.length > 0) _runPredicatesCheck(borrower, lender, newTerms, itemPredicates);
     }
 
     // ==================================== PERMISSION MANAGEMENT =======================================
@@ -609,6 +705,22 @@ contract OriginationController is
             revert OC_RolloverCollateralMismatch(
                 oldTerms.collateralAddress,
                 oldTerms.collateralId,
+                newTerms.collateralAddress,
+                newTerms.collateralId
+            );
+    }
+
+    function _validateMigration(LoanLibraryV3.LoanTerms memory oldLoanTerms, LoanLibrary.LoanTerms memory newTerms)
+        internal
+        pure
+    {
+        if (newTerms.payableCurrency != oldLoanTerms.payableCurrency)
+            revert OC_RolloverCurrencyMismatch(oldLoanTerms.payableCurrency, newTerms.payableCurrency);
+
+        if (newTerms.collateralAddress != oldLoanTerms.collateralAddress || newTerms.collateralId != oldLoanTerms.collateralId)
+            revert OC_RolloverCollateralMismatch(
+                oldLoanTerms.collateralAddress,
+                oldLoanTerms.collateralId,
                 newTerms.collateralAddress,
                 newTerms.collateralId
             );
@@ -945,6 +1057,104 @@ contract OriginationController is
         uint256 interestFee = (interest * oldLoanData.feeSnapshot.lenderInterestFee) / BASIS_POINTS_DENOMINATOR;
         uint256 lenderFee = (newTerms.principal * feeData.lenderRolloverFee) / BASIS_POINTS_DENOMINATOR;
         amounts.amountFromLender = newTerms.principal + lenderFee + interestFee;
+
+        // Calculate net amounts based on if repayment amount for old loan is greater than
+        // new loan principal minus fees
+        if (repayAmount > borrowerOwedForNewLoan) {
+            // amount to collect from borrower
+            // new loan principal is less than old loan repayment amount
+            unchecked {
+                amounts.needFromBorrower = repayAmount - borrowerOwedForNewLoan;
+            }
+        } else {
+            // amount to collect from lender (either old or new)
+            amounts.leftoverPrincipal = amounts.amountFromLender - repayAmount;
+
+            // amount to send to borrower
+            unchecked {
+                amounts.amountToBorrower = borrowerOwedForNewLoan - repayAmount;
+            }
+        }
+
+        // Calculate lender amounts based on if the lender is the same as the old lender
+        if (lender != oldLender) {
+            // different lenders, repay old lender
+            amounts.amountToOldLender = repayAmount;
+
+            // different lender, new lender is owed zero tokens
+            amounts.amountToLender = 0;
+        } else {
+            // same lender
+            amounts.amountToOldLender = 0;
+
+            // same lender, so check if the amount to collect from the lender is less than
+            // the amount the lender is owed for the old loan. If so, the lender is owed the
+            // difference
+            if (amounts.needFromBorrower > 0 && repayAmount > amounts.amountFromLender) {
+                unchecked {
+                    amounts.amountToLender = repayAmount - amounts.amountFromLender;
+                }
+            }
+        }
+    }
+
+    function _migrate(
+        uint256 oldLoanId,
+        LoanLibraryV3.LoanData memory oldLoanData,
+        LoanLibrary.LoanTerms calldata newTerms,
+        address borrower,
+        address lender
+    ) internal nonReentrant returns (uint256 settledAmount, IERC20 payableCurrency) {
+        address oldLender = loanCoreV3.lenderNote().ownerOf(oldLoanId);
+        payableCurrency = IERC20(oldLoanData.terms.payableCurrency);
+
+        // Calculate settle amounts
+        RolloverAmounts memory amounts = _calculateV3MigrationAmounts(
+            oldLoanData,
+            newTerms,
+            lender,
+            oldLender
+        );
+
+        // Collect funds based on settle amounts and total them
+        settledAmount = 0;
+        if (lender != oldLender) {
+            // If new lender, take new principal from new lender
+            payableCurrency.safeTransferFrom(lender, address(this), amounts.amountFromLender);
+            settledAmount += amounts.amountFromLender;
+        }
+
+        if (amounts.needFromBorrower > 0) {
+            // Borrower owes from old loan
+            payableCurrency.safeTransferFrom(borrower, address(this), amounts.needFromBorrower);
+            settledAmount += amounts.needFromBorrower;
+        } else if (amounts.leftoverPrincipal > 0 && lender == oldLender) {
+            // If same lender, and new amount from lender is greater than old loan repayment amount,
+            // take the difference from the lender
+            payableCurrency.safeTransferFrom(lender, address(this), amounts.leftoverPrincipal);
+            settledAmount += amounts.leftoverPrincipal;
+        }
+    }
+
+    function _calculateV3MigrationAmounts(
+        LoanLibraryV3.LoanData memory oldLoanData,
+        LoanLibrary.LoanTerms calldata newTerms,
+        address lender,
+        address oldLender
+    ) internal view returns (RolloverAmounts memory amounts) {
+        // get total interest to close v3 loan
+        uint256 interest = repaymentControllerV3.getInterestAmount(
+            oldLoanData.terms.principal,
+            oldLoanData.terms.proratedInterestRate
+        );
+        amounts.interestAmount = interest;
+        uint256 repayAmount = oldLoanData.terms.principal + interest;
+
+        // Calculate amount to be sent to borrower for new loan
+        uint256 borrowerOwedForNewLoan = newTerms.principal;
+
+        // Calculate amount to be collected from the lender for new loan
+        amounts.amountFromLender = newTerms.principal;
 
         // Calculate net amounts based on if repayment amount for old loan is greater than
         // new loan principal minus fees

@@ -82,6 +82,18 @@ interface IOriginationController {
         LoanLibrary.Predicate[] calldata itemPredicates
     ) external returns (uint256 newLoanId);
 
+    // ================== V3 Migration ==================
+
+    function migrateV3Loan(
+        uint256 oldLoanId,
+        LoanLibrary.LoanTerms calldata loanTerms,
+        address lender,
+        Signature calldata sig,
+        uint160 nonce,
+        // add maxUses param!
+        LoanLibrary.Predicate[] calldata itemPredicates
+    ) external returns (uint256 newLoanId);
+
     // ================ Permission Management ================
 
     function approve(address signer, bool approved) external;

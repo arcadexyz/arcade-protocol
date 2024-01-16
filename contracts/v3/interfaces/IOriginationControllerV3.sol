@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.18;
 
-import "../../libraries/LoanLibrary.sol";
+import "../libraries/LoanLibraryV3.sol";
 
 interface IOriginationControllerV3 {
     // ================ Data Types =============
@@ -31,7 +31,6 @@ interface IOriginationControllerV3 {
         uint256 amountToOldLender;
         uint256 amountToLender;
         uint256 amountToBorrower;
-        uint256 interestAmount;
     }
 
     // ================ Events =================
@@ -44,7 +43,7 @@ interface IOriginationControllerV3 {
     // ============== Origination Operations ==============
 
     function initializeLoan(
-        LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibraryV3.LoanTerms calldata loanTerms,
         address borrower,
         address lender,
         Signature calldata sig,
@@ -52,16 +51,16 @@ interface IOriginationControllerV3 {
     ) external returns (uint256 loanId);
 
     function initializeLoanWithItems(
-        LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibraryV3.LoanTerms calldata loanTerms,
         address borrower,
         address lender,
         Signature calldata sig,
         uint160 nonce,
-        LoanLibrary.Predicate[] calldata itemPredicates
+        LoanLibraryV3.Predicate[] calldata itemPredicates
     ) external returns (uint256 loanId);
 
     function initializeLoanWithCollateralPermit(
-        LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibraryV3.LoanTerms calldata loanTerms,
         address borrower,
         address lender,
         Signature calldata sig,
@@ -71,19 +70,19 @@ interface IOriginationControllerV3 {
     ) external returns (uint256 loanId);
 
     function initializeLoanWithCollateralPermitAndItems(
-        LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibraryV3.LoanTerms calldata loanTerms,
         address borrower,
         address lender,
         Signature calldata sig,
         uint160 nonce,
         Signature calldata collateralSig,
         uint256 permitDeadline,
-        LoanLibrary.Predicate[] calldata itemPredicates
+        LoanLibraryV3.Predicate[] calldata itemPredicates
     ) external returns (uint256 loanId);
 
     function rolloverLoan(
         uint256 oldLoanId,
-        LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibraryV3.LoanTerms calldata loanTerms,
         address lender,
         Signature calldata sig,
         uint160 nonce
@@ -91,11 +90,11 @@ interface IOriginationControllerV3 {
 
     function rolloverLoanWithItems(
         uint256 oldLoanId,
-        LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibraryV3.LoanTerms calldata loanTerms,
         address lender,
         Signature calldata sig,
         uint160 nonce,
-        LoanLibrary.Predicate[] calldata itemPredicates
+        LoanLibraryV3.Predicate[] calldata itemPredicates
     ) external returns (uint256 newLoanId);
 
     // ================ Permission Management =================
@@ -115,14 +114,14 @@ interface IOriginationControllerV3 {
     // ============== Signature Verification ==============
 
     function recoverTokenSignature(
-        LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibraryV3.LoanTerms calldata loanTerms,
         Signature calldata sig,
         uint160 nonce,
         Side side
     ) external view returns (bytes32 sighash, address signer);
 
     function recoverItemsSignature(
-        LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibraryV3.LoanTerms calldata loanTerms,
         Signature calldata sig,
         uint160 nonce,
         Side side,
