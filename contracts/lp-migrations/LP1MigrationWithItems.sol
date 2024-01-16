@@ -22,10 +22,10 @@ import {
  * @title LP1MigrationWithItems
  * @author Non-Fungible Technologies, Inc.
  *
- * This contract is used to migrate a loan from the other lending protocolss to the Arcade
+ * This contract is used to migrate a loan from the other lending protocols to the Arcade
  * V3 lending protocol. The migration mechanism takes out a flash loan for the maximumRepaymentAmount
  * of the old loan from Balancer pool, repays the old loan, and starts a new loan on V3.
- * This migratiion contract can be used with an items signature signed by a lender.
+ * This migration contract can be used with an items signature signed by a lender.
  *
  * This contract only works with ERC721 collateral.
  */
