@@ -381,6 +381,10 @@ describe("Integration", () => {
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(originationController.address, borrower.address, loanTerms.principal)
                 .to.emit(loanCore, "LoanStarted");
+
+            // nonce validation
+            expect(await loanCore.connect(borrower).numberOfNonceUses(borrower.address, 1)).to.eq(1);
+            expect(await loanCore.connect(borrower).isNonceUsed(borrower.address, 1)).to.be.true;
         });
 
         it("should fail to start loan if wNFT has withdraws enabled", async () => {
