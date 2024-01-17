@@ -347,7 +347,7 @@ contract OriginationController is
         loanCore.consumeNonce(externalSigner, nonce);
 
         //////////////////////////////// Repay V3 loan ////////////////////////////////
-        // -------- Calculate and distribute settled amounts --------
+        // calculate and distribute settled amounts
         (uint256 settledAmount, IERC20 payableCurrency) = _migrate(
             oldLoanId,
             oldLoanData,
@@ -356,7 +356,6 @@ contract OriginationController is
             lender
         );
 
-        // -------- Repay V3 loan --------
         // approve LoanCoreV3 to take the total settled amount
         payableCurrency.safeApprove(address(loanCoreV3), settledAmount);
         repaymentControllerV3.repay(oldLoanId);
@@ -710,17 +709,17 @@ contract OriginationController is
             );
     }
 
-    function _validateMigration(LoanLibraryV3.LoanTerms memory oldLoanTerms, LoanLibrary.LoanTerms memory newTerms)
+    function _validateMigration(LoanLibraryV3.LoanTerms memory oldTerms, LoanLibrary.LoanTerms memory newTerms)
         internal
         pure
     {
-        if (newTerms.payableCurrency != oldLoanTerms.payableCurrency)
-            revert OC_RolloverCurrencyMismatch(oldLoanTerms.payableCurrency, newTerms.payableCurrency);
+        if (newTerms.payableCurrency != oldTerms.payableCurrency)
+            revert OC_RolloverCurrencyMismatch(oldTerms.payableCurrency, newTerms.payableCurrency);
 
-        if (newTerms.collateralAddress != oldLoanTerms.collateralAddress || newTerms.collateralId != oldLoanTerms.collateralId)
+        if (newTerms.collateralAddress != oldTerms.collateralAddress || newTerms.collateralId != oldTerms.collateralId)
             revert OC_RolloverCollateralMismatch(
-                oldLoanTerms.collateralAddress,
-                oldLoanTerms.collateralId,
+                oldTerms.collateralAddress,
+                oldTerms.collateralId,
                 newTerms.collateralAddress,
                 newTerms.collateralId
             );
