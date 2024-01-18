@@ -43,7 +43,7 @@ import {
  *
  * The LoanCore lending contract is the heart of the Arcade.xyz lending protocol.
  * It stores and maintains loan state, enforces loan lifecycle invariants, takes
- * escrow of assets during an active loans, governs the release of collateral on
+ * escrow of assets during an active loan, governs the release of collateral on
  * repayment or default, and tracks signature nonces for loan consent.
  *
  * Also contains logic for approving Asset Vault calls using the
@@ -64,12 +64,12 @@ contract LoanCore is
 
     // =================== Constants =====================
 
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
-    bytes32 public constant ORIGINATOR_ROLE = keccak256("ORIGINATOR");
-    bytes32 public constant REPAYER_ROLE = keccak256("REPAYER");
-    bytes32 public constant AFFILIATE_MANAGER_ROLE = keccak256("AFFILIATE_MANAGER");
-    bytes32 public constant FEE_CLAIMER_ROLE = keccak256("FEE_CLAIMER");
-    bytes32 public constant SHUTDOWN_ROLE = keccak256("SHUTDOWN");
+    bytes32 public immutable ADMIN_ROLE = keccak256("ADMIN");
+    bytes32 public immutable ORIGINATOR_ROLE = keccak256("ORIGINATOR");
+    bytes32 public immutable REPAYER_ROLE = keccak256("REPAYER");
+    bytes32 public immutable AFFILIATE_MANAGER_ROLE = keccak256("AFFILIATE_MANAGER");
+    bytes32 public immutable FEE_CLAIMER_ROLE = keccak256("FEE_CLAIMER");
+    bytes32 public immutable SHUTDOWN_ROLE = keccak256("SHUTDOWN");
 
     /// @dev Max split any affiliate can earn.
     uint96 private constant MAX_AFFILIATE_SPLIT = 50_00;
@@ -176,7 +176,7 @@ contract LoanCore is
         bytes32 collateralKey = keccak256(abi.encode(terms.collateralAddress, terms.collateralId));
         if (collateralInUse[collateralKey]) revert LC_CollateralInUse(terms.collateralAddress, terms.collateralId);
 
-        // Check that we will not net lose tokens
+        // Check that we will not lose tokens
         if (_amountToBorrower > _amountFromLender) revert LC_CannotSettle(_amountToBorrower, _amountFromLender);
 
         // Mark collateral as escrowed
@@ -468,7 +468,7 @@ contract LoanCore is
 
         IERC20 payableCurrency = IERC20(data.terms.payableCurrency);
 
-        // Check that contract will not net lose tokens
+        // Check that contract will not lose tokens
         if (_amountToOldLender + _amountToLender + _amountToBorrower > _settledAmount)
             revert LC_CannotSettle(_amountToOldLender + _amountToLender + _amountToBorrower, _settledAmount);
         {
@@ -521,8 +521,8 @@ contract LoanCore is
 
     /**
      * @notice For a given user and nonce, increment the number of times the nonce has been used. If this
-     *         this is the last use, set the nonce to used. Reverts if nonce has reach its maximum amount
-     *         of uses. Can only be called by Origination Controller.
+     *         is the last use, set the nonce to used. Reverts if nonce has reached its maximum amount of
+     *         uses. Can only be called by Origination Controller.
      *
      * @param user                  The user for whom to consume a nonce.
      * @param nonce                 The nonce to consume.
@@ -805,7 +805,7 @@ contract LoanCore is
      * @param _paymentToPrincipal    The amount of principal to be paid.
      *
      * @return data                  The loan data for the repay operation.
-     * @return amountFromPayer       The principal plus interest to be collected from the payer.
+     * @return amountFromPayer       The principal plus interest is to be collected from the payer.
      */
     function _handleRepay(
         uint256 loanId,
@@ -819,7 +819,7 @@ contract LoanCore is
 
         amountFromPayer = _paymentToPrincipal + _interestAmount;
 
-        // Check that we will not net lose tokens
+        // Check that we will not lose tokens
         if (_amountToLender > amountFromPayer) revert LC_CannotSettle(_amountToLender, amountFromPayer);
         // Check that the payment to principal is not greater than the balance
         if (_paymentToPrincipal > data.balance) revert LC_ExceedsBalance(_paymentToPrincipal, data.balance);
@@ -888,7 +888,7 @@ contract LoanCore is
         mapping(uint160 => bool) storage _usedNonces = usedNonces[user];
         uint96 _nonceUses = numNonceUses[user][nonce];
 
-        // check if nonce has been completely used or cancelled
+        // check if nonce has been completely used or canceled
         if (_usedNonces[nonce]) revert LC_NonceUsed(user, nonce);
 
         if (_nonceUses + 1 == maxUses) {
