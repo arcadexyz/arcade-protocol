@@ -27,6 +27,8 @@ const chainIds = {
     rinkeby: 4,
     ropsten: 3,
     sepolia: 11155111,
+    base: 8453,
+    base_sepolia: 84532
 };
 
 // Ensure that we have all the environment variables we need.
@@ -48,9 +50,21 @@ if (forkMainnet && !process.env.ALCHEMY_API_KEY) {
 
 // create testnet network
 function createTestnetConfig(network: keyof typeof chainIds): NetworkUserConfig {
-    const sepoliaUri = `https://rpc.sepolia.org/`;
-    const defaultUri = `https://eth-${network}.alchemyapi.io/v2/${alchemyApiKey}`;
-    const url = network === `sepolia` ? sepoliaUri : defaultUri;
+    let url: string;
+    switch(network) {
+        case "sepolia":
+            url = `https://rpc.sepolia.org/`;
+            break;
+        case "base":
+            url = `https://mainnet.base.org`;
+            break;
+        case "base_sepolia":
+            url = `https://sepolia.base.org`;
+            break;
+        default:
+            url = `https://${network}.infura.io/v3/${process.env.INFURA_API_KEY}`;
+            break;
+    }
 
     return {
         accounts: {
@@ -61,6 +75,7 @@ function createTestnetConfig(network: keyof typeof chainIds): NetworkUserConfig 
         },
         chainId: chainIds[network],
         url,
+        gasPrice: 1000000000,
     };
 }
 
@@ -85,7 +100,6 @@ function createHardhatConfig(): HardhatNetworkUserConfig {
         return Object.assign(config, {
             forking: {
                 url: `https://eth-mainnet.alchemyapi.io/v2/${alchemyApiKey}`,
-                blockNumber: 17895128,
             },
         });
     }
@@ -123,6 +137,8 @@ export const config: HardhatUserConfig = {
         rinkeby: createTestnetConfig("rinkeby"),
         ropsten: createTestnetConfig("ropsten"),
         sepolia: createTestnetConfig("sepolia"),
+        base: createTestnetConfig("base"),
+        base_sepolia: createTestnetConfig("base_sepolia"),
         localhost: {
             accounts: {
                 mnemonic,
