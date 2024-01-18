@@ -1,4 +1,4 @@
-import { expect } from "chai";
+import { expect, use } from "chai";
 import hre, { ethers, waffle } from "hardhat";
 const { loadFixture } = waffle;
 import { BigNumber, BigNumberish } from "ethers";
@@ -1872,7 +1872,7 @@ describe("LoanCore", () => {
 
         it("does not let a nonce be consumed by a non-originator", async () => {
             const { loanCore, other, user } = context;
-            await expect(loanCore.connect(other).consumeNonce(user.address, 10)).to.be.revertedWith(
+            await expect(loanCore.connect(other).consumeNonce(user.address, 10, 1)).to.be.revertedWith(
                 `AccessControl: account ${await (
                     other.address
                 ).toLocaleLowerCase()} is missing role ${ORIGINATOR_ROLE}`,
@@ -1882,7 +1882,7 @@ describe("LoanCore", () => {
         it("consumes a nonce", async () => {
             const { loanCore, user } = context;
 
-            await expect(loanCore.connect(user).consumeNonce(user.address, 10)).to.not.be.reverted;
+            await expect(loanCore.connect(user).consumeNonce(user.address, 10, 1)).to.not.be.reverted;
 
             expect(await loanCore.isNonceUsed(user.address, 10)).to.be.true;
             expect(await loanCore.isNonceUsed(user.address, 20)).to.be.false;
@@ -1891,9 +1891,9 @@ describe("LoanCore", () => {
         it("reverts if attempting to use a nonce that has already been consumed", async () => {
             const { loanCore, user } = context;
 
-            await expect(loanCore.connect(user).consumeNonce(user.address, 10)).to.not.be.reverted;
+            await expect(loanCore.connect(user).consumeNonce(user.address, 10, 1)).to.not.be.reverted;
 
-            await expect(loanCore.connect(user).consumeNonce(user.address, 10)).to.be.revertedWith("LC_NonceUsed");
+            await expect(loanCore.connect(user).consumeNonce(user.address, 10, 1)).to.be.revertedWith("LC_NonceUsed");
         });
 
         it("cancels a nonce", async () => {
@@ -1905,12 +1905,20 @@ describe("LoanCore", () => {
             expect(await loanCore.isNonceUsed(user.address, 20)).to.be.false;
         });
 
+        it("Cannot cancel a nonce twice", async () => {
+            const { loanCore, user } = context;
+
+            await expect(loanCore.connect(user).cancelNonce(10)).to.not.be.reverted;
+
+            await expect(loanCore.connect(user).cancelNonce(10)).to.be.revertedWith("LC_NonceUsed");
+        });
+
         it("reverts if attempting to use a nonce that has already been cancelled", async () => {
             const { loanCore, user } = context;
 
             await expect(loanCore.connect(user).cancelNonce(10)).to.not.be.reverted;
 
-            await expect(loanCore.connect(user).consumeNonce(user.address, 10)).to.be.revertedWith("LC_NonceUsed");
+            await expect(loanCore.connect(user).consumeNonce(user.address, 10, 1)).to.be.revertedWith("LC_NonceUsed");
         });
 
         it("should fail when shutdown", async () => {
@@ -1919,8 +1927,34 @@ describe("LoanCore", () => {
             await loanCore.grantRole(SHUTDOWN_ROLE, user.address);
             await loanCore.connect(user).shutdown();
 
-            await expect(loanCore.connect(user).consumeNonce(user.address, 10))
+            await expect(loanCore.connect(user).consumeNonce(user.address, 10, 1))
                 .to.be.revertedWith("Pausable: paused");
+        });
+
+        describe("Reusable nonce", () => {
+            it("should allow a nonce to be reused", async () => {
+                const { loanCore, user } = context;
+
+                await expect(loanCore.connect(user).consumeNonce(user.address, 10, 2)).to.not.be.reverted;
+                await expect(loanCore.connect(user).consumeNonce(user.address, 10, 2))
+                    .to.emit(loanCore, "NonceUsed");
+
+                expect(await loanCore.numberOfNonceUses(user.address, 10)).to.eq(2);
+
+                expect(await loanCore.isNonceUsed(user.address, 10)).to.be.true;
+            });
+
+            it("Cannot use nonce after max uses is reached", async () => {
+                const { loanCore, user } = context;
+
+                await expect(loanCore.connect(user).consumeNonce(user.address, 10, 2)).to.not.be.reverted;
+                await expect(loanCore.connect(user).consumeNonce(user.address, 10, 2)).to.not.be.reverted;
+
+                await expect(loanCore.connect(user).consumeNonce(user.address, 10, 2)).to.be.revertedWith("LC_NonceUsed");
+
+                // still reverts despite the maxUses arg being arbitrary value
+                await expect(loanCore.connect(user).consumeNonce(user.address, 10, 100)).to.be.revertedWith("LC_NonceUsed");
+            });
         });
     });
 

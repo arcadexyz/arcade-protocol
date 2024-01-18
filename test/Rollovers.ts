@@ -25,7 +25,7 @@ import { BlockchainTime } from "./utils/time";
 import { mint as mint721 } from "./utils/erc721";
 import { deploy } from "./utils/contracts";
 import { approve, mint } from "./utils/erc20";
-import { LoanTerms, LoanData, ItemsPredicate, SignatureItem, Borrower } from "./utils/types";
+import { LoanTerms, LoanData, ItemsPredicate, SignatureItem, Borrower, SignatureProperties } from "./utils/types";
 import { createLoanTermsSignature, createLoanItemsSignature } from "./utils/eip712";
 import { encodeSignatureItems } from "./utils/loans";
 
@@ -34,7 +34,8 @@ import {
     REPAYER_ROLE,
     AFFILIATE_MANAGER_ROLE,
     BASE_URI,
-    MIN_LOAN_PRINCIPAL
+    MIN_LOAN_PRINCIPAL,
+    EIP712_VERSION
 } from "./utils/constants";
 
 interface TestContext {
@@ -62,6 +63,8 @@ interface LoanDef {
     loanTerms: LoanTerms;
     loanData: LoanData;
 }
+
+const rolloverSigProperties: SignatureProperties = {nonce: 2, maxUses: 1};
 
 /**
  * Sets up a test context, deploying new contracts and returning them for use in a test
@@ -231,13 +234,17 @@ const initializeLoan = async (
 
     await mint(mockERC20, lender, loanTerms.principal);
 
+    const sigProperties: SignatureProperties = {
+        nonce: nonce,
+        maxUses: 1,
+    };
     const sig = await createLoanTermsSignature(
         originationController.address,
         "OriginationController",
         loanTerms,
         borrower,
-        "3",
-        nonce,
+        EIP712_VERSION,
+        sigProperties,
         "b",
     );
 
@@ -256,7 +263,7 @@ const initializeLoan = async (
             borrowerStruct,
             lender.address,
             sig,
-            nonce,
+            sigProperties,
             []
         );
     const receipt = await tx.wait();
@@ -321,13 +328,13 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
             await expect(
-                originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2, []),
+                originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, []),
             ).to.be.revertedWith("OC_RolloverCollateralMismatch");
         });
 
@@ -350,13 +357,13 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
             await expect(
-                originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2, []),
+                originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, []),
             ).to.be.revertedWith("OC_RolloverCurrencyMismatch");
         });
 
@@ -378,13 +385,13 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
             await expect(
-                originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2, []),
+                originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, []),
             ).to.be.revertedWith("OC_InvalidState");
         });
 
@@ -400,14 +407,14 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
             await expect(
                 // newLender not a counterparty
-                originationController.connect(newLender).rolloverLoan(loanId, newTerms, lender.address, sig, 2, []),
+                originationController.connect(newLender).rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, []),
             ).to.be.revertedWith("OC_CallerNotParticipant");
         });
 
@@ -423,14 +430,14 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
             await expect(
                 // newLender not a counterparty
-                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2, []),
+                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, rolloverSigProperties, []),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
 
@@ -446,14 +453,14 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 newLender,
-                "3",
-                2,
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
             await expect(
                 // newLender not a counterparty
-                originationController.connect(lender).rolloverLoan(loanId, newTerms, newLender.address, sig, 2, []),
+                originationController.connect(lender).rolloverLoan(loanId, newTerms, newLender.address, sig, rolloverSigProperties, []),
             ).to.be.revertedWith("OC_CallerNotParticipant");
         });
 
@@ -479,8 +486,8 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
@@ -499,7 +506,7 @@ describe("Rollovers", () => {
             await blockchainTime.increaseTime(31536000 - 3);
 
             // use increased gas limit to prevent "out of gas" error
-            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2, [], { gasLimit: 5000000 }))
+            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, [], { gasLimit: 5000000 }))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
                 .to.emit(loanCore, "LoanStarted")
@@ -547,8 +554,8 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
@@ -562,7 +569,7 @@ describe("Rollovers", () => {
             await blockchainTime.increaseTime(31536000 - 3);
 
             // use increased gas limit to prevent "out of gas" error
-            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2, [], { gasLimit: 5000000 }))
+            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, [], { gasLimit: 5000000 }))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
                 .to.emit(loanCore, "LoanStarted")
@@ -572,7 +579,7 @@ describe("Rollovers", () => {
 
             // Try to roll over again
             await expect(
-                originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2, []),
+                originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, []),
             ).to.be.revertedWith("OC_InvalidState");
         });
 
@@ -594,13 +601,14 @@ describe("Rollovers", () => {
             // create new terms for rollover and sign them
             const newTerms = await createLoanTerms(mockERC20.address, vaultFactory.address, loanTerms);
 
+            const sigProperties: SignatureProperties = {nonce: 1, maxUses: 1};
             const sig = await createLoanTermsSignature(
                 originationController.address,
                 "OriginationController",
                 newTerms,
                 newLender,
-                "3",
-                2,
+                EIP712_VERSION,
+                sigProperties,
                 "l",
             );
 
@@ -622,7 +630,7 @@ describe("Rollovers", () => {
             await blockchainTime.increaseTime(31536000 - 5);
 
             await expect(
-                await originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2, [])
+                await originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, sigProperties, [])
             )
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
@@ -672,13 +680,14 @@ describe("Rollovers", () => {
             // create new terms for rollover and sign them
             const newTerms = await createLoanTerms(mockERC20.address, vaultFactory.address, loanTerms);
 
+            const sigProperties: SignatureProperties = {nonce: 1, maxUses: 1};
             const sig = await createLoanTermsSignature(
                 originationController.address,
                 "OriginationController",
                 newTerms,
                 borrower,
-                "3",
-                2,
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "b",
             );
 
@@ -700,7 +709,7 @@ describe("Rollovers", () => {
             await blockchainTime.increaseTime(31536000 - 5);
 
             await expect(
-                originationController.connect(newLender).rolloverLoan(loanId, newTerms, newLender.address, sig, 2, []),
+                originationController.connect(newLender).rolloverLoan(loanId, newTerms, newLender.address, sig, rolloverSigProperties, []),
             )
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
@@ -756,15 +765,15 @@ describe("Rollovers", () => {
                 newTerms,
                 predicates,
                 newLender,
-                "3",
-                "2",
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
             await expect(
                 originationController
                     .connect(borrower)
-                    .rolloverLoan(loanId, newTerms, newLender.address, sig, 2, predicates),
+                    .rolloverLoan(loanId, newTerms, newLender.address, sig, rolloverSigProperties, predicates),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
 
@@ -818,15 +827,15 @@ describe("Rollovers", () => {
                 newTerms,
                 predicates,
                 newLender,
-                "3",
-                "2",
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
             await expect(
                 originationController
                     .connect(borrower)
-                    .rolloverLoan(loanId, newTerms, newLender.address, sig, 2, predicates),
+                    .rolloverLoan(loanId, newTerms, newLender.address, sig, rolloverSigProperties, predicates),
             ).to.be.revertedWith("OC_InvalidVerifier");
         });
 
@@ -876,8 +885,8 @@ describe("Rollovers", () => {
                 newTerms,
                 predicates,
                 newLender,
-                "3",
-                "2",
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
@@ -887,84 +896,84 @@ describe("Rollovers", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .rolloverLoan(loanId, newTerms, newLender.address, sig, 2, predicates),
+                    .rolloverLoan(loanId, newTerms, newLender.address, sig, rolloverSigProperties, predicates),
             ).to.be.revertedWith("OC_PredicateFailed");
         });
 
         it("rollover with items signature reverts if already repaid", async () => {
-        const {
-            originationController,
-            mockERC20,
-            mockERC721,
-            vaultFactory,
-            borrower,
-            lender,
-            loanCore,
-            verifier,
-            blockchainTime,
-        } = ctx;
-        const { loanId, loanTerms, bundleId } = loan;
+            const {
+                originationController,
+                mockERC20,
+                mockERC721,
+                vaultFactory,
+                borrower,
+                lender,
+                loanCore,
+                verifier,
+                blockchainTime,
+            } = ctx;
+            const { loanId, loanTerms, bundleId } = loan;
 
-        const collateralId = await mint721(mockERC721, borrower);
-        await mockERC721.connect(borrower).transferFrom(borrower.address, bundleId.toString(), collateralId);
+            const collateralId = await mint721(mockERC721, borrower);
+            await mockERC721.connect(borrower).transferFrom(borrower.address, bundleId.toString(), collateralId);
 
-        // create new terms for rollover and sign them
-        const newTerms = await createLoanTerms(mockERC20.address, vaultFactory.address, loanTerms);
+            // create new terms for rollover and sign them
+            const newTerms = await createLoanTerms(mockERC20.address, vaultFactory.address, loanTerms);
 
-        const signatureItems: SignatureItem[] = [
-            {
-                cType: 0,
-                asset: mockERC721.address,
-                tokenId: collateralId,
-                amount: 1,
-                anyIdAllowed: false
-            },
-        ];
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 0,
+                    asset: mockERC721.address,
+                    tokenId: collateralId,
+                    amount: 1,
+                    anyIdAllowed: false
+                },
+            ];
 
-        const predicates: ItemsPredicate[] = [
-            {
-                verifier: verifier.address,
-                data: encodeSignatureItems(signatureItems),
-            },
-        ];
+            const predicates: ItemsPredicate[] = [
+                {
+                    verifier: verifier.address,
+                    data: encodeSignatureItems(signatureItems),
+                },
+            ];
 
-        const sig = await createLoanItemsSignature(
-            originationController.address,
-            "OriginationController",
-            newTerms,
-            predicates,
-            lender,
-            "3",
-            "2",
-            "l",
-        );
+            const sig = await createLoanItemsSignature(
+                originationController.address,
+                "OriginationController",
+                newTerms,
+                predicates,
+                lender,
+                EIP712_VERSION,
+                rolloverSigProperties,
+                "l",
+            );
 
-        // approve more than enough to rollover
-        await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
-        await mockERC20.connect(borrower).approve(originationController.address, ethers.utils.parseEther("12"));
+            // approve more than enough to rollover
+            await mockERC20.mint(borrower.address, ethers.utils.parseEther("12"));
+            await mockERC20.connect(borrower).approve(originationController.address, ethers.utils.parseEther("12"));
 
-        const newLoanId = Number(loanId) + 1;
+            const newLoanId = Number(loanId) + 1;
 
-        // go to 1 block before loan expires
-        await blockchainTime.increaseTime(31536000 - 3);
+            // go to 1 block before loan expires
+            await blockchainTime.increaseTime(31536000 - 3);
 
-        await expect(
-            originationController
-                .connect(borrower)
-                .rolloverLoan(loanId, newTerms, lender.address, sig, 2, predicates),
-        )
-            .to.emit(loanCore, "LoanRepaid")
-            .withArgs(loanId)
-            .to.emit(loanCore, "LoanStarted")
-            .withArgs(newLoanId, lender.address, borrower.address)
-            .to.emit(loanCore, "LoanRolledOver")
-            .withArgs(loanId, newLoanId);
+            await expect(
+                originationController
+                    .connect(borrower)
+                    .rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, predicates),
+            )
+                .to.emit(loanCore, "LoanRepaid")
+                .withArgs(loanId)
+                .to.emit(loanCore, "LoanStarted")
+                .withArgs(newLoanId, lender.address, borrower.address)
+                .to.emit(loanCore, "LoanRolledOver")
+                .withArgs(loanId, newLoanId);
 
-        await expect(
-            originationController
-                .connect(borrower)
-                .rolloverLoan(loanId, newTerms, lender.address, sig, 2, predicates),
-        ).to.be.revertedWith("OC_InvalidState");
+            await expect(
+                originationController
+                    .connect(borrower)
+                    .rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, predicates),
+            ).to.be.revertedWith("OC_InvalidState");
         });
 
         it("should rollover to a different lender using an items signature", async () => {
@@ -1007,14 +1016,15 @@ describe("Rollovers", () => {
                 },
             ];
 
+            const sigProperties: SignatureProperties = {nonce: 1, maxUses: 1};
             const sig = await createLoanItemsSignature(
                 originationController.address,
                 "OriginationController",
                 newTerms,
                 predicates,
                 newLender,
-                "3",
-                "2",
+                EIP712_VERSION,
+                sigProperties,
                 "l",
             );
 
@@ -1038,7 +1048,7 @@ describe("Rollovers", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .rolloverLoan(loanId, newTerms, newLender.address, sig, 2, predicates),
+                    .rolloverLoan(loanId, newTerms, newLender.address, sig, sigProperties, predicates),
             )
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
@@ -1115,8 +1125,8 @@ describe("Rollovers", () => {
                 newTerms,
                 predicates,
                 lender,
-                "3",
-                "2",
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
@@ -1137,7 +1147,7 @@ describe("Rollovers", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .rolloverLoan(loanId, newTerms, lender.address, sig, 2, predicates),
+                    .rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, predicates),
             )
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
@@ -1193,8 +1203,8 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
@@ -1213,7 +1223,7 @@ describe("Rollovers", () => {
             // go to 1 block before loan expires
             await blockchainTime.increaseTime(31536000 - 4);
 
-            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2, [], { gasLimit: 5000000 }))
+            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, [], { gasLimit: 5000000 }))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
                 .to.emit(loanCore, "LoanStarted")
@@ -1268,8 +1278,8 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
@@ -1288,7 +1298,7 @@ describe("Rollovers", () => {
             // go to 1 block before loan expires
             await blockchainTime.increaseTime(31536000 - 4);
 
-            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2, []))
+            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, []))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
                 .to.emit(loanCore, "LoanStarted")
@@ -1337,13 +1347,14 @@ describe("Rollovers", () => {
                 principal: ethers.utils.parseEther("200")
             });
 
+            const sigProperties: SignatureProperties = {nonce: 1, maxUses: 1};
             const sig = await createLoanTermsSignature(
                 originationController.address,
                 "OriginationController",
                 newTerms,
                 newLender,
-                "3",
-                2,
+                EIP712_VERSION,
+                sigProperties,
                 "l",
             );
 
@@ -1363,7 +1374,7 @@ describe("Rollovers", () => {
             await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(
-                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2, []),
+                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, sigProperties, []),
             )
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
@@ -1420,8 +1431,8 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
@@ -1441,7 +1452,7 @@ describe("Rollovers", () => {
             // go to 1 block before loan expires
             await blockchainTime.increaseTime(31536000 - 4);
 
-            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2, [], { gasLimit: 5000000 }))
+            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, [], { gasLimit: 5000000 }))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
                 .to.emit(loanCore, "LoanStarted")
@@ -1492,8 +1503,8 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
@@ -1515,7 +1526,7 @@ describe("Rollovers", () => {
             await blockchainTime.increaseTime(31536000 - 5);
 
             // use increased gas limit to prevent "out of gas" error
-            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2, [], { gasLimit: 1000000 }))
+            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, [], { gasLimit: 1000000 }))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
                 .to.emit(loanCore, "LoanStarted")
@@ -1566,8 +1577,8 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
@@ -1588,7 +1599,7 @@ describe("Rollovers", () => {
             await blockchainTime.increaseTime(31536000 - 4);
 
             // use increased gas limit to prevent "out of gas" error
-            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2, [], { gasLimit: 1000000 }))
+            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, [], { gasLimit: 1000000 }))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
                 .to.emit(loanCore, "LoanStarted")
@@ -1645,8 +1656,8 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
@@ -1668,7 +1679,7 @@ describe("Rollovers", () => {
             // go to 1 block before loan expires
             await blockchainTime.increaseTime(31536000 - 4);
 
-            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2, []))
+            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, []))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
                 .to.emit(loanCore, "LoanStarted")
@@ -1714,14 +1725,14 @@ describe("Rollovers", () => {
 
             // create new terms for rollover and sign them
             const newTerms = await createLoanTerms(mockERC20.address, vaultFactory.address, loanTerms);
-
+            const sigProperties: SignatureProperties = {nonce: 1, maxUses: 1};
             const sig = await createLoanTermsSignature(
                 originationController.address,
                 "OriginationController",
                 newTerms,
                 newLender,
-                "3",
-                2,
+                EIP712_VERSION,
+                sigProperties,
                 "l",
             );
 
@@ -1749,7 +1760,7 @@ describe("Rollovers", () => {
             await blockchainTime.increaseTime(31536000 - 6);
 
             await expect(
-                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2, [], { gasLimit: 5000000 }),
+                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, sigProperties, [], { gasLimit: 5000000 }),
             )
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
@@ -1799,14 +1810,14 @@ describe("Rollovers", () => {
 
             // create new terms for rollover and sign them
             const newTerms = await createLoanTerms(mockERC20.address, vaultFactory.address, loanTerms);
-
+            const sigProperties: SignatureProperties = {nonce: 1, maxUses: 1};
             const sig = await createLoanTermsSignature(
                 originationController.address,
                 "OriginationController",
                 newTerms,
                 newLender,
-                "3",
-                2,
+                EIP712_VERSION,
+                sigProperties,
                 "l",
             );
 
@@ -1834,7 +1845,7 @@ describe("Rollovers", () => {
             // go to 1 block before loan expires
             await blockchainTime.increaseTime(31536000 - 7);
 
-            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2, []))
+            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, sigProperties, []))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
                 .to.emit(loanCore, "LoanStarted")
@@ -1883,14 +1894,14 @@ describe("Rollovers", () => {
 
             // create new terms for rollover and sign them
             const newTerms = await createLoanTerms(mockERC20.address, vaultFactory.address, loanTerms);
-
+            const sigProperties: SignatureProperties = {nonce: 1, maxUses: 1};
             const sig = await createLoanTermsSignature(
                 originationController.address,
                 "OriginationController",
                 newTerms,
                 newLender,
-                "3",
-                2,
+                EIP712_VERSION,
+                sigProperties,
                 "l",
             );
 
@@ -1918,7 +1929,7 @@ describe("Rollovers", () => {
             await blockchainTime.increaseTime(31536000 - 6);
 
             await expect(
-                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2, []),
+                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, sigProperties, []),
             )
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
@@ -1971,14 +1982,14 @@ describe("Rollovers", () => {
                 ...loanTerms,
                 principal: ethers.utils.parseEther("200"),
             });
-
+            const sigProperties: SignatureProperties = {nonce: 1, maxUses: 1};
             const sig = await createLoanTermsSignature(
                 originationController.address,
                 "OriginationController",
                 newTerms,
                 newLender,
-                "3",
-                2,
+                EIP712_VERSION,
+                sigProperties,
                 "l",
             );
 
@@ -2006,7 +2017,7 @@ describe("Rollovers", () => {
             await blockchainTime.increaseTime(31536000 - 6);
 
             await expect(
-                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2, []),
+                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, sigProperties, []),
             )
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
@@ -2060,14 +2071,14 @@ describe("Rollovers", () => {
                 ...loanTerms,
                 principal: ethers.utils.parseEther("200"),
             });
-
+            const sigProperties: SignatureProperties = {nonce: 1, maxUses: 1};
             const sig = await createLoanTermsSignature(
                 originationController.address,
                 "OriginationController",
                 newTerms,
                 newLender,
-                "3",
-                2,
+                EIP712_VERSION,
+                sigProperties,
                 "l",
             );
 
@@ -2098,7 +2109,7 @@ describe("Rollovers", () => {
             await blockchainTime.increaseTime(31536000 - 7);
 
             await expect(
-                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2, []),
+                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, sigProperties, []),
             )
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
@@ -2162,14 +2173,14 @@ describe("Rollovers", () => {
                 principal: ethers.utils.parseEther("200"),
                 affiliateCode: affiliateCode2
             });
-
+            const sigProperties: SignatureProperties = {nonce: 1, maxUses: 1};
             const sig = await createLoanTermsSignature(
                 originationController.address,
                 "OriginationController",
                 newTerms,
                 newLender,
-                "3",
-                2,
+                EIP712_VERSION,
+                sigProperties,
                 "l",
             );
 
@@ -2208,7 +2219,7 @@ describe("Rollovers", () => {
             await blockchainTime.increaseTime(31536000 - 7);
 
             await expect(
-                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, 2, []),
+                originationController.connect(borrower).rolloverLoan(loanId, newTerms, newLender.address, sig, sigProperties, []),
             )
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
@@ -2280,8 +2291,8 @@ describe("Rollovers", () => {
                 "OriginationController",
                 newTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
@@ -2303,7 +2314,7 @@ describe("Rollovers", () => {
             // go to 1 block before loan expires
             await blockchainTime.increaseTime(31536000 - 4);
 
-            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, 2, []))
+            await expect(originationController.connect(borrower).rolloverLoan(loanId, newTerms, lender.address, sig, rolloverSigProperties, []))
                 .to.emit(loanCore, "LoanRepaid")
                 .withArgs(loanId)
                 .to.emit(loanCore, "LoanStarted")

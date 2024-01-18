@@ -24,7 +24,7 @@ import { BlockchainTime } from "./utils/time";
 import { deploy } from "./utils/contracts";
 import { approve, mint } from "./utils/erc20";
 import { mint as mint721 } from "./utils/erc721";
-import { LoanTerms, LoanData, ItemsPredicate, Borrower } from "./utils/types";
+import { LoanTerms, LoanData, ItemsPredicate, Borrower, SignatureProperties } from "./utils/types";
 import { createLoanItemsSignature, createLoanTermsSignature } from "./utils/eip712";
 import { encodeItemCheck } from "./utils/loans";
 
@@ -39,7 +39,8 @@ import {
     MINT_BURN_ROLE,
     WHITELIST_MANAGER_ROLE,
     MIN_LOAN_PRINCIPAL,
-    SHUTDOWN_ROLE
+    SHUTDOWN_ROLE,
+    EIP712_VERSION
 } from "./utils/constants";
 
 chai.use(solidity);
@@ -71,6 +72,11 @@ interface LoanDef {
 }
 
 const blockchainTime = new BlockchainTime();
+
+const defaultSigProperties: SignatureProperties = {
+    nonce: 1,
+    maxUses: 1,
+};
 
 /**
  * Sets up a test context, deploying new contracts and returning them for use in a test
@@ -216,13 +222,18 @@ const initializeLoan = async (
 
     await mint(mockERC20, lender, lenderWillSend);
 
+    const sigProperties: SignatureProperties = {
+        nonce: nonce,
+        maxUses: 1,
+    };
+
     const sig = await createLoanTermsSignature(
         originationController.address,
         "OriginationController",
         loanTerms,
         borrower,
-        "3",
-        nonce,
+        EIP712_VERSION,
+        sigProperties,
         "b",
     );
 
@@ -241,7 +252,7 @@ const initializeLoan = async (
             borrowerStruct,
             lender.address,
             sig,
-            nonce,
+            sigProperties,
             []
         );
     const receipt = await tx.wait();
@@ -340,8 +351,8 @@ describe("Integration", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -361,7 +372,7 @@ describe("Integration", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     ),
             )
@@ -370,6 +381,10 @@ describe("Integration", () => {
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(originationController.address, borrower.address, loanTerms.principal)
                 .to.emit(loanCore, "LoanStarted");
+
+            // nonce validation
+            expect(await loanCore.connect(borrower).numberOfNonceUses(borrower.address, 1)).to.eq(1);
+            expect(await loanCore.connect(borrower).isNonceUsed(borrower.address, 1)).to.be.true;
         });
 
         it("should fail to start loan if wNFT has withdraws enabled", async () => {
@@ -384,8 +399,8 @@ describe("Integration", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -407,7 +422,7 @@ describe("Integration", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     ),
             ).to.be.revertedWith("VF_NoTransferWithdrawEnabled");
@@ -426,8 +441,8 @@ describe("Integration", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -446,7 +461,7 @@ describe("Integration", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     ),
             ).to.be.revertedWith("ERC721: operator query for nonexistent token");
@@ -466,8 +481,8 @@ describe("Integration", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -487,7 +502,7 @@ describe("Integration", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     ),
             ).to.be.revertedWith("OC_LoanDuration");
@@ -922,8 +937,8 @@ describe("Integration", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "3",
-                "1",
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -941,7 +956,7 @@ describe("Integration", () => {
                     borrowerStruct,
                     lender.address,
                     sig,
-                    1,
+                    defaultSigProperties,
                     predicates
                 );
 
@@ -966,14 +981,18 @@ describe("Integration", () => {
                 }
             ];
 
+            const rolloverSigProperties: SignatureProperties = {
+                nonce:2,
+                maxUses:1
+            };
             const rolloverSig = await createLoanItemsSignature(
                 originationController.address,
                 "OriginationController",
                 loanTerms,
                 rolloverPredicates,
                 lender,
-                "3",
-                "2",
+                EIP712_VERSION,
+                rolloverSigProperties,
                 "l",
             );
 
@@ -1015,7 +1034,7 @@ describe("Integration", () => {
                 loanTerms,
                 lender.address,
                 rolloverSig,
-                2,
+                rolloverSigProperties,
                 rolloverPredicates
             ))
             .to.emit(loanCore, "LoanRepaid")

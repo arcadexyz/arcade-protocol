@@ -1,8 +1,9 @@
 import hre from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { BigNumberish } from "ethers";
-import { LoanTerms, ItemsPayload, ItemsPredicate, InitializeLoanSignature } from "./types";
+import { LoanTerms, ItemsPayload, ItemsPredicate, InitializeLoanSignature, SignatureProperties } from "./types";
 import { fromRpcSig, ECDSASignature } from "ethereumjs-util";
+import { EIP712_VERSION } from "./constants";
 
 interface TypeData {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,6 +45,7 @@ const typedLoanTermsData: TypeData = {
             { name: "collateralId", type: "uint256" },
             { name: "affiliateCode", type: "bytes32" },
             { name: "nonce", type: "uint160" },
+            { name: "maxUses", type: "uint96" },
             { name: "side", type: "uint8" },
         ],
     },
@@ -62,6 +64,7 @@ const typedLoanItemsData: TypeData = {
             { name: "affiliateCode", type: "bytes32" },
             { name: "items", type: "Predicate[]" },
             { name: "nonce", type: "uint160" },
+            { name: "maxUses", type: "uint96" },
             { name: "side", type: "uint8" },
         ],
         Predicate: [
@@ -94,21 +97,24 @@ const buildData = (verifyingContract: string, name: string, version: string, mes
  * @param terms the LoanTerms object to sign
  * @param signer The EOA to create the signature
  * @param version The EIP712 version of the contract to use
- * @param nonce The signature nonce
+ * @param sigProperties The signature nonce and max uses for that nonce
  * @param side The side of the loan
+ * @param extraData Any data to append to the signature
  */
 export async function createLoanTermsSignature(
     verifyingContract: string,
     name: string,
     terms: LoanTerms,
     signer: SignerWithAddress,
-    version = "3",
-    nonce: BigNumberish,
+    version = EIP712_VERSION,
+    sigProperties: SignatureProperties,
     _side: "b" | "l",
     extraData = "0x",
 ): Promise<InitializeLoanSignature> {
     const side = _side === "b" ? 0 : 1;
-    const data = buildData(verifyingContract, name, version, { ...terms, nonce, side }, typedLoanTermsData);
+    const nonce = sigProperties.nonce;
+    const maxUses = sigProperties.maxUses;
+    const data = buildData(verifyingContract, name, version, { ...terms, nonce, maxUses, side }, typedLoanTermsData);
     const signature = await signer._signTypedData(data.domain, data.types, data.message);
 
     const sig: ECDSASignature =  fromRpcSig(signature);
@@ -123,8 +129,9 @@ export async function createLoanTermsSignature(
  * @param terms the LoanTerms object to sign
  * @param signer The EOA to create the signature
  * @param version The EIP712 version of the contract to use
- * @param nonce The signature nonce
+ * @param sigProperties The signature nonce and max uses for that nonce
  * @param side The side of the loan
+ * @param extraData Any data to append to the signature
  */
 export async function createLoanItemsSignature(
     verifyingContract: string,
@@ -132,13 +139,14 @@ export async function createLoanItemsSignature(
     terms: LoanTerms,
     items: ItemsPredicate[],
     signer: SignerWithAddress,
-    version = "3",
-    nonce = "1",
+    version = EIP712_VERSION,
+    sigProperties: SignatureProperties,
     _side: "b" | "l",
     extraData = "0x",
 ): Promise<InitializeLoanSignature> {
     const side = _side === "b" ? 0 : 1;
-
+    const nonce = sigProperties.nonce;
+    const maxUses = sigProperties.maxUses;
     const message: ItemsPayload = {
         interestRate: terms.interestRate,
         durationSecs: terms.durationSecs,
@@ -149,6 +157,7 @@ export async function createLoanItemsSignature(
         affiliateCode: terms.affiliateCode,
         items,
         nonce,
+        maxUses,
         side
     };
 

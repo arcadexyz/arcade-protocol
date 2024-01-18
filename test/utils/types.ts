@@ -30,6 +30,12 @@ export interface ItemsPredicate {
     verifier: string;
 }
 
+export interface SignatureProperties {
+    nonce: BigNumberish;
+    maxUses: BigNumberish;
+
+}
+
 export interface LoanTerms {
     interestRate: BigNumberish;
     durationSecs: BigNumberish;
@@ -51,6 +57,7 @@ export interface ItemsPayload {
     affiliateCode: BytesLike;
     items: ItemsPredicate[];
     nonce: BigNumberish;
+    maxUses: BigNumberish;
     side: 0 | 1;
 }
 

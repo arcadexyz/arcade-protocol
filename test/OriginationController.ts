@@ -29,7 +29,7 @@ import {
 } from "../typechain";
 import { approve, mint, ZERO_ADDRESS } from "./utils/erc20";
 import { mint as mint721 } from "./utils/erc721";
-import { Borrower, InitializeLoanSignature, ItemsPredicate, LoanTerms, SignatureItem } from "./utils/types";
+import { Borrower, ItemsPredicate, LoanTerms, SignatureItem, SignatureProperties } from "./utils/types";
 import { createLoanTermsSignature, createLoanItemsSignature, createPermitSignature } from "./utils/eip712";
 import { encodeSignatureItems, encodeItemCheck, initializeBundle } from "./utils/loans";
 
@@ -38,7 +38,8 @@ import {
     ADMIN_ROLE,
     WHITELIST_MANAGER_ROLE,
     BASE_URI,
-    MIN_LOAN_PRINCIPAL
+    MIN_LOAN_PRINCIPAL,
+    EIP712_VERSION
 } from "./utils/constants";
 
 type Signer = SignerWithAddress;
@@ -204,6 +205,11 @@ const createLoanTerms = (
 const maxDeadline = ethers.constants.MaxUint256;
 const emptyBuffer = Buffer.alloc(32);
 
+const defaultSigProperties: SignatureProperties = {
+    nonce: 1,
+    maxUses: 1,
+};
+
 describe("OriginationController", () => {
     describe("constructor", () => {
         it("Reverts if loanCore address is not provided", async () => {
@@ -262,8 +268,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -274,7 +280,7 @@ describe("OriginationController", () => {
                 originationController
                     // some random guy
                     .connect(signers[3])
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             ).to.be.revertedWith("OC_CallerNotParticipant");
         });
 
@@ -290,8 +296,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -301,7 +307,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             ).to.be.revertedWith("ERC721: transfer caller is not owner nor approved");
         });
 
@@ -317,8 +323,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -328,7 +334,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
         });
 
@@ -347,8 +353,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -358,7 +364,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             ).to.be.revertedWith("OC_PrincipalTooLow");
         });
 
@@ -377,8 +383,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -388,7 +394,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             ).to.be.revertedWith("OC_InterestRate");
         });
 
@@ -407,8 +413,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -418,7 +424,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             ).to.be.revertedWith("OC_InterestRate");
         });
 
@@ -434,8 +440,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -446,7 +452,7 @@ describe("OriginationController", () => {
                 originationController
                     // sender is the borrower, signer is also the borrower
                     .connect(borrower)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
 
@@ -463,8 +469,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 signers[3],
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -474,35 +480,42 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
 
-        it("Reverts for an invalid nonce", async () => {
+        it("Reverts when invalid nonce is passed on origination", async () => {
             const { originationController, mockERC20, vaultFactory, user: lender, other: borrower } = ctx;
 
             const bundleId = await initializeBundle(vaultFactory, borrower);
             const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
             await mint(mockERC20, lender, loanTerms.principal);
 
+            let sigProperties: SignatureProperties = {
+                nonce: 3,
+                maxUses: 1,
+            };
+
             const sig = await createLoanTermsSignature(
                 originationController.address,
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                3, // Use nonce 3
+                EIP712_VERSION,
+                sigProperties, // Use nonce 3
                 "b",
             );
 
             await approve(mockERC20, lender, originationController.address, loanTerms.principal);
             await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
 
+            sigProperties.nonce = 2; // Use nonce 2
+
             await expect(
                 originationController
                     .connect(lender)
                     // Use nonce of 2, skipping nonce 1
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 2, []),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, sigProperties, []),
             ).to.be.revertedWith("OC_InvalidSignature");
         });
 
@@ -520,8 +533,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                3, // Use nonce 3
+                EIP712_VERSION,
+                defaultSigProperties, // Use nonce 3
                 "b",
             );
 
@@ -531,35 +544,8 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             ).to.be.revertedWith("OC_SignatureIsExpired");
-        });
-
-        it("Reverts if the nonce does not match the signature", async () => {
-            const { originationController, mockERC20, vaultFactory, user: lender, other: borrower } = ctx;
-
-            const bundleId = await initializeBundle(vaultFactory, borrower);
-            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
-            await mint(mockERC20, lender, loanTerms.principal);
-
-            const sig = await createLoanTermsSignature(
-                originationController.address,
-                "OriginationController",
-                loanTerms,
-                borrower,
-                "3",
-                2, // Use nonce 2
-                "b",
-            );
-
-            await approve(mockERC20, lender, originationController.address, loanTerms.principal);
-            await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
-
-            await expect(
-                originationController
-                    .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
-            ).to.be.revertedWith("OC_InvalidSignature");
         });
 
         it("Initializes a loan signed by the borrower", async () => {
@@ -574,8 +560,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -585,7 +571,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, originationController.address, loanTerms.principal)
@@ -605,8 +591,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "l",
             );
 
@@ -616,7 +602,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, originationController.address, loanTerms.principal)
@@ -642,8 +628,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "l",
             );
 
@@ -653,7 +639,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(caller)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             ).to.be.revertedWith("SideMismatch");
         });
 
@@ -670,8 +656,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -681,7 +667,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, originationController.address, loanTerms.principal)
@@ -701,8 +687,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "l",
             );
 
@@ -712,7 +698,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, originationController.address, loanTerms.principal)
@@ -723,7 +709,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(borrower)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, []),
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             ).to.be.revertedWith("LC_NonceUsed");
         });
     });
@@ -778,8 +764,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -791,7 +777,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         [],
                         collateralSig,
                         maxDeadline,
@@ -833,8 +819,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -846,7 +832,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         [],
                         collateralSig,
                         maxDeadline,
@@ -881,8 +867,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -896,7 +882,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         [],
                         collateralSig,
                         maxDeadline,
@@ -970,8 +956,8 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 lender,
-                "3",
-                "1",
+                EIP712_VERSION,
+                defaultSigProperties,
                 "l",
             );
 
@@ -983,7 +969,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         predicates
                     ),
             ).to.be.revertedWith("function selector was not recognized and there's no fallback function");
@@ -1020,8 +1006,8 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 lender,
-                "3",
-                "1",
+                EIP712_VERSION,
+                defaultSigProperties,
                 "l",
             );
 
@@ -1035,7 +1021,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         predicates
                     ),
             ).to.be.revertedWith("OC_PredicateFailed");
@@ -1056,8 +1042,8 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 lender,
-                "3",
-                "1",
+                EIP712_VERSION,
+                defaultSigProperties,
                 "l",
             );
 
@@ -1071,7 +1057,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         predicates
                     ),
             ).to.be.revertedWith("OC_InvalidSignature");
@@ -1114,8 +1100,8 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "3",
-                "1",
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -1129,7 +1115,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         predicates
                     ),
             ).to.be.revertedWith("OC_InvalidVerifier");
@@ -1159,8 +1145,8 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "3",
-                "1",
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -1173,7 +1159,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         predicates
                     ),
             )
@@ -1207,8 +1193,8 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "3",
-                "1",
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -1221,7 +1207,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         predicates
                     ),
             )
@@ -1255,8 +1241,8 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "3",
-                "1",
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -1269,7 +1255,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         predicates
                     ),
             )
@@ -1300,8 +1286,8 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "3",
-                "1",
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -1314,7 +1300,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         predicates
                     ),
             )
@@ -1345,8 +1331,8 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "3",
-                "1",
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -1359,7 +1345,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         predicates
                     ),
             )
@@ -1393,8 +1379,8 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "3",
-                "1",
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -1408,7 +1394,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         predicates
                     ),
             )
@@ -1494,8 +1480,8 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "3",
-                "1",
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -1508,7 +1494,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         predicates,
                         collateralSig,
                         maxDeadline,
@@ -1578,8 +1564,8 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "3",
-                "1",
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -1596,7 +1582,7 @@ describe("OriginationController", () => {
                         borrowerStructNotOwner,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         predicates,
                         collateralSig,
                         maxDeadline,
@@ -1659,8 +1645,8 @@ describe("OriginationController", () => {
                 loanTerms,
                 predicates,
                 borrower,
-                "3",
-                "1",
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -1674,7 +1660,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         predicates,
                         collateralSig,
                         maxDeadline,
@@ -1849,8 +1835,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 newSigner, // Now signed by a third party
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -1865,7 +1851,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     ),
             )
@@ -1892,8 +1878,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 newSigner, // Now signed by a third party
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "l",
             );
 
@@ -1908,7 +1894,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     ),
             )
@@ -1935,8 +1921,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "l",
             );
 
@@ -1951,7 +1937,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     ),
             )
@@ -1978,8 +1964,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -1994,7 +1980,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     ),
             )
@@ -2020,8 +2006,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -2036,7 +2022,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     ),
             ).to.be.revertedWith("OC_InvalidSignature");
@@ -2058,8 +2044,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "l",
             );
 
@@ -2074,7 +2060,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     ),
             ).to.be.revertedWith("OC_ApprovedOwnLoan");
@@ -2100,8 +2086,8 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "3",
-                    1,
+                    EIP712_VERSION,
+                    defaultSigProperties,
                     "l",
                 );
 
@@ -2116,7 +2102,7 @@ describe("OriginationController", () => {
                             borrowerStruct,
                             lenderContract.address,
                             sig,
-                            1,
+                            defaultSigProperties,
                             []
                         ),
                 )
@@ -2145,8 +2131,8 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "3",
-                    1,
+                    EIP712_VERSION,
+                    defaultSigProperties,
                     "l",
                     "0x00001234"
                 );
@@ -2162,7 +2148,7 @@ describe("OriginationController", () => {
                             borrowerStruct,
                             lenderContract.address,
                             sig,
-                            1,
+                            defaultSigProperties,
                             []
                         ),
                 ).to.be.revertedWith("OC_InvalidSignature");
@@ -2188,8 +2174,8 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "3",
-                    1,
+                    EIP712_VERSION,
+                    defaultSigProperties,
                     "l",
                 );
 
@@ -2204,7 +2190,7 @@ describe("OriginationController", () => {
                             borrowerStruct,
                             lenderContract.address,
                             sig,
-                            1,
+                            defaultSigProperties,
                             []
                         ),
                 ).to.be.revertedWith("OC_InvalidSignature");
@@ -2229,8 +2215,8 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "3",
-                    1,
+                    EIP712_VERSION,
+                    defaultSigProperties,
                     "l",
                     "0x00001234",
                 );
@@ -2246,7 +2232,7 @@ describe("OriginationController", () => {
                             borrowerStruct,
                             lenderContract.address,
                             sig,
-                            1,
+                            defaultSigProperties,
                             []
                         ),
                 )
@@ -2275,8 +2261,8 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "3",
-                    1,
+                    EIP712_VERSION,
+                    defaultSigProperties,
                     "l",
                 );
 
@@ -2291,7 +2277,7 @@ describe("OriginationController", () => {
                             borrowerStruct,
                             lenderContract.address,
                             sig,
-                            1,
+                            defaultSigProperties,
                             []
                         ),
                 )
@@ -2320,8 +2306,8 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "3",
-                    1,
+                    EIP712_VERSION,
+                    defaultSigProperties,
                     "l",
                     "0x00001234",
                 );
@@ -2337,7 +2323,7 @@ describe("OriginationController", () => {
                             borrowerStruct,
                             lenderContract.address,
                             sig,
-                            1,
+                            defaultSigProperties,
                             []
                         ),
                 )
@@ -2366,8 +2352,8 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "3",
-                    1,
+                    EIP712_VERSION,
+                    defaultSigProperties,
                     "l",
                     "0x0000",
                 );
@@ -2383,7 +2369,7 @@ describe("OriginationController", () => {
                             borrowerStruct,
                             lenderContract.address,
                             sig,
-                            1,
+                            defaultSigProperties,
                             []
                         ),
                 ).to.be.revertedWith("OC_InvalidSignature");
@@ -2409,8 +2395,8 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "3",
-                    1,
+                    EIP712_VERSION,
+                    defaultSigProperties,
                     "l",
                 );
 
@@ -2426,6 +2412,7 @@ describe("OriginationController", () => {
                         "address", // lender
                         "tuple(uint8, bytes32, bytes32, bytes)", // signature
                         "uint160", // nonce
+                        "uint96", // maxUses
                         "tuple(bytes, address)[]", // predicate array
                     ],
                     [ // values
@@ -2450,6 +2437,7 @@ describe("OriginationController", () => {
                             sig.s,
                             "0x"
                         ],
+                        1,
                         1,
                         [],
                     ]
@@ -2491,8 +2479,8 @@ describe("OriginationController", () => {
                     "OriginationController",
                     loanTerms,
                     lender,
-                    "3",
-                    1,
+                    EIP712_VERSION,
+                    defaultSigProperties,
                     "l",
                 );
 
@@ -2508,6 +2496,7 @@ describe("OriginationController", () => {
                         "address", // lender
                         "tuple(uint8, bytes32, bytes32)", // signature, no extra data
                         "uint160", // nonce
+                        "uint96", // maxUses
                         "tuple(bytes, address)[]", // predicate array
                     ],
                     [ // values
@@ -2532,6 +2521,7 @@ describe("OriginationController", () => {
                             sig.s,
                             // no extra data
                         ],
+                        1,
                         1,
                         [],
                     ]
@@ -2580,8 +2570,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -2599,7 +2589,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     ),
             )
@@ -2633,8 +2623,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -2649,7 +2639,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     ),
             )
@@ -2685,8 +2675,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -2701,7 +2691,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     ),
             )
@@ -2758,8 +2748,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -2773,7 +2763,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     ),
             )
@@ -2795,8 +2785,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -2810,7 +2800,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     ),
             )
@@ -3031,8 +3021,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -3054,7 +3044,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     ),
             )
@@ -3088,21 +3078,22 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
             // create callback data to rollover the new loanID that will be created
             const totalLoans = await borrowerPromissoryNote.totalSupply();
             const nextLoanId = totalLoans.add(1);
+            const sigProperties: SignatureProperties = { nonce: 1, maxUses: 1 };
             const sigCallback = await createLoanTermsSignature(
                 originationController.address,
                 "OriginationController",
                 loanTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                sigProperties,
                 "l",
             );
             const callbackData = ethers.utils.defaultAbiCoder.encode(
@@ -3112,6 +3103,7 @@ describe("OriginationController", () => {
                     "address", // lender
                     "tuple(uint8, bytes32, bytes32, bytes)", // signature
                     "uint160", // nonce
+                    "uint96", // maxUses
                     "tuple(bytes, address)[]", // predicate array
                 ],
                 [ // values
@@ -3134,6 +3126,7 @@ describe("OriginationController", () => {
                         "0x"
                     ],
                     2,
+                    1,
                     []
                 ]
             );
@@ -3161,7 +3154,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     )
             ).to.be.revertedWith("MockSmartBorrowerRollover: Operation failed");
@@ -3186,8 +3179,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -3202,16 +3195,17 @@ describe("OriginationController", () => {
 
             await originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, 1, [])
+                    .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, [])
 
             // lender signs rollover terms
+            const sigProperties: SignatureProperties = { nonce: 2, maxUses: 1 };
             const sigCallback = await createLoanTermsSignature(
                 originationController.address,
                 "OriginationController",
                 loanTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                sigProperties,
                 "l",
             );
             // rollover callback data
@@ -3222,6 +3216,7 @@ describe("OriginationController", () => {
                     "address", // lender
                     "tuple(uint8, bytes32, bytes32, bytes)", // signature
                     "uint160", // nonce
+                    "uint96", // maxUses
                     "tuple(bytes, address)[]", // predicate array
                 ],
                 [ // values
@@ -3244,6 +3239,7 @@ describe("OriginationController", () => {
                         "0x"
                     ],
                     2,
+                    1,
                     []
                 ]
             );
@@ -3264,8 +3260,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms2,
                 borrower,
-                "3",
-                2,
+                EIP712_VERSION,
+                sigProperties,
                 "b",
             );
 
@@ -3282,7 +3278,7 @@ describe("OriginationController", () => {
             await expect(
                 originationController
                     .connect(lender)
-                    .initializeLoan(loanTerms2, borrowerStruct2, lender.address, sig2, 2, [], { gasLimit: 10000000 })
+                    .initializeLoan(loanTerms2, borrowerStruct2, lender.address, sig2, sigProperties, [], { gasLimit: 10000000 })
             ).to.be.revertedWith("MockSmartBorrowerRollover: Operation failed");
 
             // expect borrower contract to be holder of just one borrower note
@@ -3309,8 +3305,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 borrower,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "b",
             );
 
@@ -3320,53 +3316,53 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "l",
             );
             const callbackData = ethers.utils.defaultAbiCoder.encode(
                 [ // types
-                        "tuple(uint32, uint64, address, uint96, address, uint256, uint256, bytes32)", // loan terms
-                        "tuple(address, bytes)", // borrower
-                        "address", // lender
-                        "tuple(uint8, bytes32, bytes32, bytes)", // signature
-                        "uint160", // nonce
-                        "tuple(bytes, address)[]", // predicate array
-                        "tuple(uint8, bytes32, bytes32, bytes)", // permit signature
-                        "uint256" // permit deadline
+                    "tuple(uint32, uint64, address, uint96, address, uint256, uint256, bytes32)", // loan terms
+                    "tuple(address, bytes)", // borrower
+                    "address", // lender
+                    "tuple(uint8, bytes32, bytes32, bytes)", // signature
+                    "tuple(uint160, uint96)", // sig properties
+                    "tuple(bytes, address)[]", // predicate array
+                    "tuple(uint8, bytes32, bytes32, bytes)", // permit signature
+                    "uint256" // permit deadline
+                ],
+                [ // values
+                    [
+                        loanTerms.interestRate,
+                        loanTerms.durationSecs,
+                        loanTerms.collateralAddress,
+                        loanTerms.deadline,
+                        loanTerms.payableCurrency,
+                        loanTerms.principal,
+                        loanTerms.collateralId,
+                        loanTerms.affiliateCode
                     ],
-                    [ // values
-                        [
-                            loanTerms.interestRate,
-                            loanTerms.durationSecs,
-                            loanTerms.collateralAddress,
-                            loanTerms.deadline,
-                            loanTerms.payableCurrency,
-                            loanTerms.principal,
-                            loanTerms.collateralId,
-                            loanTerms.affiliateCode
-                        ],
-                        [
-                            borrowerContract.address,
-                            "0x"
-                        ],
-                        lender.address,
-                        [
-                            sigCallback.v,
-                            sigCallback.r,
-                            sigCallback.s,
-                            "0x"
-                        ],
-                        1,
-                        [],
-                        [
-                            0,
-                            emptyBuffer,
-                            emptyBuffer,
-                            "0x"
-                        ],
-                        0
-                    ]
+                    [
+                        borrowerContract.address,
+                        "0x"
+                    ],
+                    lender.address,
+                    [
+                        sigCallback.v,
+                        sigCallback.r,
+                        sigCallback.s,
+                        "0x"
+                    ],
+                    [defaultSigProperties.nonce, defaultSigProperties.maxUses],
+                    [],
+                    [
+                        0,
+                        emptyBuffer,
+                        emptyBuffer,
+                        "0x"
+                    ],
+                    0
+                ]
             );
 
             // get rolloverLoan function selector
@@ -3393,14 +3389,14 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     )
             ).to.be.revertedWith("MockSmartBorrowerRollover: Operation failed");
         });
 
         it("Borrower contract starts loan, lender signs terms", async () => {
-            const { originationController, mockERC20, vaultFactory, user: lender, other: borrower, borrowerPromissoryNote } = ctx;
+            const { originationController, mockERC20, vaultFactory, user: lender, other: borrower } = ctx;
 
             // deploy MockSmartBorrower contract
             const borrowerContract = <MockSmartBorrower>await deploy("MockSmartBorrowerTest", borrower, [originationController.address]);
@@ -3416,8 +3412,8 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "l",
             );
 
@@ -3437,7 +3433,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     )
             )
@@ -3464,64 +3460,67 @@ describe("OriginationController", () => {
                 "OriginationController",
                 loanTerms,
                 lender,
-                "3",
-                1,
+                EIP712_VERSION,
+                defaultSigProperties,
                 "l",
             );
 
             // create callback data to initialize another loan with same asset
+            const sigProperties: SignatureProperties = { nonce: 2, maxUses: 1 };
             const sigCallback = await createLoanTermsSignature(
                 originationController.address,
                 "OriginationController",
                 loanTerms,
                 lender,
-                "3",
-                2,
+                EIP712_VERSION,
+                sigProperties,
                 "l",
             );
             const callbackData = ethers.utils.defaultAbiCoder.encode(
                 [ // types
-                        "tuple(uint32, uint64, address, uint96, address, uint256, uint256, bytes32)", // loan terms
-                        "tuple(address, bytes)", // borrower
-                        "address", // lender
-                        "tuple(uint8, bytes32, bytes32, bytes)", // signature
-                        "uint160", // nonce
-                        "tuple(bytes, address)[]", // predicate array
-                        "tuple(uint8, bytes32, bytes32, bytes)", // permit signature
-                        "uint256" // permit deadline
+                    "tuple(uint32, uint64, address, uint96, address, uint256, uint256, bytes32)", // loan terms
+                    "tuple(address, bytes)", // borrower
+                    "address", // lender
+                    "tuple(uint8, bytes32, bytes32, bytes)", // signature
+                    "uint160", // nonce
+                    "uint96", // maxUses
+                    "tuple(bytes, address)[]", // predicate array
+                    "tuple(uint8, bytes32, bytes32, bytes)", // permit signature
+                    "uint256" // permit deadline
+                ],
+                [ // values
+                    [
+                        loanTerms.interestRate,
+                        loanTerms.durationSecs,
+                        loanTerms.collateralAddress,
+                        loanTerms.deadline,
+                        loanTerms.payableCurrency,
+                        loanTerms.principal,
+                        loanTerms.collateralId,
+                        loanTerms.affiliateCode
                     ],
-                    [ // values
-                        [
-                            loanTerms.interestRate,
-                            loanTerms.durationSecs,
-                            loanTerms.collateralAddress,
-                            loanTerms.deadline,
-                            loanTerms.payableCurrency,
-                            loanTerms.principal,
-                            loanTerms.collateralId,
-                            loanTerms.affiliateCode
-                        ],
-                        [
-                            borrowerContract.address,
-                            "0x"
-                        ],
-                        lender.address,
-                        [
-                            sigCallback.v,
-                            sigCallback.r,
-                            sigCallback.s,
-                            "0x"
-                        ],
-                        2,
-                        [],
-                        [
-                            0,
-                            emptyBuffer,
-                            emptyBuffer,
-                            "0x"
-                        ],
-                        0
-                    ]
+                    [
+                        borrowerContract.address,
+                        "0x"
+                    ],
+                    lender.address,
+                    [
+                        sigCallback.v,
+                        sigCallback.r,
+                        sigCallback.s,
+                        "0x"
+                    ],
+                    2,
+                    1,
+                    [],
+                    [
+                        0,
+                        emptyBuffer,
+                        emptyBuffer,
+                        "0x"
+                    ],
+                    0
+                ]
             );
 
             // get initializeLoan function selector
@@ -3546,7 +3545,7 @@ describe("OriginationController", () => {
                         borrowerStruct,
                         lender.address,
                         sig,
-                        1,
+                        defaultSigProperties,
                         []
                     )
             ).to.be.revertedWith("MockSmartBorrowerRollover: Operation failed");

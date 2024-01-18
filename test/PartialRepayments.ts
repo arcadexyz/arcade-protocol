@@ -18,7 +18,7 @@ import { BlockchainTime } from "./utils/time";
 import { BigNumber, BigNumberish } from "ethers";
 import { deploy } from "./utils/contracts";
 import { approve, mint } from "./utils/erc20";
-import { LoanTerms, LoanData, Borrower } from "./utils/types";
+import { LoanTerms, LoanData, Borrower, SignatureProperties } from "./utils/types";
 import { createLoanTermsSignature } from "./utils/eip712";
 
 import {
@@ -26,7 +26,8 @@ import {
     REPAYER_ROLE,
     AFFILIATE_MANAGER_ROLE,
     BASE_URI,
-    MIN_LOAN_PRINCIPAL
+    MIN_LOAN_PRINCIPAL,
+    EIP712_VERSION
 } from "./utils/constants";
 
 interface TestContext {
@@ -174,13 +175,14 @@ const initializeLoan = async (
     await mint(mockERC20, lender, loanTerms.principal);
 
     // borrower signs loan terms
+    const sigProperties: SignatureProperties = {nonce: 1, maxUses: 1};
     const sig = await createLoanTermsSignature(
         originationController.address,
         "OriginationController",
         loanTerms,
         borrower,
-        "3",
-        1,
+        EIP712_VERSION,
+        sigProperties,
         "b",
     );
 
@@ -200,7 +202,7 @@ const initializeLoan = async (
             borrowerStruct,
             lender.address,
             sig,
-            1,
+            sigProperties,
             []
         );
     const receipt = await tx.wait();
