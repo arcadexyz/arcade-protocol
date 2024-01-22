@@ -98,9 +98,6 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         ) = _migrate(oldLoanId, oldLoanData, newTerms.principal, msg.sender, lender);
 
         if (flashLoanTrigger) {
-            // cache borrower address for flash loan callback
-            borrower = msg.sender;
-
             _initiateFlashLoan(oldLoanId, newTerms, itemPredicates, msg.sender, lender,  amounts);
         } else {
             _repayLoan(IERC20(newTerms.payableCurrency), oldLoanId, amounts.amountFromLender + amounts.needFromBorrower - amounts.amountToBorrower);
@@ -113,6 +110,10 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
                 IERC20(newTerms.payableCurrency).safeTransfer(msg.sender, amounts.amountToBorrower);
             }
         }
+
+        // Run predicates check at the end of the function, after vault is in escrow. This makes sure
+        // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
+        if (itemPredicates.length > 0) _runPredicatesCheck(msg.sender, lender, newTerms, itemPredicates);
     }
 
     // =================================== MIGRATION VALIDATION =========================================
@@ -224,7 +225,8 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
     }
 
     /**
-     * @notice Helper function to calculate the amounts needed to settle the old loan.
+     * @notice Helper function to calculate the amounts needed to settle the old loan. There will never
+     *         be fees for migrations, so all fees values for rollover amounts calculations are set to zero.
      *
      * @param oldLoanData               The terms of the v3 loan.
      * @param newPrincipalAmount        The principal amount of the new loan.
@@ -280,6 +282,9 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         address lender,
         OriginationLibrary.RolloverAmounts memory _amounts
     ) internal {
+        // cache borrower address for flash loan callback
+        borrower = borrower_;
+
         IERC20[] memory assets = new IERC20[](1);
         assets[0] = IERC20(newLoanTerms.payableCurrency);
 
@@ -411,7 +416,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         // transfer collateral to LoanCore
         IERC721(newTerms.collateralAddress).transferFrom(address(this), address(loanCore), newTerms.collateralId);
 
-        // all post loan origination fees are set to zero for migrations
+        // all v4 loan data fees are set to zero for migrations
         LoanLibrary.FeeSnapshot memory feeSnapshot = LoanLibrary.FeeSnapshot({
             lenderDefaultFee: 0,
             lenderInterestFee: 0,
@@ -422,10 +427,6 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         newLoanId = loanCore.startLoan(lender, borrower_, newTerms, 0, 0, feeSnapshot);
 
         emit V3V4Rollover(lender, borrower_, newTerms.collateralId, newLoanId);
-
-        // Run predicates check at the end of the function, after vault is in escrow. This makes sure
-        // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
-        if (itemPredicates.length > 0) _runPredicatesCheck(borrower_, lender, newTerms, itemPredicates);
     }
 
     // ========================================== ADMIN =================================================

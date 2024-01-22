@@ -92,8 +92,10 @@ library OriginationLibrary {
         uint256 borrowerOwedForNewLoan = 0;
         if (borrowerFee > 0 || lenderFee > 0 || interestFee > 0) {
             // account for fees if they exist
-            borrowerOwedForNewLoan = newPrincipalAmount - borrowerFee;
-            amounts.amountFromLender = newPrincipalAmount + lenderFee + interestFee;
+            unchecked {
+                borrowerOwedForNewLoan = newPrincipalAmount - borrowerFee;
+                amounts.amountFromLender = newPrincipalAmount + lenderFee + interestFee;
+            }
         } else {
             borrowerOwedForNewLoan = newPrincipalAmount;
             amounts.amountFromLender = newPrincipalAmount;
@@ -102,11 +104,11 @@ library OriginationLibrary {
         amounts.interestAmount = oldInterestAmount;
         uint256 repayAmount = oldPrincipal + oldInterestAmount;
 
-        // Calculate net amounts based on if repayment amount for old loan is greater than new loan principal
+        // Calculate net amounts based on if repayment amount for old loan is
+        // greater than new loan principal
         if (repayAmount > borrowerOwedForNewLoan) {
+            // amount to collect from borrower
             unchecked {
-                // amount to collect from borrower
-                // new loan principal is less than old loan repayment amount
                 amounts.needFromBorrower = repayAmount - borrowerOwedForNewLoan;
             }
         } else {
