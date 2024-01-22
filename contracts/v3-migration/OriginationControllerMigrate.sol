@@ -46,6 +46,23 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
 
     // ======================================= V3 MIGRATION =============================================
 
+    /**
+     * @notice Migration an active loan on v3 to v4. This function validates new loan terms against the old terms.
+     *         calculates the amounts needed to settle the old loan, and then executes the migration.
+     *
+     * @dev This function is only callable by the borrower of the loan.
+     * @dev This function is only callable when the migration flow is not paused.
+     * @dev For migrations where the lender is the same, a flash loan is initiated to repay the old loan.
+     *      In order for the flash loan to be repaid, the lender must have approved this contract to
+     *      pull the total amount needed to repay the loan.
+     *
+     * @param oldLoanId                 The ID of the v3 loan to be migrated.
+     * @param newTerms                  The terms of the new loan.
+     * @param lender                    The address of the new lender.
+     * @param sig                       The signature of the loan terms.
+     * @param sigProperties             The properties of the signature.
+     * @param itemPredicates            The predicates for the loan.
+     */
     function migrateV3Loan(
         uint256 oldLoanId,
         LoanLibrary.LoanTerms calldata newTerms,
@@ -104,6 +121,9 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      * @notice Validates that the migration is valid. If any of these conditionals are not met
      *         the transaction will revert.
      *
+     * @dev All whitelisted payable currencies and collateral state on v3 must also be set to the
+     *      same values on v4.
+     *
      * @param sourceLoanTerms           The terms of the V2 loan.
      * @param newLoanTerms              The terms of the V3 loan.
      * @param borrowerNoteId            The ID of the borrowerNote for the old loan.
@@ -151,6 +171,20 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
 
     // ========================================= HELPERS ================================================
 
+    /**
+     * @notice Helper function to distribute funds based on the migration amounts. If the lender is the
+     *         same as the old lender, the flash loan trigger is set to true. This informs the calling
+     *         function that a flash loan must be initiated to repay the old loan.
+     *
+     * @param oldLoanId                 The ID of the v3 loan to be migrated.
+     * @param oldLoanData               The loan data of the v3 loan.
+     * @param newPrincipalAmount        The principal amount of the new loan.
+     * @param borrower_                 The address of the borrower.
+     * @param lender                    The address of the new lender.
+     *
+     * @return amounts                  The migration amounts.
+     * @return flashLoanTrigger         boolean indicating if a flash loan must be initiated.
+     */
     function _migrate(
         uint256 oldLoanId,
         LoanLibraryV3.LoanData memory oldLoanData,
@@ -189,6 +223,16 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         }
     }
 
+    /**
+     * @notice Helper function to calculate the amounts needed to settle the old loan.
+     *
+     * @param oldLoanData               The terms of the v3 loan.
+     * @param newPrincipalAmount        The principal amount of the new loan.
+     * @param lender                    The address of the new lender.
+     * @param oldLender                 The address of the old lender.
+     *
+     * @return amounts                  The migration amounts.
+     */
     function _calculateV3MigrationAmounts(
         LoanLibraryV3.LoanData memory oldLoanData,
         uint256 newPrincipalAmount,
@@ -217,6 +261,17 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
 
     // ======================================= FLASH LOAN OPS ===========================================
 
+    /**
+     * @notice Helper function to initiate a flash loan. The flash loan amount is the total amount
+     *         needed to repay the old loan.
+     *
+     * @param oldLoanId                 The ID of the v3 loan to be migrated.
+     * @param newLoanTerms              The terms of the v4 loan.
+     * @param itemPredicates            The predicates for the v4 loan.
+     * @param borrower_                 The address of the borrower.
+     * @param lender                    The address of the new lender.
+     * @param _amounts                  The migration amounts.
+     */
     function _initiateFlashLoan(
         uint256 oldLoanId,
         LoanLibrary.LoanTerms memory newLoanTerms,
@@ -250,9 +305,11 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
     }
 
     /**
-     * @notice Callback function for flash loan.
+     * @notice Callback function for flash loan. OpData is decoded and used to execute the migration.
      *
      * @dev The caller of this function must be the lending pool.
+     * @dev This function checks that the borrower is cached and that the opData borrower matches the
+     *      borrower cached in the flash loan callback.
      *
      * @param assets                 The ERC20 address that was borrowed in Flash Loan.
      * @param amounts                The amount that was borrowed in Flash Loan.
@@ -277,6 +334,15 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         _executeOperation(assets, amounts, feeAmounts, opData);
     }
 
+    /**
+     * @notice Executes repayment of v3 loan and initialization of new v4 loan. Any funds
+     *         that are not covered by closing out the old loan must be covered by the borrower.
+     *
+     * @param assets                 The ERC20 address that was borrowed in flash Loan.
+     * @param amounts                The amount that was borrowed in flash Loan.
+     * @param premiums               The fees that are due to the flash loan pool.
+     * @param opData                 The data to be executed after receiving flash Loan.
+     */
     function _executeOperation(
         IERC20[] calldata assets,
         uint256[] calldata amounts,
@@ -326,6 +392,16 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         IRepaymentControllerV3(repaymentControllerV3).repay(borrowerNoteId);
     }
 
+    /**
+     * @notice Helper function to initialize the new v4 loan.
+     *
+     * @param newTerms                  The terms of the v4 loan.
+     * @param itemPredicates            The predicates for the v4 loan.
+     * @param borrower_                 The address of the borrower.
+     * @param lender                    The address of the lender.
+     *
+     * @return newLoanId                The ID of the new loan.
+     */
     function _initializeMigrationLoan(
         LoanLibrary.LoanTerms memory newTerms,
         LoanLibrary.Predicate[] memory itemPredicates,

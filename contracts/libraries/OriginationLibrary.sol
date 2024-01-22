@@ -13,27 +13,11 @@ import "../interfaces/IOriginationController.sol";
 /**
  * @title OriginationLibrary
  * @author Non-Fungible Technologies, Inc.
+ *
+ * Library for loan origination functions.
  */
 library OriginationLibrary {
-    /// @notice EIP712 type hash for bundle-based signatures.
-    bytes32 public constant _TOKEN_ID_TYPEHASH =
-        keccak256(
-            // solhint-disable-next-line max-line-length
-            "LoanTerms(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,uint256 collateralId,bytes32 affiliateCode,uint160 nonce,uint96 maxUses,uint8 side)"
-        );
-
-    /// @notice EIP712 type hash for item-based signatures.
-    bytes32 public constant _ITEMS_TYPEHASH =
-        keccak256(
-            // solhint-disable max-line-length
-            "LoanTermsWithItems(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,bytes32 affiliateCode,Predicate[] items,uint160 nonce,uint96 maxUses,uint8 side)Predicate(bytes data,address verifier)"
-        );
-
-    /// @notice EIP712 type hash for Predicate.
-    bytes32 public constant _PREDICATE_TYPEHASH =
-        keccak256(
-            "Predicate(bytes data,address verifier)"
-        );
+    // =================================== DATA STRUCTS ==========================================
 
     struct RolloverAmounts {
         uint256 needFromBorrower;
@@ -54,6 +38,47 @@ library OriginationLibrary {
         RolloverAmounts migrationAmounts;
     }
 
+    // ======================================= CONSTANTS ==============================================
+
+    /// @notice EIP712 type hash for bundle-based signatures.
+    bytes32 public constant _TOKEN_ID_TYPEHASH =
+        keccak256(
+            // solhint-disable-next-line max-line-length
+            "LoanTerms(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,uint256 collateralId,bytes32 affiliateCode,uint160 nonce,uint96 maxUses,uint8 side)"
+        );
+
+    /// @notice EIP712 type hash for item-based signatures.
+    bytes32 public constant _ITEMS_TYPEHASH =
+        keccak256(
+            // solhint-disable max-line-length
+            "LoanTermsWithItems(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,bytes32 affiliateCode,Predicate[] items,uint160 nonce,uint96 maxUses,uint8 side)Predicate(bytes data,address verifier)"
+        );
+
+    /// @notice EIP712 type hash for Predicate.
+    bytes32 public constant _PREDICATE_TYPEHASH =
+        keccak256(
+            "Predicate(bytes data,address verifier)"
+        );
+
+    // ==================================== ORIGINATION HELPERS =======================================
+
+    /**
+     * @dev Calculate the net amounts needed from each party for a rollover or migration - the
+     *      borrower, the new lender, and the old lender (can be same as new lender).
+     *      Determine the amount to either pay or withdraw from the borrower, and
+     *      any payments to be sent to the old lender.
+     *
+     * @param oldPrincipal          The principal amount of the old loan.
+     * @param oldInterestAmount     The interest amount of the old loan.
+     * @param newPrincipalAmount    The principal amount of the new loan.
+     * @param lender                The address of the new lender.
+     * @param oldLender             The address of the old lender.
+     * @param borrowerFee           The fee amount to be paid by the borrower.
+     * @param lenderFee             The fee amount to be paid by the lender.
+     * @param interestFee           The fee amount to be paid by the borrower to the lender.
+     *
+     * @return amounts              The net amounts owed to each party.
+     */
     function rolloverAmounts(
         uint256 oldPrincipal,
         uint256 oldInterestAmount,
@@ -116,7 +141,7 @@ library OriginationLibrary {
         }
     }
 
-    // ==================================== SIGNATURE VERIFICATION ======================================
+    // ==================================== SIGNATURE VERIFICATION ====================================
 
     /**
      * @notice Hashes each item in Predicate[] separately and concatenates these hashes for
@@ -152,7 +177,7 @@ library OriginationLibrary {
         itemsHash = keccak256(abi.encodePacked(itemHashes));
     }
 
-    // ==================================== PERMISSION MANAGEMENT =======================================
+    // ==================================== PERMISSION MANAGEMENT =====================================
 
     /**
      * @notice Reports whether the signer matches the target or is approved by the target.

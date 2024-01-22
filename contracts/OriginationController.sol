@@ -287,7 +287,7 @@ contract OriginationController is
             )
         );
 
-        sighash = EIP712._hashTypedDataV4(loanHash);
+        sighash = _hashTypedDataV4(loanHash);
         signer = ECDSA.recover(sighash, sig.v, sig.r, sig.s);
     }
 
@@ -329,7 +329,7 @@ contract OriginationController is
             )
         );
 
-        sighash = EIP712._hashTypedDataV4(loanHash);
+        sighash = _hashTypedDataV4(loanHash);
         signer = ECDSA.recover(sighash, sig.v, sig.r, sig.s);
     }
 
