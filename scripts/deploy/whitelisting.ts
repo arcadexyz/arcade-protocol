@@ -118,7 +118,7 @@ if (require.main === module) {
 
     console.log("File:", file);
 
-    // assemble args to access the relevant deplyment json in .deployment
+    // assemble args to access the relevant deployment json in .deployment
     void loadContracts(file!)
         .then(doWhitelisting)
         .then(() => process.exit(0))

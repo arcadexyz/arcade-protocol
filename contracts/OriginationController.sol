@@ -3,7 +3,6 @@
 pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -11,20 +10,15 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "./interfaces/IOriginationController.sol";
 import "./interfaces/ILoanCore.sol";
-import "./interfaces/IERC721Permit.sol";
 import "./interfaces/ISignatureVerifier.sol";
 import "./interfaces/IFeeController.sol";
 import "./interfaces/IExpressBorrow.sol";
 
+import "./libraries/OriginationLibrary.sol";
 import "./libraries/InterestCalculator.sol";
 import "./libraries/FeeLookups.sol";
 
 import "./verifiers/ArcadeItemsVerifier.sol";
-
-import "./v3/interfaces/ILoanCoreV3.sol";
-import "./v3/interfaces/IOriginationControllerV3.sol";
-import "./v3/interfaces/IRepaymentControllerV3.sol";
-import "./v3/libraries/LoanLibraryV3.sol";
 
 import {
     OC_ZeroAddress,
@@ -46,9 +40,7 @@ import {
     OC_InvalidCurrency,
     OC_InvalidCollateral,
     OC_ZeroArrayElements,
-    OC_ArrayTooManyElements,
-    OC_InvalidState,
-    OC_InvalidStateMigration
+    OC_ArrayTooManyElements
 } from "./errors/Lending.sol";
 
 /**
@@ -89,42 +81,19 @@ contract OriginationController is
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
     bytes32 public constant WHITELIST_MANAGER_ROLE = keccak256("WHITELIST_MANAGER");
-
-    /// @notice EIP712 type hash for bundle-based signatures.
-    bytes32 private constant _TOKEN_ID_TYPEHASH =
-        keccak256(
-            // solhint-disable-next-line max-line-length
-            "LoanTerms(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,uint256 collateralId,bytes32 affiliateCode,uint160 nonce,uint96 maxUses,uint8 side)"
-        );
-
-    /// @notice EIP712 type hash for item-based signatures.
-    bytes32 private constant _ITEMS_TYPEHASH =
-        keccak256(
-            // solhint-disable max-line-length
-            "LoanTermsWithItems(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,bytes32 affiliateCode,Predicate[] items,uint160 nonce,uint96 maxUses,uint8 side)Predicate(bytes data,address verifier)"
-        );
-
-    /// @notice EIP712 type hash for Predicate.
-    bytes32 public constant _PREDICATE_TYPEHASH =
-        keccak256(
-            "Predicate(bytes data,address verifier)"
-        );
+    bytes32 public constant MIGRATOR_ROLE = keccak256("MIGRATION_MANAGER");
 
     // =============== Contract References ===============
 
-    ILoanCore private immutable loanCore;
+    ILoanCore public immutable loanCore;
     IFeeController private immutable feeController;
-
-    ILoanCoreV3 private immutable loanCoreV3;
-    IOriginationControllerV3 private immutable originationControllerV3;
-    IRepaymentControllerV3 private immutable repaymentControllerV3;
 
     // ================= Approval State ==================
 
     /// @notice Mapping from owner to operator approvals
-    mapping(address => mapping(address => bool)) private _signerApprovals;
+    mapping(address => mapping(address => bool)) public signerApprovals;
     /// @notice Mapping from address to whether that verifier contract has been whitelisted
-    mapping(address => bool) public allowedVerifiers;
+    mapping(address => bool) private allowedVerifiers;
     /// @notice Mapping from ERC20 token address to boolean indicating allowed payable currencies and set minimums
     mapping(address => Currency) public allowedCurrencies;
     /// @notice Mapping from ERC721 or ERC1155 token address to boolean indicating allowed collateral types
@@ -142,18 +111,9 @@ contract OriginationController is
      * @param _loanCore                     The address of the loan core logic of the protocol.
      * @param _feeController                The address of the fee logic of the protocol.
      */
-    constructor(
-        address _loanCore,
-        address _feeController,
-        address _loanCoreV3,
-        address _originationControllerV3,
-        address _repaymentControllerV3
-    ) EIP712("OriginationController", "4") {
+    constructor(address _loanCore, address _feeController) EIP712("OriginationController", "4") {
         if (_loanCore == address(0)) revert OC_ZeroAddress("loanCore");
         if (_feeController == address(0)) revert OC_ZeroAddress("feeController");
-        if (_loanCoreV3 == address(0)) revert OC_ZeroAddress("loanCoreV3");
-        if (_originationControllerV3 == address(0)) revert OC_ZeroAddress("originationControllerV3");
-        if (_repaymentControllerV3 == address(0)) revert OC_ZeroAddress("repaymentControllerV3");
 
         _setupRole(ADMIN_ROLE, msg.sender);
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
@@ -161,12 +121,11 @@ contract OriginationController is
         _setupRole(WHITELIST_MANAGER_ROLE, msg.sender);
         _setRoleAdmin(WHITELIST_MANAGER_ROLE, ADMIN_ROLE);
 
+        _setupRole(MIGRATOR_ROLE, msg.sender);
+        _setRoleAdmin(MIGRATOR_ROLE, ADMIN_ROLE);
+
         loanCore = ILoanCore(_loanCore);
         feeController = IFeeController(_feeController);
-
-        loanCoreV3 = ILoanCoreV3(_loanCoreV3);
-        originationControllerV3 = IOriginationControllerV3(_originationControllerV3);
-        repaymentControllerV3 = IRepaymentControllerV3(_repaymentControllerV3);
     }
 
     // ======================================= LOAN ORIGINATION =========================================
@@ -215,56 +174,6 @@ contract OriginationController is
     }
 
     /**
-     * @notice Initializes a loan with Loan Core, with a permit signature instead of pre-approved collateral.
-     *
-     * @notice If item predicates are passed, they are used to verify collateral.
-     *
-     * @dev The caller must be a borrower or lender, or approved by a borrower or lender.
-     * @dev The external signer must be a borrower or lender, or approved by a borrower or lender.
-     * @dev The external signer must come from the opposite side of the loan as the caller.
-     *
-     * @param loanTerms                     The terms agreed by the lender and borrower.
-     * @param borrowerData                  Struct containing borrower address and any callback data.
-     * @param lender                        Address of the lender.
-     * @param sig                           The loan terms signature, with v, r, s fields, and possible extra data.
-     * @param sigProperties                 Signature nonce and max uses for this nonce.
-     * @param itemPredicates                The predicate rules for the items in the bundle.
-     * @param collateralSig                 The collateral permit signature, with v, r, s fields.
-     * @param permitDeadline                The last timestamp for which the permit signature is valid.
-     *
-     * @return loanId                       The unique ID of the new loan.
-     */
-    function initializeLoanWithPermit(
-        LoanLibrary.LoanTerms calldata loanTerms,
-        BorrowerData calldata borrowerData,
-        address lender,
-        Signature calldata sig,
-        SigProperties calldata sigProperties,
-        LoanLibrary.Predicate[] calldata itemPredicates,
-        Signature calldata collateralSig,
-        uint256 permitDeadline
-    ) external override returns (uint256 loanId) {
-        IERC721Permit(loanTerms.collateralAddress).permit(
-            borrowerData.borrower,
-            address(this),
-            loanTerms.collateralId,
-            permitDeadline,
-            collateralSig.v,
-            collateralSig.r,
-            collateralSig.s
-        );
-
-        loanId = initializeLoan(
-            loanTerms,
-            borrowerData,
-            lender,
-            sig,
-            sigProperties,
-            itemPredicates
-        );
-    }
-
-    /**
      * @notice Rollover an existing loan using a signature to originate the new loan.
      *         The lender can be the same lender as the loan to be rolled over,
      *         or a new lender. The net funding between the old and new loan is calculated,
@@ -292,7 +201,7 @@ contract OriginationController is
         _validateLoanTerms(loanTerms);
 
         LoanLibrary.LoanData memory data = loanCore.getLoan(oldLoanId);
-        if (data.state != LoanLibrary.LoanState.Active) revert OC_InvalidState(data.state);
+        if (data.state != LoanLibrary.LoanState.Active) revert OC_InvalidState(uint8(data.state));
         _validateRollover(data.terms, loanTerms);
 
         address borrower = IERC721(loanCore.borrowerNote()).ownerOf(oldLoanId);
@@ -313,75 +222,6 @@ contract OriginationController is
         if (itemPredicates.length > 0) _runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
     }
 
-    // ======================================= V3 MIGRATION =============================================
-
-    function migrateV3Loan(
-        uint256 oldLoanId,
-        LoanLibrary.LoanTerms calldata newTerms,
-        address lender,
-        Signature calldata sig,
-        uint160 nonce,
-        // add maxUses param!
-        LoanLibrary.Predicate[] calldata itemPredicates
-    ) external override returns (uint256 newLoanId) {
-        //////////////////////////////// Loan Validation ////////////////////////////////
-        _validateLoanTerms(newTerms);
-
-        LoanLibraryV3.LoanData memory oldLoanData = loanCoreV3.getLoan(oldLoanId);
-        if (oldLoanData.state != LoanLibraryV3.LoanState.Active) revert OC_InvalidStateMigration(oldLoanData.state);
-        _validateMigration(oldLoanData.terms, newTerms);
-
-        address borrower = IERC721(loanCoreV3.borrowerNote()).ownerOf(oldLoanId);
-
-        // Determine if signature needs to be on the borrow or lend side
-        Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
-
-        (bytes32 sighash, address externalSigner) = _recoverSignature(newTerms, sig, nonce, neededSide, itemPredicates);
-
-        _validateCounterparties(borrower, lender, msg.sender, externalSigner, sig, sighash, neededSide);
-
-        //////////////////////////////// Collect V3 BorrowerNote ////////////////////////////////
-        IERC721(loanCoreV3.borrowerNote()).safeTransferFrom(borrower, address(this), oldLoanId);
-
-        //////////////////////////////// Start V4 Loan (Begin) ////////////////////////////////
-        loanCore.consumeNonce(externalSigner, nonce);
-
-        //////////////////////////////// Repay V3 loan ////////////////////////////////
-        // calculate and distribute settled amounts
-        (uint256 settledAmount, IERC20 payableCurrency) = _migrate(
-            oldLoanId,
-            oldLoanData,
-            newTerms,
-            borrower,
-            lender
-        );
-
-        // approve LoanCoreV3 to take the total settled amount
-        payableCurrency.safeApprove(address(loanCoreV3), settledAmount);
-        repaymentControllerV3.repay(oldLoanId);
-
-        // this contract now holds collateral
-
-        //////////////////////////////// Start V4 Loan (Finish) ////////////////////////////////
-        // transfer collateral to LoanCore
-        IERC721(newTerms.collateralAddress).transferFrom(address(this), address(loanCore), newTerms.collateralId);
-
-        // get lending fees from fee controller and create LoanLibrary.FeeSnapshot from feeData
-        IFeeController.FeesOrigination memory feeData = feeController.getFeesOrigination();
-        LoanLibrary.FeeSnapshot memory feeSnapshot = LoanLibrary.FeeSnapshot({
-            lenderDefaultFee: feeData.lenderDefaultFee,
-            lenderInterestFee: feeData.lenderInterestFee,
-            lenderPrincipalFee: feeData.lenderPrincipalFee
-        });
-
-        // create loan in LoanCore
-        newLoanId = loanCore.startLoan(lender, borrower, newTerms, newTerms.principal, newTerms.principal, feeSnapshot);
-
-        // Run predicates check at the end of the function, after vault is in escrow. This makes sure
-        // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
-        if (itemPredicates.length > 0) _runPredicatesCheck(borrower, lender, newTerms, itemPredicates);
-    }
-
     // ==================================== PERMISSION MANAGEMENT =======================================
 
     /**
@@ -394,49 +234,9 @@ contract OriginationController is
     function approve(address signer, bool approved) public override {
         if (signer == msg.sender) revert OC_SelfApprove(msg.sender);
 
-        _signerApprovals[msg.sender][signer] = approved;
+        signerApprovals[msg.sender][signer] = approved;
 
         emit Approval(msg.sender, signer, approved);
-    }
-
-    /**
-     * @notice Reports whether a party is approved to act on a counterparty's behalf.
-     *
-     * @param owner                         The grantor of permission.
-     * @param signer                        The grantee of permission.
-     *
-     * @return isApproved                   Whether the grantee has been approved by the grantor.
-     */
-    function isApproved(address owner, address signer) public view virtual override returns (bool) {
-        return _signerApprovals[owner][signer];
-    }
-
-    /**
-     * @notice Reports whether the signer matches the target or is approved by the target.
-     *
-     * @param target                        The grantor of permission - should be a smart contract.
-     * @param sig                           A struct containing the signature data (for checking EIP-1271).
-     * @param sighash                       The hash of the signature payload (used for EIP-1271 check).
-     *
-     * @return bool                         Whether the signer is either the grantor themselves, or approved.
-     */
-    function isApprovedForContract(
-        address target,
-        Signature memory sig,
-        bytes32 sighash
-    ) public view override returns (bool) {
-        bytes memory signature = abi.encodePacked(sig.r, sig.s, sig.v);
-
-        // Append extra data if it exists
-        if (sig.extraData.length > 0) {
-            signature = bytes.concat(signature, sig.extraData);
-        }
-
-        // Convert sig struct to bytes
-        (bool success, bytes memory result) = target.staticcall(
-            abi.encodeWithSelector(IERC1271.isValidSignature.selector, sighash, signature)
-        );
-        return (success && result.length == 32 && abi.decode(result, (bytes4)) == IERC1271.isValidSignature.selector);
     }
 
     /**
@@ -448,7 +248,7 @@ contract OriginationController is
      * @return isSelfOrApproved             Whether the signer is either the grantor themselves, or approved.
      */
     function isSelfOrApproved(address target, address signer) public view override returns (bool) {
-        return target == signer || isApproved(target, signer);
+        return target == signer || signerApprovals[target][signer];
     }
 
     // ==================================== SIGNATURE VERIFICATION ======================================
@@ -472,7 +272,7 @@ contract OriginationController is
     ) public view override returns (bytes32 sighash, address signer) {
         bytes32 loanHash = keccak256(
             abi.encode(
-                _TOKEN_ID_TYPEHASH,
+                OriginationLibrary._TOKEN_ID_TYPEHASH,
                 loanTerms.interestRate,
                 loanTerms.durationSecs,
                 loanTerms.collateralAddress,
@@ -487,7 +287,7 @@ contract OriginationController is
             )
         );
 
-        sighash = _hashTypedDataV4(loanHash);
+        sighash = EIP712._hashTypedDataV4(loanHash);
         signer = ECDSA.recover(sighash, sig.v, sig.r, sig.s);
     }
 
@@ -514,7 +314,7 @@ contract OriginationController is
     ) public view override returns (bytes32 sighash, address signer) {
         bytes32 loanHash = keccak256(
             abi.encode(
-                _ITEMS_TYPEHASH,
+                OriginationLibrary._ITEMS_TYPEHASH,
                 loanTerms.interestRate,
                 loanTerms.durationSecs,
                 loanTerms.collateralAddress,
@@ -529,8 +329,50 @@ contract OriginationController is
             )
         );
 
-        sighash = _hashTypedDataV4(loanHash);
+        sighash = EIP712._hashTypedDataV4(loanHash);
         signer = ECDSA.recover(sighash, sig.v, sig.r, sig.s);
+    }
+
+    /**
+     * @notice Determine the sighash and external signer given the loan terms, signature, nonce,
+     *         and side the expected signer is on. If item predicates are passed, item-based signature
+     *         recovery is used.
+     *
+     * @param loanTerms                     The terms of the loan to be started.
+     * @param sig                           The signature, with v, r, s fields.
+     * @param sigProperties                 Signature nonce and max uses for this nonce.
+     * @param neededSide                    The side of the loan the signature will take (lend or borrow).
+     * @param itemPredicates                The predicate rules for the items in the bundle.
+     *
+     * @return sighash                      The hash that was signed.
+     * @return externalSigner               The address of the recovered signer.
+     */
+    function _recoverSignature(
+        LoanLibrary.LoanTerms calldata loanTerms,
+        Signature calldata sig,
+        SigProperties calldata sigProperties,
+        Side neededSide,
+        LoanLibrary.Predicate[] calldata itemPredicates
+    ) public view returns (bytes32 sighash, address externalSigner) {
+        if (itemPredicates.length > 0) {
+            // If predicates are specified, use the item-based signature
+            bytes32 encodedPredicates = OriginationLibrary._encodePredicates(itemPredicates);
+
+            (sighash, externalSigner) = recoverItemsSignature(
+                loanTerms,
+                sig,
+                sigProperties,
+                neededSide,
+                encodedPredicates
+            );
+        } else {
+            (sighash, externalSigner) = recoverTokenSignature(
+                loanTerms,
+                sig,
+                sigProperties,
+                neededSide
+            );
+        }
     }
 
     // ===================================== WHITELIST MANAGER UTILS =====================================
@@ -567,17 +409,6 @@ contract OriginationController is
     }
 
     /**
-     * @notice Return whether the address can be used as a loan funding currency.
-     *
-     * @param token                 The token to query.
-     *
-     * @return isAllowed            Whether the contract is verified.
-     */
-    function isAllowedCurrency(address token) public view override returns (bool) {
-        return allowedCurrencies[token].isAllowed;
-    }
-
-    /**
      * @notice Adds an array collateral tokens to the allowed collateral mapping.
      *
      * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
@@ -606,17 +437,6 @@ contract OriginationController is
                 i++;
             }
         }
-    }
-
-    /**
-     * @notice Return whether the address can be used as collateral.
-     *
-     * @param token                The token to query.
-     *
-     * @return isAllowed           Whether the token can be used as collateral.
-     */
-    function isAllowedCollateral(address token) public view override returns (bool) {
-        return allowedCollateral[token];
     }
 
     /**
@@ -709,22 +529,6 @@ contract OriginationController is
             );
     }
 
-    function _validateMigration(LoanLibraryV3.LoanTerms memory oldTerms, LoanLibrary.LoanTerms memory newTerms)
-        internal
-        pure
-    {
-        if (newTerms.payableCurrency != oldTerms.payableCurrency)
-            revert OC_RolloverCurrencyMismatch(oldTerms.payableCurrency, newTerms.payableCurrency);
-
-        if (newTerms.collateralAddress != oldTerms.collateralAddress || newTerms.collateralId != oldTerms.collateralId)
-            revert OC_RolloverCollateralMismatch(
-                oldTerms.collateralAddress,
-                oldTerms.collateralId,
-                newTerms.collateralAddress,
-                newTerms.collateralId
-            );
-    }
-
     /**
      * @dev Ensure that one counterparty has signed the loan terms, and the other
      *      has initiated the transaction.
@@ -757,51 +561,17 @@ contract OriginationController is
         // Check that caller can actually call this function - neededSide assignment
         // defaults to BORROW if the signature is not approved by the borrower, but it could
         // also not be a participant
-        if (!isSelfOrApproved(callingCounterparty, caller) && !isApprovedForContract(callingCounterparty, sig, sighash)) {
+        if (!isSelfOrApproved(callingCounterparty, caller) && !OriginationLibrary.isApprovedForContract(callingCounterparty, sig, sighash)) {
             revert OC_CallerNotParticipant(msg.sender);
         }
 
         // Check signature validity
-        if (!isSelfOrApproved(signingCounterparty, signer) && !isApprovedForContract(signingCounterparty, sig, sighash)) {
+        if (!isSelfOrApproved(signingCounterparty, signer) && !OriginationLibrary.isApprovedForContract(signingCounterparty, sig, sighash)) {
             revert OC_InvalidSignature(signingCounterparty, signer);
         }
 
         // Revert if the signer is the calling counterparty
         if (signer == callingCounterparty) revert OC_SideMismatch(signer);
-    }
-
-    /**
-     * @notice Hashes each item in Predicate[] separately and concatenates these hashes for
-     *         inclusion in _ITEMS_TYPEHASH.
-     *
-     * @dev Solidity does not support array or nested struct hashing in the keccak256 function
-     *      hence the multi-step hash creation process.
-     *
-     * @param predicates                    The predicate items array.
-     *
-     * @return itemsHash                    The concatenated hash of all items in the Predicate array.
-     */
-    function _encodePredicates(LoanLibrary.Predicate[] memory predicates) public pure returns (bytes32 itemsHash) {
-       bytes32[] memory itemHashes = new bytes32[](predicates.length);
-
-        for (uint i = 0; i < predicates.length;){
-            itemHashes[i] = keccak256(
-                abi.encode(
-                    _PREDICATE_TYPEHASH,
-                    keccak256(predicates[i].data),
-                    predicates[i].verifier
-                )
-            );
-
-            // Predicates is calldata, overflow is impossible bc of calldata
-            // size limits vis-a-vis gas
-            unchecked {
-                i++;
-            }
-        }
-
-        // concatenate all predicate hashes
-        itemsHash = keccak256(abi.encodePacked(itemHashes));
     }
 
     /**
@@ -818,12 +588,12 @@ contract OriginationController is
         address borrower,
         address lender,
         LoanLibrary.LoanTerms memory loanTerms,
-        LoanLibrary.Predicate[] calldata itemPredicates
+        LoanLibrary.Predicate[] memory itemPredicates
     ) internal view {
         for (uint256 i = 0; i < itemPredicates.length;) {
             // Verify items are held in the wrapper
             address verifier = itemPredicates[i].verifier;
-            if (!isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
+            if (!allowedVerifiers[verifier]) revert OC_InvalidVerifier(verifier);
 
             if (!ISignatureVerifier(verifier).verifyPredicates(
                 borrower,
@@ -847,48 +617,6 @@ contract OriginationController is
             unchecked {
                 i++;
             }
-        }
-    }
-
-    /**
-     * @notice Determine the sighash and external signer given the loan terms, signature, nonce,
-     *         and side the expected signer is on. If item predicates are passed, item-based signature
-     *         recovery is used.
-     *
-     * @param loanTerms                     The terms of the loan to be started.
-     * @param sig                           The signature, with v, r, s fields.
-     * @param sigProperties                 Signature nonce and max uses for this nonce.
-     * @param neededSide                    The side of the loan the signature will take (lend or borrow).
-     * @param itemPredicates                The predicate rules for the items in the bundle.
-     *
-     * @return sighash                      The hash that was signed.
-     * @return externalSigner               The address of the recovered signer.
-     */
-    function _recoverSignature(
-        LoanLibrary.LoanTerms calldata loanTerms,
-        Signature calldata sig,
-        SigProperties calldata sigProperties,
-        Side neededSide,
-        LoanLibrary.Predicate[] calldata itemPredicates
-    ) internal view returns (bytes32 sighash, address externalSigner) {
-        if (itemPredicates.length > 0) {
-            // If predicates are specified, use the item-based signature
-            bytes32 encodedPredicates = _encodePredicates(itemPredicates);
-
-            (sighash, externalSigner) = recoverItemsSignature(
-                loanTerms,
-                sig,
-                sigProperties,
-                neededSide,
-                encodedPredicates
-            );
-        } else {
-            (sighash, externalSigner) = recoverTokenSignature(
-                loanTerms,
-                sig,
-                sigProperties,
-                neededSide
-            );
         }
     }
 
@@ -971,9 +699,9 @@ contract OriginationController is
         IERC20 payableCurrency = IERC20(oldLoanData.terms.payableCurrency);
 
         // Calculate settle amounts
-        RolloverAmounts memory amounts = _calculateRolloverAmounts(
+        OriginationLibrary.RolloverAmounts memory amounts = _calculateRolloverAmounts(
             oldLoanData,
-            newTerms,
+            newTerms.principal,
             lender,
             oldLender
         );
@@ -1021,7 +749,7 @@ contract OriginationController is
      *      any payments to be sent to the old lender.
      *
      * @param oldLoanData           The loan data struct for the old loan.
-     * @param newTerms              The terms struct for the new loan.
+     * @param newPrincipalAmount    The principal amount for the new loan.
      * @param lender                The lender for the new loan.
      * @param oldLender             The lender for the existing loan.
      *
@@ -1029,10 +757,10 @@ contract OriginationController is
      */
     function _calculateRolloverAmounts(
         LoanLibrary.LoanData memory oldLoanData,
-        LoanLibrary.LoanTerms calldata newTerms,
+        uint256 newPrincipalAmount,
         address lender,
         address oldLender
-    ) internal view returns (RolloverAmounts memory amounts) {
+    ) internal view returns (OriginationLibrary.RolloverAmounts memory) {
         // get rollover fees
         IFeeController.FeesRollover memory feeData = feeController.getFeesRollover();
 
@@ -1045,153 +773,24 @@ contract OriginationController is
             uint64(oldLoanData.lastAccrualTimestamp),
             block.timestamp
         );
-        amounts.interestAmount = interest;
-        uint256 repayAmount = oldLoanData.terms.principal + interest;
 
         // Calculate amount to be sent to borrower for new loan minus rollover fees
-        uint256 borrowerFee = (newTerms.principal * feeData.borrowerRolloverFee) / BASIS_POINTS_DENOMINATOR;
-        uint256 borrowerOwedForNewLoan = newTerms.principal - borrowerFee;
+        uint256 borrowerFee = (newPrincipalAmount * feeData.borrowerRolloverFee) / BASIS_POINTS_DENOMINATOR;
 
         // Calculate amount to be collected from the lender for new loan plus rollover fees
         uint256 interestFee = (interest * oldLoanData.feeSnapshot.lenderInterestFee) / BASIS_POINTS_DENOMINATOR;
-        uint256 lenderFee = (newTerms.principal * feeData.lenderRolloverFee) / BASIS_POINTS_DENOMINATOR;
-        amounts.amountFromLender = newTerms.principal + lenderFee + interestFee;
+        uint256 lenderFee = (newPrincipalAmount * feeData.lenderRolloverFee) / BASIS_POINTS_DENOMINATOR;
 
-        // Calculate net amounts based on if repayment amount for old loan is greater than
-        // new loan principal minus fees
-        if (repayAmount > borrowerOwedForNewLoan) {
-            // amount to collect from borrower
-            // new loan principal is less than old loan repayment amount
-            unchecked {
-                amounts.needFromBorrower = repayAmount - borrowerOwedForNewLoan;
-            }
-        } else {
-            // amount to collect from lender (either old or new)
-            amounts.leftoverPrincipal = amounts.amountFromLender - repayAmount;
 
-            // amount to send to borrower
-            unchecked {
-                amounts.amountToBorrower = borrowerOwedForNewLoan - repayAmount;
-            }
-        }
-
-        // Calculate lender amounts based on if the lender is the same as the old lender
-        if (lender != oldLender) {
-            // different lenders, repay old lender
-            amounts.amountToOldLender = repayAmount;
-
-            // different lender, new lender is owed zero tokens
-            amounts.amountToLender = 0;
-        } else {
-            // same lender
-            amounts.amountToOldLender = 0;
-
-            // same lender, so check if the amount to collect from the lender is less than
-            // the amount the lender is owed for the old loan. If so, the lender is owed the
-            // difference
-            if (amounts.needFromBorrower > 0 && repayAmount > amounts.amountFromLender) {
-                unchecked {
-                    amounts.amountToLender = repayAmount - amounts.amountFromLender;
-                }
-            }
-        }
-    }
-
-    function _migrate(
-        uint256 oldLoanId,
-        LoanLibraryV3.LoanData memory oldLoanData,
-        LoanLibrary.LoanTerms calldata newTerms,
-        address borrower,
-        address lender
-    ) internal nonReentrant returns (uint256 settledAmount, IERC20 payableCurrency) {
-        address oldLender = loanCoreV3.lenderNote().ownerOf(oldLoanId);
-        payableCurrency = IERC20(oldLoanData.terms.payableCurrency);
-
-        // Calculate settle amounts
-        RolloverAmounts memory amounts = _calculateV3MigrationAmounts(
-            oldLoanData,
-            newTerms,
-            lender,
-            oldLender
-        );
-
-        // Collect funds based on settle amounts and total them
-        settledAmount = 0;
-        if (lender != oldLender) {
-            // If new lender, take new principal from new lender
-            payableCurrency.safeTransferFrom(lender, address(this), amounts.amountFromLender);
-            settledAmount += amounts.amountFromLender;
-        }
-
-        if (amounts.needFromBorrower > 0) {
-            // Borrower owes from old loan
-            payableCurrency.safeTransferFrom(borrower, address(this), amounts.needFromBorrower);
-            settledAmount += amounts.needFromBorrower;
-        } else if (amounts.leftoverPrincipal > 0 && lender == oldLender) {
-            // If same lender, and new amount from lender is greater than old loan repayment amount,
-            // take the difference from the lender
-            payableCurrency.safeTransferFrom(lender, address(this), amounts.leftoverPrincipal);
-            settledAmount += amounts.leftoverPrincipal;
-        }
-    }
-
-    function _calculateV3MigrationAmounts(
-        LoanLibraryV3.LoanData memory oldLoanData,
-        LoanLibrary.LoanTerms calldata newTerms,
-        address lender,
-        address oldLender
-    ) internal view returns (RolloverAmounts memory amounts) {
-        // get total interest to close v3 loan
-        uint256 interest = repaymentControllerV3.getInterestAmount(
+        return OriginationLibrary.rolloverAmounts(
             oldLoanData.terms.principal,
-            oldLoanData.terms.proratedInterestRate
+            interest,
+            newPrincipalAmount,
+            lender,
+            oldLender,
+            borrowerFee,
+            lenderFee,
+            interestFee
         );
-        amounts.interestAmount = interest;
-        uint256 repayAmount = oldLoanData.terms.principal + interest;
-
-        // Calculate amount to be sent to borrower for new loan
-        uint256 borrowerOwedForNewLoan = newTerms.principal;
-
-        // Calculate amount to be collected from the lender for new loan
-        amounts.amountFromLender = newTerms.principal;
-
-        // Calculate net amounts based on if repayment amount for old loan is greater than
-        // new loan principal minus fees
-        if (repayAmount > borrowerOwedForNewLoan) {
-            // amount to collect from borrower
-            // new loan principal is less than old loan repayment amount
-            unchecked {
-                amounts.needFromBorrower = repayAmount - borrowerOwedForNewLoan;
-            }
-        } else {
-            // amount to collect from lender (either old or new)
-            amounts.leftoverPrincipal = amounts.amountFromLender - repayAmount;
-
-            // amount to send to borrower
-            unchecked {
-                amounts.amountToBorrower = borrowerOwedForNewLoan - repayAmount;
-            }
-        }
-
-        // Calculate lender amounts based on if the lender is the same as the old lender
-        if (lender != oldLender) {
-            // different lenders, repay old lender
-            amounts.amountToOldLender = repayAmount;
-
-            // different lender, new lender is owed zero tokens
-            amounts.amountToLender = 0;
-        } else {
-            // same lender
-            amounts.amountToOldLender = 0;
-
-            // same lender, so check if the amount to collect from the lender is less than
-            // the amount the lender is owed for the old loan. If so, the lender is owed the
-            // difference
-            if (amounts.needFromBorrower > 0 && repayAmount > amounts.amountFromLender) {
-                unchecked {
-                    amounts.amountToLender = repayAmount - amounts.amountFromLender;
-                }
-            }
-        }
     }
 }

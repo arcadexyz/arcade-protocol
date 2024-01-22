@@ -4,8 +4,6 @@ pragma solidity 0.8.18;
 
 import "../libraries/LoanLibrary.sol";
 
-import "../v3/libraries/LoanLibraryV3.sol";
-
 /**
  * @title LendingErrors
  * @author Non-Fungible Technologies, Inc.
@@ -31,14 +29,7 @@ error OC_ZeroAddress(string addressType);
  *
  * @param state                         Current state of a loan according to LoanState enum.
  */
-error OC_InvalidState(LoanLibrary.LoanState state);
-
-/**
- * @notice Ensure valid loan state for loan lifecycle operations.
- *
- * @param state                         Current state of a loan according to LoanState enum.
- */
-error OC_InvalidStateMigration(LoanLibraryV3.LoanState state);
+error OC_InvalidState(uint8 state);
 
 /**
  * @notice Loan duration must be greater than 1hr and less than 3yrs.

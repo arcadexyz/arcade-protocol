@@ -8,13 +8,13 @@ import {
     LoanCore,
     PromissoryNote,
     RepaymentController,
-    OriginationController,
     ArcadeItemsVerifier,
     VaultFactory,
     StaticURIDescriptor,
     CollectionWideOfferVerifier,
     ArtBlocksVerifier,
-    CallWhitelistAllExtensions
+    CallWhitelistAllExtensions,
+    OriginationControllerMigrate
 } from "../../typechain";
 
 export interface DeployedResources {
@@ -25,7 +25,7 @@ export interface DeployedResources {
     vaultFactory: VaultFactory;
     loanCore: LoanCore;
     repaymentController: RepaymentController;
-    originationController: OriginationController;
+    originationController: OriginationControllerMigrate;
     borrowerNoteURIDescriptor: StaticURIDescriptor;
     borrowerNote: PromissoryNote;
     lenderNoteURIDescriptor: StaticURIDescriptor;

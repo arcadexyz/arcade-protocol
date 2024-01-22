@@ -16,8 +16,8 @@ pragma solidity 0.8.18;
 abstract contract InterestCalculator {
     // ============================================ STATE ==============================================
 
-    /// @dev Denominator for annualizing interest rates
-    uint256 public constant SECONDS_IN_YEAR = 365 days;
+    /// @dev Denominator used to annualize interest rates
+    uint256 private constant SECONDS_IN_YEAR = 365 days;
     /// @dev Denominator for interest rate in basis points
     uint256 public constant BASIS_POINTS_DENOMINATOR = 1e4;
 

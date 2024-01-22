@@ -75,9 +75,19 @@ const fixture = async (): Promise<TestContext> => {
         await note.connect(signers[0]).initialize(signers[0].address);
     }
 
-    const originationController = <OriginationController>await deploy(
-        "OriginationController", signers[0], [loanCore.address, feeController.address]
-    )
+    const OriginationLibraryFactory = await ethers.getContractFactory("OriginationLibrary");
+    const originationLibrary = await OriginationLibraryFactory.deploy();
+    const OriginationControllerFactory = await ethers.getContractFactory("OriginationController",
+        {
+            signer: signers[0],
+            libraries: {
+                OriginationLibrary: originationLibrary.address,
+            },
+        },
+    );
+    const originationController = <OriginationController>(
+        await OriginationControllerFactory.deploy(loanCore.address, feeController.address)
+    );
     await originationController.deployed();
 
     const originator = signers[0];

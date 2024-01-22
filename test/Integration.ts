@@ -117,9 +117,19 @@ const fixture = async (): Promise<TestContext> => {
     );
     await updateRepaymentControllerPermissions.wait();
 
-    const originationController = <OriginationController>await deploy(
-        "OriginationController", admin, [loanCore.address, feeController.address]
-    )
+    const OriginationLibraryFactory = await ethers.getContractFactory("OriginationLibrary");
+    const originationLibrary = await OriginationLibraryFactory.deploy();
+    const OriginationControllerFactory = await ethers.getContractFactory("OriginationController",
+        {
+            signer: admin,
+            libraries: {
+                OriginationLibrary: originationLibrary.address,
+            },
+        },
+    );
+    const originationController = <OriginationController>(
+        await OriginationControllerFactory.deploy(loanCore.address, feeController.address)
+    );
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController

@@ -2,23 +2,28 @@
 
 pragma solidity 0.8.18;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "../libraries/LoanLibrary.sol";
 
-import "./ILoanCore.sol";
-import "./IFeeController.sol";
-
-import "../v3/interfaces/IOriginationControllerV3.sol";
+import "./IOriginationController.sol";
 
 import "../external/interfaces/IFlashLoanRecipient.sol";
 
-import "../v2-migration/v2-contracts/v2-interfaces/ILoanCoreV2.sol";
-import "../v2-migration/v2-contracts/v2-interfaces/IRepaymentControllerV2.sol";
-
 interface IMigrationBase is IFlashLoanRecipient {
     event PausedStateChanged(bool isPaused);
+    event V3V4Rollover(address indexed lender, address indexed borrower, uint256 collateralTokenId, uint256 newLoanId);
 
-    function flushToken(IERC20 token, address to) external;
+    // ================== V3 Migration ==================
+
+    function migrateV3Loan(
+        uint256 oldLoanId,
+        LoanLibrary.LoanTerms calldata loanTerms,
+        address lender,
+        IOriginationController.Signature calldata sig,
+        IOriginationController.SigProperties calldata sigProperties,
+        LoanLibrary.Predicate[] calldata itemPredicates
+    ) external;
+
+    // ==================== OWNER OPS ====================
 
     function pause(bool _pause) external;
 }

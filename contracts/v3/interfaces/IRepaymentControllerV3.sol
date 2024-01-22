@@ -15,5 +15,5 @@ interface IRepaymentControllerV3 {
 
     // ============== View Functions ==============
 
-    function getInterestAmount(uint256 prinicpal, uint256 proratedInterestRate) external view returns (uint256);
+    function getInterestAmount(uint256 principal, uint256 proratedInterestRate) external view returns (uint256);
 }
