@@ -71,7 +71,7 @@ function createHardhatConfig(): HardhatNetworkUserConfig {
             mnemonic,
         },
         allowUnlimitedContractSize: true,
-        chainId: chainIds.hardhat,
+        chainId: forkMainnet ? 1 : chainIds.hardhat,
         contractSizer: {
             alphaSort: true,
             disambiguatePaths: false,
@@ -85,7 +85,7 @@ function createHardhatConfig(): HardhatNetworkUserConfig {
         return Object.assign(config, {
             forking: {
                 url: `https://eth-mainnet.alchemyapi.io/v2/${alchemyApiKey}`,
-                blockNumber: 17895128,
+                blockNumber: 19075770,
             },
         });
     }
