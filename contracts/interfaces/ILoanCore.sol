@@ -26,6 +26,7 @@ interface ILoanCore {
     event LoanRepaid(uint256 loanId);
     event ForceRepay(uint256 loanId);
     event LoanRolledOver(uint256 oldLoanId, uint256 newLoanId);
+    event LoanRefinanced(uint256 oldLoanId, uint256 newLoanId);
     event LoanClaimed(uint256 loanId);
     event NoteRedeemed(address indexed token, address indexed caller, address indexed to, uint256 tokenId, uint256 amount);
     event NonceUsed(address indexed user, uint160 nonce);
@@ -83,6 +84,8 @@ interface ILoanCore {
         uint256 _amountToBorrower,
         uint256 _interestAmount
     ) external returns (uint256 newLoanId);
+
+    function refinance(uint256 loanId, LoanLibrary.LoanTerms calldata newTerms) external;
 
     // ============== Nonce Management ==============
 
