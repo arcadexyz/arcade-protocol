@@ -65,6 +65,8 @@ interface IOriginationController {
 
     function approve(address signer, bool approved) external;
 
+    function isApproved(address owner, address signer) external returns (bool);
+
     function isSelfOrApproved(address target, address signer) external returns (bool);
 
     // ============== Signature Verification ==============

@@ -34,7 +34,6 @@ library OriginationLibrary {
         LoanLibrary.LoanTerms newLoanTerms;
         address borrower;
         address lender;
-        LoanLibrary.Predicate[] itemPredicates;
         RolloverAmounts migrationAmounts;
     }
 

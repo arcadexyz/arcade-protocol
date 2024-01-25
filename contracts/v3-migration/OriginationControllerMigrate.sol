@@ -98,12 +98,12 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         ) = _migrate(oldLoanId, oldLoanData, newTerms.principal, msg.sender, lender);
 
         if (flashLoanTrigger) {
-            _initiateFlashLoan(oldLoanId, newTerms, itemPredicates, msg.sender, lender,  amounts);
+            _initiateFlashLoan(oldLoanId, newTerms, msg.sender, lender,  amounts);
         } else {
             _repayLoan(IERC20(newTerms.payableCurrency), oldLoanId, amounts.amountFromLender + amounts.needFromBorrower - amounts.amountToBorrower);
 
             // initialize v4 loan
-            _initializeMigrationLoan(newTerms, itemPredicates, msg.sender, lender);
+            _initializeMigrationLoan(newTerms, msg.sender, lender);
 
             if (amounts.amountToBorrower > 0) {
                 // If new principal is greater than old loan repayment amount, send the difference to the borrower
@@ -269,7 +269,6 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      *
      * @param oldLoanId                 The ID of the v3 loan to be migrated.
      * @param newLoanTerms              The terms of the v4 loan.
-     * @param itemPredicates            The predicates for the v4 loan.
      * @param borrower_                 The address of the borrower.
      * @param lender                    The address of the new lender.
      * @param _amounts                  The migration amounts.
@@ -277,7 +276,6 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
     function _initiateFlashLoan(
         uint256 oldLoanId,
         LoanLibrary.LoanTerms memory newLoanTerms,
-        LoanLibrary.Predicate[] memory itemPredicates,
         address borrower_,
         address lender,
         OriginationLibrary.RolloverAmounts memory _amounts
@@ -299,7 +297,6 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
                     newLoanTerms: newLoanTerms,
                     borrower: borrower_,
                     lender: lender,
-                    itemPredicates: itemPredicates,
                     migrationAmounts: _amounts
                 }
             )
@@ -360,13 +357,17 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
 
         _initializeMigrationLoan(
             opData.newLoanTerms,
-            opData.itemPredicates,
             borrower,
             opData.lender
         );
 
         // pull funds from the lender to repay the flash loan
-        IERC20(opData.newLoanTerms.payableCurrency).safeTransferFrom(opData.lender, address(this), opData.migrationAmounts.amountFromLender - opData.migrationAmounts.leftoverPrincipal);
+        IERC20(opData.newLoanTerms.payableCurrency).safeTransferFrom(
+            opData.lender,
+            address(this),
+            // amount = v3 repayment amount - leftover principal + flash loan fee
+            opData.migrationAmounts.amountFromLender - opData.migrationAmounts.leftoverPrincipal + premiums[0]
+        );
 
         if (opData.migrationAmounts.amountToBorrower > 0) {
             // If new principal is greater than old loan repayment amount, send the difference to the borrower
@@ -401,7 +402,6 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      * @notice Helper function to initialize the new v4 loan.
      *
      * @param newTerms                  The terms of the v4 loan.
-     * @param itemPredicates            The predicates for the v4 loan.
      * @param borrower_                 The address of the borrower.
      * @param lender                    The address of the lender.
      *
@@ -409,7 +409,6 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      */
     function _initializeMigrationLoan(
         LoanLibrary.LoanTerms memory newTerms,
-        LoanLibrary.Predicate[] memory itemPredicates,
         address borrower_,
         address lender
     ) internal returns (uint256 newLoanId) {
@@ -439,7 +438,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      *
      * @param _pause              The state to set the contract to.
      */
-    function pause(bool _pause) external override onlyRole(MIGRATOR_ROLE) {
+    function pause(bool _pause) external override onlyRole(MIGRATION_MANAGER_ROLE) {
         if (paused == _pause) revert M_StateAlreadySet();
 
         paused = _pause;

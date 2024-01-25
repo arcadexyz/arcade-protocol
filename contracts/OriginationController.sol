@@ -81,7 +81,7 @@ contract OriginationController is
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
     bytes32 public constant WHITELIST_MANAGER_ROLE = keccak256("WHITELIST_MANAGER");
-    bytes32 public constant MIGRATOR_ROLE = keccak256("MIGRATION_MANAGER");
+    bytes32 public constant MIGRATION_MANAGER_ROLE = keccak256("MIGRATION_MANAGER");
 
     // =============== Contract References ===============
 
@@ -91,9 +91,9 @@ contract OriginationController is
     // ================= Approval State ==================
 
     /// @notice Mapping from owner to operator approvals
-    mapping(address => mapping(address => bool)) public signerApprovals;
+    mapping(address => mapping(address => bool)) private _signerApprovals;
     /// @notice Mapping from address to whether that verifier contract has been whitelisted
-    mapping(address => bool) private allowedVerifiers;
+    mapping(address => bool) public allowedVerifiers;
     /// @notice Mapping from ERC20 token address to boolean indicating allowed payable currencies and set minimums
     mapping(address => Currency) public allowedCurrencies;
     /// @notice Mapping from ERC721 or ERC1155 token address to boolean indicating allowed collateral types
@@ -121,8 +121,8 @@ contract OriginationController is
         _setupRole(WHITELIST_MANAGER_ROLE, msg.sender);
         _setRoleAdmin(WHITELIST_MANAGER_ROLE, ADMIN_ROLE);
 
-        _setupRole(MIGRATOR_ROLE, msg.sender);
-        _setRoleAdmin(MIGRATOR_ROLE, ADMIN_ROLE);
+        _setupRole(MIGRATION_MANAGER_ROLE, msg.sender);
+        _setRoleAdmin(MIGRATION_MANAGER_ROLE, ADMIN_ROLE);
 
         loanCore = ILoanCore(_loanCore);
         feeController = IFeeController(_feeController);
@@ -234,9 +234,21 @@ contract OriginationController is
     function approve(address signer, bool approved) public override {
         if (signer == msg.sender) revert OC_SelfApprove(msg.sender);
 
-        signerApprovals[msg.sender][signer] = approved;
+        _signerApprovals[msg.sender][signer] = approved;
 
         emit Approval(msg.sender, signer, approved);
+    }
+
+    /**
+     * @notice Reports whether a party is approved to act on a counterparty's behalf.
+     *
+     * @param owner                         The grantor of permission.
+     * @param signer                        The grantee of permission.
+     *
+     * @return isApproved                   Whether the grantee has been approved by the grantor.
+     */
+    function isApproved(address owner, address signer) public view virtual override returns (bool) {
+        return _signerApprovals[owner][signer];
     }
 
     /**
@@ -248,7 +260,7 @@ contract OriginationController is
      * @return isSelfOrApproved             Whether the signer is either the grantor themselves, or approved.
      */
     function isSelfOrApproved(address target, address signer) public view override returns (bool) {
-        return target == signer || signerApprovals[target][signer];
+        return target == signer || isApproved(target, signer);
     }
 
     // ==================================== SIGNATURE VERIFICATION ======================================
