@@ -17,6 +17,7 @@ import "./interfaces/IExpressBorrow.sol";
 import "./libraries/OriginationLibrary.sol";
 import "./libraries/InterestCalculator.sol";
 import "./libraries/FeeLookups.sol";
+import "./libraries/Constants.sol";
 
 import "./verifiers/ArcadeItemsVerifier.sol";
 
@@ -86,14 +87,14 @@ contract OriginationController is
     // =============== Contract References ===============
 
     ILoanCore public immutable loanCore;
-    IFeeController private immutable feeController;
+    IFeeController public immutable feeController;
 
     // ================= Approval State ==================
 
     /// @notice Mapping from owner to operator approvals
     mapping(address => mapping(address => bool)) private _signerApprovals;
     /// @notice Mapping from address to whether that verifier contract has been whitelisted
-    mapping(address => bool) public allowedVerifiers;
+    mapping(address => bool) private allowedVerifiers;
     /// @notice Mapping from ERC20 token address to boolean indicating allowed payable currencies and set minimums
     mapping(address => Currency) public allowedCurrencies;
     /// @notice Mapping from ERC721 or ERC1155 token address to boolean indicating allowed collateral types
@@ -247,7 +248,7 @@ contract OriginationController is
      *
      * @return isApproved                   Whether the grantee has been approved by the grantor.
      */
-    function isApproved(address owner, address signer) public view virtual override returns (bool) {
+    function isApproved(address owner, address signer) public view override returns (bool) {
         return _signerApprovals[owner][signer];
     }
 
@@ -648,17 +649,11 @@ contract OriginationController is
         address lender
     ) internal nonReentrant returns (uint256 loanId) {
         // get lending origination fees from fee controller
-        IFeeController.FeesOrigination memory feeData = feeController.getFeesOrigination();
-
-        // create LoanLibrary.FeeSnapshot struct from feeData
-        LoanLibrary.FeeSnapshot memory feeSnapshot = LoanLibrary.FeeSnapshot({
-            lenderDefaultFee: feeData.lenderDefaultFee,
-            lenderInterestFee: feeData.lenderInterestFee,
-            lenderPrincipalFee: feeData.lenderPrincipalFee
-        });
-
-        uint256 borrowerFee = (loanTerms.principal * feeData.borrowerOriginationFee) / BASIS_POINTS_DENOMINATOR;
-        uint256 lenderFee = (loanTerms.principal * feeData.lenderOriginationFee) / BASIS_POINTS_DENOMINATOR;
+        (
+            LoanLibrary.FeeSnapshot memory feeSnapshot,
+            uint256 borrowerFee,
+            uint256 lenderFee
+        ) = feeController.getOriginationFeeAmounts(loanTerms.principal);
 
         // Determine settlement amounts based on fees
         uint256 amountFromLender = loanTerms.principal + lenderFee;
@@ -787,11 +782,11 @@ contract OriginationController is
         );
 
         // Calculate amount to be sent to borrower for new loan minus rollover fees
-        uint256 borrowerFee = (newPrincipalAmount * feeData.borrowerRolloverFee) / BASIS_POINTS_DENOMINATOR;
+        uint256 borrowerFee = (newPrincipalAmount * feeData.borrowerRolloverFee) / Constants.BASIS_POINTS_DENOMINATOR;
 
         // Calculate amount to be collected from the lender for new loan plus rollover fees
-        uint256 interestFee = (interest * oldLoanData.feeSnapshot.lenderInterestFee) / BASIS_POINTS_DENOMINATOR;
-        uint256 lenderFee = (newPrincipalAmount * feeData.lenderRolloverFee) / BASIS_POINTS_DENOMINATOR;
+        uint256 interestFee = (interest * oldLoanData.feeSnapshot.lenderInterestFee) / Constants.BASIS_POINTS_DENOMINATOR;
+        uint256 lenderFee = (newPrincipalAmount * feeData.lenderRolloverFee) / Constants.BASIS_POINTS_DENOMINATOR;
 
 
         return OriginationLibrary.rolloverAmounts(

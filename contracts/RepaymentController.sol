@@ -12,6 +12,7 @@ import "./interfaces/IFeeController.sol";
 import "./libraries/InterestCalculator.sol";
 import "./libraries/FeeLookups.sol";
 import "./libraries/LoanLibrary.sol";
+import "./libraries/Constants.sol";
 
 import {
     RC_ZeroAddress,
@@ -160,7 +161,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         );
         uint256 totalOwed = terms.principal + interest;
 
-        uint256 claimFee = (totalOwed * data.feeSnapshot.lenderDefaultFee) / BASIS_POINTS_DENOMINATOR;
+        uint256 claimFee = (totalOwed * data.feeSnapshot.lenderDefaultFee) / Constants.BASIS_POINTS_DENOMINATOR;
 
         loanCore.claim(loanId, claimFee);
     }
@@ -179,7 +180,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         address lender = lenderNote.ownerOf(loanId);
         if (lender != msg.sender) revert RC_OnlyLender(lender, msg.sender);
 
-        uint256 redeemFee = (amountOwed * feeController.getLendingFee(FL_08)) / BASIS_POINTS_DENOMINATOR;
+        uint256 redeemFee = (amountOwed * feeController.getLendingFee(FL_08)) / Constants.BASIS_POINTS_DENOMINATOR;
 
         loanCore.redeemNote(loanId, redeemFee, to);
     }
@@ -235,8 +236,8 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         }
 
         // calculate fees on interest and principal
-        uint256 interestFee = (interestAmount * data.feeSnapshot.lenderInterestFee) / BASIS_POINTS_DENOMINATOR;
-        uint256 principalFee = (paymentToPrincipal * data.feeSnapshot.lenderPrincipalFee) / BASIS_POINTS_DENOMINATOR;
+        uint256 interestFee = (interestAmount * data.feeSnapshot.lenderInterestFee) / Constants.BASIS_POINTS_DENOMINATOR;
+        uint256 principalFee = (paymentToPrincipal * data.feeSnapshot.lenderPrincipalFee) / Constants.BASIS_POINTS_DENOMINATOR;
 
         // the amount to collect from the caller
         uint256 amountFromBorrower = paymentToPrincipal + interestAmount;

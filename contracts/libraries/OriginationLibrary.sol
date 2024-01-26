@@ -17,7 +17,7 @@ import "../interfaces/IOriginationController.sol";
  * Library for loan origination functions.
  */
 library OriginationLibrary {
-    // =================================== DATA STRUCTS ==========================================
+    // ======================================= STRUCTS ================================================
 
     struct RolloverAmounts {
         uint256 needFromBorrower;
