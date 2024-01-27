@@ -15,6 +15,7 @@ import "./interfaces/IPromissoryNote.sol";
 
 import "./PromissoryNote.sol";
 import "./libraries/InterestCalculator.sol";
+import "./libraries/Constants.sol";
 import "./vault/OwnableERC721.sol";
 import {
     LC_ZeroAddress,
@@ -70,12 +71,6 @@ contract LoanCore is
     bytes32 public constant AFFILIATE_MANAGER_ROLE = keccak256("AFFILIATE_MANAGER");
     bytes32 public constant FEE_CLAIMER_ROLE = keccak256("FEE_CLAIMER");
     bytes32 public constant SHUTDOWN_ROLE = keccak256("SHUTDOWN");
-
-    /// @dev Max split any affiliate can earn.
-    uint96 private constant MAX_AFFILIATE_SPLIT = 50_00;
-
-    /// @dev Grace period for repaying a loan after loan duration.
-    uint256 public constant GRACE_PERIOD = 10 minutes;
 
     // =============== Contract References ================
 
@@ -343,7 +338,7 @@ contract LoanCore is
         if (noteReceipts[loanId].amount != 0) revert LC_AwaitingWithdrawal(noteReceipts[loanId].amount);
 
         // First check if the call is being made after the due date plus 10 min grace period.
-        uint256 dueDate = data.startDate + data.terms.durationSecs + GRACE_PERIOD;
+        uint256 dueDate = data.startDate + data.terms.durationSecs + Constants.GRACE_PERIOD;
         if (dueDate >= block.timestamp) revert LC_NotExpired(dueDate);
 
         // State changes and cleanup
@@ -763,8 +758,8 @@ contract LoanCore is
         if (codes.length != splits.length) revert LC_ArrayLengthMismatch();
 
         for (uint256 i = 0; i < codes.length;) {
-            if (splits[i].splitBps > MAX_AFFILIATE_SPLIT)
-                revert LC_OverMaxSplit(splits[i].splitBps, MAX_AFFILIATE_SPLIT);
+            if (splits[i].splitBps > Constants.MAX_AFFILIATE_SPLIT)
+                revert LC_OverMaxSplit(splits[i].splitBps, Constants.MAX_AFFILIATE_SPLIT);
 
             if (affiliateSplits[codes[i]].affiliate != address(0))
                 revert LC_AffiliateCodeAlreadySet(codes[i]);
@@ -870,7 +865,7 @@ contract LoanCore is
         }
 
         affiliate = split.affiliate;
-        affiliateFee = amount * split.splitBps / BASIS_POINTS_DENOMINATOR;
+        affiliateFee = amount * split.splitBps / Constants.BASIS_POINTS_DENOMINATOR;
         unchecked { protocolFee = amount - affiliateFee; }
     }
 

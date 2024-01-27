@@ -2,6 +2,8 @@
 
 pragma solidity 0.8.18;
 
+import "./Constants.sol";
+
 /**
  * @title InterestCalculator
  * @author Non-Fungible Technologies, Inc.
@@ -14,13 +16,6 @@ pragma solidity 0.8.18;
  * the true cost of a loan.
  */
 abstract contract InterestCalculator {
-    // ============================================ STATE ==============================================
-
-    /// @dev Denominator for annualizing interest rates
-    uint256 public constant SECONDS_IN_YEAR = 365 days;
-    /// @dev Denominator for interest rate in basis points
-    uint256 public constant BASIS_POINTS_DENOMINATOR = 1e4;
-
     // ======================================== CALCULATIONS ===========================================
 
     /**
@@ -60,7 +55,7 @@ abstract contract InterestCalculator {
         }
 
         interestAmountDue = balance * timeSinceLastPayment * interestRate
-            / (BASIS_POINTS_DENOMINATOR * SECONDS_IN_YEAR);
+            / (Constants.BASIS_POINTS_DENOMINATOR * Constants.SECONDS_IN_YEAR);
     }
 
     /**
@@ -79,7 +74,7 @@ abstract contract InterestCalculator {
         uint256 totalTimeElapsed,
         uint256 loanPrincipal
     ) public pure returns (uint256) {
-        return (totalInterestAmountPaid * SECONDS_IN_YEAR * BASIS_POINTS_DENOMINATOR)
+        return (totalInterestAmountPaid * Constants.SECONDS_IN_YEAR * Constants.BASIS_POINTS_DENOMINATOR)
             / (totalTimeElapsed * loanPrincipal);
     }
 

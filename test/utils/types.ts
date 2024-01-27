@@ -33,7 +33,6 @@ export interface ItemsPredicate {
 export interface SignatureProperties {
     nonce: BigNumberish;
     maxUses: BigNumberish;
-
 }
 
 export interface LoanTerms {

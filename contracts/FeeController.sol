@@ -5,7 +5,10 @@ pragma solidity 0.8.18;
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./interfaces/IFeeController.sol";
+
 import "./libraries/FeeLookups.sol";
+import "./libraries/LoanLibrary.sol";
+import "./libraries/Constants.sol";
 
 import { FC_LendingFeeOverMax, FC_VaultMintFeeOverMax } from "./errors/Lending.sol";
 
@@ -124,7 +127,7 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
      *
      * @return FeesOrigination              Applicable fees for loan origination.
      */
-    function getFeesOrigination() external view override returns (FeesOrigination memory) {
+    function getFeesOrigination() public view override returns (FeesOrigination memory) {
         return FeesOrigination({
             borrowerOriginationFee: loanFees[FL_01],
             lenderOriginationFee: loanFees[FL_02],
@@ -132,6 +135,33 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
             lenderInterestFee: loanFees[FL_06],
             lenderPrincipalFee: loanFees[FL_07]
         });
+    }
+
+    /**
+     * @notice Get the fees for loan origination. Fees are returned in a struct to be used
+     *         upon loan origination or migration.
+     *
+     * @param principal                 The principal amount of the loan.
+     *
+     * @return feeSnapshot              The fee snapshot for the loan.
+     * @return borrowerFee              The fee amount to be paid by the borrower.
+     * @return lenderFee                The fee amount to be paid by the lender.
+     */
+    function getOriginationFeeAmounts(uint256 principal) external view override returns (
+        LoanLibrary.FeeSnapshot memory feeSnapshot,
+        uint256 borrowerFee,
+        uint256 lenderFee
+    ) {
+        FeesOrigination memory feeData = getFeesOrigination();
+
+        feeSnapshot = LoanLibrary.FeeSnapshot({
+            lenderDefaultFee: feeData.lenderDefaultFee,
+            lenderInterestFee: feeData.lenderInterestFee,
+            lenderPrincipalFee: feeData.lenderPrincipalFee
+        });
+
+        borrowerFee = (principal * feeData.borrowerOriginationFee) / Constants.BASIS_POINTS_DENOMINATOR;
+        lenderFee = (principal * feeData.lenderOriginationFee) / Constants.BASIS_POINTS_DENOMINATOR;
     }
 
     /**

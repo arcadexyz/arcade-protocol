@@ -95,9 +95,19 @@ const fixture = async (): Promise<TestContext> => {
 
     const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
 
-    const originationController = <OriginationController>await deploy(
-        "OriginationController", signers[0], [loanCore.address, feeController.address]
-    )
+    const OriginationLibraryFactory = await ethers.getContractFactory("OriginationLibrary");
+    const originationLibrary = await OriginationLibraryFactory.deploy();
+    const OriginationControllerFactory = await ethers.getContractFactory("OriginationController",
+        {
+            signer: signers[0],
+            libraries: {
+                OriginationLibrary: originationLibrary.address,
+            },
+        },
+    );
+    const originationController = <OriginationController>(
+        await OriginationControllerFactory.deploy(loanCore.address, feeController.address)
+    );
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController
@@ -359,7 +369,21 @@ describe("RepaymentController", () => {
             const { repaymentController, feeController, vaultFactory, mockERC20, loanCore, borrower, lender, admin, blockchainTime } = ctx;
 
             // Set up a new origination controller, that does not validate loan terms
-            const mockOC = <MockNoValidationOC>await deploy("MockNoValidationOC", admin, [loanCore.address, feeController.address]);
+            const OriginationLibraryFactory = await ethers.getContractFactory("OriginationLibrary");
+            const originationLibrary = await OriginationLibraryFactory.deploy();
+            const mockOCFactory = await ethers.getContractFactory("MockNoValidationOC",
+                {
+                    signer: admin,
+                    libraries: {
+                        OriginationLibrary: originationLibrary.address,
+                    },
+                },
+            );
+            const mockOC = <MockNoValidationOC>(
+                await mockOCFactory.deploy(loanCore.address, feeController.address)
+            );
+            await mockOC.deployed();
+
             await mockOC.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
             await mockOC.setAllowedCollateralAddresses([vaultFactory.address], [true]);
 

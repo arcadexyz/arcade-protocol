@@ -13,6 +13,9 @@ import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 
 import "../interfaces/IAssetVault.sol";
 import "../interfaces/ICallDelegator.sol";
+
+import "../libraries/Constants.sol";
+
 import "../external/interfaces/IPunks.sol";
 import "../external/interfaces/ISuperRareV1.sol";
 
@@ -82,9 +85,6 @@ contract AssetVault is
 
     /// @notice Whitelist contract to determine if a given external call is allowed.
     address public override whitelist;
-
-    /// @notice The maximum number of items that can be withdrawn from a vault at once.
-    uint256 public constant MAX_WITHDRAW_ITEMS = 25;
 
     // ========================================== CONSTRUCTOR ===========================================
 
@@ -205,7 +205,7 @@ contract AssetVault is
      *
      * @param tokens                An array of tokens address to withdraw.
      * @param tokenIds              An array of tokenIds to withdraw.
-     * @param tokenTypes            An arrary of token types to withdraw.
+     * @param tokenTypes            An array of token types to withdraw.
      * @param to                    The recipient of the withdrawn tokens.
      */
     // solhint-disable-next-line code-complexity
@@ -216,7 +216,7 @@ contract AssetVault is
         address to
     ) external override onlyOwner onlyWithdrawEnabled {
         uint256 tokensLength = tokens.length;
-        if (tokensLength > MAX_WITHDRAW_ITEMS) revert AV_TooManyItems(tokensLength);
+        if (tokensLength > Constants.MAX_WITHDRAW_ITEMS) revert AV_TooManyItems(tokensLength);
         if (tokensLength != tokenIds.length) revert AV_LengthMismatch("tokenId");
         if (tokensLength != tokenTypes.length) revert AV_LengthMismatch("tokenType");
 

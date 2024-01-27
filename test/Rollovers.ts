@@ -109,8 +109,18 @@ const fixture = async (): Promise<TestContext> => {
     );
     await updateRepaymentControllerPermissions.wait();
 
-    const originationController = <OriginationController>await deploy(
-        "OriginationController", signers[0], [loanCore.address, feeController.address]
+    const OriginationLibraryFactory = await ethers.getContractFactory("OriginationLibrary");
+    const originationLibrary = await OriginationLibraryFactory.deploy();
+    const OriginationControllerFactory = await ethers.getContractFactory("OriginationController",
+        {
+            signer: signers[0],
+            libraries: {
+                OriginationLibrary: originationLibrary.address,
+            },
+        },
+    );
+    const originationController = <OriginationController>(
+        await OriginationControllerFactory.deploy(loanCore.address, feeController.address)
     );
     await originationController.deployed();
 
@@ -127,9 +137,9 @@ const fixture = async (): Promise<TestContext> => {
         [true, true]
     );
     // verify the collateral is whitelisted
-    const isCollateralWhitelisted = await originationController.isAllowedCollateral(mockERC721.address);
+    const isCollateralWhitelisted = await originationController.allowedCollateral(mockERC721.address);
     expect(isCollateralWhitelisted).to.be.true;
-    const isVaultFactoryWhitelisted = await originationController.isAllowedCollateral(vaultFactory.address);
+    const isVaultFactoryWhitelisted = await originationController.allowedCollateral(vaultFactory.address);
     expect(isVaultFactoryWhitelisted).to.be.true;
 
     const updateOriginationControllerPermissions = await loanCore.grantRole(

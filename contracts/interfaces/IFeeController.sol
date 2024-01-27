@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+import "../libraries/LoanLibrary.sol";
+
 pragma solidity 0.8.18;
 
 interface IFeeController {
@@ -35,6 +37,12 @@ interface IFeeController {
     function getVaultMintFee() external view returns (uint64);
 
     function getFeesOrigination() external view returns (FeesOrigination memory);
+
+    function getOriginationFeeAmounts(uint256 principal) external view returns (
+            LoanLibrary.FeeSnapshot memory feeSnapshot,
+            uint256 borrowerFee,
+            uint256 lenderFee
+    );
 
     function getFeesRollover() external view returns (FeesRollover memory);
 
