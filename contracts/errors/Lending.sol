@@ -14,6 +14,33 @@ import "../libraries/LoanLibrary.sol";
  * protocol failure cases.
  */
 
+// ============================== ORIGINATION CONTROLLER REFINANCE ==================================
+
+/**
+ * @notice A minimum of 2 days must have passed since the loan was last originated.
+ *
+ * @param earliestRefinanceTime         The earliest time at which the loan can be refinanced.
+ */
+error OCR_TooEarly(uint256 earliestRefinanceTime);
+
+/**
+ * @notice Interest rate must be greater than or equal to 1 (0.01%) and less than or equal
+ *         to 1e8 (1,000,000%).
+ *
+ * @param interestRate                  Interest rate in bps.
+ */
+error OCR_InterestRate(uint256 interestRate);
+
+/**
+ * @notice The new loan terms must have a minimum of 5% lower APR than the active loan.
+ *
+ * @param aprMinimumScaled              The highest allowable minimum APR * 1e6 for the new loan.
+ */
+error OCR_AprTooHigh(uint256 aprMinimumScaled);
+
+
+error OCR_LoanDuration(uint256 durationSecs);
+
 // ==================================== ORIGINATION CONTROLLER ======================================
 /// @notice All errors prefixed with OC_, to separate from other contracts in the protocol.
 
@@ -32,11 +59,61 @@ error OC_ZeroAddress(string addressType);
 error OC_InvalidState(uint8 state);
 
 /**
- * @notice Loan duration must be greater than 1hr and less than 3yrs.
+ * @notice Loan duration must be greater then or equal to old loan duration and less than 3yrs.
  *
- * @param durationSecs                 Total amount of time in seconds.
+ * @param durationSecs                 Duration of the new loan in seconds.
  */
 error OC_LoanDuration(uint256 durationSecs);
+
+/**
+ * @notice Increasing a loans principal via refinancing is only allowed daily interest paid
+ *         by a borrower exhibits a net reduction.
+ *
+ * @param oldDailyInterestRate          Daily interest rate of the active loan in bps.
+ * @param newDailyInterestRate          Daily interest rate of the new loan in bps.
+ */
+error OCR_DailyInterestRate(uint256 oldDailyInterestRate, uint256 newDailyInterestRate);
+
+/**
+ * @notice New collateral does not match for a loan refinance request.
+ *
+ * @param oldCollateralAddress          The address of the active loan's collateral.
+ * @param newCollateralAddress          The token ID of the active loan's collateral.
+ * @param oldCollateralId               The address of the new loan's collateral.
+ * @param newCollateralId               The token ID of the new loan's collateral.
+ */
+error OCR_CollateralMismatch(
+    address oldCollateralAddress,
+    uint256 oldCollateralId,
+    address newCollateralAddress,
+    uint256 newCollateralId
+);
+
+/**
+ * @notice New currency does not match for a loan refinance request.
+ *
+ * @param oldCurrency                   The currency of the active loan.
+ * @param newCurrency                   The currency of the new loan.
+ */
+error OCR_CurrencyMismatch(address oldCurrency, address newCurrency);
+
+/**
+ * @notice If the loan principal is being decreased and the loans due date is unchanged, the
+ *         new loan must have a minimum of 1% lower principal than the active loan.
+ *
+ * @param principalDifference           The difference between the active loan principal and the new loan principal.
+ * @param principalMinimumOne           The 1% minimum allowable principal difference.
+ */
+error OCR_PrincipalDifferenceOne(uint256 principalDifference, uint256 principalMinimumOne);
+
+/**
+ * @notice If the loan principal is being decreased and the loans due date is being extended, the
+ *         minimum principal improvement needed is 10% of the remaining loan duration.
+ *
+ * @param principalDifference           The difference between the active loan principal and the new loan principal.
+ * @param principalMinimumTen           The 1% minimum allowable principal difference.
+ */
+error OCR_PrincipalDifferenceTen(uint256 principalDifference, uint256 principalMinimumTen);
 
 /**
  * @notice Interest rate must be greater than or equal to 1 (0.01%) and less than or equal
@@ -137,7 +214,7 @@ error OC_SignatureIsExpired(uint256 deadline);
 error OC_RolloverCurrencyMismatch(address oldCurrency, address newCurrency);
 
 /**
- * @notice New currency does not match for a loan rollover request.
+ * @notice New collateral does not match for a loan rollover request.
  *
  * @param oldCollateralAddress          The address of the active loan's collateral.
  * @param newCollateralAddress          The token ID of the active loan's collateral.
