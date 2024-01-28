@@ -7,11 +7,6 @@ import "../libraries/LoanLibrary.sol";
 interface IOriginationController {
     // ============= Data Types =============
 
-    struct Currency {
-        bool isAllowed;
-        uint256 minPrincipal;
-    }
-
     struct BorrowerData {
         address borrower;
         bytes callbackData;
@@ -37,9 +32,6 @@ interface IOriginationController {
     // ================ Events ================
 
     event Approval(address indexed owner, address indexed signer, bool isApproved);
-    event SetAllowedVerifier(address indexed verifier, bool isAllowed);
-    event SetAllowedCurrency(address indexed currency, bool isAllowed, uint256 minPrincipal);
-    event SetAllowedCollateral(address indexed collateral, bool isAllowed);
 
     // ============= Loan Origination =============
 
@@ -85,14 +77,4 @@ interface IOriginationController {
         Side side,
         bytes32 itemsHash
     ) external view returns (bytes32 sighash, address signer);
-
-    // ============== Admin Operations ==============
-
-    function setAllowedPayableCurrencies(address[] memory _tokenAddress, Currency[] calldata currencyData) external;
-
-    function setAllowedCollateralAddresses(address[] memory _tokenAddress, bool[] calldata isAllowed) external;
-
-    function setAllowedVerifiers(address[] calldata verifiers, bool[] calldata isAllowed) external;
-
-    function isAllowedVerifier(address verifier) external view returns (bool);
 }

@@ -15,6 +15,7 @@ import "../libraries/LoanLibrary.sol";
  */
 
 // ============================== ORIGINATION CONTROLLER REFINANCE ==================================
+/// @notice All errors prefixed with OCR_, to separate from other contracts in the protocol.
 
 /**
  * @notice A minimum of 2 days must have passed since the loan was last originated.
@@ -40,6 +41,30 @@ error OCR_AprTooHigh(uint256 aprMinimumScaled);
 
 
 error OCR_LoanDuration(uint256 durationSecs);
+
+// ================================= ORIGINATION SHARED STORAGE =====================================
+
+/**
+ *  @notice Error message for when a currency is not whitelisted
+ *
+ * @param currency              The address of the currency that is not whitelisted.
+ */
+error OSS_NotWhitelisted(address currency);
+
+/**
+ * @notice Provided token array does not hold any token addresses.
+ */
+error OSS_ZeroArrayElements();
+
+/**
+ * @notice Provided token array holds more than 50 token addresses.
+ */
+error OSS_ArrayTooManyElements();
+
+/**
+ * @notice Two related parameters for batch operations did not match in length.
+ */
+error OSS_BatchLengthMismatch();
 
 // ==================================== ORIGINATION CONTROLLER ======================================
 /// @notice All errors prefixed with OC_, to separate from other contracts in the protocol.
@@ -187,11 +212,6 @@ error OC_CallerNotParticipant(address caller);
 error OC_SideMismatch(address signer);
 
 /**
- * @notice Two related parameters for batch operations did not match in length.
- */
-error OC_BatchLengthMismatch();
-
-/**
  * @notice Principal must be greater than 9999 Wei.
  *
  * @param principal                     Principal in ether.
@@ -241,16 +261,6 @@ error OC_InvalidCurrency(address payableCurrency);
  * @param collateralAddress       ERC721 or ERC1155 token address supplied in loan terms.
  */
 error OC_InvalidCollateral(address collateralAddress);
-
-/**
- * @notice Provided token array does not hold any token addresses.
- */
-error OC_ZeroArrayElements();
-
-/**
- * @notice Provided token array holds more than 50 token addresses.
- */
-error OC_ArrayTooManyElements();
 
 // ==================================== ITEMS VERIFIER ======================================
 /// @notice All errors prefixed with IV_, to separate from other contracts in the protocol.

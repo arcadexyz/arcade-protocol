@@ -19,6 +19,11 @@ import "../interfaces/IOriginationController.sol";
 library OriginationLibrary {
     // ======================================= STRUCTS ================================================
 
+    struct Currency {
+        bool isAllowed;
+        uint256 minPrincipal;
+    }
+
     struct RolloverAmounts {
         uint256 needFromBorrower;
         uint256 leftoverPrincipal;

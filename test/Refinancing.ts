@@ -20,6 +20,7 @@ import {
     FeeController,
     BaseURIDescriptor,
     RepaymentController,
+    OriginationSharedStorage,
 } from "../typechain";
 import { approve, mint } from "./utils/erc20";
 import { mint as mint721 } from "./utils/erc721";
@@ -115,28 +116,39 @@ const fixture = async (): Promise<TestContext> => {
     );
     await updateRepaymentControllerPermissions.wait();
 
-    const originationController = <OriginationController>await deploy(
-        "OriginationController", signers[0], [loanCore.address, feeController.address]
-    )
+    const originationSharedStorage = <OriginationSharedStorage> await deploy("OriginationSharedStorage", deployer, []);
+
+    const originationLibrary = await deploy("OriginationLibrary", deployer, []);
+    const OriginationControllerFactory = await ethers.getContractFactory("OriginationController",
+        {
+            signer: signers[0],
+            libraries: {
+                OriginationLibrary: originationLibrary.address,
+            },
+        },
+    );
+    const originationController = <OriginationController>(
+        await OriginationControllerFactory.deploy(originationSharedStorage.address, loanCore.address, feeController.address)
+    );
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController
-    const whitelistCurrency = await originationController.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
+    const whitelistCurrency = await originationSharedStorage.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
     await whitelistCurrency.wait();
     // verify the currency is whitelisted
-    const isWhitelisted = await originationController.isAllowedCurrency(mockERC20.address);
+    const isWhitelisted = await originationSharedStorage.isAllowedCurrency(mockERC20.address);
     expect(isWhitelisted).to.be.true;
 
     // admin whitelists MockERC721 and vaultFactory on OriginationController
-    await originationController.setAllowedCollateralAddresses(
+    await originationSharedStorage.setAllowedCollateralAddresses(
         [mockERC721.address, vaultFactory.address],
         [true, true]
     );
 
     // verify the collateral is whitelisted
-    const isCollateralWhitelisted = await originationController.isAllowedCollateral(mockERC721.address);
+    const isCollateralWhitelisted = await originationSharedStorage.isAllowedCollateral(mockERC721.address);
     expect(isCollateralWhitelisted).to.be.true;
-    const isVaultFactoryWhitelisted = await originationController.isAllowedCollateral(vaultFactory.address);
+    const isVaultFactoryWhitelisted = await originationSharedStorage.isAllowedCollateral(vaultFactory.address);
     expect(isVaultFactoryWhitelisted).to.be.true;
 
     const updateOriginationControllerPermissions = await loanCore.grantRole(

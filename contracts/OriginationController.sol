@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "./interfaces/IOriginationController.sol";
+import "./interfaces/IOriginationSharedStorage.sol";
 import "./interfaces/ILoanCore.sol";
 import "./interfaces/ISignatureVerifier.sol";
 import "./interfaces/IFeeController.sol";
@@ -25,7 +26,6 @@ import {
     OC_ZeroAddress,
     OC_InvalidState,
     OC_InvalidVerifier,
-    OC_BatchLengthMismatch,
     OC_PredicateFailed,
     OC_SelfApprove,
     OC_ApprovedOwnLoan,
@@ -39,20 +39,15 @@ import {
     OC_RolloverCurrencyMismatch,
     OC_RolloverCollateralMismatch,
     OC_InvalidCurrency,
-    OC_InvalidCollateral,
-    OC_ZeroArrayElements,
-    OC_ArrayTooManyElements
+    OC_InvalidCollateral
 } from "./errors/Lending.sol";
 
 /**
  * @title OriginationController
  * @author Non-Fungible Technologies, Inc.
  *
- * The Origination Controller is the entry point for all new loans
- * in the Arcade.xyz lending protocol. This contract has the exclusive
- * responsibility of creating new loans in LoanCore. All permissioning,
- * signature verification, and collateral verification takes place in
- * this contract.
+ * The Origination Controller is responsible for initiating new loans
+ * and rollovers in the Arcade.xyz lending protocol.
  *
  * When a loan is originated, the borrower receives the principal minus
  * fees if any. Before the collateral is escrowed, the borrower can
@@ -81,11 +76,11 @@ contract OriginationController is
     // =================== Constants =====================
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
-    bytes32 public constant WHITELIST_MANAGER_ROLE = keccak256("WHITELIST_MANAGER");
     bytes32 public constant MIGRATION_MANAGER_ROLE = keccak256("MIGRATION_MANAGER");
 
     // =============== Contract References ===============
 
+    IOriginationSharedStorage public immutable originationSharedStorage;
     ILoanCore public immutable loanCore;
     IFeeController public immutable feeController;
 
@@ -93,12 +88,6 @@ contract OriginationController is
 
     /// @notice Mapping from owner to operator approvals
     mapping(address => mapping(address => bool)) private _signerApprovals;
-    /// @notice Mapping from address to whether that verifier contract has been whitelisted
-    mapping(address => bool) private allowedVerifiers;
-    /// @notice Mapping from ERC20 token address to boolean indicating allowed payable currencies and set minimums
-    mapping(address => Currency) public allowedCurrencies;
-    /// @notice Mapping from ERC721 or ERC1155 token address to boolean indicating allowed collateral types
-    mapping(address => bool) public allowedCollateral;
 
     // ========================================== CONSTRUCTOR ===========================================
 
@@ -109,22 +98,26 @@ contract OriginationController is
      * @dev For this controller to work, it needs to be granted the ORIGINATOR_ROLE
      *      in loan core after deployment.
      *
+     * @param _originationSharedStorage     The address of the origination shared storage contract.
      * @param _loanCore                     The address of the loan core logic of the protocol.
      * @param _feeController                The address of the fee logic of the protocol.
      */
-    constructor(address _loanCore, address _feeController) EIP712("OriginationController", "4") {
+    constructor(
+        address _originationSharedStorage,
+        address _loanCore,
+        address _feeController
+    ) EIP712("OriginationController", "4") {
+        if (_originationSharedStorage == address(0)) revert OC_ZeroAddress("originationSharedStorage");
         if (_loanCore == address(0)) revert OC_ZeroAddress("loanCore");
         if (_feeController == address(0)) revert OC_ZeroAddress("feeController");
 
         _setupRole(ADMIN_ROLE, msg.sender);
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
 
-        _setupRole(WHITELIST_MANAGER_ROLE, msg.sender);
-        _setRoleAdmin(WHITELIST_MANAGER_ROLE, ADMIN_ROLE);
-
         _setupRole(MIGRATION_MANAGER_ROLE, msg.sender);
         _setRoleAdmin(MIGRATION_MANAGER_ROLE, ADMIN_ROLE);
 
+        originationSharedStorage = IOriginationSharedStorage(_originationSharedStorage);
         loanCore = ILoanCore(_loanCore);
         feeController = IFeeController(_feeController);
     }
@@ -388,109 +381,6 @@ contract OriginationController is
         }
     }
 
-    // ===================================== WHITELIST MANAGER UTILS =====================================
-
-    /**
-     * @notice Adds an array of payable currencies to the allowed currencies mapping.
-     *
-     * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
-     *      addresses is the zero address. The array of addresses passed to this
-     *      function is limited to 50 elements.
-     *
-     * @param tokens                     Array of token addresses to add.
-     * @param currencyData               Whether the token is allowed or not, and the minimum loan size.
-     */
-    function setAllowedPayableCurrencies(
-        address[] calldata tokens,
-        Currency[] calldata currencyData
-    ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
-        if (tokens.length == 0) revert OC_ZeroArrayElements();
-        if (tokens.length > 50) revert OC_ArrayTooManyElements();
-        if (tokens.length != currencyData.length) revert OC_BatchLengthMismatch();
-
-        for (uint256 i = 0; i < tokens.length;) {
-            if (tokens[i] == address(0)) revert OC_ZeroAddress("token");
-
-            allowedCurrencies[tokens[i]] = currencyData[i];
-            emit SetAllowedCurrency(tokens[i], currencyData[i].isAllowed, currencyData[i].minPrincipal);
-
-            // Can never overflow because length is bounded by 50
-            unchecked {
-                i++;
-            }
-        }
-    }
-
-    /**
-     * @notice Adds an array collateral tokens to the allowed collateral mapping.
-     *
-     * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
-     *      addresses is the zero address. The array of addresses passed to this
-     *      function is limited to 50 elements.
-     *
-     * @param tokens                     Array of token addresses to add.
-     * @param isAllowed                  Whether the token is allowed or not.
-     */
-    function setAllowedCollateralAddresses(
-        address[] calldata tokens,
-        bool[] calldata isAllowed
-    ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
-        if (tokens.length == 0) revert OC_ZeroArrayElements();
-        if (tokens.length > 50) revert OC_ArrayTooManyElements();
-        if (tokens.length != isAllowed.length) revert OC_BatchLengthMismatch();
-
-        for (uint256 i = 0; i < tokens.length;) {
-            if (tokens[i] == address(0)) revert OC_ZeroAddress("token");
-
-            allowedCollateral[tokens[i]] = isAllowed[i];
-            emit SetAllowedCollateral(tokens[i], isAllowed[i]);
-
-            // Can never overflow because length is bounded by 50
-            unchecked {
-                i++;
-            }
-        }
-    }
-
-    /**
-     * @notice Batch update for verification whitelist, in case of multiple verifiers
-     *         active in production.
-     *
-     * @param verifiers             The list of specified verifier contracts, should implement ISignatureVerifier.
-     * @param isAllowed             Whether the specified contracts should be allowed, respectively.
-     */
-    function setAllowedVerifiers(
-        address[] calldata verifiers,
-        bool[] calldata isAllowed
-    ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
-        if (verifiers.length == 0) revert OC_ZeroArrayElements();
-        if (verifiers.length > 50) revert OC_ArrayTooManyElements();
-        if (verifiers.length != isAllowed.length) revert OC_BatchLengthMismatch();
-
-        for (uint256 i = 0; i < verifiers.length;) {
-            if (verifiers[i] == address(0)) revert OC_ZeroAddress("verifier");
-
-            allowedVerifiers[verifiers[i]] = isAllowed[i];
-            emit SetAllowedVerifier(verifiers[i], isAllowed[i]);
-
-            // Can never overflow because length is bounded by 50
-            unchecked {
-                i++;
-            }
-        }
-    }
-
-    /**
-     * @notice Return whether the address can be used as a verifier.
-     *
-     * @param verifier             The verifier contract to query.
-     *
-     * @return isVerified          Whether the contract is verified.
-     */
-    function isAllowedVerifier(address verifier) public view override returns (bool) {
-        return allowedVerifiers[verifier];
-    }
-
     // =========================================== HELPERS ==============================================
 
     /**
@@ -501,10 +391,10 @@ contract OriginationController is
     // solhint-disable-next-line code-complexity
     function _validateLoanTerms(LoanLibrary.LoanTerms memory terms) internal virtual view {
         // validate payable currency
-        if (!allowedCurrencies[terms.payableCurrency].isAllowed) revert OC_InvalidCurrency(terms.payableCurrency);
+        if (!originationSharedStorage.isAllowedCurrency(terms.payableCurrency)) revert OC_InvalidCurrency(terms.payableCurrency);
 
         // principal must be greater than or equal to the configured minimum
-        if (terms.principal < allowedCurrencies[terms.payableCurrency].minPrincipal) revert OC_PrincipalTooLow(terms.principal);
+        if (terms.principal < originationSharedStorage.getMinPrincipal(terms.payableCurrency)) revert OC_PrincipalTooLow(terms.principal);
 
         // loan duration must be greater or equal to 1 hr and less or equal to 3 years
         if (terms.durationSecs < 3600 || terms.durationSecs > 94_608_000) revert OC_LoanDuration(terms.durationSecs);
@@ -516,7 +406,7 @@ contract OriginationController is
         if (terms.deadline < block.timestamp) revert OC_SignatureIsExpired(terms.deadline);
 
         // validate collateral
-        if (!allowedCollateral[terms.collateralAddress]) revert OC_InvalidCollateral(terms.collateralAddress);
+        if (!originationSharedStorage.isAllowedCollateral(terms.collateralAddress)) revert OC_InvalidCollateral(terms.collateralAddress);
     }
 
     /**
@@ -606,7 +496,7 @@ contract OriginationController is
         for (uint256 i = 0; i < itemPredicates.length;) {
             // Verify items are held in the wrapper
             address verifier = itemPredicates[i].verifier;
-            if (!allowedVerifiers[verifier]) revert OC_InvalidVerifier(verifier);
+            if (!originationSharedStorage.isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
 
             if (!ISignatureVerifier(verifier).verifyPredicates(
                 borrower,

@@ -42,7 +42,11 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
     /// @notice state variable for pausing the contract
     bool public paused;
 
-    constructor(address _loanCore, address _feeController) OriginationController(_loanCore, _feeController) {}
+    constructor(
+        address _originationSharedStorage,
+        address _loanCore,
+        address _feeController
+    ) OriginationController(_originationSharedStorage, _loanCore, _feeController) {}
 
     // ======================================= V3 MIGRATION =============================================
 
@@ -156,7 +160,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
 
         // ------------- New LoanTerms Validation -------------
         // principal must be greater than or equal to the configured minimum
-        if (newLoanTerms.principal < allowedCurrencies[newLoanTerms.payableCurrency].minPrincipal) revert OC_PrincipalTooLow(newLoanTerms.principal);
+        if (newLoanTerms.principal < originationSharedStorage.getMinPrincipal(newLoanTerms.payableCurrency)) revert OC_PrincipalTooLow(newLoanTerms.principal);
 
         // loan duration must be greater or equal to 1 hr and less or equal to 3 years
         if (newLoanTerms.durationSecs < 3600 || newLoanTerms.durationSecs > 94_608_000) revert OC_LoanDuration(newLoanTerms.durationSecs);

@@ -19,7 +19,8 @@ import {
     LoanCore,
     MockERC20,
     MockERC721,
-    BaseURIDescriptor
+    BaseURIDescriptor,
+    OriginationSharedStorage
 } from "../typechain";
 import { BlockchainTime } from "./utils/time";
 import { mint as mint721 } from "./utils/erc721";
@@ -48,6 +49,7 @@ interface TestContext {
     feeController: FeeController;
     repaymentController: RepaymentController;
     originationController: OriginationController;
+    originationSharedStorage: OriginationSharedStorage;
     borrower: SignerWithAddress;
     lender: SignerWithAddress;
     admin: SignerWithAddress;
@@ -109,8 +111,9 @@ const fixture = async (): Promise<TestContext> => {
     );
     await updateRepaymentControllerPermissions.wait();
 
-    const OriginationLibraryFactory = await ethers.getContractFactory("OriginationLibrary");
-    const originationLibrary = await OriginationLibraryFactory.deploy();
+    const originationSharedStorage = <OriginationSharedStorage> await deploy("OriginationSharedStorage", admin, []);
+
+    const originationLibrary = await deploy("OriginationLibrary", admin, []);
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationController",
         {
             signer: signers[0],
@@ -120,26 +123,27 @@ const fixture = async (): Promise<TestContext> => {
         },
     );
     const originationController = <OriginationController>(
-        await OriginationControllerFactory.deploy(loanCore.address, feeController.address)
+        await OriginationControllerFactory.deploy(originationSharedStorage.address, loanCore.address, feeController.address)
     );
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController
-    await originationController.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
+    await originationSharedStorage.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
     // verify the currency is whitelisted
-    const isWhitelisted = await originationController.allowedCurrencies(mockERC20.address);
-    expect(isWhitelisted.isAllowed).to.be.true;
-    expect(isWhitelisted.minPrincipal).to.eq(MIN_LOAN_PRINCIPAL);
+    const isWhitelisted = await originationSharedStorage.isAllowedCurrency(mockERC20.address);
+    expect(isWhitelisted).to.be.true;
+    const minPrincipal = await originationSharedStorage.getMinPrincipal(mockERC20.address);
+    expect(minPrincipal).to.eq(MIN_LOAN_PRINCIPAL);
 
     // admin whitelists MockERC721 and vaultFactory on OriginationController
-    await originationController.setAllowedCollateralAddresses(
+    await originationSharedStorage.setAllowedCollateralAddresses(
         [mockERC721.address, vaultFactory.address],
         [true, true]
     );
     // verify the collateral is whitelisted
-    const isCollateralWhitelisted = await originationController.allowedCollateral(mockERC721.address);
+    const isCollateralWhitelisted = await originationSharedStorage.isAllowedCollateral(mockERC721.address);
     expect(isCollateralWhitelisted).to.be.true;
-    const isVaultFactoryWhitelisted = await originationController.allowedCollateral(vaultFactory.address);
+    const isVaultFactoryWhitelisted = await originationSharedStorage.isAllowedCollateral(vaultFactory.address);
     expect(isVaultFactoryWhitelisted).to.be.true;
 
     const updateOriginationControllerPermissions = await loanCore.grantRole(
@@ -151,7 +155,7 @@ const fixture = async (): Promise<TestContext> => {
     await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);
 
     const verifier = <ArcadeItemsVerifier>await deploy("ArcadeItemsVerifier", admin, []);
-    await originationController.setAllowedVerifiers([verifier.address], [true]);
+    await originationSharedStorage.setAllowedVerifiers([verifier.address], [true]);
 
     return {
         loanCore,
@@ -161,6 +165,7 @@ const fixture = async (): Promise<TestContext> => {
         feeController,
         repaymentController,
         originationController,
+        originationSharedStorage,
         mockERC20,
         borrower,
         lender,
@@ -349,11 +354,11 @@ describe("Rollovers", () => {
         });
 
         it("should not allow a rollover if the loan currencies don't match", async () => {
-            const { originationController, vaultFactory, borrower, lender, admin } = ctx;
+            const { originationController, originationSharedStorage, vaultFactory, borrower, lender, admin } = ctx;
             const { loanId, loanTerms } = loan;
 
             const otherERC20 = <MockERC20>await deploy("MockERC20", admin, ["Mock ERC20", "MOCK"]);
-            await originationController.setAllowedPayableCurrencies([otherERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
+            await originationSharedStorage.setAllowedPayableCurrencies([otherERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
 
             // create new terms for rollover and sign them
             const newTerms = await createLoanTerms(
@@ -790,6 +795,7 @@ describe("Rollovers", () => {
         it("rollover with items signature reverts if the verifier is not approved", async () => {
             const {
                 originationController,
+                originationSharedStorage,
                 mockERC20,
                 mockERC721,
                 vaultFactory,
@@ -803,7 +809,7 @@ describe("Rollovers", () => {
             await mockERC721.connect(borrower).transferFrom(borrower.address, bundleId.toString(), collateralId);
 
             // Remove verifier approval
-            await originationController.setAllowedVerifiers([verifier.address], [false]);
+            await originationSharedStorage.setAllowedVerifiers([verifier.address], [false]);
 
             // create new terms for rollover and sign them
             const newTerms = await createLoanTerms(mockERC20.address, vaultFactory.address, loanTerms);

@@ -131,6 +131,6 @@ abstract contract InterestCalculator {
         uint256 balance,
         uint256 interestRate
     ) public pure returns (uint256) {
-        return (balance * interestRate) / (SECONDS_IN_YEAR);
+        return (balance * interestRate) / (Constants.SECONDS_IN_YEAR);
     }
 }
