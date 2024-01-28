@@ -43,6 +43,14 @@ error OCR_AprTooHigh(uint256 aprMinimumScaled);
 error OCR_LoanDuration(uint256 durationSecs);
 
 // ================================= ORIGINATION SHARED STORAGE =====================================
+/// @notice All errors prefixed with OSS_, to separate from other contracts in the protocol.
+
+/**
+ * @notice Zero address passed in where not allowed.
+ *
+ * @param addressType                  The name of the parameter for which a zero address was provided.
+ */
+error OSS_ZeroAddress(string addressType);
 
 /**
  *  @notice Error message for when a currency is not whitelisted
@@ -84,9 +92,9 @@ error OC_ZeroAddress(string addressType);
 error OC_InvalidState(uint8 state);
 
 /**
- * @notice Loan duration must be greater then or equal to old loan duration and less than 3yrs.
+ * @notice Loan duration must be greater than 1hr and less than 3yrs.
  *
- * @param durationSecs                 Duration of the new loan in seconds.
+ * @param durationSecs                Total amount of time in seconds.
  */
 error OC_LoanDuration(uint256 durationSecs);
 

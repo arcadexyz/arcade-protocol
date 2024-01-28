@@ -76,7 +76,7 @@ describe("OriginationSharedStorage", () => {
                 originationSharedStorage
                     .connect(user)
                     .setAllowedVerifiers([ZERO_ADDRESS], [true]),
-            ).to.be.revertedWith(`OC_ZeroAddress("verifier")`);
+            ).to.be.revertedWith(`OSS_ZeroAddress("verifier")`);
         });
 
         it("allows the contract owner to update the whitelist", async () => {
@@ -244,7 +244,7 @@ describe("OriginationSharedStorage", () => {
 
             await expect(
                 originationSharedStorage.connect(admin).setAllowedPayableCurrencies([ZERO_ADDRESS], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]),
-            ).to.be.revertedWith(`OC_ZeroAddress("token")`);
+            ).to.be.revertedWith(`OSS_ZeroAddress("token")`);
         });
 
         it("Reverts when whitelist manager role tries to remove a currency with no address provided", async () => {
@@ -252,7 +252,7 @@ describe("OriginationSharedStorage", () => {
 
             await expect(
                 originationSharedStorage.connect(admin).setAllowedPayableCurrencies([ZERO_ADDRESS], [{ isAllowed: false, minPrincipal: 0 }]),
-            ).to.be.revertedWith(`OC_ZeroAddress("token")`);
+            ).to.be.revertedWith(`OSS_ZeroAddress("token")`);
         });
 
         it("Reverts when whitelist manager role tries to remove more than 50 currencies", async () => {
@@ -351,7 +351,7 @@ describe("OriginationSharedStorage", () => {
 
             await expect(
                 originationSharedStorage.connect(admin).setAllowedCollateralAddresses([ZERO_ADDRESS], [true]),
-            ).to.be.revertedWith(`OC_ZeroAddress("token")`);
+            ).to.be.revertedWith(`OSS_ZeroAddress("token")`);
         });
 
         it("Whitelist manager role adds and removes whitelisted collateral", async () => {
@@ -375,7 +375,7 @@ describe("OriginationSharedStorage", () => {
 
             await expect(
                 originationSharedStorage.connect(admin).setAllowedCollateralAddresses([ZERO_ADDRESS], [false]),
-            ).to.be.revertedWith(`OC_ZeroAddress("token")`);
+            ).to.be.revertedWith(`OSS_ZeroAddress("token")`);
         });
     });
 });

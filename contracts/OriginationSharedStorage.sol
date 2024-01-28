@@ -9,7 +9,7 @@ import "./libraries/OriginationLibrary.sol";
 import "./interfaces/IOriginationSharedStorage.sol";
 
 import {
-    OC_ZeroAddress,
+    OSS_ZeroAddress,
     OSS_NotWhitelisted,
     OSS_BatchLengthMismatch,
     OSS_ZeroArrayElements,
@@ -106,7 +106,7 @@ contract OriginationSharedStorage is IOriginationSharedStorage, AccessControlEnu
         if (verifiers.length != isAllowed.length) revert OSS_BatchLengthMismatch();
 
         for (uint256 i = 0; i < verifiers.length;) {
-            if (verifiers[i] == address(0)) revert OC_ZeroAddress("verifier");
+            if (verifiers[i] == address(0)) revert OSS_ZeroAddress("verifier");
 
             _allowedVerifiers[verifiers[i]] = isAllowed[i];
             emit SetAllowedVerifier(verifiers[i], isAllowed[i]);
@@ -136,7 +136,7 @@ contract OriginationSharedStorage is IOriginationSharedStorage, AccessControlEnu
         if (tokens.length != currencyData.length) revert OSS_BatchLengthMismatch();
 
         for (uint256 i = 0; i < tokens.length;) {
-            if (tokens[i] == address(0)) revert OC_ZeroAddress("token");
+            if (tokens[i] == address(0)) revert OSS_ZeroAddress("token");
 
             _allowedCurrencies[tokens[i]] = currencyData[i];
             emit SetAllowedCurrency(tokens[i], currencyData[i].isAllowed, currencyData[i].minPrincipal);
@@ -166,7 +166,7 @@ contract OriginationSharedStorage is IOriginationSharedStorage, AccessControlEnu
         if (tokens.length != isAllowed.length) revert OSS_BatchLengthMismatch();
 
         for (uint256 i = 0; i < tokens.length;) {
-            if (tokens[i] == address(0)) revert OC_ZeroAddress("token");
+            if (tokens[i] == address(0)) revert OSS_ZeroAddress("token");
 
             _allowedCollateral[tokens[i]] = isAllowed[i];
             emit SetAllowedCollateral(tokens[i], isAllowed[i]);
