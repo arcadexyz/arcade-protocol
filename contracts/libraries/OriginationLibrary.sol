@@ -34,6 +34,13 @@ library OriginationLibrary {
         uint256 interestAmount;
     }
 
+    struct RefinanceAmounts {
+        uint256 amountFromNewLender;
+        uint256 amountToOldLender;
+        uint256 amountToBorrower;
+        uint256 interestAmount;
+    }
+
     struct OperationData {
         uint256 oldLoanId;
         LoanLibrary.LoanTerms newLoanTerms;
@@ -143,6 +150,53 @@ library OriginationLibrary {
                 unchecked {
                     amounts.amountToLender = repayAmount - amounts.amountFromLender;
                 }
+            }
+        }
+    }
+
+    /**
+     * @notice Calculate the net amounts needed from each party for a refinance.
+     *         Determine the amount to collect from the new lender, the amount owed
+     *         to the old lender, and the amount to send to the borrower. Any fees
+     *         if applicable are included in the amountFromNewLender value.
+     *
+     * @param oldLoanBalance        The principal amount of the old loan.
+     * @param oldInterestAmount     The interest amount of the old loan.
+     * @param newPrincipalAmount    The principal amount of the new loan.
+     * @param interestFee           The old interest fee amount.
+     * @param lenderFee             The refinance fee amount.
+     */
+    function refinancingAmounts(
+        uint256 oldLoanBalance,
+        uint256 oldInterestAmount,
+        uint256 newPrincipalAmount,
+        uint256 interestFee,
+        uint256 lenderFee
+    ) public pure returns (RefinanceAmounts memory amounts) {
+        // store interest amount
+        amounts.interestAmount = oldInterestAmount;
+
+        // calculate total amount due to old lender
+        uint256 oldRepaymentAmount = oldLoanBalance + oldInterestAmount;
+        amounts.amountToOldLender = oldRepaymentAmount;
+
+        // assess fees on old lender
+        if (interestFee > 0 || lenderFee > 0) {
+            amounts.amountToOldLender -= interestFee + lenderFee;
+        }
+
+        // amount from new lender
+        amounts.amountFromNewLender = newPrincipalAmount + oldInterestAmount;
+
+        if (newPrincipalAmount < oldLoanBalance) {
+            // if new principal is less than repayment amount, collect the difference from the new lender
+            amounts.amountFromNewLender += oldLoanBalance - newPrincipalAmount;
+        } else {
+            // if new principal is greater than or equal to old balance, amount from new lender is
+            // the new principal plus old interest amount due.
+            if (newPrincipalAmount > oldLoanBalance) {
+                // if the new principal is greater than the old balance, the borrower receives the difference
+                amounts.amountToBorrower = newPrincipalAmount - oldLoanBalance;
             }
         }
     }

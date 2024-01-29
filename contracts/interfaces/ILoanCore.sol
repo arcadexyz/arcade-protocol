@@ -85,7 +85,17 @@ interface ILoanCore {
         uint256 _interestAmount
     ) external returns (uint256 newLoanId);
 
-    function refinance(uint256 loanId, LoanLibrary.LoanTerms calldata newTerms) external;
+    function refinance(
+        uint256 loanId,
+        address borrower,
+        address oldLender,
+        address newLender,
+        LoanLibrary.LoanTerms calldata newTerms,
+        uint256 _oldRepaymentAmount,
+        uint256 _oldInterestAmount,
+        uint256 _collectFromNewLender,
+        uint256 _owedToBorrower
+    ) external returns (uint256 newLoanId);
 
     // ============== Nonce Management ==============
 

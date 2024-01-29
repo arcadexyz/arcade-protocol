@@ -8,19 +8,19 @@ import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import "./interfaces/IOriginationController.sol";
-import "./interfaces/IOriginationSharedStorage.sol";
-import "./interfaces/ILoanCore.sol";
-import "./interfaces/ISignatureVerifier.sol";
-import "./interfaces/IFeeController.sol";
-import "./interfaces/IExpressBorrow.sol";
+import "../interfaces/IOriginationController.sol";
+import "../interfaces/IOriginationSharedStorage.sol";
+import "../interfaces/ILoanCore.sol";
+import "../interfaces/ISignatureVerifier.sol";
+import "../interfaces/IFeeController.sol";
+import "../interfaces/IExpressBorrow.sol";
 
-import "./libraries/OriginationLibrary.sol";
-import "./libraries/InterestCalculator.sol";
-import "./libraries/FeeLookups.sol";
-import "./libraries/Constants.sol";
+import "../libraries/OriginationLibrary.sol";
+import "../libraries/InterestCalculator.sol";
+import "../libraries/FeeLookups.sol";
+import "../libraries/Constants.sol";
 
-import "./verifiers/ArcadeItemsVerifier.sol";
+import "../verifiers/ArcadeItemsVerifier.sol";
 
 import {
     OC_ZeroAddress,
@@ -40,7 +40,7 @@ import {
     OC_RolloverCollateralMismatch,
     OC_InvalidCurrency,
     OC_InvalidCollateral
-} from "./errors/Lending.sol";
+} from "../errors/Lending.sol";
 
 /**
  * @title OriginationController
@@ -397,7 +397,7 @@ contract OriginationController is
         if (terms.principal < originationSharedStorage.getMinPrincipal(terms.payableCurrency)) revert OC_PrincipalTooLow(terms.principal);
 
         // loan duration must be greater or equal to 1 hr and less or equal to 3 years
-        if (terms.durationSecs < 3600 || terms.durationSecs > 94_608_000) revert OC_LoanDuration(terms.durationSecs);
+        if (terms.durationSecs < Constants.MIN_LOAN_DURATION || terms.durationSecs > Constants.MAX_LOAN_DURATION) revert OC_LoanDuration(terms.durationSecs);
 
         // interest rate must be greater than or equal to 0.01% and less or equal to 1,000,000%
         if (terms.interestRate < 1 || terms.interestRate > 1e8) revert OC_InterestRate(terms.interestRate);
@@ -677,7 +677,6 @@ contract OriginationController is
         // Calculate amount to be collected from the lender for new loan plus rollover fees
         uint256 interestFee = (interest * oldLoanData.feeSnapshot.lenderInterestFee) / Constants.BASIS_POINTS_DENOMINATOR;
         uint256 lenderFee = (newPrincipalAmount * feeData.lenderRolloverFee) / Constants.BASIS_POINTS_DENOMINATOR;
-
 
         return OriginationLibrary.rolloverAmounts(
             oldLoanData.terms.principal,

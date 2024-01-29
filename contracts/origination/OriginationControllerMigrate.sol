@@ -5,7 +5,7 @@ pragma solidity 0.8.18;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
-import "../OriginationController.sol";
+import "./OriginationController.sol";
 
 import "../interfaces/IMigrationBase.sol";
 
@@ -163,7 +163,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         if (newLoanTerms.principal < originationSharedStorage.getMinPrincipal(newLoanTerms.payableCurrency)) revert OC_PrincipalTooLow(newLoanTerms.principal);
 
         // loan duration must be greater or equal to 1 hr and less or equal to 3 years
-        if (newLoanTerms.durationSecs < 3600 || newLoanTerms.durationSecs > 94_608_000) revert OC_LoanDuration(newLoanTerms.durationSecs);
+        if (newLoanTerms.durationSecs < Constants.MIN_LOAN_DURATION || newLoanTerms.durationSecs > Constants.MAX_LOAN_DURATION) revert OC_LoanDuration(newLoanTerms.durationSecs);
 
         // interest rate must be greater than or equal to 0.01% and less or equal to 1,000,000%
         if (newLoanTerms.interestRate < 1 || newLoanTerms.interestRate > 1e8) revert OC_InterestRate(newLoanTerms.interestRate);

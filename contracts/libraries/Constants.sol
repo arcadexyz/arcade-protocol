@@ -12,6 +12,12 @@ library Constants {
     /// @dev Max split any affiliate can earn
     uint96 constant MAX_AFFILIATE_SPLIT = 50_00;
 
+    /// @dev Max duration for a loan
+    uint256 constant MAX_LOAN_DURATION = 3 * 365 days;
+
+    /// @dev Minimum duration for a loan
+    uint256 constant MIN_LOAN_DURATION = 1 hours;
+
     /// @dev Grace period for repaying a loan after loan duration
     uint256 constant GRACE_PERIOD = 10 minutes;
 

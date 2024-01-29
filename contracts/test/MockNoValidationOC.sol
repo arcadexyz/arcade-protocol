@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.18;
 
-import "../OriginationController.sol";
+import "../origination/OriginationController.sol";
 
 contract MockNoValidationOC is OriginationController {
     constructor(

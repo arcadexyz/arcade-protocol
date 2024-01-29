@@ -36,15 +36,7 @@ import {
     LC_Shutdown,
     LC_ExceedsBalance,
     LC_AwaitingWithdrawal,
-    OCR_AprTooHigh,
-    OCR_TooEarly,
-    OCR_InterestRate,
-    OCR_LoanDuration,
-    OCR_DailyInterestRate,
-    OCR_CollateralMismatch,
-    OCR_CurrencyMismatch,
-    OCR_PrincipalDifferenceOne,
-    OCR_PrincipalDifferenceTen
+    LC_SameLender
 } from "./errors/Lending.sol";
 
 /**
@@ -521,36 +513,71 @@ contract LoanCore is
         emit LoanRolledOver(oldLoanId, newLoanId);
     }
 
-    function refinance(uint256 loanId, LoanLibrary.LoanTerms calldata newTerms) external override {
+    /**
+     * @notice Refinance a loan, atomically closing an active one and re-opening a new one
+     *         with the same collateral. Another user might have be willing to pay the lender
+     *         the full repayment amount in order to take over the loan with a better APR for
+     *         the borrower. Each refinanced loan is marked as complete, and the new
+     *         loan is given a new unique ID and notes.
+     *
+     * @param loanId                    The ID of the loan to refinance.
+     * @param borrower                  The borrower for the loan.
+     * @param oldLender                 The lender for the active loan.
+     * @param newLender                 The lender for the new loan.
+     * @param newTerms                  The terms of the new loan.
+     * @param _amountToOldLender        The payment to the old lender.
+     * @param _amountFromNewLender      The payment from the new lender.
+     * @param _amountToBorrower         The payment to the borrower.
+     * @param _oldInterestAmount        The interest amount to be paid on the old loan.
+     *
+     * @return newLoanId                The ID of the new loan.
+     */
+    function refinance(
+        uint256 loanId,
+        address borrower,
+        address oldLender,
+        address newLender,
+        LoanLibrary.LoanTerms calldata newTerms,
+        uint256 _amountToOldLender,
+        uint256 _amountFromNewLender,
+        uint256 _amountToBorrower,
+        uint256 _oldInterestAmount
+    ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 newLoanId) {
         // get old loan data
         LoanLibrary.LoanData storage data = loans[loanId];
 
-        // validate refinance
-        uint256 oldDueDate = data.startDate + data.terms.durationSecs;
-        uint256 newDueDate = block.timestamp + newTerms.durationSecs;
-        _validateRefinance(data, newTerms, oldDueDate, newDueDate);
-        _validateRefinancePrincipal(data, newTerms, oldDueDate, newDueDate);
-
-        // refinancing actors
-        address oldLender = lenderNote.ownerOf(loanId);
-        address borrower = borrowerNote.ownerOf(loanId);
-        address newLender = msg.sender;
-
-        // calculate refinancing amounts
-        (
-            uint256 oldRepaymentAmount,
-            uint256 oldInterestAmount,
-            uint256 collectFromNewLender,
-            uint256 owedToBorrower
-        ) = _calcRefinanceAmounts(data, newTerms);
+        // Ensure valid loan state for old loan
+        if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
+        // Ensure new lender is not the same as old lender
+        if (newLender == oldLender) revert LC_SameLender(newLender);
 
         // state change for old loan
         data.state = LoanLibrary.LoanState.Repaid;
         data.balance = 0;
-        data.interestAmountPaid += oldInterestAmount;
+        data.interestAmountPaid += _oldInterestAmount;
+
+        IERC20 payableCurrency = IERC20(newTerms.payableCurrency);
+
+        // Check that contract will not net lose tokens
+        if (_amountToOldLender + _amountToBorrower > _amountFromNewLender)
+            revert LC_CannotSettle(_amountToOldLender + _amountToBorrower, _amountFromNewLender);
+        {
+            // Assign fees for withdrawal
+            uint256 feesEarned;
+            unchecked { feesEarned = _amountFromNewLender - _amountToOldLender - _amountToBorrower; }
+
+            // Make sure split goes to affiliate code from _new_ terms
+            (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
+                _getAffiliateSplit(feesEarned, newTerms.affiliateCode);
+
+            // Assign fees for withdrawal
+            mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[address(payableCurrency)];
+            if (protocolFee > 0) _feesWithdrawable[address(this)] += protocolFee;
+            if (affiliateFee > 0) _feesWithdrawable[affiliate] += affiliateFee;
+        }
 
         // set up new loan
-        uint256 newLoanId = loanIdTracker.current();
+        newLoanId = loanIdTracker.current();
         loanIdTracker.increment();
 
         loans[newLoanId] = LoanLibrary.LoanData({
@@ -570,13 +597,13 @@ contract LoanCore is
         _mintLoanNotes(newLoanId, borrower, newLender);
 
         // pull principal from new lender
-        IERC20(newTerms.payableCurrency).safeTransferFrom(newLender, address(this), collectFromNewLender);
+        payableCurrency.safeTransferFrom(newLender, address(this), _amountFromNewLender);
 
         // send old principal to old lender
-        IERC20(newTerms.payableCurrency).safeTransfer(oldLender, oldRepaymentAmount);
+        payableCurrency.safeTransfer(oldLender, _amountToOldLender);
 
         // send amount owed to borrower
-        _transferIfNonzero(IERC20(newTerms.payableCurrency), borrower, owedToBorrower);
+        _transferIfNonzero(payableCurrency, borrower, _amountToBorrower);
 
         emit LoanRepaid(loanId);
         emit LoanStarted(newLoanId, newLender, borrower);
@@ -912,114 +939,6 @@ contract LoanCore is
         loans[loanId].interestAmountPaid += _interestAmount;
         loans[loanId].balance -= _paymentToPrincipal;
         loans[loanId].lastAccrualTimestamp = uint64(block.timestamp);
-    }
-
-    // solhint-disable-next-line code-complexity
-    function _validateRefinance(
-        LoanLibrary.LoanData storage oldLoanData,
-        LoanLibrary.LoanTerms calldata newTerms,
-        uint256 oldDueDate,
-        uint256 newDueDate
-    ) internal view {
-        // cannot refinance a loan that has already been repaid
-        if (oldLoanData.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(oldLoanData.state);
-
-        // cannot refinance a loan before it has been active for 2 days
-        if (block.timestamp < oldLoanData.startDate + 2 days) revert OCR_TooEarly(oldLoanData.startDate + 2 days);
-
-        // interest rate must be greater than or equal to 0.01% and less or equal to 1,000,000%
-        if (newTerms.interestRate < 1 || newTerms.interestRate > 1e8) revert OCR_InterestRate(newTerms.interestRate);
-
-        // new interest rate APR must be lower than old interest rate by 5% minimum
-        /// NOTE: 1e4 to constant
-        uint256 aprMinimumScaled = oldLoanData.terms.interestRate * 1e6 - (oldLoanData.terms.interestRate * 1e6 / 20);
-        if (newTerms.interestRate * 1e6 > aprMinimumScaled) revert OCR_AprTooHigh(aprMinimumScaled);
-
-        // new due date cannot be shorter than old due date
-        if (newDueDate < oldDueDate || newTerms.durationSecs > 94_608_000) revert OCR_LoanDuration(newTerms.durationSecs);
-
-        // collateral must be the same
-        if (
-            newTerms.collateralAddress != oldLoanData.terms.collateralAddress ||
-            newTerms.collateralId != oldLoanData.terms.collateralId
-        ) revert OCR_CollateralMismatch(
-            oldLoanData.terms.collateralAddress,
-            oldLoanData.terms.collateralId,
-            newTerms.collateralAddress,
-            newTerms.collateralId
-        );
-
-        // payable currency must be the same
-        if (newTerms.payableCurrency != oldLoanData.terms.payableCurrency) revert OCR_CurrencyMismatch(
-            oldLoanData.terms.payableCurrency,
-            newTerms.payableCurrency
-        );
-    }
-
-    function _validateRefinancePrincipal(
-        LoanLibrary.LoanData storage oldLoanData,
-        LoanLibrary.LoanTerms calldata newTerms,
-        uint256 oldDueDate,
-        uint256 newDueDate
-    ) internal view {
-        // new loan principal validation
-        if (newTerms.principal > oldLoanData.balance) {
-            // loan principal can only be increased if there is a net reduction in daily interest rate
-            uint256 oldDailyInterestRate = getDailyInterestRate(oldLoanData.balance, oldLoanData.terms.interestRate);
-            uint256 newDailyInterestRate = getDailyInterestRate(newTerms.principal, newTerms.interestRate);
-            if (newDailyInterestRate >= oldDailyInterestRate) revert OCR_DailyInterestRate(oldDailyInterestRate, newDailyInterestRate);
-        } else {
-            uint256 principalDifference = oldLoanData.balance - newTerms.principal;
-            // if new principal is less than old balance and due date is the same
-            if (newDueDate == oldDueDate) {
-                // the minimum improvement needed is 1% of old principal
-                uint256 principalMinimumOne = oldLoanData.balance / 100;
-                if (principalDifference < principalMinimumOne) revert OCR_PrincipalDifferenceOne(principalDifference, principalMinimumOne);
-            } else {
-                // if new loan has a longer due date, the minimum improvement needed is 10% of the remaining loan duration
-                uint256 remainingDuration10 = (oldDueDate - block.timestamp) / 10;
-                uint256 principalMinimumTen = remainingDuration10 * oldLoanData.terms.principal / oldLoanData.terms.durationSecs;
-                if (principalDifference < principalMinimumTen) revert OCR_PrincipalDifferenceTen(principalDifference, principalMinimumTen);
-            }
-        }
-    }
-
-    function _calcRefinanceAmounts(
-        LoanLibrary.LoanData storage oldLoanData,
-        LoanLibrary.LoanTerms calldata newTerms
-    ) internal view returns (
-        uint256 oldRepaymentAmount,
-        uint256 oldInterestAmountDue,
-        uint256 collectFromNewLender,
-        uint256 owedToBorrower
-    ) {
-        // calculate current interest amount due to old lender
-        oldInterestAmountDue = getProratedInterestAmount(
-            oldLoanData.balance,
-            oldLoanData.terms.interestRate,
-            oldLoanData.terms.durationSecs,
-            oldLoanData.startDate,
-            oldLoanData.lastAccrualTimestamp,
-            block.timestamp
-        );
-        // calculate total amount due to old lender
-        oldRepaymentAmount = oldLoanData.balance + oldInterestAmountDue;
-
-        // calculate amount to collect from new lender
-        if (newTerms.principal < oldRepaymentAmount) {
-            // if new principal is less than repayment amount, collect the difference from the new lender
-            collectFromNewLender = newTerms.principal + (oldRepaymentAmount - newTerms.principal);
-        } else {
-            // if new principal is greater than or equal to old balance, amount from new lender is
-            // the new principal plus old interest amount due.
-            collectFromNewLender = newTerms.principal + oldInterestAmountDue;
-            if (newTerms.principal > oldLoanData.balance) {
-                // if the new principal is greater than the old balance, the borrower receives the difference
-                owedToBorrower = newTerms.principal - oldLoanData.balance;
-            }
-        }
-
-        if (oldRepaymentAmount + owedToBorrower != collectFromNewLender) revert LC_InvalidState(oldLoanData.state);
     }
 
     /**

@@ -4,9 +4,9 @@ pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 
-import "./libraries/OriginationLibrary.sol";
+import "../libraries/OriginationLibrary.sol";
 
-import "./interfaces/IOriginationSharedStorage.sol";
+import "../interfaces/IOriginationSharedStorage.sol";
 
 import {
     OSS_ZeroAddress,
@@ -14,7 +14,7 @@ import {
     OSS_BatchLengthMismatch,
     OSS_ZeroArrayElements,
     OSS_ArrayTooManyElements
-} from "./errors/Lending.sol";
+} from "../errors/Lending.sol";
 
 contract OriginationSharedStorage is IOriginationSharedStorage, AccessControlEnumerable {
     // ====================================== CONSTANTS ===========================================
