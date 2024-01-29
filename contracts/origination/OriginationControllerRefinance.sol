@@ -4,6 +4,7 @@ pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "../libraries/OriginationLibrary.sol";
 import "../libraries/InterestCalculator.sol";
@@ -25,8 +26,7 @@ import {
     OCR_CollateralMismatch,
     OCR_CurrencyMismatch,
     OCR_DailyInterestRate,
-    OCR_PrincipalDifferenceOne,
-    OCR_PrincipalDifferenceTen
+    OCR_InvalidInterestChange
 } from "../errors/Lending.sol";
 
 
@@ -37,9 +37,13 @@ import {
  * This Origination Controller contract is responsible for the refinancing of active loans.
  * Refinancing is the process of replacing an existing loan with a new loan that has a lower APR.
  */
-contract OriginationControllerRefinance is IOriginationControllerRefinance, InterestCalculator, ReentrancyGuard {
+contract OriginationControllerRefinance is IOriginationControllerRefinance, InterestCalculator, ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
+    /// @notice The minimum reduction in APR for a refinanced loan in bps
+    uint256 public MINIMUM_INTEREST_CHANGE = 500; // 5%
+
+    /// @notice The lending protocol contracts
     IOriginationSharedStorage public immutable sharedStorage;
     ILoanCore public immutable loanCore;
     IFeeController public immutable feeController;
@@ -72,11 +76,15 @@ contract OriginationControllerRefinance is IOriginationControllerRefinance, Inte
         LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
 
         // validate refinance
-        {
-            uint256 oldDueDate = data.startDate + data.terms.durationSecs;
-            uint256 newDueDate = block.timestamp + newTerms.durationSecs;
-            _validateRefinance(data, newTerms, oldDueDate, newDueDate);
-            _validateRefinancePrincipal(data, newTerms, oldDueDate, newDueDate);
+        _validateRefinance(data, newTerms);
+
+        if (newTerms.principal > data.balance) {
+            _validateRefinancePrincipal(
+                data.balance,
+                data.terms.interestRate,
+                newTerms.principal,
+                newTerms.interestRate
+            );
         }
 
         // refinancing actors
@@ -101,21 +109,32 @@ contract OriginationControllerRefinance is IOriginationControllerRefinance, Inte
     }
 
     /**
+     * @notice Sets the minimum interest rate reduction for a refinanced loan. New amount must be
+     *         between 0.01% (1) and 10% (1000).
+     *
+     * @param _minimumInterestChange             New minimum interest rate reduction in bps.
+     */
+    function setMinimumInterestChange(uint256 _minimumInterestChange) external override onlyOwner {
+        if (_minimumInterestChange < 1) revert OCR_InvalidInterestChange();
+        if (_minimumInterestChange > 1000) revert OCR_InvalidInterestChange();
+
+        MINIMUM_INTEREST_CHANGE = _minimumInterestChange;
+
+        emit SetMinimumInterestChange(_minimumInterestChange);
+    }
+
+    /**
      * @notice Validates the new loan terms for a refinanced loan. The new APR must be at least 5%
      *         lower than the old APR. The new due date cannot be shorter than the old due date and
      *         the collateral and payable currency must be the same.
      *
      * @param oldLoanData                        The loan data of the loan being refinanced.
      * @param newTerms                           The new loan terms.
-     * @param oldDueDate                         The due date of the loan being refinanced.
-     * @param newDueDate                         The due date of the new loan.
      */
     // solhint-disable-next-line code-complexity
     function _validateRefinance(
         LoanLibrary.LoanData memory oldLoanData,
-        LoanLibrary.LoanTerms calldata newTerms,
-        uint256 oldDueDate,
-        uint256 newDueDate
+        LoanLibrary.LoanTerms calldata newTerms
     ) internal view {
         // cannot refinance a loan that has already been repaid
         if (oldLoanData.state != LoanLibrary.LoanState.Active) revert OCR_InvalidState(oldLoanData.state);
@@ -126,11 +145,13 @@ contract OriginationControllerRefinance is IOriginationControllerRefinance, Inte
         // interest rate must be greater than or equal to 0.01% and less or equal to 1,000,000%
         if (newTerms.interestRate < 1 || newTerms.interestRate > 1e8) revert OCR_InterestRate(newTerms.interestRate);
 
-        // new interest rate APR must be lower than old interest rate by 5% minimum
+        // new interest rate APR must be lower than old interest rate by minimum
         uint256 aprMinimumScaled = oldLoanData.terms.interestRate * Constants.BASIS_POINTS_DENOMINATOR -
-            (oldLoanData.terms.interestRate * Constants.BASIS_POINTS_DENOMINATOR / 20);
+            (oldLoanData.terms.interestRate * MINIMUM_INTEREST_CHANGE);
         if (newTerms.interestRate * Constants.BASIS_POINTS_DENOMINATOR > aprMinimumScaled) revert OCR_AprTooHigh(aprMinimumScaled);
 
+        uint256 oldDueDate = oldLoanData.startDate + oldLoanData.terms.durationSecs;
+        uint256 newDueDate = block.timestamp + newTerms.durationSecs;
         // new due date cannot be shorter than old due date and must be shorter than 3 years
         if (newDueDate < oldDueDate || newTerms.durationSecs > Constants.MAX_LOAN_DURATION) revert OCR_LoanDuration(oldDueDate, newDueDate);
 
@@ -155,41 +176,23 @@ contract OriginationControllerRefinance is IOriginationControllerRefinance, Inte
     /**
      * @notice Validates the new principal amount for a refinanced loan. If the new principal is more
      *         than the old balance, the new daily interest rate must be less than the old daily interest
-     *         rate. If the new principal is less than the old balance, the difference must be at least 1%
-     *         of the old principal if the due date is the same, or 10% of the remaining loan duration if
-     *         the due date is longer.
+     *         rate.
      *
-     * @param oldLoanData                        The loan data of the loan being refinanced.
-     * @param newTerms                           The new loan terms.
-     * @param oldDueDate                         The due date of the loan being refinanced.
-     * @param newDueDate                         The due date of the new loan.
+     * @param oldLoanBalance                     The balance of the loan being refinanced.
+     * @param oldLoanInterestRate                The interest rate of the loan being refinanced.
+     * @param newTermsPrincipal                  The new loan terms principal amount
+     * @param newTermsInterestRate               The new loan terms interest rate
      */
     function _validateRefinancePrincipal(
-        LoanLibrary.LoanData memory oldLoanData,
-        LoanLibrary.LoanTerms calldata newTerms,
-        uint256 oldDueDate,
-        uint256 newDueDate
-    ) internal view {
-        // new loan principal validation
-        if (newTerms.principal > oldLoanData.balance) {
-            // loan principal can only be increased if there is a net reduction in daily interest rate
-            uint256 oldDailyInterestRate = getDailyInterestRate(oldLoanData.balance, oldLoanData.terms.interestRate);
-            uint256 newDailyInterestRate = getDailyInterestRate(newTerms.principal, newTerms.interestRate);
-            if (newDailyInterestRate >= oldDailyInterestRate) revert OCR_DailyInterestRate(oldDailyInterestRate, newDailyInterestRate);
-        } else {
-            uint256 principalDifference = oldLoanData.balance - newTerms.principal;
-            // if new principal is less than old balance and due date is the same
-            if (newDueDate == oldDueDate) {
-                // the minimum improvement needed is 1% of old principal
-                uint256 principalMinimumOne = oldLoanData.balance / 100;
-                if (principalDifference < principalMinimumOne) revert OCR_PrincipalDifferenceOne(principalDifference, principalMinimumOne);
-            } else {
-                // if new loan has a longer due date, the minimum improvement needed is 10% of the remaining loan duration
-                uint256 remainingDuration10 = (oldDueDate - block.timestamp) / 10;
-                uint256 principalMinimumTen = remainingDuration10 * oldLoanData.balance / oldLoanData.terms.durationSecs;
-                if (principalDifference < principalMinimumTen) revert OCR_PrincipalDifferenceTen(principalDifference, principalMinimumTen);
-            }
-        }
+        uint256 oldLoanBalance,
+        uint256 oldLoanInterestRate,
+        uint256 newTermsPrincipal,
+        uint256 newTermsInterestRate
+    ) internal pure {
+        uint256 oldDailyRate = getDailyInterestRate(oldLoanBalance, oldLoanInterestRate);
+        uint256 newDailyRate = getDailyInterestRate(newTermsPrincipal, newTermsInterestRate);
+
+        if (newDailyRate >= oldDailyRate) revert OCR_DailyInterestRate(oldDailyRate, newDailyRate);
     }
 
     /**

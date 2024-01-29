@@ -242,24 +242,6 @@ error OCR_CollateralMismatch(
 error OCR_CurrencyMismatch(address oldCurrency, address newCurrency);
 
 /**
- * @notice If the loan principal is being decreased and the loans due date is unchanged, the
- *         new loan must have a minimum of 1% lower principal than the active loan.
- *
- * @param principalDifference           The difference between the active loan principal and the new loan principal.
- * @param principalMinimumOne           The 1% minimum allowable principal difference.
- */
-error OCR_PrincipalDifferenceOne(uint256 principalDifference, uint256 principalMinimumOne);
-
-/**
- * @notice If the loan principal is being decreased and the loans due date is being extended, the
- *         minimum principal improvement needed is 10% of the remaining loan duration.
- *
- * @param principalDifference           The difference between the active loan principal and the new loan principal.
- * @param principalMinimumTen           The 1% minimum allowable principal difference.
- */
-error OCR_PrincipalDifferenceTen(uint256 principalDifference, uint256 principalMinimumTen);
-
-/**
  * @notice A minimum of 2 days must have passed since the loan was last originated.
  *
  * @param earliestRefinanceTime         The earliest time at which the loan can be refinanced.
@@ -273,6 +255,11 @@ error OCR_TooEarly(uint256 earliestRefinanceTime);
  * @param interestRate                  Interest rate in bps.
  */
 error OCR_InterestRate(uint256 interestRate);
+
+/**
+ * @notice New minimum interest amount change must be between 0.01% (1) and 10% (1000).
+ */
+error OCR_InvalidInterestChange();
 
 /**
  * @notice The new loan terms must have a minimum of 5% lower APR than the active loan.

@@ -1690,6 +1690,377 @@ describe("LoanCore", () => {
         });
     });
 
+    describe("Refinancing", () => {
+        const setupLoan = async (context?: TestContext): Promise<RepayLoanState> => {
+            context = <TestContext>(context || (await loadFixture(fixture)));
+
+            const { vaultFactory, mockERC20, loanCore, user: borrower, other: lender } = context;
+            const collateralId = await initializeBundle(vaultFactory, borrower);
+
+            const terms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId });
+
+            // run originator controller logic inline then invoke loanCore
+            // borrower is originator with originator role
+            await vaultFactory
+                .connect(borrower)
+                .transferFrom(borrower.address, borrower.address, collateralId);
+            await vaultFactory.connect(borrower).approve(loanCore.address, collateralId);
+
+            await mockERC20.connect(lender).mint(lender.address, terms.principal);
+            await mockERC20.connect(lender).approve(loanCore.address, terms.principal);
+
+            const loanId = await startLoan(
+                loanCore,
+                borrower,
+                lender.address,
+                borrower.address,
+                terms,
+                terms.principal,
+                terms.principal
+            );
+
+            // Transfer vault to LoanCore
+            await vaultFactory.connect(borrower).transferFrom(borrower.address, loanCore.address, collateralId);
+
+            return { ...context, loanId, terms, borrower, lender };
+        };
+
+        it("should successfully refinance loan", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms, signers } = await setupLoan();
+            const newLender = signers[0];
+
+            // Figure out amounts owed
+            // With same terms and lender, borrower will have to pay interest
+            const loanDataBefore: LoanData = await loanCore.getLoan(loanId);
+            const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
+            const grossInterest = await loanCore.getProratedInterestAmount(
+                terms.principal,
+                terms.interestRate,
+                terms.durationSecs,
+                loanDataBefore.startDate,
+                loanDataBefore.startDate,
+                t1
+            );
+            const repayAmount = grossInterest;
+
+            await mockERC20.mint(newLender.address, repayAmount);
+            await mockERC20.connect(newLender).approve(loanCore.address, repayAmount);
+
+            const newLoanId = BigNumber.from(loanId).add(1);
+
+            await expect(
+                loanCore.connect(borrower).refinance(
+                    loanId,
+                    borrower.address,
+                    lender.address,
+                    newLender.address,
+                    terms,
+                    repayAmount,
+                    repayAmount,
+                    0,
+                    grossInterest
+                )
+            )
+                .to.emit(loanCore, "LoanRepaid").withArgs(loanId)
+                .to.emit(loanCore, "LoanStarted").withArgs(newLoanId, newLender.address, borrower.address)
+                .to.emit(loanCore, "LoanRefinanced").withArgs(loanId, newLoanId);
+        });
+
+        it("rejects calls from non-originator", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms, signers } = await setupLoan();
+            const newLender = signers[0];
+
+            // Figure out amounts owed
+            // With same terms and lender, borrower will have to pay interest
+            const loanDataBefore: LoanData = await loanCore.getLoan(loanId);
+            const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
+            const grossInterest = await loanCore.getProratedInterestAmount(
+                terms.principal,
+                terms.interestRate,
+                terms.durationSecs,
+                loanDataBefore.startDate,
+                loanDataBefore.startDate,
+                t1
+            );
+            const repayAmount = grossInterest;
+
+            await mockERC20.mint(newLender.address, repayAmount);
+            await mockERC20.connect(newLender).approve(loanCore.address, repayAmount);
+
+            await expect(
+                loanCore.connect(lender).refinance(
+                    loanId,
+                    borrower.address,
+                    lender.address,
+                    newLender.address,
+                    terms,
+                    repayAmount,
+                    repayAmount,
+                    0,
+                    grossInterest
+                )
+            ).to.be.revertedWith("AccessControl");
+        });
+
+        it("refinance should fail if the loan is not active", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms, signers } = await setupLoan();
+            const newLender = signers[0];
+
+            // Figure out amounts owed
+            // With same terms and lender, borrower will have to pay interest
+            const loanDataBefore: LoanData = await loanCore.getLoan(loanId);
+            const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
+            const grossInterest = await loanCore.getProratedInterestAmount(
+                terms.principal,
+                terms.interestRate,
+                terms.durationSecs,
+                loanDataBefore.startDate,
+                loanDataBefore.startDate,
+                t1
+            );
+            const repayAmount = grossInterest;
+
+            await mockERC20.mint(newLender.address, repayAmount);
+            await mockERC20.connect(newLender).approve(loanCore.address, repayAmount);
+
+            const wrongLoanId = BigNumber.from(loanId).add(1);
+
+            await expect(
+                loanCore.connect(borrower).refinance(
+                    wrongLoanId,
+                    borrower.address,
+                    lender.address,
+                    newLender.address,
+                    terms,
+                    repayAmount,
+                    repayAmount,
+                    0,
+                    grossInterest
+                )
+            ).to.be.revertedWith("LC_InvalidState");
+        });
+
+        it("should fail if new lender is same as old lender", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms, signers } = await setupLoan();
+            const newLender = signers[0];
+
+            // Figure out amounts owed
+            // With same terms and lender, borrower will have to pay interest
+            const loanDataBefore: LoanData = await loanCore.getLoan(loanId);
+            const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
+            const grossInterest = await loanCore.getProratedInterestAmount(
+                terms.principal,
+                terms.interestRate,
+                terms.durationSecs,
+                loanDataBefore.startDate,
+                loanDataBefore.startDate,
+                t1
+            );
+            const repayAmount = grossInterest;
+
+            await mockERC20.mint(lender.address, repayAmount);
+            await mockERC20.connect(lender).approve(loanCore.address, repayAmount);
+
+            const newLoanId = BigNumber.from(loanId).add(1);
+
+            await expect(
+                loanCore.connect(borrower).refinance(
+                    loanId,
+                    borrower.address,
+                    lender.address,
+                    lender.address,
+                    terms,
+                    repayAmount,
+                    repayAmount,
+                    0,
+                    grossInterest
+                )
+            ).to.be.revertedWith("LC_SameLender");
+        });
+
+        it("refinance should fail if the loan is already repaid", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms, signers } = await setupLoan();
+            const newLender = signers[0];
+
+            // Figure out amounts owed
+            // With same terms and lender, borrower will have to pay interest
+            const loanDataBefore: LoanData = await loanCore.getLoan(loanId);
+            const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
+            const grossInterest = await loanCore.getProratedInterestAmount(
+                terms.principal,
+                terms.interestRate,
+                terms.durationSecs,
+                loanDataBefore.startDate,
+                loanDataBefore.startDate,
+                t1
+            );
+            const repayAmount = terms.principal.add(grossInterest);
+
+            await mockERC20.mint(borrower.address, repayAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
+
+            await expect(loanCore.connect(borrower).repay(
+                loanId,
+                borrower.address,
+                repayAmount,
+                grossInterest,
+                terms.principal
+            )).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
+
+            await expect(
+                loanCore.connect(borrower).refinance(
+                    loanId,
+                    borrower.address,
+                    lender.address,
+                    newLender.address,
+                    terms,
+                    repayAmount,
+                    repayAmount,
+                    0,
+                    grossInterest
+                )
+            ).to.be.revertedWith("LC_InvalidState");
+        });
+
+        it("rollover should fail if the loan is already claimed", async () => {
+            const { loanId, loanCore, user: borrower, other: lender, terms, signers } = await setupLoan();
+            const newLender = signers[0];
+
+            const repayAmount = ethers.utils.parseEther("1");
+
+            await blockchainTime.increaseTime(360001); // increase to the end of loan duration
+            await blockchainTime.increaseTime(600) // increase 10 mins to the end of grace period
+
+            await expect(loanCore.connect(borrower).claim(loanId, 0))
+                .to.emit(loanCore, "LoanClaimed").withArgs(loanId);
+
+            await expect(
+                loanCore.connect(borrower).refinance(
+                    loanId,
+                    borrower.address,
+                    lender.address,
+                    newLender.address,
+                    terms,
+                    repayAmount,
+                    repayAmount,
+                    0,
+                    0
+                )
+            ).to.be.revertedWith("LC_InvalidState");
+        });
+
+        it("rollover should fail if the originator does not approve settled amount", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms, signers } = await setupLoan();
+            const newLender = signers[0];
+
+            // Figure out amounts owed
+            // With same terms and lender, borrower will have to pay interest
+            const loanDataBefore: LoanData = await loanCore.getLoan(loanId);
+            const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
+            const grossInterest = await loanCore.getProratedInterestAmount(
+                terms.principal,
+                terms.interestRate,
+                terms.durationSecs,
+                loanDataBefore.startDate,
+                loanDataBefore.startDate,
+                t1
+            );
+            const repayAmount = grossInterest;
+
+            await mockERC20.mint(newLender.address, repayAmount);
+            // Do not approve
+
+            await expect(
+                loanCore.connect(borrower).refinance(
+                    loanId,
+                    borrower.address,
+                    lender.address,
+                    newLender.address,
+                    terms,
+                    repayAmount,
+                    repayAmount,
+                    0,
+                    grossInterest
+                )
+            ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
+        });
+
+        it("rollover should fail if asked to pay out more than received", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms, signers } = await setupLoan();
+            const newLender = signers[0];
+
+            // Figure out amounts owed
+            // With same terms and lender, borrower will have to pay interest
+            const loanDataBefore: LoanData = await loanCore.getLoan(loanId);
+            const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
+            const grossInterest = await loanCore.getProratedInterestAmount(
+                terms.principal,
+                terms.interestRate,
+                terms.durationSecs,
+                loanDataBefore.startDate,
+                loanDataBefore.startDate,
+                t1
+            );
+            const repayAmount = grossInterest;
+
+            await mockERC20.mint(borrower.address, repayAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
+
+            await expect(
+                loanCore.connect(borrower).refinance(
+                    loanId,
+                    borrower.address,
+                    lender.address,
+                    newLender.address,
+                    terms,
+                    repayAmount.add(1),
+                    repayAmount,
+                    0,
+                    grossInterest
+                )
+            ).to.be.revertedWith("LC_CannotSettle");
+        });
+
+        it("should fail when shutdown", async () => {
+            const { mockERC20, loanId, loanCore, user: borrower, other: lender, terms, signers } = await setupLoan();
+            const newLender = signers[0];
+
+            // Figure out amounts owed
+            // With same terms and lender, borrower will have to pay interest
+            const loanDataBefore: LoanData = await loanCore.getLoan(loanId);
+            const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
+            const grossInterest = await loanCore.getProratedInterestAmount(
+                terms.principal,
+                terms.interestRate,
+                terms.durationSecs,
+                loanDataBefore.startDate,
+                loanDataBefore.startDate,
+                t1
+            );
+            const repayAmount = grossInterest;
+
+            await mockERC20.mint(borrower.address, repayAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
+
+            await loanCore.grantRole(SHUTDOWN_ROLE, borrower.address);
+            await loanCore.connect(borrower).shutdown();
+
+            await expect(
+                loanCore.connect(borrower).refinance(
+                    loanId,
+                    borrower.address,
+                    lender.address,
+                    newLender.address,
+                    terms,
+                    repayAmount,
+                    repayAmount,
+                    0,
+                    grossInterest
+                )
+            ).to.be.revertedWith("Pausable: paused");
+        });
+    });
+
     describe("canCallOn", () => {
         const setupLoan = async (): Promise<RepayLoanState> => {
             const context = await loadFixture(fixture);

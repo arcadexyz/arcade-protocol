@@ -7,6 +7,8 @@ import "../libraries/OriginationLibrary.sol";
 interface IOriginationControllerRefinance {
     // ================ Events ===================
 
+    event SetMinimumInterestChange(uint256 newMinimumInterestChange);
+
     // ============= Loan Refinancing ============
 
     function refinanceLoan(
@@ -14,8 +16,8 @@ interface IOriginationControllerRefinance {
         LoanLibrary.LoanTerms calldata newTerms
     ) external returns (uint256 newLoanId);
 
-    // ============= View Functions ==============
-
     // ================== Admin ==================
+
+    function setMinimumInterestChange(uint256 _minimumInterestChange) external;
 
 }
