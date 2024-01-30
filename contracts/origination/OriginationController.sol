@@ -8,15 +8,16 @@ import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+import "./OriginationCalculator.sol";
+
 import "../interfaces/IOriginationController.sol";
-import "../interfaces/IOriginationSharedStorage.sol";
+import "../interfaces/IOriginationConfiguration.sol";
 import "../interfaces/ILoanCore.sol";
 import "../interfaces/ISignatureVerifier.sol";
 import "../interfaces/IFeeController.sol";
 import "../interfaces/IExpressBorrow.sol";
 
 import "../libraries/OriginationLibrary.sol";
-import "../libraries/InterestCalculator.sol";
 import "../libraries/FeeLookups.sol";
 import "../libraries/Constants.sol";
 
@@ -63,9 +64,9 @@ import {
  */
 contract OriginationController is
     IOriginationController,
-    InterestCalculator,
     FeeLookups,
     EIP712,
+    OriginationCalculator,
     ReentrancyGuard,
     AccessControlEnumerable
 {
@@ -80,7 +81,7 @@ contract OriginationController is
 
     // =============== Contract References ===============
 
-    IOriginationSharedStorage public immutable originationSharedStorage;
+    IOriginationConfiguration public immutable originationConfiguration;
     ILoanCore public immutable loanCore;
     IFeeController public immutable feeController;
 
@@ -98,16 +99,16 @@ contract OriginationController is
      * @dev For this controller to work, it needs to be granted the ORIGINATOR_ROLE
      *      in loan core after deployment.
      *
-     * @param _originationSharedStorage     The address of the origination shared storage contract.
+     * @param _originationConfiguration     The address of the origination shared storage contract.
      * @param _loanCore                     The address of the loan core logic of the protocol.
      * @param _feeController                The address of the fee logic of the protocol.
      */
     constructor(
-        address _originationSharedStorage,
+        address _originationConfiguration,
         address _loanCore,
         address _feeController
     ) EIP712("OriginationController", "4") {
-        if (_originationSharedStorage == address(0)) revert OC_ZeroAddress("originationSharedStorage");
+        if (_originationConfiguration == address(0)) revert OC_ZeroAddress("originationConfiguration");
         if (_loanCore == address(0)) revert OC_ZeroAddress("loanCore");
         if (_feeController == address(0)) revert OC_ZeroAddress("feeController");
 
@@ -117,7 +118,7 @@ contract OriginationController is
         _setupRole(MIGRATION_MANAGER_ROLE, msg.sender);
         _setRoleAdmin(MIGRATION_MANAGER_ROLE, ADMIN_ROLE);
 
-        originationSharedStorage = IOriginationSharedStorage(_originationSharedStorage);
+        originationConfiguration = IOriginationConfiguration(_originationConfiguration);
         loanCore = ILoanCore(_loanCore);
         feeController = IFeeController(_feeController);
     }
@@ -391,10 +392,10 @@ contract OriginationController is
     // solhint-disable-next-line code-complexity
     function _validateLoanTerms(LoanLibrary.LoanTerms memory terms) internal virtual view {
         // validate payable currency
-        if (!originationSharedStorage.isAllowedCurrency(terms.payableCurrency)) revert OC_InvalidCurrency(terms.payableCurrency);
+        if (!originationConfiguration.isAllowedCurrency(terms.payableCurrency)) revert OC_InvalidCurrency(terms.payableCurrency);
 
         // principal must be greater than or equal to the configured minimum
-        if (terms.principal < originationSharedStorage.getMinPrincipal(terms.payableCurrency)) revert OC_PrincipalTooLow(terms.principal);
+        if (terms.principal < originationConfiguration.getMinPrincipal(terms.payableCurrency)) revert OC_PrincipalTooLow(terms.principal);
 
         // loan duration must be greater or equal to 1 hr and less or equal to 3 years
         if (terms.durationSecs < Constants.MIN_LOAN_DURATION || terms.durationSecs > Constants.MAX_LOAN_DURATION) revert OC_LoanDuration(terms.durationSecs);
@@ -406,7 +407,7 @@ contract OriginationController is
         if (terms.deadline < block.timestamp) revert OC_SignatureIsExpired(terms.deadline);
 
         // validate collateral
-        if (!originationSharedStorage.isAllowedCollateral(terms.collateralAddress)) revert OC_InvalidCollateral(terms.collateralAddress);
+        if (!originationConfiguration.isAllowedCollateral(terms.collateralAddress)) revert OC_InvalidCollateral(terms.collateralAddress);
     }
 
     /**
@@ -496,7 +497,7 @@ contract OriginationController is
         for (uint256 i = 0; i < itemPredicates.length;) {
             // Verify items are held in the wrapper
             address verifier = itemPredicates[i].verifier;
-            if (!originationSharedStorage.isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
+            if (!originationConfiguration.isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
 
             if (!ISignatureVerifier(verifier).verifyPredicates(
                 borrower,
@@ -574,8 +575,8 @@ contract OriginationController is
     }
 
     /**
-     * @dev Perform loan rollover. Take custody of both principal and
-     *      collateral, and tell LoanCore to roll over the existing loan.
+     * @notice Perform loan rollover. Take custody of principal, and tell LoanCore to
+     *         roll over the existing loan.
      *
      * @param oldLoanId                     The ID of the loan to be rolled over.
      * @param newTerms                      The terms agreed by the lender and borrower.
@@ -600,7 +601,8 @@ contract OriginationController is
             oldLoanData,
             newTerms.principal,
             lender,
-            oldLender
+            oldLender,
+            feeController
         );
 
         // Collect funds based on settle amounts and total them
@@ -636,57 +638,6 @@ contract OriginationController is
             amounts.amountToLender,
             amounts.amountToBorrower,
             amounts.interestAmount
-        );
-    }
-
-    /**
-     * @dev Calculate the net amounts needed for the rollover from each party - the
-     *      borrower, the new lender, and the old lender (can be same as new lender).
-     *      Determine the amount to either pay or withdraw from the borrower, and
-     *      any payments to be sent to the old lender.
-     *
-     * @param oldLoanData           The loan data struct for the old loan.
-     * @param newPrincipalAmount    The principal amount for the new loan.
-     * @param lender                The lender for the new loan.
-     * @param oldLender             The lender for the existing loan.
-     *
-     * @return amounts              The net amounts owed to each party.
-     */
-    function _calculateRolloverAmounts(
-        LoanLibrary.LoanData memory oldLoanData,
-        uint256 newPrincipalAmount,
-        address lender,
-        address oldLender
-    ) internal view returns (OriginationLibrary.RolloverAmounts memory) {
-        // get rollover fees
-        IFeeController.FeesRollover memory feeData = feeController.getFeesRollover();
-
-        // Calculate prorated interest amount for old loan
-        uint256 interest = getProratedInterestAmount(
-            oldLoanData.balance,
-            oldLoanData.terms.interestRate,
-            oldLoanData.terms.durationSecs,
-            uint64(oldLoanData.startDate),
-            uint64(oldLoanData.lastAccrualTimestamp),
-            block.timestamp
-        );
-
-        // Calculate amount to be sent to borrower for new loan minus rollover fees
-        uint256 borrowerFee = (newPrincipalAmount * feeData.borrowerRolloverFee) / Constants.BASIS_POINTS_DENOMINATOR;
-
-        // Calculate amount to be collected from the lender for new loan plus rollover fees
-        uint256 interestFee = (interest * oldLoanData.feeSnapshot.lenderInterestFee) / Constants.BASIS_POINTS_DENOMINATOR;
-        uint256 lenderFee = (newPrincipalAmount * feeData.lenderRolloverFee) / Constants.BASIS_POINTS_DENOMINATOR;
-
-        return OriginationLibrary.rolloverAmounts(
-            oldLoanData.terms.principal,
-            interest,
-            newPrincipalAmount,
-            lender,
-            oldLender,
-            borrowerFee,
-            lenderFee,
-            interestFee
         );
     }
 }

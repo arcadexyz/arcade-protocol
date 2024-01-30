@@ -3,7 +3,6 @@
 pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 
 import "../libraries/LoanLibrary.sol";
@@ -30,13 +29,6 @@ library OriginationLibrary {
         uint256 amountFromLender;
         uint256 amountToOldLender;
         uint256 amountToLender;
-        uint256 amountToBorrower;
-        uint256 interestAmount;
-    }
-
-    struct RefinanceAmounts {
-        uint256 amountFromNewLender;
-        uint256 amountToOldLender;
         uint256 amountToBorrower;
         uint256 interestAmount;
     }
@@ -70,136 +62,6 @@ library OriginationLibrary {
         keccak256(
             "Predicate(bytes data,address verifier)"
         );
-
-    // ==================================== ORIGINATION HELPERS =======================================
-
-    /**
-     * @dev Calculate the net amounts needed from each party for a rollover or migration - the
-     *      borrower, the new lender, and the old lender (can be same as new lender).
-     *      Determine the amount to either pay or withdraw from the borrower, and
-     *      any payments to be sent to the old lender.
-     *
-     * @param oldPrincipal          The principal amount of the old loan.
-     * @param oldInterestAmount     The interest amount of the old loan.
-     * @param newPrincipalAmount    The principal amount of the new loan.
-     * @param lender                The address of the new lender.
-     * @param oldLender             The address of the old lender.
-     * @param borrowerFee           The fee amount to be paid by the borrower.
-     * @param lenderFee             The fee amount to be paid by the lender.
-     * @param interestFee           The fee amount to be paid by the borrower to the lender.
-     *
-     * @return amounts              The net amounts owed to each party.
-     */
-    function rolloverAmounts(
-        uint256 oldPrincipal,
-        uint256 oldInterestAmount,
-        uint256 newPrincipalAmount,
-        address lender,
-        address oldLender,
-        uint256 borrowerFee,
-        uint256 lenderFee,
-        uint256 interestFee
-    ) public pure returns (RolloverAmounts memory amounts) {
-        uint256 borrowerOwedForNewLoan = 0;
-        if (borrowerFee > 0 || lenderFee > 0 || interestFee > 0) {
-            // account for fees if they exist
-            unchecked {
-                borrowerOwedForNewLoan = newPrincipalAmount - borrowerFee;
-                amounts.amountFromLender = newPrincipalAmount + lenderFee + interestFee;
-            }
-        } else {
-            borrowerOwedForNewLoan = newPrincipalAmount;
-            amounts.amountFromLender = newPrincipalAmount;
-        }
-
-        amounts.interestAmount = oldInterestAmount;
-        uint256 repayAmount = oldPrincipal + oldInterestAmount;
-
-        // Calculate net amounts based on if repayment amount for old loan is
-        // greater than new loan principal
-        if (repayAmount > borrowerOwedForNewLoan) {
-            // amount to collect from borrower
-            unchecked {
-                amounts.needFromBorrower = repayAmount - borrowerOwedForNewLoan;
-            }
-        } else {
-            // amount to collect from lender (either old or new)
-            amounts.leftoverPrincipal = amounts.amountFromLender - repayAmount;
-
-            // amount to send to borrower
-            unchecked {
-                amounts.amountToBorrower = borrowerOwedForNewLoan - repayAmount;
-            }
-        }
-
-        // Calculate lender amounts based on if the lender is the same as the old lender
-        if (lender != oldLender) {
-            // different lenders, repay old lender
-            amounts.amountToOldLender = repayAmount;
-
-            // different lender, new lender is owed zero tokens
-            amounts.amountToLender = 0;
-        } else {
-            // same lender
-            amounts.amountToOldLender = 0;
-
-            // same lender, so check if the amount to collect from the lender is less than
-            // the amount the lender is owed for the old loan. If so, the lender is owed the
-            // difference
-            if (amounts.needFromBorrower > 0 && repayAmount > amounts.amountFromLender) {
-                unchecked {
-                    amounts.amountToLender = repayAmount - amounts.amountFromLender;
-                }
-            }
-        }
-    }
-
-    /**
-     * @notice Calculate the net amounts needed from each party for a refinance.
-     *         Determine the amount to collect from the new lender, the amount owed
-     *         to the old lender, and the amount to send to the borrower. Any fees
-     *         if applicable are included in the amountFromNewLender value.
-     *
-     * @param oldLoanBalance        The principal amount of the old loan.
-     * @param oldInterestAmount     The interest amount of the old loan.
-     * @param newPrincipalAmount    The principal amount of the new loan.
-     * @param interestFee           The old interest fee amount.
-     * @param lenderFee             The refinance fee amount.
-     */
-    function refinancingAmounts(
-        uint256 oldLoanBalance,
-        uint256 oldInterestAmount,
-        uint256 newPrincipalAmount,
-        uint256 interestFee,
-        uint256 lenderFee
-    ) public pure returns (RefinanceAmounts memory amounts) {
-        // store interest amount
-        amounts.interestAmount = oldInterestAmount;
-
-        // calculate total amount due to old lender
-        uint256 oldRepaymentAmount = oldLoanBalance + oldInterestAmount;
-        amounts.amountToOldLender = oldRepaymentAmount;
-
-        // assess fees on old lender
-        if (interestFee > 0 || lenderFee > 0) {
-            amounts.amountToOldLender -= interestFee + lenderFee;
-        }
-
-        // amount from new lender
-        amounts.amountFromNewLender = newPrincipalAmount + oldInterestAmount;
-
-        if (newPrincipalAmount < oldLoanBalance) {
-            // if new principal is less than repayment amount, collect the difference from the new lender
-            amounts.amountFromNewLender += oldLoanBalance - newPrincipalAmount;
-        } else {
-            // if new principal is greater than or equal to old balance, amount from new lender is
-            // the new principal plus old interest amount due.
-            if (newPrincipalAmount > oldLoanBalance) {
-                // if the new principal is greater than the old balance, the borrower receives the difference
-                amounts.amountToBorrower = newPrincipalAmount - oldLoanBalance;
-            }
-        }
-    }
 
     // ==================================== SIGNATURE VERIFICATION ====================================
 

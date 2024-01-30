@@ -35,8 +35,7 @@ import {
     LC_NoReceipt,
     LC_Shutdown,
     LC_ExceedsBalance,
-    LC_AwaitingWithdrawal,
-    LC_SameLender
+    LC_AwaitingWithdrawal
 } from "./errors/Lending.sol";
 
 /**
@@ -511,103 +510,6 @@ contract LoanCore is
         emit LoanRepaid(oldLoanId);
         emit LoanStarted(newLoanId, lender, borrower);
         emit LoanRolledOver(oldLoanId, newLoanId);
-    }
-
-    /**
-     * @notice Refinance a loan, atomically closing an active one and re-opening a new one
-     *         with the same collateral. Another user might have be willing to pay the lender
-     *         the full repayment amount in order to take over the loan with a better APR for
-     *         the borrower. Each refinanced loan is marked as complete, and the new
-     *         loan is given a new unique ID and notes.
-     *
-     * @param loanId                    The ID of the loan to refinance.
-     * @param borrower                  The borrower for the loan.
-     * @param oldLender                 The lender for the active loan.
-     * @param newLender                 The lender for the new loan.
-     * @param newTerms                  The terms of the new loan.
-     * @param _amountToOldLender        The payment to the old lender.
-     * @param _amountFromNewLender      The payment from the new lender.
-     * @param _amountToBorrower         The payment to the borrower.
-     * @param _oldInterestAmount        The interest amount to be paid on the old loan.
-     *
-     * @return newLoanId                The ID of the new loan.
-     */
-    function refinance(
-        uint256 loanId,
-        address borrower,
-        address oldLender,
-        address newLender,
-        LoanLibrary.LoanTerms calldata newTerms,
-        uint256 _amountToOldLender,
-        uint256 _amountFromNewLender,
-        uint256 _amountToBorrower,
-        uint256 _oldInterestAmount
-    ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 newLoanId) {
-        // get old loan data
-        LoanLibrary.LoanData storage data = loans[loanId];
-
-        // Ensure valid loan state for old loan
-        if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
-        // Ensure new lender is not the same as old lender
-        if (newLender == oldLender) revert LC_SameLender(newLender);
-
-        // state change for old loan
-        data.state = LoanLibrary.LoanState.Repaid;
-        data.balance = 0;
-        data.interestAmountPaid += _oldInterestAmount;
-
-        IERC20 payableCurrency = IERC20(newTerms.payableCurrency);
-
-        // Check that contract will not net lose tokens
-        if (_amountToOldLender + _amountToBorrower > _amountFromNewLender)
-            revert LC_CannotSettle(_amountToOldLender + _amountToBorrower, _amountFromNewLender);
-        {
-            // Assign fees for withdrawal
-            uint256 feesEarned;
-            unchecked { feesEarned = _amountFromNewLender - _amountToOldLender - _amountToBorrower; }
-
-            // Make sure split goes to affiliate code from _new_ terms
-            (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
-                _getAffiliateSplit(feesEarned, newTerms.affiliateCode);
-
-            // Assign fees for withdrawal
-            mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[address(payableCurrency)];
-            if (protocolFee > 0) _feesWithdrawable[address(this)] += protocolFee;
-            if (affiliateFee > 0) _feesWithdrawable[affiliate] += affiliateFee;
-        }
-
-        // set up new loan
-        newLoanId = loanIdTracker.current();
-        loanIdTracker.increment();
-
-        loans[newLoanId] = LoanLibrary.LoanData({
-            state: LoanLibrary.LoanState.Active,
-            startDate: uint64(block.timestamp),
-            lastAccrualTimestamp: uint64(block.timestamp),
-            terms: newTerms,
-            feeSnapshot: data.feeSnapshot,
-            balance: newTerms.principal,
-            interestAmountPaid: 0
-        });
-
-        // burn old notes
-        _burnLoanNotes(loanId);
-
-        // mint new notes
-        _mintLoanNotes(newLoanId, borrower, newLender);
-
-        // pull principal from new lender
-        payableCurrency.safeTransferFrom(newLender, address(this), _amountFromNewLender);
-
-        // send old principal to old lender
-        payableCurrency.safeTransfer(oldLender, _amountToOldLender);
-
-        // send amount owed to borrower
-        _transferIfNonzero(payableCurrency, borrower, _amountToBorrower);
-
-        emit LoanRepaid(loanId);
-        emit LoanStarted(newLoanId, newLender, borrower);
-        emit LoanRefinanced(loanId, newLoanId);
     }
 
     // ======================================== NONCE MANAGEMENT ========================================

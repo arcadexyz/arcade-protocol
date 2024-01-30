@@ -210,15 +210,6 @@ error OCR_ZeroAddress(string addressType);
 error OCR_InvalidState(LoanLibrary.LoanState state);
 
 /**
- * @notice Increasing a loans principal via refinancing is only allowed daily interest paid
- *         by a borrower exhibits a net reduction.
- *
- * @param oldDailyInterestRate          Daily interest rate of the active loan in bps.
- * @param newDailyInterestRate          Daily interest rate of the new loan in bps.
- */
-error OCR_DailyInterestRate(uint256 oldDailyInterestRate, uint256 newDailyInterestRate);
-
-/**
  * @notice New collateral does not match for a loan refinance request.
  *
  * @param oldCollateralAddress          The address of the active loan's collateral.
@@ -249,25 +240,12 @@ error OCR_CurrencyMismatch(address oldCurrency, address newCurrency);
 error OCR_TooEarly(uint256 earliestRefinanceTime);
 
 /**
- * @notice Interest rate must be greater than or equal to 1 (0.01%) and less than or equal
- *         to 1e8 (1,000,000%).
+ * @notice Interest rate must be greater than or equal to 1 (0.01%) and have a minimum
+ *         of 10% lower APR than the active loan
  *
  * @param interestRate                  Interest rate in bps.
  */
 error OCR_InterestRate(uint256 interestRate);
-
-/**
- * @notice New minimum interest amount change must be between 0.01% (1) and 10% (1000).
- */
-error OCR_InvalidInterestChange();
-
-/**
- * @notice The new loan terms must have a minimum of 5% lower APR than the active loan.
- *
- * @param aprMinimumScaled              The highest allowable minimum APR * 1e6 for the new loan.
- */
-error OCR_AprTooHigh(uint256 aprMinimumScaled);
-
 
 /**
  * @notice For refinancing, the new due date cannot be shorter than old due date
@@ -276,6 +254,21 @@ error OCR_AprTooHigh(uint256 aprMinimumScaled);
  * @param newDueDate                  The due date of the refinance terms.
  */
 error OCR_LoanDuration(uint256 oldDueDate, uint256 newDueDate);
+
+/**
+ * @notice For refinancing, the caller cannot be the existing lender.
+ *
+ * @param lender                     The address of the existing lender and caller.
+ */
+error OCR_SameLender(address lender);
+
+/**
+ * @notice For refinancing, the principal cannot increase.
+ *
+ * @param oldPrincipal                  The principal of the active loan.
+ * @param newPrincipal                  The principal of the refinance terms.
+ */
+error OCR_PrincipalIncrease(uint256 oldPrincipal, uint256 newPrincipal);
 
 // ==================================== ITEMS VERIFIER ======================================
 /// @notice All errors prefixed with IV_, to separate from other contracts in the protocol.
@@ -505,11 +498,6 @@ error LC_ExceedsBalance(uint256 paymentToPrincipal, uint256 balance);
  * cannot be claimed until the available balance is withdrawn.
  */
 error LC_AwaitingWithdrawal(uint256 availableAmount);
-
-/**
- * @notice For refinancing, the new lender cannot be the same as the old lender.
- */
-error LC_SameLender(address lender);
 
 // ==================================== PROMISSORY NOTE ======================================
 /// @notice All errors prefixed with PN_, to separate from other contracts in the protocol.

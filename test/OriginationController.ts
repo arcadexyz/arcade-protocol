@@ -26,7 +26,7 @@ import {
     CollectionWideOfferVerifier,
     BaseURIDescriptor,
     MockSmartBorrower,
-    OriginationSharedStorage
+    OriginationConfiguration
 } from "../typechain";
 import { approve, mint, ZERO_ADDRESS } from "./utils/erc20";
 import { mint as mint721 } from "./utils/erc721";
@@ -44,7 +44,7 @@ import {
 type Signer = SignerWithAddress;
 
 interface TestContext {
-    originationSharedStorage: OriginationSharedStorage;
+    originationConfiguration: OriginationConfiguration;
     originationController: OriginationController;
     feeController: FeeController;
     mockERC20: MockERC20;
@@ -108,7 +108,7 @@ const fixture = async (): Promise<TestContext> => {
     const mockERC20 = <MockERC20>await deploy("MockERC20", deployer, ["Mock ERC20", "MOCK"]);
     const mockERC721 = <MockERC721>await deploy("MockERC721", deployer, ["Mock ERC721", "MOCK"]);
 
-    const originationSharedStorage = <OriginationSharedStorage> await  deploy("OriginationSharedStorage", deployer, []);
+    const originationConfiguration = <OriginationConfiguration> await  deploy("OriginationConfiguration", deployer, []);
 
     const originationLibrary = await deploy("OriginationLibrary", deployer, []);
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationController",
@@ -120,27 +120,27 @@ const fixture = async (): Promise<TestContext> => {
         },
     );
     const originationController = <OriginationController>(
-        await OriginationControllerFactory.deploy(originationSharedStorage.address, loanCore.address, feeController.address)
+        await OriginationControllerFactory.deploy(originationConfiguration.address, loanCore.address, feeController.address)
     );
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController
-    const whitelistCurrency = await originationSharedStorage.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
+    const whitelistCurrency = await originationConfiguration.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
     await whitelistCurrency.wait();
     // verify the currency is whitelisted
-    const isWhitelisted = await originationSharedStorage.isAllowedCurrency(mockERC20.address);
+    const isWhitelisted = await originationConfiguration.isAllowedCurrency(mockERC20.address);
     expect(isWhitelisted).to.be.true;
 
     // admin whitelists MockERC721 and vaultFactory on OriginationController
-    await originationSharedStorage.setAllowedCollateralAddresses(
+    await originationConfiguration.setAllowedCollateralAddresses(
         [mockERC721.address, vaultFactory.address],
         [true, true]
     );
 
     // verify the collateral is whitelisted
-    const isCollateralWhitelisted = await originationSharedStorage.isAllowedCollateral(mockERC721.address);
+    const isCollateralWhitelisted = await originationConfiguration.isAllowedCollateral(mockERC721.address);
     expect(isCollateralWhitelisted).to.be.true;
-    const isVaultFactoryWhitelisted = await originationSharedStorage.isAllowedCollateral(vaultFactory.address);
+    const isVaultFactoryWhitelisted = await originationConfiguration.isAllowedCollateral(vaultFactory.address);
     expect(isVaultFactoryWhitelisted).to.be.true;
 
     const updateOriginationControllerPermissions = await loanCore.grantRole(
@@ -150,7 +150,7 @@ const fixture = async (): Promise<TestContext> => {
     await updateOriginationControllerPermissions.wait();
 
     return {
-        originationSharedStorage,
+        originationConfiguration,
         originationController,
         feeController,
         mockERC20,
@@ -223,7 +223,7 @@ const defaultSigProperties: SignatureProperties = {
 
 describe("OriginationController", () => {
     describe("constructor", () => {
-        it("Reverts if originationSharedStorage address is not provided", async () => {
+        it("Reverts if originationConfiguration address is not provided", async () => {
             const { loanCore, feeController, user } = await loadFixture(fixture);
 
             const originationLibrary = await deploy("OriginationLibrary", user, []);
@@ -236,12 +236,12 @@ describe("OriginationController", () => {
             );
 
             await expect(OriginationControllerFactory.deploy(ZERO_ADDRESS, loanCore.address, feeController.address)).to.be.revertedWith(
-                `OC_ZeroAddress("originationSharedStorage")`
+                `OC_ZeroAddress("originationConfiguration")`
             );
         });
 
         it("Reverts if loanCore address is not provided", async () => {
-            const { originationSharedStorage, feeController, user } = await loadFixture(fixture);
+            const { originationConfiguration, feeController, user } = await loadFixture(fixture);
 
             const originationLibrary = await deploy("OriginationLibrary", user, []);
             const OriginationControllerFactory = await ethers.getContractFactory("OriginationController",
@@ -252,13 +252,13 @@ describe("OriginationController", () => {
                 },
             );
 
-            await expect(OriginationControllerFactory.deploy(originationSharedStorage.address, ZERO_ADDRESS, feeController.address)).to.be.revertedWith(
+            await expect(OriginationControllerFactory.deploy(originationConfiguration.address, ZERO_ADDRESS, feeController.address)).to.be.revertedWith(
                 `OC_ZeroAddress("loanCore")`
             );
         });
 
         it("Reverts if feeController address is not provided", async () => {
-            const { originationSharedStorage, loanCore, user } = await loadFixture(fixture);
+            const { originationConfiguration, loanCore, user } = await loadFixture(fixture);
 
             const originationLibrary = await deploy("OriginationLibrary", user, []);
             const OriginationControllerFactory = await ethers.getContractFactory("OriginationController",
@@ -268,13 +268,13 @@ describe("OriginationController", () => {
                     },
                 },
             );
-            await expect(OriginationControllerFactory.deploy(originationSharedStorage.address, loanCore.address, ZERO_ADDRESS)).to.be.revertedWith(
+            await expect(OriginationControllerFactory.deploy(originationConfiguration.address, loanCore.address, ZERO_ADDRESS)).to.be.revertedWith(
                 `OC_ZeroAddress("feeController")`
             );
         });
 
         it("Instantiates the OriginationController", async () => {
-            const { originationSharedStorage, loanCore, feeController, user } = await loadFixture(fixture);
+            const { originationConfiguration, loanCore, feeController, user } = await loadFixture(fixture);
 
             const originationLibrary = await deploy("OriginationLibrary", user, []);
             const OriginationControllerFactory = await ethers.getContractFactory("OriginationController",
@@ -284,7 +284,7 @@ describe("OriginationController", () => {
                     },
                 },
             );
-            const originationController = await OriginationControllerFactory.deploy(originationSharedStorage.address, loanCore.address, feeController.address);
+            const originationController = await OriginationControllerFactory.deploy(originationConfiguration.address, loanCore.address, feeController.address);
             await originationController.deployed();
 
             expect(originationController.address).to.not.be.undefined;
@@ -773,13 +773,13 @@ describe("OriginationController", () => {
 
         beforeEach(async () => {
             ctx = await loadFixture(fixture);
-            const { user, originationController, originationSharedStorage, other: borrower } = ctx;
+            const { user, originationController, originationConfiguration, other: borrower } = ctx;
 
             verifier = <ArcadeItemsVerifier>await deploy("ArcadeItemsVerifier", user, []);
             uvVerifier = <ArcadeItemsVerifier>await deploy("UnvaultedItemsVerifier", user, []);
             cwoVerifier = <ArcadeItemsVerifier>await deploy("CollectionWideOfferVerifier", user, []);
 
-            await originationSharedStorage.connect(user).setAllowedVerifiers([
+            await originationConfiguration.connect(user).setAllowedVerifiers([
                 verifier.address,
                 uvVerifier.address,
                 cwoVerifier.address
@@ -933,10 +933,10 @@ describe("OriginationController", () => {
         });
 
         it("Reverts if the verifier contract is not approved", async () => {
-            const { originationController, originationSharedStorage, mockERC20, mockERC721, vaultFactory, user: lender, other: borrower } = ctx;
+            const { originationController, originationConfiguration, mockERC20, mockERC721, vaultFactory, user: lender, other: borrower } = ctx;
 
             // Remove verifier approval
-            await originationSharedStorage.connect(lender).setAllowedVerifiers([verifier.address], [false]);
+            await originationConfiguration.connect(lender).setAllowedVerifiers([verifier.address], [false]);
 
             const bundleId = await initializeBundle(vaultFactory, borrower);
             const bundleAddress = await vaultFactory.instanceAt(bundleId);

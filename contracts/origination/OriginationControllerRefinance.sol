@@ -4,15 +4,15 @@ pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+
+import "./OriginationCalculator.sol";
 
 import "../libraries/OriginationLibrary.sol";
-import "../libraries/InterestCalculator.sol";
 import "../libraries/LoanLibrary.sol";
 import "../libraries/Constants.sol";
 
 import "../interfaces/IOriginationControllerRefinance.sol";
-import "../interfaces/IOriginationSharedStorage.sol";
+import "../interfaces/IOriginationConfiguration.sol";
 import "../interfaces/ILoanCore.sol";
 import "../interfaces/IFeeController.sol";
 
@@ -21,12 +21,11 @@ import {
     OCR_InvalidState,
     OCR_TooEarly,
     OCR_InterestRate,
-    OCR_AprTooHigh,
     OCR_LoanDuration,
     OCR_CollateralMismatch,
     OCR_CurrencyMismatch,
-    OCR_DailyInterestRate,
-    OCR_InvalidInterestChange
+    OCR_SameLender,
+    OCR_PrincipalIncrease
 } from "../errors/Lending.sol";
 
 
@@ -37,23 +36,23 @@ import {
  * This Origination Controller contract is responsible for the refinancing of active loans.
  * Refinancing is the process of replacing an existing loan with a new loan that has a lower APR.
  */
-contract OriginationControllerRefinance is IOriginationControllerRefinance, InterestCalculator, ReentrancyGuard, Ownable {
+contract OriginationControllerRefinance is IOriginationControllerRefinance, OriginationCalculator, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /// @notice The minimum reduction in APR for a refinanced loan in bps
-    uint256 public MINIMUM_INTEREST_CHANGE = 500; // 5%
+    uint256 public constant MINIMUM_INTEREST_CHANGE = 1000; // 10%
 
     /// @notice The lending protocol contracts
-    IOriginationSharedStorage public immutable sharedStorage;
+    IOriginationConfiguration public immutable originationConfig;
     ILoanCore public immutable loanCore;
     IFeeController public immutable feeController;
 
-    constructor(address _sharedStorage, address _loanCore, address _feeController) {
-        if (_sharedStorage == address(0)) revert OCR_ZeroAddress("_sharedStorage");
+    constructor(address _originationConfig, address _loanCore, address _feeController) {
+        if (_originationConfig == address(0)) revert OCR_ZeroAddress("_originationConfig");
         if (_loanCore == address(0)) revert OCR_ZeroAddress("_loanCore");
         if (_feeController == address(0)) revert OCR_ZeroAddress("_feeController");
 
-        sharedStorage = IOriginationSharedStorage(_sharedStorage);
+        originationConfig = IOriginationConfiguration(_originationConfig);
         loanCore = ILoanCore(_loanCore);
         feeController = IFeeController(_feeController);
     }
@@ -72,61 +71,27 @@ contract OriginationControllerRefinance is IOriginationControllerRefinance, Inte
     function refinanceLoan(
         uint256 loanId,
         LoanLibrary.LoanTerms calldata newTerms
-    ) external override nonReentrant returns (uint256 newLoanId) {
+    ) external override returns (uint256 newLoanId) {
         LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
 
         // validate refinance
         _validateRefinance(data, newTerms);
 
-        if (newTerms.principal > data.balance) {
-            _validateRefinancePrincipal(
-                data.balance,
-                data.terms.interestRate,
-                newTerms.principal,
-                newTerms.interestRate
-            );
-        }
-
-        // refinancing actors
-        address oldLender = IERC721(loanCore.lenderNote()).ownerOf(loanId);
         address borrower = IERC721(loanCore.borrowerNote()).ownerOf(loanId);
 
-        // calculate refinancing amounts
-        (OriginationLibrary.RefinanceAmounts memory amounts) = _calcRefinanceAmounts(data, newTerms.principal);
-
-        // call loan core to close old loan, start the new one and transfer settled amounts
-        newLoanId = loanCore.refinance(
+        newLoanId = _refinance(
             loanId,
-            borrower,
-            oldLender,
-            msg.sender,
             newTerms,
-            amounts.amountToOldLender,
-            amounts.amountFromNewLender,
-            amounts.amountToBorrower,
-            amounts.interestAmount
+            borrower,
+            msg.sender
         );
     }
 
     /**
-     * @notice Sets the minimum interest rate reduction for a refinanced loan. New amount must be
-     *         between 0.01% (1) and 10% (1000).
-     *
-     * @param _minimumInterestChange             New minimum interest rate reduction in bps.
-     */
-    function setMinimumInterestChange(uint256 _minimumInterestChange) external override onlyOwner {
-        if (_minimumInterestChange < 1) revert OCR_InvalidInterestChange();
-        if (_minimumInterestChange > 1000) revert OCR_InvalidInterestChange();
-
-        MINIMUM_INTEREST_CHANGE = _minimumInterestChange;
-
-        emit SetMinimumInterestChange(_minimumInterestChange);
-    }
-
-    /**
      * @notice Validates the new loan terms for a refinanced loan. The new APR must be at least 5%
-     *         lower than the old APR. The new due date cannot be shorter than the old due date and
-     *         the collateral and payable currency must be the same.
+     *         lower than the old APR. The new principal amount cannot be larger. The new due date
+     *         cannot be shorter than the old due date and the collateral and payable currency must
+     *         be the same.
      *
      * @param oldLoanData                        The loan data of the loan being refinanced.
      * @param newTerms                           The new loan terms.
@@ -142,18 +107,21 @@ contract OriginationControllerRefinance is IOriginationControllerRefinance, Inte
         // cannot refinance a loan before it has been active for 2 days
         if (block.timestamp < oldLoanData.startDate + 2 days) revert OCR_TooEarly(oldLoanData.startDate + 2 days);
 
-        // interest rate must be greater than or equal to 0.01% and less or equal to 1,000,000%
-        if (newTerms.interestRate < 1 || newTerms.interestRate > 1e8) revert OCR_InterestRate(newTerms.interestRate);
-
         // new interest rate APR must be lower than old interest rate by minimum
         uint256 aprMinimumScaled = oldLoanData.terms.interestRate * Constants.BASIS_POINTS_DENOMINATOR -
             (oldLoanData.terms.interestRate * MINIMUM_INTEREST_CHANGE);
-        if (newTerms.interestRate * Constants.BASIS_POINTS_DENOMINATOR > aprMinimumScaled) revert OCR_AprTooHigh(aprMinimumScaled);
+        if (
+            newTerms.interestRate < 1 ||
+            newTerms.interestRate * Constants.BASIS_POINTS_DENOMINATOR > aprMinimumScaled
+        ) revert OCR_InterestRate(aprMinimumScaled);
 
+        // new due date cannot be shorter than old due date and must be shorter than 3 years
         uint256 oldDueDate = oldLoanData.startDate + oldLoanData.terms.durationSecs;
         uint256 newDueDate = block.timestamp + newTerms.durationSecs;
-        // new due date cannot be shorter than old due date and must be shorter than 3 years
-        if (newDueDate < oldDueDate || newTerms.durationSecs > Constants.MAX_LOAN_DURATION) revert OCR_LoanDuration(oldDueDate, newDueDate);
+        if (
+            newDueDate < oldDueDate ||
+            newTerms.durationSecs > Constants.MAX_LOAN_DURATION
+        ) revert OCR_LoanDuration(oldDueDate, newDueDate);
 
         // collateral must be the same
         if (
@@ -171,65 +139,65 @@ contract OriginationControllerRefinance is IOriginationControllerRefinance, Inte
             oldLoanData.terms.payableCurrency,
             newTerms.payableCurrency
         );
+
+        // principal cannot increase
+        if (newTerms.principal > oldLoanData.terms.principal) revert OCR_PrincipalIncrease(
+            oldLoanData.terms.principal,
+            newTerms.principal
+        );
     }
 
     /**
-     * @notice Validates the new principal amount for a refinanced loan. If the new principal is more
-     *         than the old balance, the new daily interest rate must be less than the old daily interest
-     *         rate.
+     * @notice Perform loan rollover. Take custody of principal, and tell LoanCore to
+     *         roll over the existing loan.
      *
-     * @param oldLoanBalance                     The balance of the loan being refinanced.
-     * @param oldLoanInterestRate                The interest rate of the loan being refinanced.
-     * @param newTermsPrincipal                  The new loan terms principal amount
-     * @param newTermsInterestRate               The new loan terms interest rate
+     * @param oldLoanId                     The ID of the loan to be refinanced.
+     * @param newTerms                      The new loan terms.
+     * @param borrower                      Address of the borrower.
+     * @param lender                        Address of the new lender.
+     *
+     * @return loanId                       The unique ID of the new loan.
      */
-    function _validateRefinancePrincipal(
-        uint256 oldLoanBalance,
-        uint256 oldLoanInterestRate,
-        uint256 newTermsPrincipal,
-        uint256 newTermsInterestRate
-    ) internal pure {
-        uint256 oldDailyRate = getDailyInterestRate(oldLoanBalance, oldLoanInterestRate);
-        uint256 newDailyRate = getDailyInterestRate(newTermsPrincipal, newTermsInterestRate);
+    function _refinance(
+        uint256 oldLoanId,
+        LoanLibrary.LoanTerms calldata newTerms,
+        address borrower,
+        address lender
+    ) internal nonReentrant returns (uint256 loanId) {
+        LoanLibrary.LoanData memory oldLoanData = loanCore.getLoan(oldLoanId);
 
-        if (newDailyRate >= oldDailyRate) revert OCR_DailyInterestRate(oldDailyRate, newDailyRate);
-    }
+        address oldLender = ILoanCore(loanCore).lenderNote().ownerOf(oldLoanId);
+        if (lender == oldLender) revert OCR_SameLender(lender);
 
-    /**
-     * @notice Calculates the amounts to be transferred between the old lender, new lender and borrower. if the
-     *         new principal is less than the old balance, the new lender must supply the difference. If the new
-     *         principal is greater than the old balance, the borrower receives the difference. The new lender
-     *         will always have to pay the interest due to the old lender plus the new principal amount.
-     *
-     * @param oldLoanData                        The loan data of the loan being refinanced.
-     * @param newTermsPrincipal                  The new loan terms principal amount
-     *
-     * @return amounts                           The net amounts owed to each party.
-     */
-    function _calcRefinanceAmounts(
-        LoanLibrary.LoanData memory oldLoanData,
-        uint256 newTermsPrincipal
-    ) internal view returns (OriginationLibrary.RefinanceAmounts memory amounts) {
-        // calculate current interest amount due to old lender
-        uint256 oldInterestAmount = getProratedInterestAmount(
-            oldLoanData.balance,
-            oldLoanData.terms.interestRate,
-            oldLoanData.terms.durationSecs,
-            oldLoanData.startDate,
-            oldLoanData.lastAccrualTimestamp,
-            block.timestamp
+        IERC20 payableCurrency = IERC20(newTerms.payableCurrency);
+
+        // Calculate settle amounts
+        OriginationLibrary.RolloverAmounts memory amounts = _calculateRolloverAmounts(
+            oldLoanData,
+            newTerms.principal,
+            lender,
+            oldLender,
+            feeController
         );
 
-        // Calculate amount to be collected from the lender for new loan plus rollover fees
-        uint256 interestFee = (oldInterestAmount * oldLoanData.feeSnapshot.lenderInterestFee) / Constants.BASIS_POINTS_DENOMINATOR;
-        uint256 lenderFee = (oldLoanData.balance * oldLoanData.feeSnapshot.lenderPrincipalFee) / Constants.BASIS_POINTS_DENOMINATOR;
+        // Collect funds based on settle amounts and total them
+        uint256 newLenderOwes = amounts.amountFromLender + amounts.needFromBorrower;
+        payableCurrency.safeTransferFrom(lender, address(this), newLenderOwes);
 
-        return OriginationLibrary.refinancingAmounts(
-            oldLoanData.balance,
-            oldInterestAmount,
-            newTermsPrincipal,
-            interestFee,
-            lenderFee
+        // approve LoanCore to take the total settled amount
+        payableCurrency.safeApprove(address(loanCore), newLenderOwes);
+
+        loanId = ILoanCore(loanCore).rollover(
+            oldLoanId,
+            oldLender,
+            borrower,
+            lender,
+            newTerms,
+            newLenderOwes,
+            amounts.amountToOldLender,
+            0,
+            0,
+            amounts.interestAmount
         );
     }
 }

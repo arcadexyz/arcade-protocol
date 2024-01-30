@@ -4,7 +4,7 @@ pragma solidity 0.8.18;
 
 import "../libraries/OriginationLibrary.sol";
 
-interface IOriginationSharedStorage {
+interface IOriginationConfiguration {
     // ================ Events ===================
 
     event SetAllowedVerifier(address indexed verifier, bool isAllowed);

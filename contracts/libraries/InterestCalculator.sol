@@ -118,19 +118,4 @@ abstract contract InterestCalculator {
             loanPrincipal
         );
     }
-
-    /**
-     * @notice Calculate the daily interest rate for a given balance and interest rate.
-     *
-     * @param balance                               The unpaid principal of the loan.
-     * @param interestRate                          Interest rate in the loan terms in bps.
-     *
-     * @return dailyInterestRate                    The daily interest rate in bps.
-     */
-    function getDailyInterestRate(
-        uint256 balance,
-        uint256 interestRate
-    ) public pure returns (uint256) {
-        return (balance * interestRate) / (Constants.SECONDS_IN_YEAR);
-    }
 }

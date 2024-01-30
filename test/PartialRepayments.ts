@@ -13,7 +13,7 @@ import {
     VaultFactory,
     FeeController,
     BaseURIDescriptor,
-    OriginationSharedStorage,
+    OriginationConfiguration,
 } from "../typechain";
 import { BlockchainTime } from "./utils/time";
 import { BigNumber, BigNumberish } from "ethers";
@@ -102,7 +102,7 @@ const fixture = async (): Promise<TestContext> => {
 
     const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
 
-    const originationSharedStorage = <OriginationSharedStorage> await deploy("OriginationSharedStorage", signers[0], []);
+    const originationConfiguration = <OriginationConfiguration> await deploy("OriginationConfiguration", signers[0], []);
 
     const originationLibrary = await deploy("OriginationLibrary", signers[0], []);
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationController",
@@ -114,22 +114,22 @@ const fixture = async (): Promise<TestContext> => {
         },
     );
     const originationController = <OriginationController>(
-        await OriginationControllerFactory.deploy(originationSharedStorage.address, loanCore.address, feeController.address)
+        await OriginationControllerFactory.deploy(originationConfiguration.address, loanCore.address, feeController.address)
     );
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController
-    await originationSharedStorage.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
+    await originationConfiguration.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
     // verify the currency is whitelisted
-    const isWhitelisted = await originationSharedStorage.isAllowedCurrency(mockERC20.address);
+    const isWhitelisted = await originationConfiguration.isAllowedCurrency(mockERC20.address);
     expect(isWhitelisted).to.be.true;
-    const minPrincipal = await originationSharedStorage.getMinPrincipal(mockERC20.address);
+    const minPrincipal = await originationConfiguration.getMinPrincipal(mockERC20.address);
     expect(minPrincipal).to.eq(MIN_LOAN_PRINCIPAL);
 
     // admin whitelists MockERC721 and vaultFactory on OriginationController
-    await originationSharedStorage.setAllowedCollateralAddresses([vaultFactory.address], [true]);
+    await originationConfiguration.setAllowedCollateralAddresses([vaultFactory.address], [true]);
     // verify the collateral is whitelisted
-    const isVaultFactoryWhitelisted = await originationSharedStorage.isAllowedCollateral(vaultFactory.address);
+    const isVaultFactoryWhitelisted = await originationConfiguration.isAllowedCollateral(vaultFactory.address);
     expect(isVaultFactoryWhitelisted).to.be.true;
 
     const repaymentController = <RepaymentController>await deploy("RepaymentController", admin, [loanCore.address, feeController.address]);

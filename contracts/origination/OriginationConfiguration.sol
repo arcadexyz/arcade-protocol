@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 
 import "../libraries/OriginationLibrary.sol";
 
-import "../interfaces/IOriginationSharedStorage.sol";
+import "../interfaces/IOriginationConfiguration.sol";
 
 import {
     OSS_ZeroAddress,
@@ -16,7 +16,7 @@ import {
     OSS_ArrayTooManyElements
 } from "../errors/Lending.sol";
 
-contract OriginationSharedStorage is IOriginationSharedStorage, AccessControlEnumerable {
+contract OriginationConfiguration is IOriginationConfiguration, AccessControlEnumerable {
     // ====================================== CONSTANTS ===========================================
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");

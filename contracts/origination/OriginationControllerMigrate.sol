@@ -43,10 +43,10 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
     bool public paused;
 
     constructor(
-        address _originationSharedStorage,
+        address _originationConfiguration,
         address _loanCore,
         address _feeController
-    ) OriginationController(_originationSharedStorage, _loanCore, _feeController) {}
+    ) OriginationController(_originationConfiguration, _loanCore, _feeController) {}
 
     // ======================================= V3 MIGRATION =============================================
 
@@ -160,7 +160,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
 
         // ------------- New LoanTerms Validation -------------
         // principal must be greater than or equal to the configured minimum
-        if (newLoanTerms.principal < originationSharedStorage.getMinPrincipal(newLoanTerms.payableCurrency)) revert OC_PrincipalTooLow(newLoanTerms.principal);
+        if (newLoanTerms.principal < originationConfiguration.getMinPrincipal(newLoanTerms.payableCurrency)) revert OC_PrincipalTooLow(newLoanTerms.principal);
 
         // loan duration must be greater or equal to 1 hr and less or equal to 3 years
         if (newLoanTerms.durationSecs < Constants.MIN_LOAN_DURATION || newLoanTerms.durationSecs > Constants.MAX_LOAN_DURATION) revert OC_LoanDuration(newLoanTerms.durationSecs);
@@ -260,7 +260,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         );
 
        return(
-            OriginationLibrary.rolloverAmounts(
+            rolloverAmounts(
                 oldLoanData.terms.principal,
                 interest,
                 newPrincipalAmount,

@@ -6,10 +6,10 @@ import "../origination/OriginationController.sol";
 
 contract MockNoValidationOC is OriginationController {
     constructor(
-        address _originationSharedStorage,
+        address _originationConfiguration,
         address _loanCore,
         address _feeController
-    ) OriginationController(_originationSharedStorage, _loanCore, _feeController) {}
+    ) OriginationController(_originationConfiguration, _loanCore, _feeController) {}
 
     function _validateLoanTerms(LoanLibrary.LoanTerms memory terms) internal view override {
         // no-op - no validation
