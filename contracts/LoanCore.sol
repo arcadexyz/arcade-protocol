@@ -326,7 +326,6 @@ contract LoanCore is
     function claim(uint256 loanId, uint256 _amountFromLender)
         external
         override
-        whenNotPaused
         onlyRole(REPAYER_ROLE)
         nonReentrant
     {

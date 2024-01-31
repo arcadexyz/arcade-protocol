@@ -998,7 +998,7 @@ describe("LoanCore", () => {
                 .to.be.revertedWith("LC_NotExpired");
         });
 
-        it("should fail when shutdown", async () => {
+        it("should succeed when shutdown", async () => {
             const { mockERC20, loanId, loanCore, user: borrower, terms, blockchainTime } = await setupLoan();
 
             await blockchainTime.increaseTime(360001); // increase to the end of loan duration
@@ -1010,7 +1010,7 @@ describe("LoanCore", () => {
             expect(await loanCore.paused()).to.be.true;
 
             await expect(loanCore.connect(borrower).claim(loanId, 0))
-                .to.be.revertedWith("Pausable: paused");
+                .to.emit(loanCore, "LoanClaimed").withArgs(loanId);
         });
     });
 
