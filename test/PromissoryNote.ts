@@ -14,7 +14,8 @@ import {
     AssetVault,
     FeeController,
     RepaymentController,
-    BaseURIDescriptor
+    BaseURIDescriptor,
+    OriginationConfiguration
 } from "../typechain";
 
 import { deploy } from "./utils/contracts";
@@ -75,8 +76,9 @@ const fixture = async (): Promise<TestContext> => {
         await note.connect(signers[0]).initialize(signers[0].address);
     }
 
-    const OriginationLibraryFactory = await ethers.getContractFactory("OriginationLibrary");
-    const originationLibrary = await OriginationLibraryFactory.deploy();
+    const originationConfiguration = <OriginationConfiguration> await deploy("OriginationConfiguration", signers[0], []);
+
+    const originationLibrary = await deploy("OriginationLibrary", signers[0], []);
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationController",
         {
             signer: signers[0],
@@ -86,7 +88,7 @@ const fixture = async (): Promise<TestContext> => {
         },
     );
     const originationController = <OriginationController>(
-        await OriginationControllerFactory.deploy(loanCore.address, feeController.address)
+        await OriginationControllerFactory.deploy(originationConfiguration.address, loanCore.address, feeController.address)
     );
     await originationController.deployed();
 

@@ -13,7 +13,7 @@ import {
     VaultFactory,
     FeeController,
     BaseURIDescriptor,
-    MockNoValidationOC
+    OriginationConfiguration
 } from "../typechain";
 import { BlockchainTime } from "./utils/time";
 import { BigNumber, BigNumberish } from "ethers";
@@ -95,8 +95,9 @@ const fixture = async (): Promise<TestContext> => {
 
     const mockERC20 = <MockERC20>await deploy("MockERC20", signers[0], ["Mock ERC20", "MOCK"]);
 
-    const OriginationLibraryFactory = await ethers.getContractFactory("OriginationLibrary");
-    const originationLibrary = await OriginationLibraryFactory.deploy();
+    const originationConfiguration = <OriginationConfiguration> await deploy("OriginationConfiguration", signers[0], []);
+
+    const originationLibrary = await deploy("OriginationLibrary", signers[0], []);
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationController",
         {
             signer: signers[0],
@@ -106,21 +107,22 @@ const fixture = async (): Promise<TestContext> => {
         },
     );
     const originationController = <OriginationController>(
-        await OriginationControllerFactory.deploy(loanCore.address, feeController.address)
+        await OriginationControllerFactory.deploy(originationConfiguration.address, loanCore.address, feeController.address)
     );
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController
-    await originationController.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
+    await originationConfiguration.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
     // verify the currency is whitelisted
-    const isWhitelisted = await originationController.allowedCurrencies(mockERC20.address);
-    expect(isWhitelisted.isAllowed).to.be.true;
-    expect(isWhitelisted.minPrincipal).to.eq(MIN_LOAN_PRINCIPAL);
+    const isWhitelisted = await originationConfiguration.isAllowedCurrency(mockERC20.address);
+    expect(isWhitelisted).to.be.true;
+    const minPrincipal = await originationConfiguration.getMinPrincipal(mockERC20.address);
+    expect(minPrincipal).to.eq(MIN_LOAN_PRINCIPAL);
 
     // admin whitelists MockERC721 and vaultFactory on OriginationController
-    await originationController.setAllowedCollateralAddresses([vaultFactory.address], [true]);
+    await originationConfiguration.setAllowedCollateralAddresses([vaultFactory.address], [true]);
     // verify the collateral is whitelisted
-    const isVaultFactoryWhitelisted = await originationController.allowedCollateral(vaultFactory.address);
+    const isVaultFactoryWhitelisted = await originationConfiguration.isAllowedCollateral(vaultFactory.address);
     expect(isVaultFactoryWhitelisted).to.be.true;
 
     const repaymentController = <RepaymentController>await deploy("RepaymentController", admin, [loanCore.address, feeController.address]);
@@ -369,9 +371,11 @@ describe("RepaymentController", () => {
             const { repaymentController, feeController, vaultFactory, mockERC20, loanCore, borrower, lender, admin, blockchainTime } = ctx;
 
             // Set up a new origination controller, that does not validate loan terms
-            const OriginationLibraryFactory = await ethers.getContractFactory("OriginationLibrary");
-            const originationLibrary = await OriginationLibraryFactory.deploy();
-            const mockOCFactory = await ethers.getContractFactory("MockNoValidationOC",
+            const OriginationConfigurationFactory = await ethers.getContractFactory("OriginationConfiguration");
+            const originationConfiguration = <OriginationConfiguration> await OriginationConfigurationFactory.deploy();
+
+            const originationLibrary = await deploy("OriginationLibrary", admin, []);
+            const mockOCFactory = await ethers.getContractFactory("OriginationController",
                 {
                     signer: admin,
                     libraries: {
@@ -379,13 +383,13 @@ describe("RepaymentController", () => {
                     },
                 },
             );
-            const mockOC = <MockNoValidationOC>(
-                await mockOCFactory.deploy(loanCore.address, feeController.address)
+            const mockOC = <OriginationController>(
+                await mockOCFactory.deploy(originationConfiguration.address, loanCore.address, feeController.address)
             );
             await mockOC.deployed();
 
-            await mockOC.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
-            await mockOC.setAllowedCollateralAddresses([vaultFactory.address], [true]);
+            await originationConfiguration.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: 0 }]);
+            await originationConfiguration.setAllowedCollateralAddresses([vaultFactory.address], [true]);
 
             await loanCore.grantRole(
                 ORIGINATOR_ROLE,
@@ -660,7 +664,7 @@ describe("RepaymentController", () => {
                     250, // interest
                     1754884800, // deadline
                 ),
-            ).to.be.revertedWith("OC_PrincipalTooLow");
+            ).to.be.revertedWith("OCC_PrincipalTooLow");
         });
 
         it("Repay interest and principal. 1000000 Wei principal, 2.5% interest rate.", async () => {

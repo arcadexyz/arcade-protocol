@@ -8,6 +8,7 @@ export const ADMIN_ROLE = ethers.utils.id("ADMIN");
 export const FEE_CLAIMER_ROLE = ethers.utils.id("FEE_CLAIMER");
 export const AFFILIATE_MANAGER_ROLE = ethers.utils.id("AFFILIATE_MANAGER");
 export const WHITELIST_MANAGER_ROLE = ethers.utils.id("WHITELIST_MANAGER");
+export const MIGRATION_MANAGER_ROLE = ethers.utils.id("MIGRATION_MANAGER");
 export const RESOURCE_MANAGER_ROLE = ethers.utils.id("RESOURCE_MANAGER");
 export const MINT_BURN_ROLE = ethers.utils.id("MINT/BURN");
 export const SHUTDOWN_ROLE = ethers.utils.id("SHUTDOWN");

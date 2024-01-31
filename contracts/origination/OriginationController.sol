@@ -8,51 +8,41 @@ import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import "./interfaces/IOriginationController.sol";
-import "./interfaces/ILoanCore.sol";
-import "./interfaces/ISignatureVerifier.sol";
-import "./interfaces/IFeeController.sol";
-import "./interfaces/IExpressBorrow.sol";
+import "./OriginationCalculator.sol";
 
-import "./libraries/OriginationLibrary.sol";
-import "./libraries/InterestCalculator.sol";
-import "./libraries/FeeLookups.sol";
-import "./libraries/Constants.sol";
+import "../interfaces/IOriginationController.sol";
+import "../interfaces/IOriginationConfiguration.sol";
+import "../interfaces/ILoanCore.sol";
+import "../interfaces/ISignatureVerifier.sol";
+import "../interfaces/IFeeController.sol";
+import "../interfaces/IExpressBorrow.sol";
 
-import "./verifiers/ArcadeItemsVerifier.sol";
+import "../libraries/OriginationLibrary.sol";
+import "../libraries/FeeLookups.sol";
+import "../libraries/Constants.sol";
+
+import "../verifiers/ArcadeItemsVerifier.sol";
 
 import {
     OC_ZeroAddress,
     OC_InvalidState,
     OC_InvalidVerifier,
-    OC_BatchLengthMismatch,
     OC_PredicateFailed,
     OC_SelfApprove,
     OC_ApprovedOwnLoan,
     OC_InvalidSignature,
     OC_CallerNotParticipant,
     OC_SideMismatch,
-    OC_PrincipalTooLow,
-    OC_LoanDuration,
-    OC_InterestRate,
-    OC_SignatureIsExpired,
     OC_RolloverCurrencyMismatch,
-    OC_RolloverCollateralMismatch,
-    OC_InvalidCurrency,
-    OC_InvalidCollateral,
-    OC_ZeroArrayElements,
-    OC_ArrayTooManyElements
-} from "./errors/Lending.sol";
+    OC_RolloverCollateralMismatch
+} from "../errors/Lending.sol";
 
 /**
  * @title OriginationController
  * @author Non-Fungible Technologies, Inc.
  *
- * The Origination Controller is the entry point for all new loans
- * in the Arcade.xyz lending protocol. This contract has the exclusive
- * responsibility of creating new loans in LoanCore. All permissioning,
- * signature verification, and collateral verification takes place in
- * this contract.
+ * The Origination Controller is responsible for initiating new loans
+ * and rollovers in the Arcade.xyz lending protocol.
  *
  * When a loan is originated, the borrower receives the principal minus
  * fees if any. Before the collateral is escrowed, the borrower can
@@ -68,9 +58,9 @@ import {
  */
 contract OriginationController is
     IOriginationController,
-    InterestCalculator,
     FeeLookups,
     EIP712,
+    OriginationCalculator,
     ReentrancyGuard,
     AccessControlEnumerable
 {
@@ -81,11 +71,11 @@ contract OriginationController is
     // =================== Constants =====================
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
-    bytes32 public constant WHITELIST_MANAGER_ROLE = keccak256("WHITELIST_MANAGER");
     bytes32 public constant MIGRATION_MANAGER_ROLE = keccak256("MIGRATION_MANAGER");
 
     // =============== Contract References ===============
 
+    IOriginationConfiguration public immutable originationConfiguration;
     ILoanCore public immutable loanCore;
     IFeeController public immutable feeController;
 
@@ -93,12 +83,6 @@ contract OriginationController is
 
     /// @notice Mapping from owner to operator approvals
     mapping(address => mapping(address => bool)) private _signerApprovals;
-    /// @notice Mapping from address to whether that verifier contract has been whitelisted
-    mapping(address => bool) private allowedVerifiers;
-    /// @notice Mapping from ERC20 token address to boolean indicating allowed payable currencies and set minimums
-    mapping(address => Currency) public allowedCurrencies;
-    /// @notice Mapping from ERC721 or ERC1155 token address to boolean indicating allowed collateral types
-    mapping(address => bool) public allowedCollateral;
 
     // ========================================== CONSTRUCTOR ===========================================
 
@@ -109,22 +93,26 @@ contract OriginationController is
      * @dev For this controller to work, it needs to be granted the ORIGINATOR_ROLE
      *      in loan core after deployment.
      *
+     * @param _originationConfiguration     The address of the origination shared storage contract.
      * @param _loanCore                     The address of the loan core logic of the protocol.
      * @param _feeController                The address of the fee logic of the protocol.
      */
-    constructor(address _loanCore, address _feeController) EIP712("OriginationController", "4") {
+    constructor(
+        address _originationConfiguration,
+        address _loanCore,
+        address _feeController
+    ) EIP712("OriginationController", "4") {
+        if (_originationConfiguration == address(0)) revert OC_ZeroAddress("originationConfiguration");
         if (_loanCore == address(0)) revert OC_ZeroAddress("loanCore");
         if (_feeController == address(0)) revert OC_ZeroAddress("feeController");
 
         _setupRole(ADMIN_ROLE, msg.sender);
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
 
-        _setupRole(WHITELIST_MANAGER_ROLE, msg.sender);
-        _setRoleAdmin(WHITELIST_MANAGER_ROLE, ADMIN_ROLE);
-
         _setupRole(MIGRATION_MANAGER_ROLE, msg.sender);
         _setRoleAdmin(MIGRATION_MANAGER_ROLE, ADMIN_ROLE);
 
+        originationConfiguration = IOriginationConfiguration(_originationConfiguration);
         loanCore = ILoanCore(_loanCore);
         feeController = IFeeController(_feeController);
     }
@@ -157,7 +145,7 @@ contract OriginationController is
         SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates
     ) public override returns (uint256 loanId) {
-        _validateLoanTerms(loanTerms);
+        originationConfiguration.validateLoanTerms(loanTerms);
 
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrowerData.borrower, msg.sender) ? Side.LEND : Side.BORROW;
@@ -199,10 +187,10 @@ contract OriginationController is
         SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates
     ) public override returns (uint256 newLoanId) {
-        _validateLoanTerms(loanTerms);
+        originationConfiguration.validateLoanTerms(loanTerms);
 
         LoanLibrary.LoanData memory data = loanCore.getLoan(oldLoanId);
-        if (data.state != LoanLibrary.LoanState.Active) revert OC_InvalidState(uint8(data.state));
+        if (data.state != LoanLibrary.LoanState.Active) revert OC_InvalidState(data.state);
         _validateRollover(data.terms, loanTerms);
 
         address borrower = IERC721(loanCore.borrowerNote()).ownerOf(oldLoanId);
@@ -388,136 +376,7 @@ contract OriginationController is
         }
     }
 
-    // ===================================== WHITELIST MANAGER UTILS =====================================
-
-    /**
-     * @notice Adds an array of payable currencies to the allowed currencies mapping.
-     *
-     * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
-     *      addresses is the zero address. The array of addresses passed to this
-     *      function is limited to 50 elements.
-     *
-     * @param tokens                     Array of token addresses to add.
-     * @param currencyData               Whether the token is allowed or not, and the minimum loan size.
-     */
-    function setAllowedPayableCurrencies(
-        address[] calldata tokens,
-        Currency[] calldata currencyData
-    ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
-        if (tokens.length == 0) revert OC_ZeroArrayElements();
-        if (tokens.length > 50) revert OC_ArrayTooManyElements();
-        if (tokens.length != currencyData.length) revert OC_BatchLengthMismatch();
-
-        for (uint256 i = 0; i < tokens.length;) {
-            if (tokens[i] == address(0)) revert OC_ZeroAddress("token");
-
-            allowedCurrencies[tokens[i]] = currencyData[i];
-            emit SetAllowedCurrency(tokens[i], currencyData[i].isAllowed, currencyData[i].minPrincipal);
-
-            // Can never overflow because length is bounded by 50
-            unchecked {
-                i++;
-            }
-        }
-    }
-
-    /**
-     * @notice Adds an array collateral tokens to the allowed collateral mapping.
-     *
-     * @dev Only callable by the whitelist manager role. Entire transaction reverts if one of the
-     *      addresses is the zero address. The array of addresses passed to this
-     *      function is limited to 50 elements.
-     *
-     * @param tokens                     Array of token addresses to add.
-     * @param isAllowed                  Whether the token is allowed or not.
-     */
-    function setAllowedCollateralAddresses(
-        address[] calldata tokens,
-        bool[] calldata isAllowed
-    ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
-        if (tokens.length == 0) revert OC_ZeroArrayElements();
-        if (tokens.length > 50) revert OC_ArrayTooManyElements();
-        if (tokens.length != isAllowed.length) revert OC_BatchLengthMismatch();
-
-        for (uint256 i = 0; i < tokens.length;) {
-            if (tokens[i] == address(0)) revert OC_ZeroAddress("token");
-
-            allowedCollateral[tokens[i]] = isAllowed[i];
-            emit SetAllowedCollateral(tokens[i], isAllowed[i]);
-
-            // Can never overflow because length is bounded by 50
-            unchecked {
-                i++;
-            }
-        }
-    }
-
-    /**
-     * @notice Batch update for verification whitelist, in case of multiple verifiers
-     *         active in production.
-     *
-     * @param verifiers             The list of specified verifier contracts, should implement ISignatureVerifier.
-     * @param isAllowed             Whether the specified contracts should be allowed, respectively.
-     */
-    function setAllowedVerifiers(
-        address[] calldata verifiers,
-        bool[] calldata isAllowed
-    ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
-        if (verifiers.length == 0) revert OC_ZeroArrayElements();
-        if (verifiers.length > 50) revert OC_ArrayTooManyElements();
-        if (verifiers.length != isAllowed.length) revert OC_BatchLengthMismatch();
-
-        for (uint256 i = 0; i < verifiers.length;) {
-            if (verifiers[i] == address(0)) revert OC_ZeroAddress("verifier");
-
-            allowedVerifiers[verifiers[i]] = isAllowed[i];
-            emit SetAllowedVerifier(verifiers[i], isAllowed[i]);
-
-            // Can never overflow because length is bounded by 50
-            unchecked {
-                i++;
-            }
-        }
-    }
-
-    /**
-     * @notice Return whether the address can be used as a verifier.
-     *
-     * @param verifier             The verifier contract to query.
-     *
-     * @return isVerified          Whether the contract is verified.
-     */
-    function isAllowedVerifier(address verifier) public view override returns (bool) {
-        return allowedVerifiers[verifier];
-    }
-
     // =========================================== HELPERS ==============================================
-
-    /**
-     * @dev Validates argument bounds for the loan terms.
-     *
-     * @param terms                  The terms of the loan.
-     */
-    // solhint-disable-next-line code-complexity
-    function _validateLoanTerms(LoanLibrary.LoanTerms memory terms) internal virtual view {
-        // validate payable currency
-        if (!allowedCurrencies[terms.payableCurrency].isAllowed) revert OC_InvalidCurrency(terms.payableCurrency);
-
-        // principal must be greater than or equal to the configured minimum
-        if (terms.principal < allowedCurrencies[terms.payableCurrency].minPrincipal) revert OC_PrincipalTooLow(terms.principal);
-
-        // loan duration must be greater or equal to 1 hr and less or equal to 3 years
-        if (terms.durationSecs < 3600 || terms.durationSecs > 94_608_000) revert OC_LoanDuration(terms.durationSecs);
-
-        // interest rate must be greater than or equal to 0.01% and less or equal to 1,000,000%
-        if (terms.interestRate < 1 || terms.interestRate > 1e8) revert OC_InterestRate(terms.interestRate);
-
-        // signature must not have already expired
-        if (terms.deadline < block.timestamp) revert OC_SignatureIsExpired(terms.deadline);
-
-        // validate collateral
-        if (!allowedCollateral[terms.collateralAddress]) revert OC_InvalidCollateral(terms.collateralAddress);
-    }
 
     /**
      * @dev Validate the rules for rolling over a loan - must be using the same
@@ -606,7 +465,7 @@ contract OriginationController is
         for (uint256 i = 0; i < itemPredicates.length;) {
             // Verify items are held in the wrapper
             address verifier = itemPredicates[i].verifier;
-            if (!allowedVerifiers[verifier]) revert OC_InvalidVerifier(verifier);
+            if (!originationConfiguration.isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
 
             if (!ISignatureVerifier(verifier).verifyPredicates(
                 borrower,
@@ -684,8 +543,8 @@ contract OriginationController is
     }
 
     /**
-     * @dev Perform loan rollover. Take custody of both principal and
-     *      collateral, and tell LoanCore to roll over the existing loan.
+     * @notice Perform loan rollover. Take custody of principal, and tell LoanCore to
+     *         roll over the existing loan.
      *
      * @param oldLoanId                     The ID of the loan to be rolled over.
      * @param newTerms                      The terms agreed by the lender and borrower.
@@ -710,7 +569,8 @@ contract OriginationController is
             oldLoanData,
             newTerms.principal,
             lender,
-            oldLender
+            oldLender,
+            feeController
         );
 
         // Collect funds based on settle amounts and total them
@@ -746,58 +606,6 @@ contract OriginationController is
             amounts.amountToLender,
             amounts.amountToBorrower,
             amounts.interestAmount
-        );
-    }
-
-    /**
-     * @dev Calculate the net amounts needed for the rollover from each party - the
-     *      borrower, the new lender, and the old lender (can be same as new lender).
-     *      Determine the amount to either pay or withdraw from the borrower, and
-     *      any payments to be sent to the old lender.
-     *
-     * @param oldLoanData           The loan data struct for the old loan.
-     * @param newPrincipalAmount    The principal amount for the new loan.
-     * @param lender                The lender for the new loan.
-     * @param oldLender             The lender for the existing loan.
-     *
-     * @return amounts              The net amounts owed to each party.
-     */
-    function _calculateRolloverAmounts(
-        LoanLibrary.LoanData memory oldLoanData,
-        uint256 newPrincipalAmount,
-        address lender,
-        address oldLender
-    ) internal view returns (OriginationLibrary.RolloverAmounts memory) {
-        // get rollover fees
-        IFeeController.FeesRollover memory feeData = feeController.getFeesRollover();
-
-        // Calculate prorated interest amount for old loan
-        uint256 interest = getProratedInterestAmount(
-            oldLoanData.balance,
-            oldLoanData.terms.interestRate,
-            oldLoanData.terms.durationSecs,
-            uint64(oldLoanData.startDate),
-            uint64(oldLoanData.lastAccrualTimestamp),
-            block.timestamp
-        );
-
-        // Calculate amount to be sent to borrower for new loan minus rollover fees
-        uint256 borrowerFee = (newPrincipalAmount * feeData.borrowerRolloverFee) / Constants.BASIS_POINTS_DENOMINATOR;
-
-        // Calculate amount to be collected from the lender for new loan plus rollover fees
-        uint256 interestFee = (interest * oldLoanData.feeSnapshot.lenderInterestFee) / Constants.BASIS_POINTS_DENOMINATOR;
-        uint256 lenderFee = (newPrincipalAmount * feeData.lenderRolloverFee) / Constants.BASIS_POINTS_DENOMINATOR;
-
-
-        return OriginationLibrary.rolloverAmounts(
-            oldLoanData.terms.principal,
-            interest,
-            newPrincipalAmount,
-            lender,
-            oldLender,
-            borrowerFee,
-            lenderFee,
-            interestFee
         );
     }
 }
