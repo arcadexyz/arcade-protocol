@@ -4,7 +4,7 @@ pragma solidity 0.8.18;
 
 import "../libraries/OriginationLibrary.sol";
 
-interface IOriginationControllerRefinance {
+interface IRefinanceController {
     // ============= Loan Refinancing ============
 
     function refinanceLoan(

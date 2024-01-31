@@ -192,84 +192,6 @@ error OC_RolloverCollateralMismatch(
     uint256 newCollateralId
 );
 
-// ============================== ORIGINATION CONTROLLER REFINANCE ==================================
-/// @notice All errors prefixed with OCR_, to separate from other contracts in the protocol.
-
-/**
- * @notice Zero address passed in where not allowed.
- *
- * @param addressType                  The name of the parameter for which a zero address was provided.
- */
-error OCR_ZeroAddress(string addressType);
-
-/**
- * @notice Ensure valid loan state for loan lifecycle operations.
- *
- * @param state                         Current state of a loan according to LoanState enum.
- */
-error OCR_InvalidState(LoanLibrary.LoanState state);
-
-/**
- * @notice New collateral does not match for a loan refinance request.
- *
- * @param oldCollateralAddress          The address of the active loan's collateral.
- * @param newCollateralAddress          The token ID of the active loan's collateral.
- * @param oldCollateralId               The address of the new loan's collateral.
- * @param newCollateralId               The token ID of the new loan's collateral.
- */
-error OCR_CollateralMismatch(
-    address oldCollateralAddress,
-    uint256 oldCollateralId,
-    address newCollateralAddress,
-    uint256 newCollateralId
-);
-
-/**
- * @notice New currency does not match for a loan refinance request.
- *
- * @param oldCurrency                   The currency of the active loan.
- * @param newCurrency                   The currency of the new loan.
- */
-error OCR_CurrencyMismatch(address oldCurrency, address newCurrency);
-
-/**
- * @notice A minimum of 2 days must have passed since the loan was last originated.
- *
- * @param earliestRefinanceTime         The earliest time at which the loan can be refinanced.
- */
-error OCR_TooEarly(uint256 earliestRefinanceTime);
-
-/**
- * @notice Interest rate must be greater than or equal to 1 (0.01%) and have a minimum
- *         of 10% lower APR than the active loan
- *
- * @param interestRate                  Interest rate in bps.
- */
-error OCR_InterestRate(uint256 interestRate);
-
-/**
- * @notice For refinancing, the new due date cannot be shorter than old due date
- *
- * @param oldDueDate                  The due date of the active loan.
- * @param newDueDate                  The due date of the refinance terms.
- */
-error OCR_LoanDuration(uint256 oldDueDate, uint256 newDueDate);
-
-/**
- * @notice For refinancing, the caller cannot be the existing lender.
- *
- * @param lender                     The address of the existing lender and caller.
- */
-error OCR_SameLender(address lender);
-
-/**
- * @notice For refinancing, the principal cannot increase.
- *
- * @param oldPrincipal                  The principal of the active loan.
- * @param newPrincipal                  The principal of the refinance terms.
- */
-error OCR_PrincipalIncrease(uint256 oldPrincipal, uint256 newPrincipal);
-
 // ================================== ORIGINATION CONTROLLER MIGRATE ====================================
 /// @notice All errors prefixed with OCM_, to separate from other contracts in the protocol.
 
@@ -384,6 +306,84 @@ error OCM_LoanDuration(uint256 durationSecs);
  * @param interestRate                  Interest rate in bps.
  */
 error OCM_InterestRate(uint256 interestRate);
+
+// ================================= REFINANCE CONTROLLER =====================================
+/// @notice All errors prefixed with REFI_, to separate from other contracts in the protocol.
+
+/**
+ * @notice Zero address passed in where not allowed.
+ *
+ * @param addressType                  The name of the parameter for which a zero address was provided.
+ */
+error REFI_ZeroAddress(string addressType);
+
+/**
+ * @notice Ensure valid loan state for loan lifecycle operations.
+ *
+ * @param state                         Current state of a loan according to LoanState enum.
+ */
+error REFI_InvalidState(LoanLibrary.LoanState state);
+
+/**
+ * @notice New collateral does not match for a loan refinance request.
+ *
+ * @param oldCollateralAddress          The address of the active loan's collateral.
+ * @param newCollateralAddress          The token ID of the active loan's collateral.
+ * @param oldCollateralId               The address of the new loan's collateral.
+ * @param newCollateralId               The token ID of the new loan's collateral.
+ */
+error REFI_CollateralMismatch(
+    address oldCollateralAddress,
+    uint256 oldCollateralId,
+    address newCollateralAddress,
+    uint256 newCollateralId
+);
+
+/**
+ * @notice New currency does not match for a loan refinance request.
+ *
+ * @param oldCurrency                   The currency of the active loan.
+ * @param newCurrency                   The currency of the new loan.
+ */
+error REFI_CurrencyMismatch(address oldCurrency, address newCurrency);
+
+/**
+ * @notice A minimum of 2 days must have passed since the loan was last originated.
+ *
+ * @param earliestRefinanceTime         The earliest time at which the loan can be refinanced.
+ */
+error REFI_TooEarly(uint256 earliestRefinanceTime);
+
+/**
+ * @notice Interest rate must be greater than or equal to 1 (0.01%) and have a minimum
+ *         of 10% lower APR than the active loan
+ *
+ * @param interestRate                  Interest rate in bps.
+ */
+error REFI_InterestRate(uint256 interestRate);
+
+/**
+ * @notice For refinancing, the new due date cannot be shorter than old due date
+ *
+ * @param oldDueDate                  The due date of the active loan.
+ * @param newDueDate                  The due date of the refinance terms.
+ */
+error REFI_LoanDuration(uint256 oldDueDate, uint256 newDueDate);
+
+/**
+ * @notice For refinancing, the caller cannot be the existing lender.
+ *
+ * @param lender                     The address of the existing lender and caller.
+ */
+error REFI_SameLender(address lender);
+
+/**
+ * @notice For refinancing, the principal cannot increase.
+ *
+ * @param oldPrincipal                  The principal of the active loan.
+ * @param newPrincipal                  The principal of the refinance terms.
+ */
+error REFI_PrincipalIncrease(uint256 oldPrincipal, uint256 newPrincipal);
 
 // ==================================== ITEMS VERIFIER ======================================
 /// @notice All errors prefixed with IV_, to separate from other contracts in the protocol.

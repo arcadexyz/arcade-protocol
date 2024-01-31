@@ -11,32 +11,32 @@ import "../libraries/OriginationLibrary.sol";
 import "../libraries/LoanLibrary.sol";
 import "../libraries/Constants.sol";
 
-import "../interfaces/IOriginationControllerRefinance.sol";
+import "../interfaces/IRefinanceController.sol";
 import "../interfaces/IOriginationConfiguration.sol";
 import "../interfaces/ILoanCore.sol";
 import "../interfaces/IFeeController.sol";
 
 import {
-    OCR_ZeroAddress,
-    OCR_InvalidState,
-    OCR_TooEarly,
-    OCR_InterestRate,
-    OCR_LoanDuration,
-    OCR_CollateralMismatch,
-    OCR_CurrencyMismatch,
-    OCR_SameLender,
-    OCR_PrincipalIncrease
+    REFI_ZeroAddress,
+    REFI_InvalidState,
+    REFI_TooEarly,
+    REFI_InterestRate,
+    REFI_LoanDuration,
+    REFI_CollateralMismatch,
+    REFI_CurrencyMismatch,
+    REFI_SameLender,
+    REFI_PrincipalIncrease
 } from "../errors/Lending.sol";
 
 
 /**
- * @title OriginationControllerRefinance
+ * @title RefinanceController
  * @author Non-Fungible Technologies, Inc.
  *
- * This Origination Controller contract is responsible for the refinancing of active loans.
+ * This loan originator contract is responsible for the refinancing of active loans.
  * Refinancing is the process of replacing an existing loan with a new loan that has a lower APR.
  */
-contract OriginationControllerRefinance is IOriginationControllerRefinance, OriginationCalculator, ReentrancyGuard {
+contract RefinanceController is IRefinanceController, OriginationCalculator, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /// @notice The minimum reduction in APR for a refinanced loan in bps
@@ -48,9 +48,9 @@ contract OriginationControllerRefinance is IOriginationControllerRefinance, Orig
     IFeeController public immutable feeController;
 
     constructor(address _originationConfig, address _loanCore, address _feeController) {
-        if (_originationConfig == address(0)) revert OCR_ZeroAddress("_originationConfig");
-        if (_loanCore == address(0)) revert OCR_ZeroAddress("_loanCore");
-        if (_feeController == address(0)) revert OCR_ZeroAddress("_feeController");
+        if (_originationConfig == address(0)) revert REFI_ZeroAddress("_originationConfig");
+        if (_loanCore == address(0)) revert REFI_ZeroAddress("_loanCore");
+        if (_feeController == address(0)) revert REFI_ZeroAddress("_feeController");
 
         originationConfig = IOriginationConfiguration(_originationConfig);
         loanCore = ILoanCore(_loanCore);
@@ -102,10 +102,10 @@ contract OriginationControllerRefinance is IOriginationControllerRefinance, Orig
         LoanLibrary.LoanTerms calldata newTerms
     ) internal view {
         // cannot refinance a loan that has already been repaid
-        if (oldLoanData.state != LoanLibrary.LoanState.Active) revert OCR_InvalidState(oldLoanData.state);
+        if (oldLoanData.state != LoanLibrary.LoanState.Active) revert REFI_InvalidState(oldLoanData.state);
 
         // cannot refinance a loan before it has been active for 2 days
-        if (block.timestamp < oldLoanData.startDate + 2 days) revert OCR_TooEarly(oldLoanData.startDate + 2 days);
+        if (block.timestamp < oldLoanData.startDate + 2 days) revert REFI_TooEarly(oldLoanData.startDate + 2 days);
 
         // new interest rate APR must be lower than old interest rate by minimum
         uint256 aprMinimumScaled = oldLoanData.terms.interestRate * Constants.BASIS_POINTS_DENOMINATOR -
@@ -113,7 +113,7 @@ contract OriginationControllerRefinance is IOriginationControllerRefinance, Orig
         if (
             newTerms.interestRate < 1 ||
             newTerms.interestRate * Constants.BASIS_POINTS_DENOMINATOR > aprMinimumScaled
-        ) revert OCR_InterestRate(aprMinimumScaled);
+        ) revert REFI_InterestRate(aprMinimumScaled);
 
         // new due date cannot be shorter than old due date and must be shorter than 3 years
         uint256 oldDueDate = oldLoanData.startDate + oldLoanData.terms.durationSecs;
@@ -121,13 +121,13 @@ contract OriginationControllerRefinance is IOriginationControllerRefinance, Orig
         if (
             newDueDate < oldDueDate ||
             newTerms.durationSecs > Constants.MAX_LOAN_DURATION
-        ) revert OCR_LoanDuration(oldDueDate, newDueDate);
+        ) revert REFI_LoanDuration(oldDueDate, newDueDate);
 
         // collateral must be the same
         if (
             newTerms.collateralAddress != oldLoanData.terms.collateralAddress ||
             newTerms.collateralId != oldLoanData.terms.collateralId
-        ) revert OCR_CollateralMismatch(
+        ) revert REFI_CollateralMismatch(
             oldLoanData.terms.collateralAddress,
             oldLoanData.terms.collateralId,
             newTerms.collateralAddress,
@@ -135,13 +135,13 @@ contract OriginationControllerRefinance is IOriginationControllerRefinance, Orig
         );
 
         // payable currency must be the same
-        if (newTerms.payableCurrency != oldLoanData.terms.payableCurrency) revert OCR_CurrencyMismatch(
+        if (newTerms.payableCurrency != oldLoanData.terms.payableCurrency) revert REFI_CurrencyMismatch(
             oldLoanData.terms.payableCurrency,
             newTerms.payableCurrency
         );
 
         // principal cannot increase
-        if (newTerms.principal > oldLoanData.terms.principal) revert OCR_PrincipalIncrease(
+        if (newTerms.principal > oldLoanData.terms.principal) revert REFI_PrincipalIncrease(
             oldLoanData.terms.principal,
             newTerms.principal
         );
@@ -167,7 +167,7 @@ contract OriginationControllerRefinance is IOriginationControllerRefinance, Orig
         LoanLibrary.LoanData memory oldLoanData = loanCore.getLoan(oldLoanId);
 
         address oldLender = ILoanCore(loanCore).lenderNote().ownerOf(oldLoanId);
-        if (lender == oldLender) revert OCR_SameLender(lender);
+        if (lender == oldLender) revert REFI_SameLender(lender);
 
         IERC20 payableCurrency = IERC20(newTerms.payableCurrency);
 
