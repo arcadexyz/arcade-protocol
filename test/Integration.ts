@@ -527,7 +527,7 @@ describe("Integration", () => {
                         defaultSigProperties,
                         []
                     ),
-            ).to.be.revertedWith("OC_LoanDuration");
+            ).to.be.revertedWith("OCC_LoanDuration");
         });
     });
 

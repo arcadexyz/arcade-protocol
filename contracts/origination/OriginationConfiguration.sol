@@ -5,15 +5,22 @@ pragma solidity 0.8.18;
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 
 import "../libraries/OriginationLibrary.sol";
+import "../libraries/Constants.sol";
 
 import "../interfaces/IOriginationConfiguration.sol";
 
 import {
-    OSS_ZeroAddress,
-    OSS_NotWhitelisted,
-    OSS_BatchLengthMismatch,
-    OSS_ZeroArrayElements,
-    OSS_ArrayTooManyElements
+    OCC_ZeroAddress,
+    OCC_NotWhitelisted,
+    OCC_BatchLengthMismatch,
+    OCC_ZeroArrayElements,
+    OCC_ArrayTooManyElements,
+    OCC_InvalidCurrency,
+    OCC_PrincipalTooLow,
+    OCC_LoanDuration,
+    OCC_InterestRate,
+    OCC_SignatureIsExpired,
+    OCC_InvalidCollateral
 } from "../errors/Lending.sol";
 
 contract OriginationConfiguration is IOriginationConfiguration, AccessControlEnumerable {
@@ -39,6 +46,34 @@ contract OriginationConfiguration is IOriginationConfiguration, AccessControlEnu
 
         _setupRole(WHITELIST_MANAGER_ROLE, msg.sender);
         _setRoleAdmin(WHITELIST_MANAGER_ROLE, ADMIN_ROLE);
+    }
+
+    // ================================ LOAN TERMS VALIDATION ===================================
+
+    /**
+     * @dev Validates argument bounds for the loan terms.
+     *
+     * @param terms                  The terms of the loan.
+     */
+    // solhint-disable-next-line code-complexity
+    function validateLoanTerms(LoanLibrary.LoanTerms memory terms) public view {
+        // validate payable currency
+        if (!isAllowedCurrency(terms.payableCurrency)) revert OCC_InvalidCurrency(terms.payableCurrency);
+
+        // principal must be greater than or equal to the configured minimum
+        if (terms.principal < getMinPrincipal(terms.payableCurrency)) revert OCC_PrincipalTooLow(terms.principal);
+
+        // loan duration must be greater or equal to 1 hr and less or equal to 3 years
+        if (terms.durationSecs < Constants.MIN_LOAN_DURATION || terms.durationSecs > Constants.MAX_LOAN_DURATION) revert OCC_LoanDuration(terms.durationSecs);
+
+        // interest rate must be greater than or equal to 0.01% and less or equal to 1,000,000%
+        if (terms.interestRate < 1 || terms.interestRate > 1e8) revert OCC_InterestRate(terms.interestRate);
+
+        // signature must not have already expired
+        if (terms.deadline < block.timestamp) revert OCC_SignatureIsExpired(terms.deadline);
+
+        // validate collateral
+        if (!isAllowedCollateral(terms.collateralAddress)) revert OCC_InvalidCollateral(terms.collateralAddress);
     }
 
     // ========================================= VIEW ===========================================
@@ -73,7 +108,7 @@ contract OriginationConfiguration is IOriginationConfiguration, AccessControlEnu
      * @return minPrincipal         The minimum principal amount for the specified currency.
      */
     function getMinPrincipal(address currency) public view returns (uint256) {
-        if (!_allowedCurrencies[currency].isAllowed) revert OSS_NotWhitelisted(currency);
+        if (!_allowedCurrencies[currency].isAllowed) revert OCC_NotWhitelisted(currency);
 
         return _allowedCurrencies[currency].minPrincipal;
     }
@@ -101,12 +136,12 @@ contract OriginationConfiguration is IOriginationConfiguration, AccessControlEnu
         address[] calldata verifiers,
         bool[] calldata isAllowed
     ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
-        if (verifiers.length == 0) revert OSS_ZeroArrayElements();
-        if (verifiers.length > 50) revert OSS_ArrayTooManyElements();
-        if (verifiers.length != isAllowed.length) revert OSS_BatchLengthMismatch();
+        if (verifiers.length == 0) revert OCC_ZeroArrayElements();
+        if (verifiers.length > 50) revert OCC_ArrayTooManyElements();
+        if (verifiers.length != isAllowed.length) revert OCC_BatchLengthMismatch();
 
         for (uint256 i = 0; i < verifiers.length;) {
-            if (verifiers[i] == address(0)) revert OSS_ZeroAddress("verifier");
+            if (verifiers[i] == address(0)) revert OCC_ZeroAddress("verifier");
 
             _allowedVerifiers[verifiers[i]] = isAllowed[i];
             emit SetAllowedVerifier(verifiers[i], isAllowed[i]);
@@ -131,12 +166,12 @@ contract OriginationConfiguration is IOriginationConfiguration, AccessControlEnu
         address[] calldata tokens,
         OriginationLibrary.Currency[] calldata currencyData
     ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
-        if (tokens.length == 0) revert OSS_ZeroArrayElements();
-        if (tokens.length > 50) revert OSS_ArrayTooManyElements();
-        if (tokens.length != currencyData.length) revert OSS_BatchLengthMismatch();
+        if (tokens.length == 0) revert OCC_ZeroArrayElements();
+        if (tokens.length > 50) revert OCC_ArrayTooManyElements();
+        if (tokens.length != currencyData.length) revert OCC_BatchLengthMismatch();
 
         for (uint256 i = 0; i < tokens.length;) {
-            if (tokens[i] == address(0)) revert OSS_ZeroAddress("token");
+            if (tokens[i] == address(0)) revert OCC_ZeroAddress("token");
 
             _allowedCurrencies[tokens[i]] = currencyData[i];
             emit SetAllowedCurrency(tokens[i], currencyData[i].isAllowed, currencyData[i].minPrincipal);
@@ -161,12 +196,12 @@ contract OriginationConfiguration is IOriginationConfiguration, AccessControlEnu
         address[] calldata tokens,
         bool[] calldata isAllowed
     ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
-        if (tokens.length == 0) revert OSS_ZeroArrayElements();
-        if (tokens.length > 50) revert OSS_ArrayTooManyElements();
-        if (tokens.length != isAllowed.length) revert OSS_BatchLengthMismatch();
+        if (tokens.length == 0) revert OCC_ZeroArrayElements();
+        if (tokens.length > 50) revert OCC_ArrayTooManyElements();
+        if (tokens.length != isAllowed.length) revert OCC_BatchLengthMismatch();
 
         for (uint256 i = 0; i < tokens.length;) {
-            if (tokens[i] == address(0)) revert OSS_ZeroAddress("token");
+            if (tokens[i] == address(0)) revert OCC_ZeroAddress("token");
 
             _allowedCollateral[tokens[i]] = isAllowed[i];
             emit SetAllowedCollateral(tokens[i], isAllowed[i]);

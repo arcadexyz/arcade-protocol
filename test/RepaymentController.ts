@@ -13,7 +13,6 @@ import {
     VaultFactory,
     FeeController,
     BaseURIDescriptor,
-    MockNoValidationOC,
     OriginationConfiguration
 } from "../typechain";
 import { BlockchainTime } from "./utils/time";
@@ -376,7 +375,7 @@ describe("RepaymentController", () => {
             const originationConfiguration = <OriginationConfiguration> await OriginationConfigurationFactory.deploy();
 
             const originationLibrary = await deploy("OriginationLibrary", admin, []);
-            const mockOCFactory = await ethers.getContractFactory("MockNoValidationOC",
+            const mockOCFactory = await ethers.getContractFactory("OriginationController",
                 {
                     signer: admin,
                     libraries: {
@@ -384,12 +383,12 @@ describe("RepaymentController", () => {
                     },
                 },
             );
-            const mockOC = <MockNoValidationOC>(
+            const mockOC = <OriginationController>(
                 await mockOCFactory.deploy(originationConfiguration.address, loanCore.address, feeController.address)
             );
             await mockOC.deployed();
 
-            await originationConfiguration.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
+            await originationConfiguration.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: 0 }]);
             await originationConfiguration.setAllowedCollateralAddresses([vaultFactory.address], [true]);
 
             await loanCore.grantRole(
@@ -665,7 +664,7 @@ describe("RepaymentController", () => {
                     250, // interest
                     1754884800, // deadline
                 ),
-            ).to.be.revertedWith("OC_PrincipalTooLow");
+            ).to.be.revertedWith("OCC_PrincipalTooLow");
         });
 
         it("Repay interest and principal. 1000000 Wei principal, 2.5% interest rate.", async () => {

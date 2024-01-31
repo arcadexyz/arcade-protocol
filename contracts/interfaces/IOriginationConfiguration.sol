@@ -3,6 +3,7 @@
 pragma solidity 0.8.18;
 
 import "../libraries/OriginationLibrary.sol";
+import "../libraries/LoanLibrary.sol";
 
 interface IOriginationConfiguration {
     // ================ Events ===================
@@ -12,6 +13,8 @@ interface IOriginationConfiguration {
     event SetAllowedCollateral(address indexed collateral, bool isAllowed);
 
     // ============= View Functions ==============
+
+    function validateLoanTerms(LoanLibrary.LoanTerms memory terms) external view;
 
     function isAllowedVerifier(address verifier) external view returns (bool);
 

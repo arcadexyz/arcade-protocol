@@ -415,7 +415,7 @@ describe("OriginationController", () => {
                 originationController
                     .connect(lender)
                     .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
-            ).to.be.revertedWith("OC_PrincipalTooLow");
+            ).to.be.revertedWith("OCC_PrincipalTooLow");
         });
 
         it("Reverts if interest rate too low", async () => {
@@ -445,7 +445,7 @@ describe("OriginationController", () => {
                 originationController
                     .connect(lender)
                     .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
-            ).to.be.revertedWith("OC_InterestRate");
+            ).to.be.revertedWith("OCC_InterestRate");
         });
 
         it("Reverts if interest rate too high", async () => {
@@ -475,7 +475,7 @@ describe("OriginationController", () => {
                 originationController
                     .connect(lender)
                     .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
-            ).to.be.revertedWith("OC_InterestRate");
+            ).to.be.revertedWith("OCC_InterestRate");
         });
 
         it("Reverts if approving own loan", async () => {
@@ -595,7 +595,7 @@ describe("OriginationController", () => {
                 originationController
                     .connect(lender)
                     .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
-            ).to.be.revertedWith("OC_SignatureIsExpired");
+            ).to.be.revertedWith("OCC_SignatureIsExpired");
         });
 
         it("Initializes a loan signed by the borrower", async () => {
@@ -2245,7 +2245,7 @@ describe("OriginationController", () => {
                         []
                     ),
             )
-                .to.be.revertedWith(`OC_InvalidCurrency("${unapprovedERC20.address}")`);
+                .to.be.revertedWith(`OCC_InvalidCurrency("${unapprovedERC20.address}")`);
         });
 
         it("Reverts when using unapproved ERC721 for collateral", async () => {
@@ -2282,7 +2282,7 @@ describe("OriginationController", () => {
                         []
                     ),
             )
-                .to.be.revertedWith(`OC_InvalidCollateral("${unapprovedERC721.address}")`);
+                .to.be.revertedWith(`OCC_InvalidCollateral("${unapprovedERC721.address}")`);
         });
     });
 

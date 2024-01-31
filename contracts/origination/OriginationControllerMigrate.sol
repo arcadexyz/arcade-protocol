@@ -14,14 +14,22 @@ import "../v3/interfaces/IRepaymentControllerV3.sol";
 import "../v3/libraries/LoanLibraryV3.sol";
 
 import {
-    M_CallerNotBorrower,
-    M_UnknownBorrower,
-    M_UnknownCaller,
-    M_BorrowerNotCached,
-    M_BorrowerNotReset,
-    M_StateAlreadySet,
-    M_Paused
-} from "../errors/MigrationErrors.sol";
+    OCM_CallerNotBorrower,
+    OCM_UnknownBorrower,
+    OCM_UnknownCaller,
+    OCM_BorrowerNotCached,
+    OCM_BorrowerNotReset,
+    OCM_StateAlreadySet,
+    OCM_Paused,
+    OCM_InvalidState,
+    OCM_SideMismatch,
+    OCM_CurrencyMismatch,
+    OCM_CollateralMismatch,
+    OCM_PrincipalTooLow,
+    OCM_LoanDuration,
+    OCM_InterestRate,
+    OCM_SignatureIsExpired
+} from "../errors/Lending.sol";
 
 contract OriginationControllerMigrate is IMigrationBase, OriginationController, ERC721Holder {
     using SafeERC20 for IERC20;
@@ -78,14 +86,14 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         LoanLibraryV3.LoanData memory oldLoanData = ILoanCoreV3(loanCoreV3).getLoan(oldLoanId);
 
         // ------------ Migration Validation ------------
-        if (oldLoanData.state != LoanLibraryV3.LoanState.Active) revert OC_InvalidState(uint8(oldLoanData.state));
+        if (oldLoanData.state != LoanLibraryV3.LoanState.Active) revert OCM_InvalidState(uint8(oldLoanData.state));
 
         _validateV3Migration(oldLoanData.terms, newTerms, oldLoanId);
 
         (, address externalSigner) = _recoverSignature(newTerms, sig, sigProperties, Side.LEND, itemPredicates);
 
         // revert if the signer is not the lender
-        if (externalSigner != lender) revert OC_SideMismatch(externalSigner);
+        if (externalSigner != lender) revert OCM_SideMismatch(externalSigner);
 
         // ------------ Migration Execution ------------
 
@@ -140,17 +148,17 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         // ------------- Caller Validation -------------
         address _borrower = IPromissoryNote(borrowerNoteV3).ownerOf(borrowerNoteId);
 
-        if (_borrower != msg.sender) revert M_CallerNotBorrower();
+        if (_borrower != msg.sender) revert OCM_CallerNotBorrower();
 
         // ------------- Migration Terms Validation -------------
         // currency must be the same
         if (sourceLoanTerms.payableCurrency != newLoanTerms.payableCurrency) {
-            revert OC_RolloverCurrencyMismatch(sourceLoanTerms.payableCurrency, newLoanTerms.payableCurrency);
+            revert OCM_CurrencyMismatch(sourceLoanTerms.payableCurrency, newLoanTerms.payableCurrency);
         }
 
         // collateral address and id must be the same
         if (sourceLoanTerms.collateralAddress != newLoanTerms.collateralAddress || sourceLoanTerms.collateralId != newLoanTerms.collateralId) {
-            revert OC_RolloverCollateralMismatch(
+            revert OCM_CollateralMismatch(
                 sourceLoanTerms.collateralAddress,
                 sourceLoanTerms.collateralId,
                 newLoanTerms.collateralAddress,
@@ -160,16 +168,16 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
 
         // ------------- New LoanTerms Validation -------------
         // principal must be greater than or equal to the configured minimum
-        if (newLoanTerms.principal < originationConfiguration.getMinPrincipal(newLoanTerms.payableCurrency)) revert OC_PrincipalTooLow(newLoanTerms.principal);
+        if (newLoanTerms.principal < originationConfiguration.getMinPrincipal(newLoanTerms.payableCurrency)) revert OCM_PrincipalTooLow(newLoanTerms.principal);
 
         // loan duration must be greater or equal to 1 hr and less or equal to 3 years
-        if (newLoanTerms.durationSecs < Constants.MIN_LOAN_DURATION || newLoanTerms.durationSecs > Constants.MAX_LOAN_DURATION) revert OC_LoanDuration(newLoanTerms.durationSecs);
+        if (newLoanTerms.durationSecs < Constants.MIN_LOAN_DURATION || newLoanTerms.durationSecs > Constants.MAX_LOAN_DURATION) revert OCM_LoanDuration(newLoanTerms.durationSecs);
 
         // interest rate must be greater than or equal to 0.01% and less or equal to 1,000,000%
-        if (newLoanTerms.interestRate < 1 || newLoanTerms.interestRate > 1e8) revert OC_InterestRate(newLoanTerms.interestRate);
+        if (newLoanTerms.interestRate < 1 || newLoanTerms.interestRate > 1e8) revert OCM_InterestRate(newLoanTerms.interestRate);
 
         // signature must not have already expired
-        if (newLoanTerms.deadline < block.timestamp) revert OC_SignatureIsExpired(newLoanTerms.deadline);
+        if (newLoanTerms.deadline < block.timestamp) revert OCM_SignatureIsExpired(newLoanTerms.deadline);
     }
 
     // ========================================= HELPERS ================================================
@@ -336,14 +344,14 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         uint256[] calldata feeAmounts,
         bytes calldata params
     ) external nonReentrant {
-        if (msg.sender != VAULT) revert M_UnknownCaller(msg.sender, VAULT);
+        if (msg.sender != VAULT) revert OCM_UnknownCaller(msg.sender, VAULT);
 
         OriginationLibrary.OperationData memory opData = abi.decode(params, (OriginationLibrary.OperationData));
 
         // verify this contract started the flash loan
-        if (opData.borrower != borrower) revert M_UnknownBorrower(opData.borrower, borrower);
+        if (opData.borrower != borrower) revert OCM_UnknownBorrower(opData.borrower, borrower);
         // borrower must be set
-        if (borrower == address(0)) revert M_BorrowerNotCached();
+        if (borrower == address(0)) revert OCM_BorrowerNotCached();
 
         _executeOperation(assets, amounts, feeAmounts, opData);
     }
@@ -458,7 +466,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      * @param _pause              The state to set the contract to.
      */
     function pause(bool _pause) external override onlyRole(MIGRATION_MANAGER_ROLE) {
-        if (paused == _pause) revert M_StateAlreadySet();
+        if (paused == _pause) revert OCM_StateAlreadySet();
 
         paused = _pause;
 
@@ -472,7 +480,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      *         the borrower state is always reset to address(0).
      */
     modifier whenBorrowerReset() {
-        if (borrower != address(0)) revert M_BorrowerNotReset(borrower);
+        if (borrower != address(0)) revert OCM_BorrowerNotReset(borrower);
 
         _;
 
@@ -483,7 +491,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      * @notice This modifier ensures the migration functionality is not paused.
      */
     modifier whenNotPaused() {
-        if (paused) revert M_Paused();
+        if (paused) revert OCM_Paused();
 
         _;
     }

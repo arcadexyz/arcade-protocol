@@ -33,14 +33,8 @@ import {
     OC_InvalidSignature,
     OC_CallerNotParticipant,
     OC_SideMismatch,
-    OC_PrincipalTooLow,
-    OC_LoanDuration,
-    OC_InterestRate,
-    OC_SignatureIsExpired,
     OC_RolloverCurrencyMismatch,
-    OC_RolloverCollateralMismatch,
-    OC_InvalidCurrency,
-    OC_InvalidCollateral
+    OC_RolloverCollateralMismatch
 } from "../errors/Lending.sol";
 
 /**
@@ -151,7 +145,7 @@ contract OriginationController is
         SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates
     ) public override returns (uint256 loanId) {
-        _validateLoanTerms(loanTerms);
+        originationConfiguration.validateLoanTerms(loanTerms);
 
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrowerData.borrower, msg.sender) ? Side.LEND : Side.BORROW;
@@ -193,10 +187,10 @@ contract OriginationController is
         SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates
     ) public override returns (uint256 newLoanId) {
-        _validateLoanTerms(loanTerms);
+        originationConfiguration.validateLoanTerms(loanTerms);
 
         LoanLibrary.LoanData memory data = loanCore.getLoan(oldLoanId);
-        if (data.state != LoanLibrary.LoanState.Active) revert OC_InvalidState(uint8(data.state));
+        if (data.state != LoanLibrary.LoanState.Active) revert OC_InvalidState(data.state);
         _validateRollover(data.terms, loanTerms);
 
         address borrower = IERC721(loanCore.borrowerNote()).ownerOf(oldLoanId);
@@ -383,32 +377,6 @@ contract OriginationController is
     }
 
     // =========================================== HELPERS ==============================================
-
-    /**
-     * @dev Validates argument bounds for the loan terms.
-     *
-     * @param terms                  The terms of the loan.
-     */
-    // solhint-disable-next-line code-complexity
-    function _validateLoanTerms(LoanLibrary.LoanTerms memory terms) internal virtual view {
-        // validate payable currency
-        if (!originationConfiguration.isAllowedCurrency(terms.payableCurrency)) revert OC_InvalidCurrency(terms.payableCurrency);
-
-        // principal must be greater than or equal to the configured minimum
-        if (terms.principal < originationConfiguration.getMinPrincipal(terms.payableCurrency)) revert OC_PrincipalTooLow(terms.principal);
-
-        // loan duration must be greater or equal to 1 hr and less or equal to 3 years
-        if (terms.durationSecs < Constants.MIN_LOAN_DURATION || terms.durationSecs > Constants.MAX_LOAN_DURATION) revert OC_LoanDuration(terms.durationSecs);
-
-        // interest rate must be greater than or equal to 0.01% and less or equal to 1,000,000%
-        if (terms.interestRate < 1 || terms.interestRate > 1e8) revert OC_InterestRate(terms.interestRate);
-
-        // signature must not have already expired
-        if (terms.deadline < block.timestamp) revert OC_SignatureIsExpired(terms.deadline);
-
-        // validate collateral
-        if (!originationConfiguration.isAllowedCollateral(terms.collateralAddress)) revert OC_InvalidCollateral(terms.collateralAddress);
-    }
 
     /**
      * @dev Validate the rules for rolling over a loan - must be using the same

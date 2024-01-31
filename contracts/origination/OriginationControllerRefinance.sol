@@ -88,7 +88,7 @@ contract OriginationControllerRefinance is IOriginationControllerRefinance, Orig
     }
 
     /**
-     * @notice Validates the new loan terms for a refinanced loan. The new APR must be at least 5%
+     * @notice Validates the new loan terms for a refinanced loan. The new APR must be at least 10%
      *         lower than the old APR. The new principal amount cannot be larger. The new due date
      *         cannot be shorter than the old due date and the collateral and payable currency must
      *         be the same.

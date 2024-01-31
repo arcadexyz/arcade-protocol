@@ -76,7 +76,7 @@ describe("OriginationConfiguration", () => {
                 originationConfiguration
                     .connect(user)
                     .setAllowedVerifiers([ZERO_ADDRESS], [true]),
-            ).to.be.revertedWith(`OSS_ZeroAddress("verifier")`);
+            ).to.be.revertedWith(`OCC_ZeroAddress("verifier")`);
         });
 
         it("allows the contract owner to update the whitelist", async () => {
@@ -108,7 +108,7 @@ describe("OriginationConfiguration", () => {
                 originationConfiguration
                     .connect(user)
                     .setAllowedVerifiers([], []),
-            ).to.be.revertedWith("OSS_ZeroArrayElements");
+            ).to.be.revertedWith("OCC_ZeroArrayElements");
         });
 
         it("reverts if a batch update has too many elements", async () => {
@@ -125,7 +125,7 @@ describe("OriginationConfiguration", () => {
                 originationConfiguration
                     .connect(user)
                     .setAllowedVerifiers(addresses, bools),
-            ).to.be.revertedWith("OSS_ArrayTooManyElements");
+            ).to.be.revertedWith("OCC_ArrayTooManyElements");
         });
 
         it("reverts if a batch update's arguments have mismatched length", async () => {
@@ -137,7 +137,7 @@ describe("OriginationConfiguration", () => {
                 originationConfiguration
                     .connect(user)
                     .setAllowedVerifiers([verifier.address, verifier2.address], [true]),
-            ).to.be.revertedWith("OSS_BatchLengthMismatch");
+            ).to.be.revertedWith("OCC_BatchLengthMismatch");
         });
 
         it("allows the contract owner to perform a batch update", async () => {
@@ -189,7 +189,7 @@ describe("OriginationConfiguration", () => {
             const { originationConfiguration, user: admin } = ctx;
 
             await expect(originationConfiguration.connect(admin).setAllowedPayableCurrencies([], []))
-                .to.be.revertedWith("OSS_ZeroArrayElements");
+                .to.be.revertedWith("OCC_ZeroArrayElements");
         });
 
         it("Reverts when whitelist manager role tries to whitelist more than 50 currencies", async () => {
@@ -203,7 +203,7 @@ describe("OriginationConfiguration", () => {
             }
 
             await expect(originationConfiguration.connect(admin).setAllowedPayableCurrencies(addresses, bools))
-                .to.be.revertedWith("OSS_ArrayTooManyElements");
+                .to.be.revertedWith("OCC_ArrayTooManyElements");
         });
 
         it("Reverts when the currency whitelist batch update's arguments have mismatched length", async () => {
@@ -215,7 +215,7 @@ describe("OriginationConfiguration", () => {
             for (let i = 0; i < 16; i++) bools.push({ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL });
 
             await expect(originationConfiguration.connect(admin).setAllowedPayableCurrencies(addresses, bools))
-                .to.be.revertedWith("OSS_BatchLengthMismatch");
+                .to.be.revertedWith("OCC_BatchLengthMismatch");
         });
 
         it("Reverts when user without whitelist manager role tries to whitelist a currency", async () => {
@@ -236,7 +236,7 @@ describe("OriginationConfiguration", () => {
             }
 
             await expect(originationConfiguration.connect(admin).setAllowedPayableCurrencies(addresses, bools))
-                .to.be.revertedWith("OSS_ArrayTooManyElements");
+                .to.be.revertedWith("OCC_ArrayTooManyElements");
         });
 
         it("Reverts when whitelist manager role tries to whitelist payable currency zero address", async () => {
@@ -244,7 +244,7 @@ describe("OriginationConfiguration", () => {
 
             await expect(
                 originationConfiguration.connect(admin).setAllowedPayableCurrencies([ZERO_ADDRESS], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]),
-            ).to.be.revertedWith(`OSS_ZeroAddress("token")`);
+            ).to.be.revertedWith(`OCC_ZeroAddress("token")`);
         });
 
         it("Reverts when whitelist manager role tries to remove a currency with no address provided", async () => {
@@ -252,7 +252,7 @@ describe("OriginationConfiguration", () => {
 
             await expect(
                 originationConfiguration.connect(admin).setAllowedPayableCurrencies([ZERO_ADDRESS], [{ isAllowed: false, minPrincipal: 0 }]),
-            ).to.be.revertedWith(`OSS_ZeroAddress("token")`);
+            ).to.be.revertedWith(`OCC_ZeroAddress("token")`);
         });
 
         it("Reverts when whitelist manager role tries to remove more than 50 currencies", async () => {
@@ -266,7 +266,7 @@ describe("OriginationConfiguration", () => {
             }
 
             await expect(originationConfiguration.connect(admin).setAllowedPayableCurrencies(addresses, bools))
-                .to.be.revertedWith("OSS_ArrayTooManyElements");
+                .to.be.revertedWith("OCC_ArrayTooManyElements");
         });
 
         it("Reverts when user without whitelist manager role tries to remove a whitelisted currency", async () => {
@@ -280,14 +280,14 @@ describe("OriginationConfiguration", () => {
             const { originationConfiguration, mockERC20 } = ctx;
 
             await expect(originationConfiguration.getMinPrincipal(mockERC20.address))
-                .to.be.revertedWith("OSS_NotWhitelisted");
+                .to.be.revertedWith("OCC_NotWhitelisted");
         });
 
         it("Reverts when whitelist manager role tries to whitelist collateral with no address provided", async () => {
             const { originationConfiguration, user: admin } = ctx;
 
             await expect(originationConfiguration.connect(admin).setAllowedCollateralAddresses([], []))
-                .to.be.revertedWith("OSS_ZeroArrayElements");
+                .to.be.revertedWith("OCC_ZeroArrayElements");
         });
 
         it("Reverts when user without whitelist manager role tries to whitelist collateral", async () => {
@@ -308,7 +308,7 @@ describe("OriginationConfiguration", () => {
             }
 
             await expect(originationConfiguration.connect(admin).setAllowedCollateralAddresses(addresses, bools))
-                .to.be.revertedWith("OSS_ArrayTooManyElements");
+                .to.be.revertedWith("OCC_ArrayTooManyElements");
         });
 
         it("Reverts when the collateral whitelist batch update's arguments have mismatched length", async () => {
@@ -320,7 +320,7 @@ describe("OriginationConfiguration", () => {
             for (let i = 0; i < 16; i++) bools.push(true);
 
             await expect(originationConfiguration.connect(admin).setAllowedCollateralAddresses(addresses, bools))
-                .to.be.revertedWith("OSS_BatchLengthMismatch");
+                .to.be.revertedWith("OCC_BatchLengthMismatch");
         });
 
         it("Reverts when user without whitelist manager role tries to remove a whitelisted currency", async () => {
@@ -351,7 +351,7 @@ describe("OriginationConfiguration", () => {
 
             await expect(
                 originationConfiguration.connect(admin).setAllowedCollateralAddresses([ZERO_ADDRESS], [true]),
-            ).to.be.revertedWith(`OSS_ZeroAddress("token")`);
+            ).to.be.revertedWith(`OCC_ZeroAddress("token")`);
         });
 
         it("Whitelist manager role adds and removes whitelisted collateral", async () => {
@@ -375,7 +375,7 @@ describe("OriginationConfiguration", () => {
 
             await expect(
                 originationConfiguration.connect(admin).setAllowedCollateralAddresses([ZERO_ADDRESS], [false]),
-            ).to.be.revertedWith(`OSS_ZeroAddress("token")`);
+            ).to.be.revertedWith(`OCC_ZeroAddress("token")`);
         });
     });
 });
