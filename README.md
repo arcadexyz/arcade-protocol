@@ -4,13 +4,19 @@
 
 - 🌐 [Website](https://www.arcade.xyz) - UI to the Arcade Lending Protocol, hosted by Arcade.xyz.
 - 📝 [Usage Documentation](https://docs.arcade.xyz) - User-facing documentation for the Arcade Lending Protocol.
-- 🐛 [Bug Bounty](https://immunefi.com/bounty/arcade/) - Security discloure and bounty program for the Arcade Lending Protocol.
+- 🐛 [Bug Bounty](https://immunefi.com/bounty/arcade/) - Security disclosure and bounty program for the Arcade Lending Protocol.
 - 💬 [Discord](https://discord.gg/arcadexyz) - Join the Arcade.xyz community! Great for further technical discussion and real-time support.
 - 🔔 [Twitter](https://twitter.com/arcade_xyz) - Follow us on Twitter for alerts, announcements, and alpha.
 
 # Overview of Contracts
 
-> The latest deployment of contracts is from the commit tagged `v3.core.01`.
+### _This is version 4 of the lending protocol_
+
+> Version 4 of the protocol has not yet been deployed to mainnet.
+
+> Version 3 of the protocol can be found [here](https://github.com/arcadexyz/arcade-protocol/tree/v3.core.01).
+
+> Version 2 of the protocol can be found [here](https://github.com/Non-fungible-Technologies/v2-contracts).
 
 ### **_See natspec for technical detail._**
 
@@ -47,8 +53,7 @@ in `LoanCore`. The Origination Controller is responsible for validating the subm
 validating counterparty signatures to loan terms, and handling delegation of signing authority for an address.
 
 When a loan begins, the Origination Controller collects the principal from the lender, and the collateral from
-the borrower. Loans can also be initialized with an ERC721 Permit message for collateral, removing the need for
-a prior approval transaction from the borrower for assets which support `permit`.
+the borrower.
 
 In addition to new loans, the Origination Controller is the entry point for rollovers, which use funds from a new loan
 to repay an old loan and define new terms. In this case, the origination controller contract nets out funds
@@ -123,10 +128,6 @@ The Arcade protocol contains three contracts that follow the ERC721 NFT standard
 - `StaticURIDescriptor.sol` contains a `tokenURI` function that returns the same URI value for any given tokenId.
 - `BaseURIDescriptor.sol` contains a `tokenURI` function that returns an incrementing tokenId appended to a base URI path. This allows a `<base uri>/<token id>` URI scheme which allows unique images per token ID.
 
-## Version 2
-
-This is version 3 of the protocol. Version 2 of the protocol can be found [here](https://github.com/Non-fungible-Technologies/v2-contracts).
-
 # Privileged Roles and Access
 
 The Arcade Lending Protocol is an immutable, non-upgradeable protocol: there defined roles below specify the entire scope of current and future control any organization may have over the operation of the protocol. These roles are designed such that operational responsibility can be modularized and decentralized. In practice, the V3 protocol is owned by a set of governance smart contract that can execute the results of DAO votes.
@@ -140,29 +141,18 @@ The Arcade Lending Protocol is an immutable, non-upgradeable protocol: there def
   - The `FEE_CLAIMER` role is the only role allowed claim accumulated protocol fees. The `ADMIN` role can grant/revoke the `FEE_CLAIMER` role.
   - The `AFFILIATE_MANAGER` role is the only role allowed to set affiliate splits for any fee collected during the loan lifecycle. The `ADMIN` role can grant/revoke the `AFFILIATE_MANAGER` role.
   - The `SHUTDOWN_CALLER` role is an emergency designation that allows holders to wind down core lending operations. In shutdown mode, loans can be repaid and collateral can be reclaimed, but new loans cannot be originated. Shutdown is irreversible.
-- `OriginationController.sol` has two defined roles: the `ADMIN` role and a `WHITELIST_MANAGER`. The latter role can update the principal currency, collateral, and verifier whitelists. The `ADMIN` role can grant or revoke the `WHITELIST_MANAGER` role.
+- `OriginationController.sol` has two defined roles: the `ADMIN` role and a `MIGRATION_MANAGER`. The latter role can pause v3->v4 migrations. The `ADMIN` role can grant or revoke the `MIGRATION_MANAGER` role.
+- `OriginationConfiguration.sol` has two defined roles: the `ADMIN` role and a `WHITELIST_MANAGER`. The latter role can update the principal currency, collateral, and verifier whitelists. The `ADMIN` role can grant or revoke the `WHITELIST_MANAGER` role.
 - `PromissoryNote.sol` has three defined roles: the `MINT/BURN` role allows the assigned address the ability to mint and burn tokens. For the lending protocol to operate correctly, this role must be granted to `LoanCore`. The `RESOURCE_MANAGER` role allows the update of NFT metadata. The `ADMIN` role can grant/revoke the `MINT/BURN` role and `RESOURCE_MANAGER` role. In practice, after the note contract is initialized, the admin role is revoked in such a way it can never be regained.
 - `BaseURIDescriptor.sol` and other descriptor contracts are `Ownable` and have a defined owner. The defined owner can update contract fields related to token URI and metadata, such as changing the base URI. Only the contract owner can transfer ownership. In practice, the owner of a descriptor contract should be the same address as the defined `RESOURCE_MANAGER` in the NFT contract that uses the descriptor.
 
 # Known Issues / Protocol Gotchas
 
-### Rollover incompatibility with `ERC20#approve` that does not return a boolean
-
-Some tokens, like USDT and BNB, behave differently from standardized ERC20 tokens, in that their `approve` function does not return a `bool` value to the caller. This can cause incompatibility issues with protocols that assume a certain function signature for `ERC20#approve`.
-
-The canonical way to unify these interfaces is through the OZ's `SafeERC20#safeApprove` function. However, `OriginationController#_rollover` contains the following line:
-
-```
-payableCurrency.approve(address(loanCore), settledAmount);
-```
-
-Therefore, for any loan which uses one of the described tokens as the `payableCurrency`, the `rolloverLoan` function will revert. This can be mitigated by management of the payable currency whitelist to not allow these tokens. In the scenario a loan was started with an incompatible token, only rollovers are blocked: loans can still be fully repaid (via `repay` and `forceRepay`) and defaulted (via `claim`).
-
 ### Token blacklists can affect loan operations
 
 Some tokens, like USDC, include "blacklisting" functionality, where certain addresses can be added to the blacklist. When addresses are blacklisted, they cannot send or receive any amount of that token.
 
-This can cause myriad issues for both the Arcade protocol and other autonomous, non-custodial on-chain protocols. Unlike the `ERC20#approve` incompatibility issue, blacklisted tokens can often not be avoided (USDC being one of the most frequently used
+This can cause myriad issues for both the Arcade protocol and other autonomous, non-custodial on-chain protocols. Blacklisted tokens can often not be avoided (USDC being one of the most frequently used
 tokens in on-chain protocols).
 
 In the case where the Arcade Protocol itself were blacklisted, (`OriginationController` or `LoanCore`), the following functionality would be frozen:
@@ -175,32 +165,6 @@ In the case where one of a loan's counterparties were blacklisted, the following
 - A blacklisted borrower can repay a loan from a different address using `repay` or `forceRepay`. Collateral will still be returned to the original borrowing address.
 - A blacklisted lender will not be able to receive tokens, meaning that `repay` will revert. In this case, the borrower can use `forceRepay`. In order to reclaim their tokens,
   the lender can send their lender note to a different, non-blacklisted address, and call `redeemNote` to receive their tokens.
-
-### `ERC20#permit` DoS vector
-
-A race condition exists in `ERC20#permit` when used in internal smart contract logic, which the Arcade Protocol is also subject to.
-
-As defined by [EIP-2612](https://eips.ethereum.org/EIPS/eip-2612), the `permit` function is callable by anyone, and the terms of any submitted `permit` call will apply to the signature's recovered signer. This means that, once a valid permit signature has been signed, it is broadcastable by anyone.
-
-This creates a front-running vector: if a user intends to use their permit signature in a function such as `initializeLoanWithCollateralPermit`, a transaction that _also_ submits the same permit signature, and is executed _before_ the user's target function, will cause `initializeLoanWithCollateralPermit` to revert due to nonce re-use (since the permit signature has already been used).
-
-This is solely a griefing vector as the workaround is trivial: the user can simply proceed to call `initializeLoan` _without_ permit. The proper token allowance would have been set by the frontrunning transaction, so the user can proceed as if they had previously called `ERC20#approve` or `ERC20#permit` themselves, in a separate, earlier transaction.
-
-### Shutdown protects open loans from default
-
-The `LoanCore#shutdown` function is meant to be used in either incident response or contract migration, in order to prevent new loans from being started on the Arcade Protocol.
-
-The `whenNotPaused` modifier is applied to the following functions, meaning they will _not_ work after shutdown:
-
-- `startLoan`
-- `rollover`
-- `claim`
-- `consumeNonce`
-- `canCallOn`
-
-This affects loan origination, vault utility (`canCallOn`), and defaults. Since lenders cannot use `claim` during shutdown, this means that borrowers can choose to not repay their loan, leaving lenders without both principal and collateral. Note that the borrower would only be incentivized to do so in very high LTV loans, where the loan principal was worth more than the collateral itself.
-
-Any protocol administrator planning to use `shutdown` for enforced contract migration should keep this effect in mind, and only call `shutdown` after all open loans were either repaid or expired, and lenders given a window to call `claim`. This impact also underscores the sensitivity of the `SHUTDOWN_CALLER` role, and administrators are encourgaed to manage assignment of that role carefully.
 
 ### OriginationController approvals are high-trust
 
@@ -226,7 +190,7 @@ In some cases, open signatures for one of these roles (e.g. borrowing against an
 
 The Arcade Protocol has a number of fees that can be assessed on different counterparties, at different stages of the loan lifecycle (see [FeeLookups.sol](https://github.com/arcadexyz/arcade-protocol/blob/main/contracts/libraries/FeeLookups.sol) for an enumeration of these fees.)
 
-It is important to be aware of the interaction between two analagous fees: the `BORROWER_ORIGATION_FEE` and `LENDER_ORIGINATION_FEE`, respectively with the `BORROWER_ROLLOVER_FEE` and `LENDER_ROLLOVER_FEE`. If fees were ever set such that rollover fees were _lower_ than origination fees, counterparties become incentivized to circumvent fees.
+It is important to be aware of the interaction between two analagous fees: the `BORROWER_ORIGINATION_FEE` and `LENDER_ORIGINATION_FEE`, respectively with the `BORROWER_ROLLOVER_FEE` and `LENDER_ROLLOVER_FEE`. If fees were ever set such that rollover fees were _lower_ than origination fees, counterparties become incentivized to circumvent fees.
 
 To do so, counterparties can agree on "bogus" loan terms at a very small principal amount (up to the `minPrincipal` defined for the given payable currency), meaning that the origination fee is only assessed on the very small principal amount. After origination, the counterparties can immediately rollover to their "real" agreed-upon terms, only paying the lower rollover fee on the full principal. Note that this involves risks for the borrower: the lender can choose, instead of rolling over, to force default, eventually obtaining the NFT for the cost of the `minPrincipal`.
 
