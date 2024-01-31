@@ -166,19 +166,6 @@ In the case where one of a loan's counterparties were blacklisted, the following
 - A blacklisted lender will not be able to receive tokens, meaning that `repay` will revert. In this case, the borrower can use `forceRepay`. In order to reclaim their tokens,
   the lender can send their lender note to a different, non-blacklisted address, and call `redeemNote` to receive their tokens.
 
-### Shutdown protects open loans from default
-
-The `LoanCore#shutdown` function is meant to be used in either incident response or contract migration, in order to prevent new loans from being started on the Arcade Protocol.
-
-The `whenNotPaused` modifier is applied to the following functions, meaning they will _not_ work after shutdown:
-
-- `startLoan`
-- `rollover`
-- `consumeNonce`
-- `canCallOn`
-
-This affects loan origination and vault utility (`canCallOn`).
-
 ### OriginationController approvals are high-trust
 
 When the `OriginationController#approve` function is used, the address specified in the `signer` parameter has the ability to generate _any_ lending signature on behalf of the approving address (the `owner` address). Therefore, as long as proper token allowances are in place, the `signer` address can execute a transaction that enters the `owner` address into a loan, without any interaction with the `owner` itself.
