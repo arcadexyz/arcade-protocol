@@ -1,5 +1,10 @@
 contracts/LoanCore.sol
-contracts/OriginationController.sol
 contracts/RepaymentController.sol
-libraries/LoanLibrary.sol
-libraries/InterestCalculator.sol
+contracts/origination/OriginationController.sol
+contracts/origination/OriginationControllerMigrate.sol
+contracts/origination/OriginationConfiguration.sol
+contracts/origination/OriginationCalculator.sol
+contracts/origination/RefinanceController.sol
+contracts/libraries/LoanLibrary.sol
+contracts/libraries/OriginationLibrary.sol
+contracts/libraries/InterestCalculator.sol
