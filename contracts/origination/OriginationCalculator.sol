@@ -137,7 +137,6 @@ abstract contract OriginationCalculator is InterestCalculator {
         uint256 interestFee = (interest * oldLoanData.feeSnapshot.lenderInterestFee) / Constants.BASIS_POINTS_DENOMINATOR;
         uint256 lenderFee = (newPrincipalAmount * feeData.lenderRolloverFee) / Constants.BASIS_POINTS_DENOMINATOR;
 
-
         return rolloverAmounts(
             oldLoanData.balance,
             interest,

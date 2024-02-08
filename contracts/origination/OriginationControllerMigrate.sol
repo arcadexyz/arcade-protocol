@@ -108,7 +108,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
 
         // repay v3 loan
         if (flashLoanTrigger) {
-            _initiateFlashLoan(oldLoanId, newTerms, msg.sender, lender,  amounts);
+            _initiateFlashLoan(oldLoanId, newTerms, msg.sender, lender, amounts);
         } else {
             _repayLoan(msg.sender, IERC20(newTerms.payableCurrency), oldLoanId, amounts.amountFromLender + amounts.needFromBorrower - amounts.amountToBorrower);
 

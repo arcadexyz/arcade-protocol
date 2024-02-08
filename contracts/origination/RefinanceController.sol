@@ -108,8 +108,8 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
         if (block.timestamp < oldLoanData.startDate + 2 days) revert REFI_TooEarly(oldLoanData.startDate + 2 days);
 
         // new interest rate APR must be lower than old interest rate by minimum
-        uint256 aprMinimumScaled = oldLoanData.terms.interestRate * Constants.BASIS_POINTS_DENOMINATOR -
-            (oldLoanData.terms.interestRate * MINIMUM_INTEREST_CHANGE);
+        uint256 aprMinimumScaled =
+            oldLoanData.terms.interestRate * (Constants.BASIS_POINTS_DENOMINATOR - MINIMUM_INTEREST_CHANGE);
         if (
             newTerms.interestRate < 1 ||
             newTerms.interestRate * Constants.BASIS_POINTS_DENOMINATOR > aprMinimumScaled

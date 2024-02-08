@@ -29,13 +29,15 @@ contract OriginationConfiguration is IOriginationConfiguration, AccessControlEnu
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
     bytes32 public constant WHITELIST_MANAGER_ROLE = keccak256("WHITELIST_MANAGER");
 
+    uint256 public constant MAX_LENGTH = 50;
+
     // ==================================== SHARED STORAGE ========================================
 
     /// @notice Mapping from address to whether that verifier contract has been whitelisted
     mapping(address => bool) private _allowedVerifiers;
     /// @notice Mapping from ERC20 token address to boolean indicating allowed payable currencies and set minimums
     mapping(address => OriginationLibrary.Currency) private _allowedCurrencies;
-    /// @notice Mapping from ERC721 or ERC1155 token address to boolean indicating allowed collateral types
+    /// @notice Mapping from ERC721 token address to boolean indicating if collateral is allowed
     mapping(address => bool) private _allowedCollateral;
 
     // ======================================= CONSTRUCTOR ========================================
@@ -137,7 +139,7 @@ contract OriginationConfiguration is IOriginationConfiguration, AccessControlEnu
         bool[] calldata isAllowed
     ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
         if (verifiers.length == 0) revert OCC_ZeroArrayElements();
-        if (verifiers.length > 50) revert OCC_ArrayTooManyElements();
+        if (verifiers.length > MAX_LENGTH) revert OCC_ArrayTooManyElements();
         if (verifiers.length != isAllowed.length) revert OCC_BatchLengthMismatch();
 
         for (uint256 i = 0; i < verifiers.length;) {
@@ -167,7 +169,7 @@ contract OriginationConfiguration is IOriginationConfiguration, AccessControlEnu
         OriginationLibrary.Currency[] calldata currencyData
     ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
         if (tokens.length == 0) revert OCC_ZeroArrayElements();
-        if (tokens.length > 50) revert OCC_ArrayTooManyElements();
+        if (tokens.length > MAX_LENGTH) revert OCC_ArrayTooManyElements();
         if (tokens.length != currencyData.length) revert OCC_BatchLengthMismatch();
 
         for (uint256 i = 0; i < tokens.length;) {
@@ -197,7 +199,7 @@ contract OriginationConfiguration is IOriginationConfiguration, AccessControlEnu
         bool[] calldata isAllowed
     ) external override onlyRole(WHITELIST_MANAGER_ROLE) {
         if (tokens.length == 0) revert OCC_ZeroArrayElements();
-        if (tokens.length > 50) revert OCC_ArrayTooManyElements();
+        if (tokens.length > MAX_LENGTH) revert OCC_ArrayTooManyElements();
         if (tokens.length != isAllowed.length) revert OCC_BatchLengthMismatch();
 
         for (uint256 i = 0; i < tokens.length;) {
