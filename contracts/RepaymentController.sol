@@ -16,7 +16,6 @@ import "./libraries/Constants.sol";
 
 import {
     RC_ZeroAddress,
-    RC_CannotDereference,
     RC_InvalidState,
     RC_OnlyLender,
     RC_InvalidRepayment
@@ -135,14 +134,14 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
 
     /**
      * @notice Claim collateral on an active loan, referenced by lender note ID (equivalent to loan ID).
-     *         The loan must be past the due date. No funds are collected
-     *         from the borrower.
+     *         The loan must be past the due date. No funds are collected from the borrower.
      *
      * @param  loanId               The ID of the loan.
      */
     function claim(uint256 loanId) external override {
         LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
-        if (data.state == LoanLibrary.LoanState.DUMMY_DO_NOT_USE) revert RC_CannotDereference(loanId);
+        // Ensure valid initial loan state
+        if (data.state != LoanLibrary.LoanState.Active) revert RC_InvalidState(data.state);
 
         // make sure that caller owns lender note
         // Implicitly checks if loan is active - if inactive, note will not exist
@@ -210,7 +209,6 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
 
         // loan state checks
-        if (data.state == LoanLibrary.LoanState.DUMMY_DO_NOT_USE) revert RC_CannotDereference(loanId);
         if (data.state != LoanLibrary.LoanState.Active) revert RC_InvalidState(data.state);
 
         // get interest amount due

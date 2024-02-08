@@ -325,7 +325,7 @@ describe("RepaymentController", () => {
             const invalidId = BigNumber.from(loanId).mul(10);
             await expect(
                 repaymentController.connect(borrower).repay(invalidId, total)
-            ).to.be.revertedWith("RC_CannotDereference");
+            ).to.be.revertedWith("RC_InvalidState");
         });
 
         it("reverts if called for an non-active loan", async () => {

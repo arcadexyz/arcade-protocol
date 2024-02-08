@@ -640,7 +640,7 @@ describe("Integration", () => {
             await mockERC20.connect(borrower).approve(repaymentController.address, repayAmount);
 
             await expect(repaymentController.connect(borrower).repay(1234, repayAmount))
-                .to.be.revertedWith("RC_CannotDereference");
+                .to.be.revertedWith("RC_InvalidState");
         });
     });
 
@@ -702,9 +702,7 @@ describe("Integration", () => {
             await blockchainTime.increaseTime(3600); // increase past loan duration
             await blockchainTime.increaseTime(600); // increase past grace period
 
-            await expect(repaymentController.connect(lender).claim(1234)).to.be.revertedWith(
-                "RC_CannotDereference"
-            );
+            await expect(repaymentController.connect(lender).claim(1234)).to.be.revertedWith("RC_InvalidState");
         });
 
         it("fails if not called by lender", async () => {
