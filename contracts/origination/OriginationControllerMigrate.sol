@@ -135,8 +135,8 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      * @dev All whitelisted payable currencies and collateral state on v3 must also be set to the
      *      same values on v4.
      *
-     * @param sourceLoanTerms           The terms of the V2 loan.
-     * @param newLoanTerms              The terms of the V3 loan.
+     * @param sourceLoanTerms           The terms of the V3 loan.
+     * @param newLoanTerms              The terms of the V4 loan.
      * @param borrowerNoteId            The ID of the borrowerNote for the old loan.
      */
     // solhint-disable-next-line code-complexity
