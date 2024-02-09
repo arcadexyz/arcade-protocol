@@ -105,14 +105,15 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
             OriginationLibrary.RolloverAmounts memory amounts,
             LoanLibrary.FeeSnapshot memory feeSnapshot,
             uint256 feesEarned,
+            uint256 repayAmount,
             bool flashLoanTrigger
         ) = _migrate(oldLoanId, oldLoanData, newTerms.principal, msg.sender, lender);
 
         // repay v3 loan
         if (flashLoanTrigger) {
-            _initiateFlashLoan(oldLoanId, newTerms, msg.sender, lender, amounts);
+            _initiateFlashLoan(oldLoanId, newTerms, msg.sender, lender, amounts, repayAmount);
         } else {
-            _repayLoan(msg.sender, IERC20(newTerms.payableCurrency), oldLoanId, amounts.amountFromLender + amounts.needFromBorrower - amounts.amountToBorrower);
+            _repayLoan(msg.sender, IERC20(newTerms.payableCurrency), oldLoanId, repayAmount);
 
             if (amounts.amountToBorrower > 0) {
                 // If new principal is greater than old loan repayment amount, send the difference to the borrower
@@ -198,6 +199,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      * @return amounts                  The migration amounts.
      * @return feeSnapshot              A snapshot of current lending fees.
      * @return feesEarned               The total fees earned from the migration.
+     * @return repayAmount              The amount needed to repay the old loan.
      * @return flashLoanTrigger         boolean indicating if a flash loan must be initiated.
      */
     function _migrate(
@@ -210,6 +212,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         OriginationLibrary.RolloverAmounts memory amounts,
         LoanLibrary.FeeSnapshot memory feeSnapshot,
         uint256 feesEarned,
+        uint256 repayAmount,
         bool flashLoanTrigger
     ) {
         address oldLender = ILoanCoreV3(loanCoreV3).lenderNote().ownerOf(oldLoanId);
@@ -222,7 +225,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         feesEarned = borrowerFee + lenderFee;
 
         // Calculate settle amounts
-        (amounts) = _calculateV3MigrationAmounts(
+        (amounts, repayAmount) = _calculateV3MigrationAmounts(
             oldLoanData,
             newPrincipalAmount,
             lender,
@@ -263,6 +266,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      * @param oldLender                 The address of the old lender.
      *
      * @return amounts                  The migration amounts.
+     * @return repayAmount              The amount needed to repay the v3 loan.
      */
     function _calculateV3MigrationAmounts(
         LoanLibraryV3.LoanData memory oldLoanData,
@@ -271,24 +275,25 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         address oldLender,
         uint256 borrowerFee,
         uint256 lenderFee
-    ) internal view returns (OriginationLibrary.RolloverAmounts memory amounts) {
+    ) internal view returns (OriginationLibrary.RolloverAmounts memory amounts, uint256 repayAmount) {
         // get total interest to close v3 loan
         uint256 interest = IRepaymentControllerV3(repaymentControllerV3).getInterestAmount(
             oldLoanData.terms.principal,
             oldLoanData.terms.proratedInterestRate
         );
 
-       return(
-            rolloverAmounts(
-                oldLoanData.terms.principal,
-                interest,
-                newPrincipalAmount,
-                lender,
-                oldLender,
-                borrowerFee,
-                lenderFee,
-                0
-            )
+        // calculate the repay amount to settle V3 loan
+        repayAmount = oldLoanData.terms.principal + interest;
+
+        amounts = rolloverAmounts(
+            oldLoanData.terms.principal,
+            interest,
+            newPrincipalAmount,
+            lender,
+            oldLender,
+            borrowerFee,
+            lenderFee,
+            0
         );
     }
 
@@ -303,13 +308,15 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      * @param borrower_                 The address of the borrower.
      * @param lender                    The address of the new lender.
      * @param _amounts                  The migration amounts.
+     * @param repayAmount               The flash loan amount.
      */
     function _initiateFlashLoan(
         uint256 oldLoanId,
         LoanLibrary.LoanTerms memory newLoanTerms,
         address borrower_,
         address lender,
-        OriginationLibrary.RolloverAmounts memory _amounts
+        OriginationLibrary.RolloverAmounts memory _amounts,
+        uint256 repayAmount
     ) internal {
         // cache borrower address for flash loan callback
         borrower = borrower_;
@@ -319,7 +326,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
 
         // flash loan amount = new principal + any difference supplied by borrower
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = _amounts.amountFromLender + _amounts.needFromBorrower - _amounts.amountToBorrower;
+        amounts[0] = repayAmount;
 
         bytes memory params = abi.encode(
             OriginationLibrary.OperationData(
