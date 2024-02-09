@@ -225,7 +225,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         if (amount < interestAmount) revert RC_InvalidRepayment(amount, interestAmount);
 
         // calculate the amount of the repayment that goes to the principal
-        paymentToPrincipal = amount - interestAmount;
+        unchecked { paymentToPrincipal = amount - interestAmount; }
 
         // check if payment to principal is greater than the loan balance
         if (paymentToPrincipal > data.balance) {
