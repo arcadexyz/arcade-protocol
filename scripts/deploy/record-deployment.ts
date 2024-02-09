@@ -86,9 +86,14 @@ export async function recordDeployment(
         constructorArgs: constructorArgs.repaymentController,
     };
 
-    contractInfo["OriginationController"] = {
-        contractAddress: resources.originationController.address,
-        constructorArgs: constructorArgs.originationController,
+    contractInfo["OriginationConfiguration"] = {
+        contractAddress: resources.originationConfiguration.address,
+        constructorArgs: [],
+    };
+
+    contractInfo["OriginationControllerMigrate"] = {
+        contractAddress: resources.originationControllerMigrate.address,
+        constructorArgs: constructorArgs.originationControllerMigrate,
     };
 
     contractInfo["ArcadeItemsVerifier"] = {

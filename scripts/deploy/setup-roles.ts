@@ -19,6 +19,8 @@ import {
     SECTION_SEPARATOR,
     SHUTDOWN_ROLE,
     SHUTDOWN_CALLER,
+    MIGRATION_MANAGER_ROLE,
+    MIGRATION_MANAGER,
 } from "../utils/constants";
 import { ContractTransaction } from "ethers";
 
@@ -35,7 +37,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     console.log("Affiliate manager address:", AFFILIATE_MANAGER);
 
     // Define roles
-    const ORIGINATION_CONTROLLER_ADDRESS = resources.originationController.address;
+    const OC_MIGRATE_ADDRESS = resources.originationControllerMigrate.address;
     const LOAN_CORE_ADDRESS = resources.loanCore.address;
     const REPAYMENT_CONTROLLER_ADDRESS = resources.repaymentController.address;
 
@@ -114,7 +116,6 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     await tx.wait();
 
     console.log(`BorrowerNote: initialized loanCore at address ${LOAN_CORE_ADDRESS}`);
-    console.log(SUBSECTION_SEPARATOR);
 
     tx = await borrowerNote.grantRole(RESOURCE_MANAGER_ROLE, RESOURCE_MANAGER);
     await tx.wait();
@@ -123,6 +124,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     await tx.wait();
     console.log(`BorrowerNote: resource manager role granted to ${RESOURCE_MANAGER}`);
     console.log(`BorrowerNote: deployer renounced resource manager role`);
+    console.log(SUBSECTION_SEPARATOR);
 
     // =========== lenderNoteURIDescriptor ============
 
@@ -140,7 +142,6 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     await tx.wait();
 
     console.log(`LenderNote: initialized loanCore at address ${LOAN_CORE_ADDRESS}`);
-    console.log(SUBSECTION_SEPARATOR);
 
     tx = await lenderNote.grantRole(RESOURCE_MANAGER_ROLE, RESOURCE_MANAGER);
     await tx.wait();
@@ -149,13 +150,14 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     await tx.wait();
     console.log(`lenderNote: resource manager role granted to ${RESOURCE_MANAGER}`);
     console.log(`lenderNote: deployer renounced resource manager role`);
+    console.log(SUBSECTION_SEPARATOR);
 
     // ============= LoanCore ==============
 
     const { loanCore } = resources;
     tx = await loanCore.grantRole(ADMIN_ROLE, ADMIN);
     await tx.wait();
-    tx = await loanCore.grantRole(ORIGINATOR_ROLE, ORIGINATION_CONTROLLER_ADDRESS);
+    tx = await loanCore.grantRole(ORIGINATOR_ROLE, OC_MIGRATE_ADDRESS);
     await tx.wait();
     tx = await loanCore.grantRole(REPAYER_ROLE, REPAYMENT_CONTROLLER_ADDRESS);
     await tx.wait();
@@ -169,7 +171,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     await tx.wait();
 
     console.log(`LoanCore: admin role granted to ${ADMIN}`);
-    console.log(`LoanCore: originator role granted to ${ORIGINATION_CONTROLLER_ADDRESS}`);
+    console.log(`LoanCore: originator role granted to ${OC_MIGRATE_ADDRESS}`);
     console.log(`LoanCore: repayer role granted to ${REPAYMENT_CONTROLLER_ADDRESS}`);
     console.log(`LoanCore: affiliate manager role granted to ${AFFILIATE_MANAGER}`);
     console.log(`LoanCore: fee claimer role granted to ${FEE_CLAIMER}`);
@@ -179,20 +181,35 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
 
     // ============= OriginationController ==============
 
-    const { originationController } = resources;
-    tx = await originationController.grantRole(ADMIN_ROLE, ADMIN);
+    const { originationControllerMigrate } = resources;
+    tx = await originationControllerMigrate.grantRole(ADMIN_ROLE, ADMIN);
     await tx.wait();
-    tx = await originationController.grantRole(WHITELIST_MANAGER_ROLE, LOAN_WHITELIST_MANAGER);
+    tx = await originationControllerMigrate.grantRole(MIGRATION_MANAGER_ROLE, MIGRATION_MANAGER);
     await tx.wait();
-    tx = await originationController.renounceRole(ADMIN_ROLE, deployer.address);
+    tx = await originationControllerMigrate.renounceRole(ADMIN_ROLE, deployer.address);
     await tx.wait();
-    tx = await originationController.renounceRole(WHITELIST_MANAGER_ROLE, deployer.address);
+    tx = await originationControllerMigrate.renounceRole(MIGRATION_MANAGER_ROLE, deployer.address);
     await tx.wait();
 
-    console.log(`OriginationController: admin role granted to ${ADMIN}`);
-    console.log(`OriginationController: whitelist manager role granted to ${LOAN_WHITELIST_MANAGER}`);
-    console.log(`OriginationController: Deployer renounced admin and whitelist manager role`);
+    console.log(`originationControllerMigrate: admin role granted to ${ADMIN}`);
+    console.log(`originationControllerMigrate: migration manager role granted to ${LOAN_WHITELIST_MANAGER}`);
+    console.log(`originationControllerMigrate: Deployer renounced admin and migration manager role`);
     console.log(SUBSECTION_SEPARATOR);
+
+    // ============= OriginationConfiguration ==============
+    const { originationConfiguration } = resources;
+    tx = await originationConfiguration.grantRole(ADMIN_ROLE, ADMIN);
+    await tx.wait();
+    tx = await originationConfiguration.grantRole(WHITELIST_MANAGER_ROLE, LOAN_WHITELIST_MANAGER);
+    await tx.wait();
+    tx = await originationConfiguration.renounceRole(ADMIN_ROLE, deployer.address);
+    await tx.wait();
+    tx = await originationConfiguration.renounceRole(WHITELIST_MANAGER_ROLE, deployer.address);
+    await tx.wait();
+
+    console.log(`originationConfiguration: admin role granted to ${ADMIN}`);
+    console.log(`originationConfiguration: whitelist manager role granted to ${LOAN_WHITELIST_MANAGER}`);
+    console.log(`originationConfiguration: Deployer renounced admin and whitelist manager role`);
 
     console.log("✅ Transferred all ownership.");
 }

@@ -1,7 +1,3 @@
-import { Contract, BigNumberish } from "ethers";
-import { chunk } from "lodash";
-
-import { OriginationController } from "../../typechain";
 import { loadContracts, DeployedResources } from "../utils/deploy";
 
 
@@ -11,7 +7,7 @@ export async function whitelistCollections(contracts: DeployedResources): Promis
     // Whitelist verifiers
 
     const {
-        originationController
+        originationConfiguration
     } = contracts;
 
     const ids = [
@@ -41,7 +37,7 @@ export async function whitelistCollections(contracts: DeployedResources): Promis
         "0x99a9B7c1116f9ceEB1652de04d5969CcE509B069",
     ];
 
-    const calldata = originationController.interface.encodeFunctionData(
+    const calldata = originationConfiguration.interface.encodeFunctionData(
         "setAllowedCollateralAddresses",
         [ids, Array(ids.length).fill(true)]
     );

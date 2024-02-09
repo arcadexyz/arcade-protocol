@@ -8,6 +8,7 @@ export const AFFILIATE_MANAGER_ROLE = ethers.utils.id("AFFILIATE_MANAGER");
 export const RESOURCE_MANAGER_ROLE = ethers.utils.id("RESOURCE_MANAGER");
 export const MINT_BURN_ROLE = ethers.utils.id("MINT_BURN");
 export const WHITELIST_MANAGER_ROLE = ethers.utils.id("WHITELIST_MANAGER");
+export const MIGRATION_MANAGER_ROLE = ethers.utils.id("MIGRATION_MANAGER");
 export const SHUTDOWN_ROLE = ethers.utils.id("SHUTDOWN");
 
 export const SECTION_SEPARATOR = "\n" + "=".repeat(80) + "\n";
@@ -33,6 +34,7 @@ export const ADMIN = "0x398e92C827C5FA0F33F171DC8E20570c5CfF330e";
 export const RESOURCE_MANAGER = ADMIN;
 export const CALL_WHITELIST_MANAGER = ADMIN;
 export const LOAN_WHITELIST_MANAGER = ADMIN;
+export const MIGRATION_MANAGER = ADMIN;
 export const FEE_CLAIMER = ADMIN;
 export const AFFILIATE_MANAGER = ADMIN;
 export const SHUTDOWN_CALLER = ADMIN;

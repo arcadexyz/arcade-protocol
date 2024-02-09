@@ -14,7 +14,8 @@ import {
     CollectionWideOfferVerifier,
     ArtBlocksVerifier,
     CallWhitelistAllExtensions,
-    OriginationControllerMigrate
+    OriginationControllerMigrate,
+    OriginationConfiguration
 } from "../../typechain";
 
 export interface DeployedResources {
@@ -25,7 +26,8 @@ export interface DeployedResources {
     vaultFactory: VaultFactory;
     loanCore: LoanCore;
     repaymentController: RepaymentController;
-    originationController: OriginationControllerMigrate;
+    originationConfiguration: OriginationConfiguration;
+    originationControllerMigrate: OriginationControllerMigrate;
     borrowerNoteURIDescriptor: StaticURIDescriptor;
     borrowerNote: PromissoryNote;
     lenderNoteURIDescriptor: StaticURIDescriptor;
@@ -47,7 +49,8 @@ const jsonContracts: { [key: string]: string } = {
     LenderNote: "lenderNote",
     LoanCore: "loanCore",
     RepaymentController: "repaymentController",
-    OriginationController: "originationController",
+    OriginationConfiguration: "originationConfiguration",
+    OriginationController: "originationControllerMigrate",
     ArcadeItemsVerifier: "arcadeItemsVerifier",
     CollectionWideOfferVerifier: "collectionWideOfferVerifier",
     ArtBlocksVerifier: "artBlocksVerifier",
