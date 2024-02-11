@@ -49,6 +49,11 @@ abstract contract InterestCalculator {
             // if time elapsed is greater than loan duration, set it to loan duration
             uint256 endTimestamp = loanStartTime + loanDuration;
 
+            // if the borrower paid interest after the loan has ended, zero interest is due
+            if (lastAccrualTimestamp >= endTimestamp) {
+                return 0;
+            }
+
             timeSinceLastPayment = endTimestamp - lastAccrualTimestamp;
         } else {
             timeSinceLastPayment = currentTimestamp - lastAccrualTimestamp;
