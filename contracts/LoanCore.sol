@@ -34,8 +34,7 @@ import {
     LC_CallerNotLoanCore,
     LC_NoReceipt,
     LC_Shutdown,
-    LC_ExceedsBalance,
-    LC_AwaitingWithdrawal
+    LC_ExceedsBalance
 } from "./errors/Lending.sol";
 
 /**
@@ -333,9 +332,6 @@ contract LoanCore is
         // Ensure valid initial loan state when claiming loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
 
-        // Check that loan has a noteReceipt of zero amount
-        if (noteReceipts[loanId].amount != 0) revert LC_AwaitingWithdrawal(noteReceipts[loanId].amount);
-
         // First check if the call is being made after the due date plus 10 min grace period.
         uint256 dueDate = data.startDate + data.terms.durationSecs + Constants.GRACE_PERIOD;
         if (dueDate >= block.timestamp) revert LC_NotExpired(dueDate);
@@ -390,19 +386,22 @@ contract LoanCore is
         // Deduct the redeem fee from the amount and assign for withdrawal
         amount -= _amountFromLender;
 
-        // Assign fees for withdrawal
-        (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
-            _getAffiliateSplit(_amountFromLender, loans[loanId].terms.affiliateCode);
+        {
+            // Assign fees for withdrawal
+            (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
+                _getAffiliateSplit(_amountFromLender, loans[loanId].terms.affiliateCode);
 
-        mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[token];
-        if (protocolFee > 0) _feesWithdrawable[address(this)] += protocolFee;
-        if (affiliateFee > 0) _feesWithdrawable[affiliate] += affiliateFee;
+            mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[token];
+            if (protocolFee > 0) _feesWithdrawable[address(this)] += protocolFee;
+            if (affiliateFee > 0) _feesWithdrawable[affiliate] += affiliateFee;
+        }
 
         // Get owner of the LenderNote
         address lender = lenderNote.ownerOf(loanId);
 
         // if the loan has been completely repaid and no more repayments are expected
-        if (loans[loanId].state == LoanLibrary.LoanState.Repaid) {
+        LoanLibrary.LoanState state = loans[loanId].state;
+        if (state == LoanLibrary.LoanState.Repaid || state == LoanLibrary.LoanState.Defaulted) {
             // delete the receipt
             delete noteReceipts[loanId];
 
@@ -923,7 +922,9 @@ contract LoanCore is
      * @param loanId                The token ID to burn.
      */
     function _burnLoanNotes(uint256 loanId) internal {
-        lenderNote.burn(loanId);
+        if (noteReceipts[loanId].amount == 0) {
+            lenderNote.burn(loanId);
+        }
         borrowerNote.burn(loanId);
     }
 
