@@ -243,8 +243,10 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
     }
 
     /**
-     * @notice Helper function to calculate the amounts needed to settle the old loan. There will never
-     *         be fees for migrations, so all fees values for rollover amounts calculations are set to zero.
+     * @notice Helper function to calculate the amounts needed to settle the old loan.
+     *
+     * @dev When calling OriginationCalculator.rolloverAmounts, the first param is the v3
+     *      loan principal not balance, since V3 is not pro-rata.
      *
      * @param oldLoanData               The terms of the v3 loan.
      * @param newPrincipalAmount        The principal amount of the new loan.
