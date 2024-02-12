@@ -119,7 +119,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         }
 
         // initialize v4 loan
-        _initializeMigrationLoan(newTerms, msg.sender, lender, amounts.amountFromLender, amounts.amountToBorrower);
+        _initializeMigrationLoan(newTerms, msg.sender, lender);
 
         // Run predicates check at the end of the function, after vault is in escrow. This makes sure
         // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
@@ -429,17 +429,13 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      * @param newTerms                  The terms of the v4 loan.
      * @param borrower_                 The address of the borrower.
      * @param lender                    The address of the lender.
-     * @param amountFromLender          The amount to be sent from the lender.
-     * @param amountToBorrower          The amount to be sent to the borrower.
      *
      * @return newLoanId                The ID of the new loan.
      */
     function _initializeMigrationLoan(
         LoanLibrary.LoanTerms memory newTerms,
         address borrower_,
-        address lender,
-        uint256 amountFromLender,
-        uint256 amountToBorrower
+        address lender
     ) internal returns (uint256 newLoanId) {
         // get lending origination fees from fee controller
         (
@@ -455,7 +451,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         IERC20(newTerms.payableCurrency).safeTransfer(address(loanCore), borrowerFee + lenderFee);
 
         // create loan in LoanCore
-        newLoanId = loanCore.startLoan(lender, borrower_, newTerms, amountFromLender, amountToBorrower, feeSnapshot);
+        newLoanId = loanCore.startLoan(lender, borrower_, newTerms, borrowerFee + lenderFee, 0, feeSnapshot);
 
         emit V3V4Rollover(lender, borrower_, newTerms.collateralId, newLoanId);
     }
