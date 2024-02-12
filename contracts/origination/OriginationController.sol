@@ -433,7 +433,7 @@ contract OriginationController is
         // Check that caller can actually call this function - neededSide assignment
         // defaults to BORROW if the signature is not approved by the borrower, but it could
         // also not be a participant
-        if (!isSelfOrApproved(callingCounterparty, caller) && !OriginationLibrary.isApprovedForContract(callingCounterparty, sig, sighash)) {
+        if (!isSelfOrApproved(callingCounterparty, caller)) {
             revert OC_CallerNotParticipant(msg.sender);
         }
 
