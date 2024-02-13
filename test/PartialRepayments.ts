@@ -736,7 +736,7 @@ describe("PartialRepayments", () => {
                 Date.now() + 604800, // deadline
             );
 
-            // increase time to half the duration
+            // increase time to past end of loan and grace period
             await blockchainTime.increaseTime(31536000 + 3600);
 
             // calculate interest payment
