@@ -23,6 +23,9 @@ abstract contract InterestCalculator {
      *         principal and calculates the total interest due based on the prorated
      *         interest rate.
      *
+     * @dev It is important to be careful when whitelisting payable currencies with low
+     *      amount of decimals. The calculation here can round down to 0 in extreme scenarios.
+     *
      * @param balance                               The unpaid principal of the loan
      * @param interestRate                          Interest rate in the loan terms
      * @param loanDuration                          Duration of the loan in seconds
