@@ -337,6 +337,9 @@ contract LoanCore is
 
         // State changes and cleanup
         loans[loanId].state = LoanLibrary.LoanState.Defaulted;
+        loans[loanId].balance = 0;
+        loans[loanId].lastAccrualTimestamp = uint64(block.timestamp);
+
         collateralInUse[keccak256(abi.encode(data.terms.collateralAddress, data.terms.collateralId))] = false;
 
         if (_amountFromLender > 0) {
