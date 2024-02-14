@@ -916,8 +916,8 @@ contract LoanCore is
     }
 
     /**
-     * @dev Burn a borrower and lender note together - easier to make sure
-     *      they are synchronized.
+     * @dev Burn a borrowerNote. This function will also burn the lenderNote if the
+     *      noteReceipt balance is zero.
      *
      * @param loanId                The token ID to burn.
      */
