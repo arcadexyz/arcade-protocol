@@ -108,7 +108,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
 
         // repay v3 loan
         if (flashLoanTrigger) {
-            _initiateFlashLoan(oldLoanId, newTerms, msg.sender, lender,  amounts);
+            _initiateFlashLoan(oldLoanId, newTerms, msg.sender, lender, amounts);
         } else {
             _repayLoan(msg.sender, IERC20(newTerms.payableCurrency), oldLoanId, amounts.amountFromLender + amounts.needFromBorrower - amounts.amountToBorrower);
 
@@ -135,8 +135,8 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      * @dev All whitelisted payable currencies and collateral state on v3 must also be set to the
      *      same values on v4.
      *
-     * @param sourceLoanTerms           The terms of the V2 loan.
-     * @param newLoanTerms              The terms of the V3 loan.
+     * @param sourceLoanTerms           The terms of the V3 loan.
+     * @param newLoanTerms              The terms of the V4 loan.
      * @param borrowerNoteId            The ID of the borrowerNote for the old loan.
      */
     // solhint-disable-next-line code-complexity

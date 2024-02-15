@@ -182,7 +182,6 @@ contract LoanCore is
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
             _getAffiliateSplit(feesEarned, terms.affiliateCode);
 
-
         if (protocolFee > 0) feesWithdrawable[terms.payableCurrency][address(this)] += protocolFee;
         if (affiliateFee > 0) feesWithdrawable[terms.payableCurrency][affiliate] += affiliateFee;
 
@@ -775,10 +774,9 @@ contract LoanCore is
 
     /**
      * @notice Shuts down the contract, callable by a designated role. Irreversible.
-     *         When the contract is shutdown, loans can only be repaid.
-     *         New loans cannot be started, defaults cannot be claimed,
-     *         loans cannot be rolled over, and vault utility cannot be
-     *         employed. This is an emergency recovery feature.
+     *         When the contract is shutdown, loans can only be repaid or claimed.
+     *         New loans cannot be started, loans cannot be rolled over, and vault
+     *         utility cannot be employed. This is an emergency recovery feature.
      */
     function shutdown() external onlyRole(SHUTDOWN_ROLE) {
         _pause();
@@ -956,12 +954,5 @@ contract LoanCore is
         uint256 amount
     ) internal {
         if (amount > 0) token.safeTransferFrom(from, address(this), amount);
-    }
-
-    /**
-     * @dev Blocks the contract from unpausing once paused.
-     */
-    function _unpause() internal override whenPaused {
-        revert LC_Shutdown();
     }
 }
