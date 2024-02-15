@@ -1626,7 +1626,7 @@ describe("PartialRepayments", () => {
         });
 
         it("1 force repayment, then the lender claims the collateral after loan duration", async () => {
-            const { repaymentController, mockERC20, loanCore, borrower, lender, blockchainTime } = ctx;
+            const { repaymentController, mockERC20, loanCore, borrower, lender, lenderNote, blockchainTime } = ctx;
 
             const { loanId, loanData } = await initializeLoan(
                 ctx,
@@ -1668,18 +1668,106 @@ describe("PartialRepayments", () => {
             ).to.emit(loanCore, "LoanPayment").withArgs(loanId);
 
             // borrower defaults, fast forwards to end of loan
-            await blockchainTime.increaseTime((31536000 / 2) - 3);
+            await blockchainTime.increaseTime(31536000 / 2 + 3600); // 1 hr after loan ends
 
-            // lender tries to claim collateral before withdrawing borrower payment
+            // lender claims collateral before withdrawing borrower payment
             await expect(
                 repaymentController.connect(lender).claim(loanId)
-            ).to.be.revertedWith("LC_AwaitingWithdrawal");
+            ).to.emit(loanCore, "LoanClaimed").withArgs(loanId);
+
+            // expect lender note to still exist since the NoteReceipt is still valid
+            expect((await loanCore.noteReceipts(loanId)).amount).to.be.eq(ethers.utils.parseEther("50").add(grossInterest1));
+            expect(await lenderNote.ownerOf(loanId)).to.eq(lender.address);
 
             // lender redeems 50 ETH + interest
             await expect(repaymentController.connect(lender).redeemNote(loanId, lender.address))
                 .to.emit(loanCore, "NoteRedeemed")
                 .withArgs(mockERC20.address,lender.address, lender.address, loanId, ethers.utils.parseEther("50").add(grossInterest1));
 
+            expect((await loanCore.noteReceipts(loanId)).amount).to.be.eq(0);
+            await expect(lenderNote.ownerOf(loanId)).to.be.revertedWith("ERC721: owner query for nonexistent token");
+        });
+
+        it("1 force repayment, 1 regular repayment to repay loan. Lender redeems note after full repayment", async () => {
+            const { repaymentController, mockERC20, loanCore, borrower, lender, lenderNote, blockchainTime } = ctx;
+
+            const { loanId, loanData } = await initializeLoan(
+                ctx,
+                mockERC20.address,
+                BigNumber.from(31536000), // durationSecs (3600*24*365)
+                ethers.utils.parseEther("100"), // principal
+                2000, // interest
+                Date.now() + 604800, // deadline
+            );
+
+            // ------------------ First Repayment ------------------
+            // increase time to half the duration
+            await blockchainTime.increaseTime((31536000 / 2) - 3);
+
+            // calculate interest payment
+            const t1 = (await ethers.provider.getBlock("latest")).timestamp + 3;
+            const grossInterest1: BigNumber = await repaymentController.getProratedInterestAmount(
+                loanData.balance,
+                loanData.terms.interestRate,
+                loanData.terms.durationSecs,
+                loanData.startDate,
+                loanData.lastAccrualTimestamp,
+                t1
+            );
+            // expecting: ethers.utils.parseEther("10")
+            expect(grossInterest1).to.gt(ethers.utils.parseEther("9.9999")).and.lt(ethers.utils.parseEther("10.0001"));
+
+            // borrower sends 50ETH to pay the principal
+            const repayAmount1 = ethers.utils.parseEther("50").add(grossInterest1);
+
+            // mint borrower interest
+            await mint(mockERC20, borrower, grossInterest1);
+            // approve loan core to spend interest + 50 ETH
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount1);
+
+            // partial repayment using force repay
+            await expect(
+                repaymentController.connect(borrower).forceRepay(loanId, repayAmount1)
+            ).to.emit(loanCore, "LoanPayment").withArgs(loanId);
+
+            // ------------------ Second Repayment ------------------
+
+            // borrower defaults, fast forwards to end of loan
+            await blockchainTime.increaseTime(31536000 / 2 + 3600); // 1 hr after loan ends
+
+            // get interest amount to close loan
+            const t2 = (await ethers.provider.getBlock("latest")).timestamp;
+            const loanData2: LoanData = await loanCore.getLoan(loanId);
+            const grossInterest2: BigNumber = await repaymentController.getProratedInterestAmount(
+                loanData2.balance,
+                loanData2.terms.interestRate,
+                loanData2.terms.durationSecs,
+                loanData2.startDate,
+                loanData2.lastAccrualTimestamp,
+                t2
+            );
+
+            // borrower repays rest of the loan
+            const repayAmount2 = ethers.utils.parseEther("50").add(grossInterest2);
+            await mint(mockERC20, borrower, grossInterest2);
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount2);
+
+            // full repayment
+            await expect(
+                repaymentController.connect(borrower).repay(loanId, repayAmount2)
+            ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
+
+            // expect lender note to still exist since the NoteReceipt is still valid
+            expect((await loanCore.noteReceipts(loanId)).amount).to.be.eq(ethers.utils.parseEther("50").add(grossInterest1));
+            expect(await lenderNote.ownerOf(loanId)).to.eq(lender.address);
+
+            // lender redeems 50 ETH + interest
+            await expect(repaymentController.connect(lender).redeemNote(loanId, lender.address))
+                .to.emit(loanCore, "NoteRedeemed")
+                .withArgs(mockERC20.address,lender.address, lender.address, loanId, ethers.utils.parseEther("50").add(grossInterest1));
+
+            expect((await loanCore.noteReceipts(loanId)).amount).to.be.eq(0);
+            await expect(lenderNote.ownerOf(loanId)).to.be.revertedWith("ERC721: owner query for nonexistent token");
         });
     });
 });
