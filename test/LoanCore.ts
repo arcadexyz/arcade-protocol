@@ -1105,6 +1105,12 @@ describe("LoanCore", () => {
             // Mint fee to LoanCore
             await mockERC20.mint(loanCore.address, fee);
 
+            // cannot withdraw protocol fees with token address(0)
+            await expect(loanCore.connect(borrower).withdrawProtocolFees(ZERO_ADDRESS, borrower.address)).to.be.revertedWith("LC_ZeroAddress");
+
+            // cannot withdraw protocol fees with recipient address(0)
+            await expect(loanCore.connect(borrower).withdrawProtocolFees(mockERC20.address, ZERO_ADDRESS)).to.be.revertedWith("LC_ZeroAddress");
+
             expect(await mockERC20.balanceOf(loanCore.address)).to.equal(fee);
             await expect(loanCore.connect(borrower).withdrawProtocolFees(mockERC20.address, borrower.address))
                 .to.emit(loanCore, "FeesWithdrawn")
