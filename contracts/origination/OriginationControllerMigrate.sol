@@ -324,6 +324,9 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
 
         // Flash loan based on principal + interest
         IVault(VAULT).flashLoan(this, assets, amounts, params);
+
+        // reset borrower state
+        borrower = address(0);
     }
 
     /**
@@ -475,16 +478,14 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
 
     /**
      * @notice This function ensures that at the start of every flash loan sequence, the borrower
-     *         state is reset to address(0). The migration function that inherit this modifier sets
-     *         the borrower state when executing the migration. At the end of the migration execution
-     *         the borrower state is always reset to address(0).
+     *         state is reset to address(0). The migration function that inherits this modifier sets
+     *         the borrower state before executing the flash loan and resets it to zero after the
+     *         flash loan has been executed.
      */
     modifier whenBorrowerReset() {
         if (borrower != address(0)) revert OCM_BorrowerNotReset(borrower);
 
         _;
-
-        borrower = address(0);
     }
 
     /**
