@@ -518,6 +518,9 @@ contract OriginationController is
         uint256 amountFromLender = loanTerms.principal + lenderFee;
         uint256 amountToBorrower = loanTerms.principal - borrowerFee;
 
+        // Calculate fees earned
+        uint256 feesEarned = borrowerFee + lenderFee;
+
         // ---------------------- Borrower receives principal ----------------------
         // Collect funds from lender and send to borrower minus fees
         IERC20(loanTerms.payableCurrency).safeTransferFrom(lender, address(this), amountFromLender);
@@ -536,10 +539,10 @@ contract OriginationController is
 
         // ------------------------ Send fees to LoanCore ---------------------------
         // Send fees to LoanCore
-        IERC20(loanTerms.payableCurrency).safeTransfer(address(loanCore), borrowerFee + lenderFee);
+        IERC20(loanTerms.payableCurrency).safeTransfer(address(loanCore), feesEarned);
 
         // Create loan in LoanCore
-        loanId = loanCore.startLoan(lender, borrowerData.borrower, loanTerms, amountFromLender, amountToBorrower, feeSnapshot);
+        loanId = loanCore.startLoan(lender, borrowerData.borrower, loanTerms, feesEarned, feeSnapshot);
     }
 
     /**

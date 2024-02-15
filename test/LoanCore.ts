@@ -249,8 +249,7 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                terms.principal,
-                terms.principal.sub(fee)
+                fee,
             );
 
             const storedLoanData = await loanCore.getLoan(loanId);
@@ -271,8 +270,7 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                terms.principal,
-                terms.principal.sub(fee)
+                fee,
             );
 
             // ensure the 1% fee was used
@@ -288,36 +286,12 @@ describe("LoanCore", () => {
             let { terms, borrower, lender } = await setupLoan(context);
             let { principal } = terms;
 
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, principal, principal);
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, 0);
 
             ({ terms, borrower, lender } = await setupLoan(context));
             ({ principal } = terms);
 
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, principal, principal);
-        });
-
-        it("should fail to start a loan where a higher principal is paid than received", async () => {
-            const context = await loadFixture(fixture);
-            const { loanCore } = context;
-            let { terms, borrower, lender } = await setupLoan(context);
-            let { principal } = terms;
-
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, principal, principal);
-
-            ({ terms, borrower, lender } = await setupLoan(context));
-            ({ principal } = terms);
-
-            // fails because the full input from the first loan was factored into the stored contract balance
-            await expect(
-                loanCore.connect(borrower).startLoan(
-                    lender.address,
-                    borrower.address,
-                    terms,
-                    principal,
-                    principal.add(ethers.utils.parseEther("1")), // borrower receives extra principal
-                    feeSnapshot
-                )
-            ).to.be.revertedWith("LC_CannotSettle");
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, 0);
         });
 
         it("rejects calls from non-originator", async () => {
@@ -328,8 +302,7 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    terms.principal,
-                    terms.principal,
+                    0,
                     feeSnapshot
                 )
             ).to.be.revertedWith(
@@ -346,8 +319,7 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                terms.principal,
-                terms.principal,
+                0,
                 feeSnapshot
             );
 
@@ -356,8 +328,7 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    terms.principal,
-                    terms.principal,
+                    0,
                     feeSnapshot
                 ),
             ).to.be.revertedWith("LC_CollateralInUse");
@@ -374,8 +345,7 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    terms.principal,
-                    terms.principal,
+                    0,
                     feeSnapshot
                 ),
             ).to.be.revertedWith("Pausable: paused");
@@ -397,8 +367,7 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                terms.principal,
-                terms.principal
+                0,
             );
 
             // Transfer vault to LoanCore
@@ -635,8 +604,7 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                terms.principal,
-                terms.principal
+                0,
             );
 
             // Transfer vault to LoanCore
@@ -911,8 +879,7 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                terms.principal,
-                terms.principal
+                0,
             );
 
             // Transfer vault to LoanCore
@@ -1029,8 +996,7 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                terms.principal,
-                terms.principal
+                0,
             );
 
             // Transfer vault to LoanCore
@@ -1239,7 +1205,7 @@ describe("LoanCore", () => {
             const { principal } = terms;
 
             const fee = principal.mul(5).div(1000);
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, principal, principal.sub(fee));
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, fee);
 
             // Mint fee to LoanCore
             await mockERC20.mint(loanCore.address, fee);
@@ -1256,7 +1222,7 @@ describe("LoanCore", () => {
             const { principal } = terms;
 
             const fee = principal.mul(5).div(1000);
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, principal, principal.sub(fee));
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, fee);
 
             // Mint fee to LoanCore
             await mockERC20.mint(loanCore.address, fee);
@@ -1274,7 +1240,7 @@ describe("LoanCore", () => {
             const { loanCore, terms, borrower, lender } = await setupLoan();
             const { principal } = terms;
 
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, principal, principal);
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, 0);
 
             await loanCore.connect(borrower).grantRole(FEE_CLAIMER_ROLE, lender.address);
             await loanCore.connect(borrower).revokeRole(FEE_CLAIMER_ROLE, borrower.address);
@@ -1291,7 +1257,7 @@ describe("LoanCore", () => {
             const { loanCore, terms, borrower, lender } = await setupLoan();
             const { principal } = terms;
 
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, principal, principal);
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, 0);
 
             await loanCore.connect(borrower).grantRole(FEE_CLAIMER_ROLE, lender.address);
             await loanCore.connect(borrower).revokeRole(FEE_CLAIMER_ROLE, borrower.address);
@@ -1308,7 +1274,7 @@ describe("LoanCore", () => {
             const { loanCore, terms, borrower, lender } = await setupLoan();
             const { principal } = terms;
 
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, principal, principal);
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, 0);
 
             await loanCore.connect(borrower).grantRole(AFFILIATE_MANAGER_ROLE, lender.address);
             await loanCore.connect(borrower).revokeRole(AFFILIATE_MANAGER_ROLE, borrower.address);
@@ -1347,8 +1313,7 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                terms.principal,
-                terms.principal
+                0
             );
 
             // Transfer vault to LoanCore
@@ -1714,8 +1679,7 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                terms.principal,
-                terms.principal
+                0,
             );
 
             return { ...context, loanId, terms, borrower, lender };
@@ -1747,7 +1711,7 @@ describe("LoanCore", () => {
             await mockERC20.connect(lender).mint(lender.address, terms.principal);
             await mockERC20.connect(lender).approve(loanCore.address, terms.principal);
 
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, terms.principal, terms.principal);
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, 0);
 
             const collateralId2 = await initializeBundle(vaultFactory, borrower);
             const terms2 = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: collateralId2 });
@@ -1757,7 +1721,7 @@ describe("LoanCore", () => {
             await mockERC20.connect(lender).mint(lender.address, terms2.principal);
             await mockERC20.connect(lender).approve(loanCore.address, terms2.principal);
 
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms2, terms2.principal, terms2.principal);
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms2, 0);
 
             expect(await loanCore.canCallOn(borrower.address, collateralId.toString())).to.be.true;
             expect(await loanCore.canCallOn(borrower.address, collateralId2.toString())).to.be.true;
@@ -1816,8 +1780,7 @@ describe("LoanCore", () => {
                 borrower.address,
                 lender.address,
                 terms2,
-                terms2.principal,
-                terms2.principal
+                0,
             );
 
             // Borrower has a different loan as well
@@ -2130,8 +2093,7 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    terms.principal.add(fee),
-                    terms.principal,
+                    fee,
                 );
 
                 // Mint fee to LoanCore - accounted for in startLoan

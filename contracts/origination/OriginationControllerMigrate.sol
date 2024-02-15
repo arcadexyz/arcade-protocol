@@ -103,6 +103,8 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         // collect and distribute settled amounts
         (
             OriginationLibrary.RolloverAmounts memory amounts,
+            LoanLibrary.FeeSnapshot memory feeSnapshot,
+            uint256 feesEarned,
             bool flashLoanTrigger
         ) = _migrate(oldLoanId, oldLoanData, newTerms.principal, msg.sender, lender);
 
@@ -119,7 +121,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         }
 
         // initialize v4 loan
-        _initializeMigrationLoan(newTerms, msg.sender, lender);
+        _initializeMigrationLoan(newTerms, msg.sender, lender, feeSnapshot, feesEarned);
 
         // Run predicates check at the end of the function, after vault is in escrow. This makes sure
         // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
@@ -194,6 +196,8 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      * @param lender                    The address of the new lender.
      *
      * @return amounts                  The migration amounts.
+     * @return feeSnapshot              A snapshot of current lending fees.
+     * @return feesEarned               The total fees earned from the migration.
      * @return flashLoanTrigger         boolean indicating if a flash loan must be initiated.
      */
     function _migrate(
@@ -204,13 +208,18 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         address lender
     ) internal nonReentrant returns (
         OriginationLibrary.RolloverAmounts memory amounts,
+        LoanLibrary.FeeSnapshot memory feeSnapshot,
+        uint256 feesEarned,
         bool flashLoanTrigger
     ) {
         address oldLender = ILoanCoreV3(loanCoreV3).lenderNote().ownerOf(oldLoanId);
         IERC20 payableCurrency = IERC20(oldLoanData.terms.payableCurrency);
 
         // get lending origination fees from fee controller
-        (, uint256 borrowerFee, uint256 lenderFee) = feeController.getOriginationFeeAmounts(newPrincipalAmount);
+        uint256 borrowerFee;
+        uint256 lenderFee;
+        (feeSnapshot, borrowerFee, lenderFee) = feeController.getOriginationFeeAmounts(newPrincipalAmount);
+        feesEarned = borrowerFee + lenderFee;
 
         // Calculate settle amounts
         (amounts) = _calculateV3MigrationAmounts(
@@ -429,29 +438,26 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      * @param newTerms                  The terms of the v4 loan.
      * @param borrower_                 The address of the borrower.
      * @param lender                    The address of the lender.
+     * @param feeSnapshot               The fee snapshot for the loan.
+     * @param feesEarned                A snapshot of current lending fees.
      *
      * @return newLoanId                The ID of the new loan.
      */
     function _initializeMigrationLoan(
         LoanLibrary.LoanTerms memory newTerms,
         address borrower_,
-        address lender
+        address lender,
+        LoanLibrary.FeeSnapshot memory feeSnapshot,
+        uint256 feesEarned
     ) internal returns (uint256 newLoanId) {
-        // get lending origination fees from fee controller
-        (
-            LoanLibrary.FeeSnapshot memory feeSnapshot,
-            uint256 borrowerFee,
-            uint256 lenderFee
-        ) = feeController.getOriginationFeeAmounts(newTerms.principal);
-
         // transfer collateral to LoanCore
         IERC721(newTerms.collateralAddress).transferFrom(address(this), address(loanCore), newTerms.collateralId);
 
         // Send fees to LoanCore
-        IERC20(newTerms.payableCurrency).safeTransfer(address(loanCore), borrowerFee + lenderFee);
+        IERC20(newTerms.payableCurrency).safeTransfer(address(loanCore), feesEarned);
 
         // create loan in LoanCore
-        newLoanId = loanCore.startLoan(lender, borrower_, newTerms, borrowerFee + lenderFee, 0, feeSnapshot);
+        newLoanId = loanCore.startLoan(lender, borrower_, newTerms, feesEarned, feeSnapshot);
 
         emit V3V4Rollover(lender, borrower_, newTerms.collateralId, newLoanId);
     }

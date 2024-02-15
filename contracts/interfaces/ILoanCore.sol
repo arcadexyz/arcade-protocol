@@ -39,8 +39,7 @@ interface ILoanCore {
         address lender,
         address borrower,
         LoanLibrary.LoanTerms calldata terms,
-        uint256 _amountFromLender,
-        uint256 _amountToBorrower,
+        uint256 feesEarned,
         LoanLibrary.FeeSnapshot calldata feeSnapshot
     ) external returns (uint256 loanId);
 
