@@ -456,13 +456,6 @@ error IV_InvalidCollateralId(uint256 collateralId);
 error RC_ZeroAddress(string addressType);
 
 /**
- * @notice Could not dereference loan from loan ID.
- *
- * @param target                     The loanId being checked.
- */
-error RC_CannotDereference(uint256 target);
-
-/**
  * @notice Ensure valid loan state for loan lifecycle operations.
  *
  * @param state                         Current state of a loan according to LoanState enum.
