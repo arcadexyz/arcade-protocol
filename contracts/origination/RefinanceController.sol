@@ -141,8 +141,8 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
         );
 
         // principal cannot increase
-        if (newTerms.principal > oldLoanData.terms.principal) revert REFI_PrincipalIncrease(
-            oldLoanData.terms.principal,
+        if (newTerms.principal > oldLoanData.balance) revert REFI_PrincipalIncrease(
+            oldLoanData.balance,
             newTerms.principal
         );
     }
