@@ -745,13 +745,15 @@ contract LoanCore is
      * @notice Set the affiliate fee splits for the batch of affiliate codes. Codes and splits should
      *         be matched index-wise. Can only be called by protocol admin.
      *
+     * @dev Affiliate codes cannot be modified when this contract is shutdown.
+     *
      * @param codes                     The affiliate code to set the split for.
      * @param splits                    The splits to set for the given codes.
      */
     function setAffiliateSplits(
         bytes32[] calldata codes,
         AffiliateSplit[] calldata splits
-    ) external override onlyRole(AFFILIATE_MANAGER_ROLE) {
+    ) external override whenNotPaused onlyRole(AFFILIATE_MANAGER_ROLE) nonReentrant {
         if (codes.length != splits.length) revert LC_ArrayLengthMismatch();
 
         for (uint256 i = 0; i < codes.length;) {
