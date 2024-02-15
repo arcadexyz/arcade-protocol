@@ -231,7 +231,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
             flashLoanTrigger = true;
             // if same lender and new principal is greater than old loan repayment amount,
             // send the difference to the lender
-            if (amounts.amountFromLender > 0) {
+            if (amounts.leftoverPrincipal > 0) {
                 payableCurrency.safeTransferFrom(lender, address(this), amounts.leftoverPrincipal);
             }
         }
