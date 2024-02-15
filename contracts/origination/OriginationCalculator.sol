@@ -22,7 +22,7 @@ abstract contract OriginationCalculator is InterestCalculator {
      *      Determine the amount to either pay or withdraw from the borrower, and
      *      any payments to be sent to the old lender.
      *
-     * @param oldPrincipal          The principal amount of the old loan.
+     * @param oldBalance            The balance of the old loan.
      * @param oldInterestAmount     The interest amount of the old loan.
      * @param newPrincipalAmount    The principal amount of the new loan.
      * @param lender                The address of the new lender.
@@ -34,7 +34,7 @@ abstract contract OriginationCalculator is InterestCalculator {
      * @return amounts              The net amounts owed to each party.
      */
     function rolloverAmounts(
-        uint256 oldPrincipal,
+        uint256 oldBalance,
         uint256 oldInterestAmount,
         uint256 newPrincipalAmount,
         address lender,
@@ -56,7 +56,7 @@ abstract contract OriginationCalculator is InterestCalculator {
         }
 
         amounts.interestAmount = oldInterestAmount;
-        uint256 repayAmount = oldPrincipal + oldInterestAmount;
+        uint256 repayAmount = oldBalance + oldInterestAmount;
 
         // Calculate net amounts based on if repayment amount for old loan is
         // greater than new loan principal
@@ -139,7 +139,7 @@ abstract contract OriginationCalculator is InterestCalculator {
 
 
         return rolloverAmounts(
-            oldLoanData.terms.principal,
+            oldLoanData.balance,
             interest,
             newPrincipalAmount,
             lender,
