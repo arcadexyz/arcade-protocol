@@ -40,7 +40,6 @@ describe("FeeController", () => {
             expect(await feeController.getMaxLendingFee(await feeController.FL_05())).to.equal(10_00);
             expect(await feeController.getMaxLendingFee(await feeController.FL_06())).to.equal(50_00);
             expect(await feeController.getMaxLendingFee(await feeController.FL_07())).to.equal(10_00);
-            expect(await feeController.getMaxLendingFee(await feeController.FL_08())).to.equal(10_00);
         });
     });
 

@@ -22,5 +22,4 @@ abstract contract FeeLookups {
     bytes32 public constant FL_05 = keccak256("LENDER_DEFAULT_FEE");
     bytes32 public constant FL_06 = keccak256("LENDER_INTEREST_FEE");
     bytes32 public constant FL_07 = keccak256("LENDER_PRINCIPAL_FEE");
-    bytes32 public constant FL_08 = keccak256("LENDER_REDEEM_FEE");
 }

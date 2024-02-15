@@ -1227,13 +1227,12 @@ describe("RepaymentController", () => {
             ).to.be.revertedWith(`RC_ZeroAddress("to")`);
         });
 
-        it("100 ETH principal, 10% interest, borrower force repays (20% interest, 2% principal, 10% redeem fee on lender)", async () => {
+        it("100 ETH principal, 10% interest, borrower force repays (20% interest, 2% principal)", async () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_06(), 20_00);
             await feeController.setLendingFee(await feeController.FL_07(), 2_00);
-            await feeController.setLendingFee(await feeController.FL_08(), 10_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1274,13 +1273,13 @@ describe("RepaymentController", () => {
             await expect(
                 repaymentController.connect(lender).redeemNote(loanId, lender.address)
             ).to.emit(loanCore, "NoteRedeemed")
-                .withArgs(mockERC20.address, lender.address, lender.address, loanId, ethers.utils.parseEther("95.4"))
+                .withArgs(mockERC20.address, lender.address, lender.address, loanId, ethers.utils.parseEther("106"))
                 .to.emit(lenderNote, "Transfer")
                 .withArgs(lender.address, ethers.constants.AddressZero, loanId);
 
-            // Now, lender withdrew, and more fees available - lender gets 106 - 10.6 = 95.4
-            expect(await mockERC20.balanceOf(loanCore.address)).to.eq(ethers.utils.parseEther("14.6"));
-            expect(await mockERC20.balanceOf(lender.address)).to.eq(ethers.utils.parseEther("95.4"));
+            // Now, lender withdrew, and more fees available for withdrawal
+            expect(await mockERC20.balanceOf(loanCore.address)).to.eq(ethers.utils.parseEther("4"));
+            expect(await mockERC20.balanceOf(lender.address)).to.eq(ethers.utils.parseEther("106"));
         });
 
         it("100 ETH principal, 10% interest, lender fees change during loan", async () => {
@@ -1289,7 +1288,6 @@ describe("RepaymentController", () => {
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_06(), 20_00);
             await feeController.setLendingFee(await feeController.FL_07(), 2_00);
-            await feeController.setLendingFee(await feeController.FL_08(), 10_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1337,22 +1335,21 @@ describe("RepaymentController", () => {
             await expect(
                 repaymentController.connect(lender).redeemNote(loanId, other.address)
             ).to.emit(loanCore, "NoteRedeemed")
-                .withArgs(mockERC20.address, lender.address, other.address, loanId, ethers.utils.parseEther("95.4"))
+                .withArgs(mockERC20.address, lender.address, other.address, loanId, ethers.utils.parseEther("106"))
                 .to.emit(lenderNote, "Transfer")
                 .withArgs(lender.address, ethers.constants.AddressZero, loanId);
 
             // Now, lender withdrew, and more fees available - lender gets 106 - 10.6 = 95.4
-            expect(await mockERC20.balanceOf(loanCore.address)).to.eq(ethers.utils.parseEther("14.6"));
-            expect(await mockERC20.balanceOf(other.address)).to.eq(ethers.utils.parseEther("95.4"));
+            expect(await mockERC20.balanceOf(loanCore.address)).to.eq(ethers.utils.parseEther("4"));
+            expect(await mockERC20.balanceOf(other.address)).to.eq(ethers.utils.parseEther("106"));
         });
 
-        it("100 ETH principal, 10% interest, lender fees and redeem note fee change during loan", async () => {
+        it("100 ETH principal, 10% interest, lender fees change during loan", async () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_06(), 20_00);
             await feeController.setLendingFee(await feeController.FL_07(), 2_00);
-            await feeController.setLendingFee(await feeController.FL_08(), 10_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1366,7 +1363,6 @@ describe("RepaymentController", () => {
             // lender fees change during loan
             await feeController.setLendingFee(await feeController.FL_06(), 21_00);
             await feeController.setLendingFee(await feeController.FL_07(), 3_00);
-            await feeController.setLendingFee(await feeController.FL_08(), 9_00);
 
             // total repayment amount
             const total = ethers.utils.parseEther("110");
@@ -1401,13 +1397,13 @@ describe("RepaymentController", () => {
             await expect(
                 repaymentController.connect(lender).redeemNote(loanId, other.address)
             ).to.emit(loanCore, "NoteRedeemed")
-                .withArgs(mockERC20.address, lender.address, other.address, loanId, ethers.utils.parseEther("96.46"))
+                .withArgs(mockERC20.address, lender.address, other.address, loanId, ethers.utils.parseEther("106"))
                 .to.emit(lenderNote, "Transfer")
                 .withArgs(lender.address, ethers.constants.AddressZero, loanId);
 
-            // Now, lender withdrew, and more fees available - lender gets 106 - 13.54 = 96.46
-            expect(await mockERC20.balanceOf(loanCore.address)).to.eq(ethers.utils.parseEther("13.54"));
-            expect(await mockERC20.balanceOf(other.address)).to.eq(ethers.utils.parseEther("96.46"));
+            // Now, lender withdrew, and more fees available
+            expect(await mockERC20.balanceOf(loanCore.address)).to.eq(ethers.utils.parseEther("4"));
+            expect(await mockERC20.balanceOf(other.address)).to.eq(ethers.utils.parseEther("106"));
         });
     });
 
