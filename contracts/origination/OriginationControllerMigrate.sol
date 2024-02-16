@@ -223,7 +223,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         // get lending origination fees from fee controller
         uint256 borrowerFee;
         uint256 lenderFee;
-        (feeSnapshot, borrowerFee, lenderFee) = feeController.getOriginationFeeAmounts(newPrincipalAmount);
+        (feeSnapshot, borrowerFee, lenderFee) = feeController.getOriginationFees(newPrincipalAmount);
         feesEarned = borrowerFee + lenderFee;
 
         // Calculate settle amounts

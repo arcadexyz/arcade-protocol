@@ -186,16 +186,6 @@ The OriginationController's signing flow separates counterparties along the foll
 
 In some cases, open signatures for one of these roles (e.g. borrowing against an asset) can be used for other roles (e.g. to lend against the same asset). If users would like to borrow against an NFT, but then sell that NFT, they should cancel all open offers associated with that asset.
 
-### Loan origination fees are upper-bounded by rollover fees
-
-The Arcade Protocol has a number of fees that can be assessed on different counterparties, at different stages of the loan lifecycle (see [FeeLookups.sol](https://github.com/arcadexyz/arcade-protocol/blob/main/contracts/libraries/FeeLookups.sol) for an enumeration of these fees.)
-
-It is important to be aware of the interaction between two analagous fees: the `BORROWER_ORIGINATION_FEE` and `LENDER_ORIGINATION_FEE`, respectively with the `BORROWER_ROLLOVER_FEE` and `LENDER_ROLLOVER_FEE`. If fees were ever set such that rollover fees were _lower_ than origination fees, counterparties become incentivized to circumvent fees.
-
-To do so, counterparties can agree on "bogus" loan terms at a very small principal amount (up to the `minPrincipal` defined for the given payable currency), meaning that the origination fee is only assessed on the very small principal amount. After origination, the counterparties can immediately rollover to their "real" agreed-upon terms, only paying the lower rollover fee on the full principal. Note that this involves risks for the borrower: the lender can choose, instead of rolling over, to force default, eventually obtaining the NFT for the cost of the `minPrincipal`.
-
-Nevertheless, protocol administrators should be aware of this vector and carefully manage fees such that there is no incentive to circumvent origination fees by using rollovers.
-
 ### `ArcadeItemsVerifier` predicates are independently evaluated
 
 When `initializeLoanWithItems` is used, the counterparties provide a series of _predicates_: conditions that the collateral vault must fulfill in order for the loan
