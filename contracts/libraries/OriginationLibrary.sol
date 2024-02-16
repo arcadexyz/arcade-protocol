@@ -47,20 +47,26 @@ library OriginationLibrary {
     bytes32 public constant _TOKEN_ID_TYPEHASH =
         keccak256(
             // solhint-disable-next-line max-line-length
-            "LoanTerms(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,uint256 collateralId,bytes32 affiliateCode,uint160 nonce,uint96 maxUses,uint8 side)"
+            "LoanTerms(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,uint256 collateralId,bytes32 affiliateCode,SigProperties sigProperties,uint8 side,address signingCounterparty)SigProperties(uint160 nonce,uint96 maxUses)"
         );
 
     /// @notice EIP712 type hash for item-based signatures.
     bytes32 public constant _ITEMS_TYPEHASH =
         keccak256(
             // solhint-disable max-line-length
-            "LoanTermsWithItems(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,bytes32 affiliateCode,Predicate[] items,uint160 nonce,uint96 maxUses,uint8 side)Predicate(bytes data,address verifier)"
+            "LoanTermsWithItems(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,bytes32 affiliateCode,Predicate[] items,SigProperties sigProperties,uint8 side,address signingCounterparty)Predicate(bytes data,address verifier)SigProperties(uint160 nonce,uint96 maxUses)"
         );
 
     /// @notice EIP712 type hash for Predicate.
     bytes32 public constant _PREDICATE_TYPEHASH =
         keccak256(
             "Predicate(bytes data,address verifier)"
+        );
+
+    /// @notice EIP712 type hash for SigProperties.
+    bytes32 public constant _SIG_PROPERTIES_TYPEHASH =
+        keccak256(
+            "SigProperties(uint160 nonce,uint96 maxUses)"
         );
 
     // ==================================== SIGNATURE VERIFICATION ====================================
@@ -76,7 +82,7 @@ library OriginationLibrary {
      *
      * @return itemsHash                    The concatenated hash of all items in the Predicate array.
      */
-    function _encodePredicates(LoanLibrary.Predicate[] memory predicates) public pure returns (bytes32 itemsHash) {
+    function encodePredicates(LoanLibrary.Predicate[] memory predicates) public pure returns (bytes32 itemsHash) {
        bytes32[] memory itemHashes = new bytes32[](predicates.length);
 
         for (uint i = 0; i < predicates.length;){
@@ -97,6 +103,23 @@ library OriginationLibrary {
 
         // concatenate all predicate hashes
         itemsHash = keccak256(abi.encodePacked(itemHashes));
+    }
+
+    /**
+     * @notice Hashes the signature properties for inclusion in the EIP712 signature.
+     *
+     * @param sigProperties                 The signature properties.
+     *
+     * @return sigPropertiesHash            The hash of the signature properties.
+     */
+    function encodeSigProperties(IOriginationController.SigProperties memory sigProperties) public pure returns (bytes32 sigPropertiesHash) {
+        sigPropertiesHash = keccak256(
+            abi.encode(
+                _SIG_PROPERTIES_TYPEHASH,
+                sigProperties.nonce,
+                sigProperties.maxUses
+            )
+        );
     }
 
     // ==================================== PERMISSION MANAGEMENT =====================================

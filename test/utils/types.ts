@@ -55,9 +55,9 @@ export interface ItemsPayload {
     principal: BigNumber;
     affiliateCode: BytesLike;
     items: ItemsPredicate[];
-    nonce: BigNumberish;
-    maxUses: BigNumberish;
+    sigProperties: SignatureProperties;
     side: 0 | 1;
+    signingCounterparty: string;
 }
 
 export interface FeeSnapshot {
