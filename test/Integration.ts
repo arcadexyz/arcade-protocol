@@ -842,7 +842,6 @@ describe("Integration", () => {
             // 0.5 (on principal) + 1 (on interest) = 1.5 ETH
             await feeController.setLendingFee(await feeController.FL_02(), 50);
             await feeController.setLendingFee(await feeController.FL_04(), 10_00);
-            await feeController.setLendingFee(await feeController.FL_06(), 5_00);
 
             // Set affiliate share to 10% of fees for borrower
             await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);

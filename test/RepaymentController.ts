@@ -1234,7 +1234,6 @@ describe("RepaymentController", () => {
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_04(), 20_00);
             await feeController.setLendingFee(await feeController.FL_05(), 2_00);
-            await feeController.setLendingFee(await feeController.FL_06(), 10_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1290,7 +1289,6 @@ describe("RepaymentController", () => {
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_04(), 20_00);
             await feeController.setLendingFee(await feeController.FL_05(), 2_00);
-            await feeController.setLendingFee(await feeController.FL_06(), 10_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1353,7 +1351,6 @@ describe("RepaymentController", () => {
             // Assess fee on lender
             await feeController.setLendingFee(await feeController.FL_04(), 20_00);
             await feeController.setLendingFee(await feeController.FL_05(), 2_00);
-            await feeController.setLendingFee(await feeController.FL_06(), 10_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1367,7 +1364,6 @@ describe("RepaymentController", () => {
             // lender fees change during loan
             await feeController.setLendingFee(await feeController.FL_04(), 21_00);
             await feeController.setLendingFee(await feeController.FL_05(), 3_00);
-            await feeController.setLendingFee(await feeController.FL_06(), 9_00);
 
             // total repayment amount
             const total = ethers.utils.parseEther("110");
