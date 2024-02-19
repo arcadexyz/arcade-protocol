@@ -69,6 +69,13 @@ abstract contract OriginationCalculator is InterestCalculator {
             unchecked {
                 amounts.needFromBorrower = repayAmount - borrowerOwedForNewLoan;
             }
+
+            // amount to collect from lender (either old or new)
+            if (repayAmount < amounts.amountFromLender) {
+                unchecked {
+                    amounts.leftoverPrincipal = amounts.amountFromLender - repayAmount;
+                }
+            }
         } else {
             // amount to collect from lender (either old or new)
             amounts.leftoverPrincipal = amounts.amountFromLender - repayAmount;

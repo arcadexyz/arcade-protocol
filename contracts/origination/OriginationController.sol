@@ -595,17 +595,17 @@ contract OriginationController is
             // If new lender, take new principal from new lender
             payableCurrency.safeTransferFrom(lender, address(this), amounts.amountFromLender);
             settledAmount += amounts.amountFromLender;
+        } else if (amounts.leftoverPrincipal > 0) {
+            // If same lender, and new amount from lender is greater than old loan repayment amount,
+            // take the difference from the lender
+            payableCurrency.safeTransferFrom(lender, address(this), amounts.leftoverPrincipal);
+            settledAmount += amounts.leftoverPrincipal;
         }
 
         if (amounts.needFromBorrower > 0) {
             // Borrower owes from old loan
             payableCurrency.safeTransferFrom(borrower, address(this), amounts.needFromBorrower);
             settledAmount += amounts.needFromBorrower;
-        } else if (amounts.leftoverPrincipal > 0 && lender == oldLender) {
-            // If same lender, and new amount from lender is greater than old loan repayment amount,
-            // take the difference from the lender
-            payableCurrency.safeTransferFrom(lender, address(this), amounts.leftoverPrincipal);
-            settledAmount += amounts.leftoverPrincipal;
         }
 
         // approve LoanCore to take the total settled amount
