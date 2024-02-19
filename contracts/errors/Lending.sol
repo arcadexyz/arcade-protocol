@@ -356,6 +356,13 @@ error REFI_SameLender(address lender);
  */
 error REFI_PrincipalIncrease(uint256 oldPrincipal, uint256 newPrincipal);
 
+/**
+ * @notice New principal cannot be less than minimum.
+ *
+ * @param principal                   Provided principal amount.
+ */
+error REFI_PrincipalTooLow(uint256 principal);
+
 // ==================================== ITEMS VERIFIER ======================================
 /// @notice All errors prefixed with IV_, to separate from other contracts in the protocol.
 
