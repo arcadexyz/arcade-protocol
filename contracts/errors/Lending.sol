@@ -256,13 +256,6 @@ error OCM_InvalidState(uint8 state);
 error OCM_SideMismatch(address signer);
 
 /**
- * @notice Signature must not be expired.
- *
- * @param deadline                      Deadline in seconds.
- */
-error OCM_SignatureIsExpired(uint256 deadline);
-
-/**
  * @notice New currency does not match for a loan migration request.
  *
  * @param oldCurrency                   The currency of the active loan.
@@ -284,28 +277,6 @@ error OCM_CollateralMismatch(
     address newCollateralAddress,
     uint256 newCollateralId
 );
-
-/**
- * @notice Principal must be greater than 9999 Wei.
- *
- * @param principal                     Principal in ether.
- */
-error OCM_PrincipalTooLow(uint256 principal);
-
-/**
- * @notice Loan duration must be greater than 1hr and less than 3yrs.
- *
- * @param durationSecs                 Total amount of time in seconds.
- */
-error OCM_LoanDuration(uint256 durationSecs);
-
-/**
- * @notice Interest rate must be greater than or equal to 1 (0.01%) and less than or equal
- *         to 1e8 (1,000,000%).
- *
- * @param interestRate                  Interest rate in bps.
- */
-error OCM_InterestRate(uint256 interestRate);
 
 // ================================= REFINANCE CONTROLLER =====================================
 /// @notice All errors prefixed with REFI_, to separate from other contracts in the protocol.
