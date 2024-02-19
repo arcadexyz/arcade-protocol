@@ -48,7 +48,11 @@ abstract contract OriginationCalculator is InterestCalculator {
             // account for fees if they exist
             unchecked {
                 borrowerOwedForNewLoan = newPrincipalAmount - borrowerFee;
-                amounts.amountFromLender = newPrincipalAmount + lenderFee + interestFee;
+                amounts.amountFromLender = newPrincipalAmount + lenderFee;
+            }
+
+            if (lender == oldLender) {
+                amounts.amountFromLender += interestFee;
             }
         } else {
             borrowerOwedForNewLoan = newPrincipalAmount;
@@ -78,7 +82,7 @@ abstract contract OriginationCalculator is InterestCalculator {
         // Calculate lender amounts based on if the lender is the same as the old lender
         if (lender != oldLender) {
             // different lenders, repay old lender
-            amounts.amountToOldLender = repayAmount;
+            amounts.amountToOldLender = repayAmount - interestFee;
 
             // different lender, new lender is owed zero tokens
             amounts.amountToLender = 0;
