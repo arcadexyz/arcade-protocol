@@ -35,11 +35,9 @@ describe("FeeController", () => {
             expect(await feeController.getMaxVaultMintFee()).to.equal(ethers.utils.parseEther("1"));
             expect(await feeController.getMaxLendingFee(await feeController.FL_01())).to.equal(10_00);
             expect(await feeController.getMaxLendingFee(await feeController.FL_02())).to.equal(10_00);
-            expect(await feeController.getMaxLendingFee(await feeController.FL_03())).to.equal(20_00);
-            expect(await feeController.getMaxLendingFee(await feeController.FL_04())).to.equal(20_00);
+            expect(await feeController.getMaxLendingFee(await feeController.FL_03())).to.equal(10_00);
+            expect(await feeController.getMaxLendingFee(await feeController.FL_04())).to.equal(50_00);
             expect(await feeController.getMaxLendingFee(await feeController.FL_05())).to.equal(10_00);
-            expect(await feeController.getMaxLendingFee(await feeController.FL_06())).to.equal(50_00);
-            expect(await feeController.getMaxLendingFee(await feeController.FL_07())).to.equal(10_00);
         });
     });
 
@@ -97,7 +95,7 @@ describe("FeeController", () => {
             it("unset fees return 0", async () => {
                 const { feeController, user } = ctx;
 
-                expect(await feeController.connect(user).getLendingFee(await feeController.FL_07())).to.eq(0);
+                expect(await feeController.connect(user).getLendingFee(await feeController.FL_05())).to.eq(0);
             });
         });
 

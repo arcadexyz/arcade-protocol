@@ -38,7 +38,8 @@ import {
     MIN_LOAN_PRINCIPAL,
     EIP712_VERSION,
     AFFILIATE_MANAGER_ROLE,
-    FEE_CLAIMER_ROLE
+    FEE_CLAIMER_ROLE,
+    SIG_DEADLINE
 } from "./utils/constants";
 
 type Signer = SignerWithAddress;
@@ -207,7 +208,7 @@ const createLoanTerms = (
         principal = ethers.utils.parseEther("100"),
         interestRate = BigNumber.from(1000),
         collateralId = "1",
-        deadline = 1754884800,
+        deadline = SIG_DEADLINE,
         affiliateCode = ethers.constants.HashZero
     }: Partial<LoanTerms> = {},
 ): LoanTerms => {
@@ -441,12 +442,11 @@ describe("Refinancing", () => {
             expect(loanDataAfter.interestAmountPaid).to.equal(0);
         });
 
-        it("same principal, same due date, 20% fee on interest, 2% lender fee on principal", async () => {
+        it("same principal, same due date, 20% fee on interest", async () => {
             const { feeController, originationController, refinanceController, loanCore, mockERC20, mockERC721, vaultFactory, lender, borrower, newLender, blockchainTime, } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_06(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_04(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
 
             const bundleId = await initializeBundle(vaultFactory, borrower);
             const bundleAddress = await vaultFactory.instanceAt(bundleId);
@@ -493,9 +493,8 @@ describe("Refinancing", () => {
             // approve old loan interest and new principal to be collected by LoanCore
             const interestDue = ethers.utils.parseEther("5");
             const interestFee = ethers.utils.parseEther("1");
-            const principalFee = ethers.utils.parseEther("2");
 
-            const newLenderOwes: BigNumber = refiLoanTerms.principal.add(interestDue).add(interestFee).add(principalFee);
+            const newLenderOwes: BigNumber = refiLoanTerms.principal.add(interestDue).add(interestFee);
 
             await mint(mockERC20, newLender, newLenderOwes);
             await approve(mockERC20, newLender, refinanceController.address, newLenderOwes);
@@ -518,7 +517,7 @@ describe("Refinancing", () => {
             expect(oldLenderBalanceAfter).to.equal(oldLenderBalanceBefore.add(loanTerms.principal.add(interestDue)));
             expect(newLenderBalanceAfter).to.equal(newLenderBalanceBefore.sub(newLenderOwes));
             expect(borrowerBalanceAfter).to.equal(borrowerBalanceBefore);
-            expect(loanCoreBalanceAfter).to.equal(loanCoreBalanceBefore.add(interestFee).add(principalFee));
+            expect(loanCoreBalanceAfter).to.equal(loanCoreBalanceBefore.add(interestFee));
 
 
             // loan state checks
@@ -533,15 +532,14 @@ describe("Refinancing", () => {
             expect(loanDataAfter.interestAmountPaid).to.equal(0);
         });
 
-        it("same principal, same due date, 20% fee on interest, 2% borrower fee on principal, and a 20% affiliate split", async () => {
+        it("same principal, same due date, 20% fee on interest, and a 20% affiliate split", async () => {
             const { feeController, originationController, refinanceController, loanCore, mockERC20, mockERC721, vaultFactory, lender, borrower, newLender, blockchainTime, signers } = ctx;
 
             // affiliate code
             const affiliateCode = ethers.utils.id("FOO");
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_06(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_03(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
 
             // Add a 20% affiliate split
             await loanCore.connect(signers[0]).setAffiliateSplits([affiliateCode], [{ affiliate: borrower.address, splitBps: 20_00 }])
@@ -592,9 +590,8 @@ describe("Refinancing", () => {
             // approve old loan interest and new principal to be collected by LoanCore
             const interestDue = ethers.utils.parseEther("5");
             const interestFee = ethers.utils.parseEther("1");
-            const principalFee = ethers.utils.parseEther("2");
 
-            let newLenderOwes: BigNumber = refiLoanTerms.principal.add(interestDue).add(interestFee).add(principalFee);
+            let newLenderOwes: BigNumber = refiLoanTerms.principal.add(interestDue).add(interestFee);
 
             await mint(mockERC20, newLender, newLenderOwes);
             await approve(mockERC20, newLender, refinanceController.address, newLenderOwes);
@@ -617,8 +614,8 @@ describe("Refinancing", () => {
             expect(oldLenderBalanceAfter).to.equal(oldLenderBalanceBefore.add(loanTerms.principal.add(interestDue)));
             expect(newLenderBalanceAfter).to.equal(newLenderBalanceBefore.sub(newLenderOwes));
             expect(borrowerBalanceAfter).to.equal(borrowerBalanceBefore);
-            expect(loanCoreBalanceAfter).to.equal(loanCoreBalanceBefore.add(interestFee).add(principalFee));
-            expect(await loanCore.feesWithdrawable(mockERC20.address, borrower.address)).to.eq(ethers.utils.parseEther("0.6"));
+            expect(loanCoreBalanceAfter).to.equal(loanCoreBalanceBefore.add(interestFee));
+            expect(await loanCore.feesWithdrawable(mockERC20.address, borrower.address)).to.eq(ethers.utils.parseEther("0.2"));
 
             // loan state checks
             const loanData1After: LoanData = await loanCore.getLoan(1);
@@ -632,18 +629,18 @@ describe("Refinancing", () => {
             expect(loanDataAfter.interestAmountPaid).to.equal(0);
 
             // affiliate fee withdrawal
-            await expect(loanCore.connect(borrower).withdraw(mockERC20.address, ethers.utils.parseEther("0.6"), borrower.address))
+            await expect(loanCore.connect(borrower).withdraw(mockERC20.address, ethers.utils.parseEther("0.2"), borrower.address))
                 .to.emit(loanCore, "FeesWithdrawn")
-                .withArgs(mockERC20.address, borrower.address, borrower.address, ethers.utils.parseEther("0.6"))
+                .withArgs(mockERC20.address, borrower.address, borrower.address, ethers.utils.parseEther("0.2"))
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(loanCore.address, borrower.address, ethers.utils.parseEther("0.6"));
+                .withArgs(loanCore.address, borrower.address, ethers.utils.parseEther("0.2"));
 
             // protocol fee withdrawal
             await expect(loanCore.connect(signers[0]).withdrawProtocolFees(mockERC20.address, signers[0].address))
                 .to.emit(loanCore, "FeesWithdrawn")
-                .withArgs(mockERC20.address, signers[0].address, signers[0].address, ethers.utils.parseEther("2.4"))
+                .withArgs(mockERC20.address, signers[0].address, signers[0].address, ethers.utils.parseEther("0.8"))
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(loanCore.address, signers[0].address, ethers.utils.parseEther("2.4"));
+                .withArgs(loanCore.address, signers[0].address, ethers.utils.parseEther("0.8"));
         });
     });
 

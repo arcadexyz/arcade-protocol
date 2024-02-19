@@ -56,14 +56,10 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
         maxLoanFees[FL_01] = 10_00;
         maxLoanFees[FL_02] = 10_00;
 
-        /// @dev Rollover fees - bps
-        maxLoanFees[FL_03] = 20_00;
-        maxLoanFees[FL_04] = 20_00;
-
         /// @dev Loan closure fees - bps
+        maxLoanFees[FL_03] = 10_00;
+        maxLoanFees[FL_04] = 50_00;
         maxLoanFees[FL_05] = 10_00;
-        maxLoanFees[FL_06] = 50_00;
-        maxLoanFees[FL_07] = 10_00;
     }
 
     // ======================================== GETTER/SETTER ==========================================
@@ -121,59 +117,44 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
     }
 
     /**
-     * @notice Get the fees for loan origination. Fees are returned in a struct to be used
-     *         upon loan origination.
+     * @notice Get the borrower and lender fees for loan origination.
      *
-     * @return FeesOrigination              Applicable fees for loan origination.
-     */
-    function getFeesOrigination() public view override returns (FeesOrigination memory) {
-        return FeesOrigination({
-            borrowerOriginationFee: loanFees[FL_01],
-            lenderOriginationFee: loanFees[FL_02],
-            lenderDefaultFee: loanFees[FL_05],
-            lenderInterestFee: loanFees[FL_06],
-            lenderPrincipalFee: loanFees[FL_07]
-        });
-    }
-
-    /**
-     * @notice Get the fees for loan origination. Fees are returned in a struct to be used
-     *         upon loan origination or migration.
+     * @param principal                 The principal amount.
      *
-     * @param principal                 The principal amount of the loan.
-     *
-     * @return feeSnapshot              The fee snapshot for the loan.
      * @return borrowerFee              The fee amount to be paid by the borrower.
      * @return lenderFee                The fee amount to be paid by the lender.
      */
-    function getOriginationFeeAmounts(uint256 principal) external view override returns (
+    function getOriginationFees(uint256 principal) external view override returns (
+        uint256 borrowerFee,
+        uint256 lenderFee
+    ) {
+        borrowerFee = (principal * loanFees[FL_01]) / Constants.BASIS_POINTS_DENOMINATOR;
+        lenderFee = (principal * loanFees[FL_02]) / Constants.BASIS_POINTS_DENOMINATOR;
+    }
+
+    /**
+     * @notice Get the borrower and lender fees for loan origination. Additionally, return
+     *         a fee snapshot for the loan.
+     *
+     * @param principal                 The principal amount.
+     *
+     * @return feeSnapshot              A fee snapshot for the loan.
+     * @return borrowerFee              The fee amount to be paid by the borrower.
+     * @return lenderFee                The fee amount to be paid by the lender.
+     */
+    function getOriginationFeesWithSnapshot(uint256 principal) external view override returns (
         LoanLibrary.FeeSnapshot memory feeSnapshot,
         uint256 borrowerFee,
         uint256 lenderFee
     ) {
-        FeesOrigination memory feeData = getFeesOrigination();
-
         feeSnapshot = LoanLibrary.FeeSnapshot({
-            lenderDefaultFee: feeData.lenderDefaultFee,
-            lenderInterestFee: feeData.lenderInterestFee,
-            lenderPrincipalFee: feeData.lenderPrincipalFee
+            lenderDefaultFee: loanFees[FL_03],
+            lenderInterestFee: loanFees[FL_04],
+            lenderPrincipalFee: loanFees[FL_05]
         });
 
-        borrowerFee = (principal * feeData.borrowerOriginationFee) / Constants.BASIS_POINTS_DENOMINATOR;
-        lenderFee = (principal * feeData.lenderOriginationFee) / Constants.BASIS_POINTS_DENOMINATOR;
-    }
-
-    /**
-     * @notice Get the fees for loan rollover. Fees are returned in a struct to be used
-     *         when a rollover occurs in the repayment controller.
-     *
-     * @return FeesRollover              Applicable fees for a loan rollover.
-     */
-    function getFeesRollover() external view override returns (FeesRollover memory) {
-        return FeesRollover({
-            borrowerRolloverFee: loanFees[FL_03],
-            lenderRolloverFee: loanFees[FL_04]
-        });
+        borrowerFee = (principal * loanFees[FL_01]) / Constants.BASIS_POINTS_DENOMINATOR;
+        lenderFee = (principal * loanFees[FL_02]) / Constants.BASIS_POINTS_DENOMINATOR;
     }
 
     /**

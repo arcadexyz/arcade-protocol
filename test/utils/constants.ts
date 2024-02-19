@@ -1,6 +1,7 @@
 import { ethers } from "hardhat"
 
 export const EIP712_VERSION = "4";
+export const SIG_DEADLINE = 1954884800;
 
 export const ORIGINATOR_ROLE = ethers.utils.id("ORIGINATOR");
 export const REPAYER_ROLE = ethers.utils.id("REPAYER");

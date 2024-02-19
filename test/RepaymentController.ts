@@ -28,7 +28,8 @@ import {
     AFFILIATE_MANAGER_ROLE,
     BASE_URI,
     MIN_LOAN_PRINCIPAL,
-    EIP712_VERSION
+    EIP712_VERSION,
+    SIG_DEADLINE,
 } from "./utils/constants";
 
 interface TestContext {
@@ -307,7 +308,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount
@@ -337,7 +338,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // borrower balance before
@@ -405,7 +406,7 @@ describe("RepaymentController", () => {
                 0, // 0 principal
                 1000,
                 vaultFactory.address,
-                1754884800,
+                SIG_DEADLINE,
                 bundleId,
                 ethers.constants.HashZero
             );
@@ -477,7 +478,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount
@@ -508,7 +509,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("10"), // principal
                 750, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount
@@ -539,7 +540,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("25"), // principal
                 250, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount
@@ -570,7 +571,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount
@@ -601,7 +602,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("25"), // principal
                 250, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount less than 25.625ETH
@@ -633,7 +634,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("25"), // principal
                 250, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount less than 25.625ETH
@@ -662,7 +663,7 @@ describe("RepaymentController", () => {
                     BigNumber.from(31536000), // durationSecs
                     ethers.utils.parseEther(".000000000000009999"), // principal
                     250, // interest
-                    1754884800, // deadline
+                    SIG_DEADLINE, // deadline
                 ),
             ).to.be.revertedWith("OCC_PrincipalTooLow");
         });
@@ -676,7 +677,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther(".00000000001"), // principal
                 250, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount
@@ -707,7 +708,7 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_06(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -715,7 +716,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount
@@ -745,7 +746,7 @@ describe("RepaymentController", () => {
             const code = ethers.utils.id("FOO");
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_06(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -753,7 +754,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
                 code
             );
 
@@ -793,8 +794,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_06(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_07(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -802,7 +803,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount
@@ -830,8 +831,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_06(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_07(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -839,7 +840,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount
@@ -867,7 +868,7 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_07(), 5_00);
+            await feeController.setLendingFee(await feeController.FL_05(), 5_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -875,7 +876,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount
@@ -905,8 +906,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_06(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_07(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -914,7 +915,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount
@@ -956,8 +957,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_06(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_07(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -965,7 +966,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount
@@ -1018,8 +1019,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_06(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_07(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1027,7 +1028,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount
@@ -1078,8 +1079,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_06(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_07(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1087,7 +1088,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount
@@ -1138,8 +1139,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_06(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_07(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1147,7 +1148,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount
@@ -1200,7 +1201,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // Should fail, since loan has not been repaid
@@ -1218,7 +1219,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // Should fail, cannot send to address zero and loan not repaid
@@ -1231,8 +1232,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_06(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_07(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1240,7 +1241,7 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // total repayment amount
@@ -1286,8 +1287,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_06(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_07(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1295,12 +1296,12 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // lender fees change during loan
-            await feeController.setLendingFee(await feeController.FL_06(), 21_00);
-            await feeController.setLendingFee(await feeController.FL_07(), 3_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 21_00);
+            await feeController.setLendingFee(await feeController.FL_05(), 3_00);
 
             // total repayment amount
             const total = ethers.utils.parseEther("110");
@@ -1348,8 +1349,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_06(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_07(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1357,12 +1358,12 @@ describe("RepaymentController", () => {
                 BigNumber.from(31536000), // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
             );
 
             // lender fees change during loan
-            await feeController.setLendingFee(await feeController.FL_06(), 21_00);
-            await feeController.setLendingFee(await feeController.FL_07(), 3_00);
+            await feeController.setLendingFee(await feeController.FL_04(), 21_00);
+            await feeController.setLendingFee(await feeController.FL_05(), 3_00);
 
             // total repayment amount
             const total = ethers.utils.parseEther("110");
@@ -1422,7 +1423,7 @@ describe("RepaymentController", () => {
                 duration, // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
                 affiliateCode
             ));
 
@@ -1441,7 +1442,7 @@ describe("RepaymentController", () => {
             const { lender, repaymentController, loanCore, vaultFactory, mockERC20, feeController, blockchainTime } = ctx;
 
             // Set 5% claim fee (assessed on total owed)
-            await feeController.setLendingFee(await feeController.FL_05(), 5_00);
+            await feeController.setLendingFee(await feeController.FL_03(), 5_00);
 
             ({ loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1449,7 +1450,7 @@ describe("RepaymentController", () => {
                 duration, // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
                 affiliateCode
             ));
 
@@ -1477,7 +1478,7 @@ describe("RepaymentController", () => {
             const { lender, borrower, admin, repaymentController, loanCore, vaultFactory, feeController, mockERC20, blockchainTime } = ctx;
 
             // Set 5% claim fee (assessed on total owed)
-            await feeController.setLendingFee(await feeController.FL_05(), 5_00);
+            await feeController.setLendingFee(await feeController.FL_03(), 5_00);
 
             ({ loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1485,7 +1486,7 @@ describe("RepaymentController", () => {
                 duration, // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
                 affiliateCode
             ));
 
@@ -1529,7 +1530,7 @@ describe("RepaymentController", () => {
                 duration, // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
                 affiliateCode
             ));
 
@@ -1550,7 +1551,7 @@ describe("RepaymentController", () => {
                 duration, // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
                 affiliateCode
             ));
 
@@ -1566,7 +1567,7 @@ describe("RepaymentController", () => {
             const { lender, repaymentController, mockERC20, feeController, blockchainTime } = ctx;
 
             // Set 5% claim fee (assessed on total owed)
-            await feeController.setLendingFee(await feeController.FL_05(), 5_00);
+            await feeController.setLendingFee(await feeController.FL_03(), 5_00);
 
             ({ loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1574,7 +1575,7 @@ describe("RepaymentController", () => {
                 duration, // durationSecs
                 ethers.utils.parseEther("100"), // principal
                 1000, // interest
-                1754884800, // deadline
+                SIG_DEADLINE, // deadline
                 affiliateCode
             ));
 

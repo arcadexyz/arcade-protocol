@@ -512,7 +512,7 @@ contract OriginationController is
             LoanLibrary.FeeSnapshot memory feeSnapshot,
             uint256 borrowerFee,
             uint256 lenderFee
-        ) = feeController.getOriginationFeeAmounts(loanTerms.principal);
+        ) = feeController.getOriginationFeesWithSnapshot(loanTerms.principal);
 
         // Determine settlement amounts based on fees
         uint256 amountFromLender = loanTerms.principal + lenderFee;
