@@ -836,13 +836,11 @@ describe("Integration", () => {
             const context = await loadFixture(fixture);
             const { feeController, repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, admin, lenderNote } = context;
 
-            // Set a 50 bps lender fee on origination,
-            // and a 10% fee on interest, plus 5% on redemption.
+            // Set a 50 bps lender fee on origination and a 10% fee on interest
             // Total fees earned should be
-            // 0.5 (on principal) + 1 (on interest) + 5.45 (on redemption) = 6.95 ETH
+            // 0.5 (on principal) + 1 (on interest) = 1.5 ETH
             await feeController.setLendingFee(await feeController.FL_02(), 50);
             await feeController.setLendingFee(await feeController.FL_06(), 10_00);
-            await feeController.setLendingFee(await feeController.FL_08(), 5_00);
 
             // Set affiliate share to 10% of fees for borrower
             await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);
@@ -864,9 +862,7 @@ describe("Integration", () => {
             const interestFee = grossInterest.mul(1000).div(10000);
             const lenderRepayment = repayAmount.sub(interestFee);
             const principalFee = loanTerms.principal.mul(50).div(10000);
-            const lenderClaimFee = lenderRepayment.mul(500).div(10000);
-            const lenderRedemption = lenderRepayment.sub(lenderClaimFee);
-            const totalFees = interestFee.add(principalFee).add(lenderClaimFee);
+            const totalFees = interestFee.add(principalFee);
             const affiliateFee = totalFees.mul(1000).div(10000);
             const protocolFee = totalFees.sub(affiliateFee);
 
@@ -895,9 +891,9 @@ describe("Integration", () => {
             // redeem the note to complete the repay flow
             await expect(repaymentController.connect(lender).redeemNote(loanId, lender.address))
                 .to.emit(loanCore, "NoteRedeemed")
-                .withArgs(mockERC20.address, lender.address, lender.address, loanId, lenderRedemption)
+                .withArgs(mockERC20.address, lender.address, lender.address, loanId, lenderRepayment)
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(loanCore.address, lender.address, lenderRedemption);
+                .withArgs(loanCore.address, lender.address, lenderRepayment);
 
             // Withdraw fees for both protocol and affiliate
             await expect(

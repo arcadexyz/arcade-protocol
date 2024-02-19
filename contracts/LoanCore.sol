@@ -362,38 +362,20 @@ contract LoanCore is
 
     /**
      * @notice Burn a lender note, for an already-completed loan, in order to receive
-     *         held tokens already paid back by the borrower. Can only be called by the
-     *         owner of the note.
+     *         held tokens already paid back by the borrower.
      *
      * @param loanId                    The ID of the lender note to redeem.
-     * @param _amountFromLender         Any redemption fees to be collected from the lender.
      * @param to                        The address to receive the held tokens.
      */
     function redeemNote(
         uint256 loanId,
-        uint256 _amountFromLender,
+        address lender,
         address to
     ) external override onlyRole(REPAYER_ROLE) nonReentrant {
         NoteReceipt memory receipt = noteReceipts[loanId];
         (address token, uint256 amount) = (receipt.token, receipt.amount);
         if (token == address(0)) revert LC_NoReceipt(loanId);
         if (amount == 0) revert LC_ZeroAmount();
-
-        // Deduct the redeem fee from the amount and assign for withdrawal
-        amount -= _amountFromLender;
-
-        {
-            // Assign fees for withdrawal
-            (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
-                _getAffiliateSplit(_amountFromLender, loans[loanId].terms.affiliateCode);
-
-            mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[token];
-            if (protocolFee > 0) _feesWithdrawable[address(this)] += protocolFee;
-            if (affiliateFee > 0) _feesWithdrawable[affiliate] += affiliateFee;
-        }
-
-        // Get owner of the LenderNote
-        address lender = lenderNote.ownerOf(loanId);
 
         // if the loan has been completely repaid and no more repayments are expected
         LoanLibrary.LoanState state = loans[loanId].state;
@@ -409,7 +391,7 @@ contract LoanCore is
         }
 
         // Transfer the held tokens to the lender-specified address
-        _transferIfNonzero(IERC20(token), to, amount);
+        IERC20(token).safeTransfer(to, amount);
 
         emit NoteRedeemed(token, lender, to, loanId, amount);
     }

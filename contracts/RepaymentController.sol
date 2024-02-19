@@ -174,14 +174,10 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     function redeemNote(uint256 loanId, address to) external override {
         if (to == address(0)) revert RC_ZeroAddress("to");
 
-        (, uint256 amountOwed) = loanCore.getNoteReceipt(loanId);
-
         address lender = lenderNote.ownerOf(loanId);
         if (lender != msg.sender) revert RC_OnlyLender(lender, msg.sender);
 
-        uint256 redeemFee = (amountOwed * feeController.getLendingFee(FL_08)) / Constants.BASIS_POINTS_DENOMINATOR;
-
-        loanCore.redeemNote(loanId, redeemFee, to);
+        loanCore.redeemNote(loanId, lender, to);
     }
 
     // =========================================== HELPERS ==============================================

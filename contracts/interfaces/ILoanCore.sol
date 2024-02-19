@@ -66,7 +66,7 @@ interface ILoanCore {
 
     function redeemNote(
         uint256 loanId,
-        uint256 _amountFromLender,
+        address lender,
         address to
     ) external;
 

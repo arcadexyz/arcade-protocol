@@ -1052,7 +1052,7 @@ describe("LoanCore", () => {
 
             const repayAmount = terms.principal.add(loanData.interestAmountPaid);
 
-            await expect(loanCore.connect(borrower).redeemNote(loanId, 0, lender.address))
+            await expect(loanCore.connect(borrower).redeemNote(loanId, lender.address, lender.address))
                 .to.emit(loanCore, "NoteRedeemed")
                 .withArgs(mockERC20.address, lender.address, lender.address, loanId, repayAmount)
                 .to.emit(mockERC20, "Transfer")
@@ -1078,113 +1078,8 @@ describe("LoanCore", () => {
             expect(receipt[0]).to.eq(ZERO_ADDRESS);
             expect(receipt[1]).to.eq(0);
 
-            await expect(loanCore.connect(borrower).redeemNote(badLoanId, 0, lender.address))
+            await expect(loanCore.connect(borrower).redeemNote(badLoanId, lender.address, lender.address))
                 .to.be.revertedWith("LC_NoReceipt");;
-        });
-
-        it("should distribute fees from a redeemed note", async () => {
-            const { loanCore, mockERC20, loanId, borrower, lender, terms, mockLenderNote } = await setupLoan();
-            // get loan data
-            const loanData = await loanCore.getLoan(loanId);
-
-            const repayAmount = terms.principal.add(loanData.interestAmountPaid);
-
-            // Hypothetical redeem fee of 50% (also works well with 0.01% APR in this scenario)
-
-            await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(2), lender.address))
-                .to.emit(loanCore, "NoteRedeemed")
-                .withArgs(mockERC20.address, lender.address, lender.address, loanId, repayAmount.div(2))
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(loanCore.address, lender.address, repayAmount.div(2));
-
-            // Make sure lender note burned
-            await expect(mockLenderNote.ownerOf(loanId)).to.be.revertedWith("ERC721: owner query for nonexistent token");
-
-            // Make sure receipt is zero'd out
-            const receipt = await loanCore.noteReceipts(loanId);
-            expect(receipt).to.not.be.undefined;
-            expect(receipt[0]).to.eq(ZERO_ADDRESS);
-            expect(receipt[1]).to.eq(0);
-
-            // Check protocol fees available for withdrawal
-            expect(await loanCore.feesWithdrawable(mockERC20.address, loanCore.address))
-                .to.eq(repayAmount.div(2));
-
-            await expect(loanCore.connect(borrower).withdrawProtocolFees(mockERC20.address, borrower.address))
-                .to.emit(loanCore, "FeesWithdrawn")
-                .withArgs(mockERC20.address, borrower.address, borrower.address, repayAmount.div(2));
-
-            expect(await loanCore.feesWithdrawable(mockERC20.address, borrower.address)).to.eq(0);
-        });
-
-        it("reverts if withdrawProtocolFees() is called to address zero", async () => {
-            const { loanCore, mockERC20, loanId, borrower, lender, terms, mockLenderNote } =
-                await setupLoan();
-            // get loan data
-            const loanData = await loanCore.getLoan(loanId);
-
-            const repayAmount = terms.principal.add(loanData.interestAmountPaid);
-
-            // Hypothetical redeem fee of 50% (also works well with 0.01% APR in this scenario)
-
-            await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(2), lender.address))
-                .to.emit(loanCore, "NoteRedeemed")
-                .withArgs(mockERC20.address, lender.address, lender.address, loanId, repayAmount.div(2))
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(loanCore.address, lender.address, repayAmount.div(2));
-
-            // Make sure lender note burned
-            await expect(mockLenderNote.ownerOf(loanId)).to.be.revertedWith(
-                "ERC721: owner query for nonexistent token",
-            );
-
-            // Make sure receipt is zero'd out
-            const receipt = await loanCore.noteReceipts(loanId);
-            expect(receipt).to.not.be.undefined;
-            expect(receipt[0]).to.eq(ZERO_ADDRESS);
-            expect(receipt[1]).to.eq(0);
-
-            // Check protocol fees available for withdrawal
-            expect(await loanCore.feesWithdrawable(mockERC20.address, loanCore.address)).to.eq(repayAmount.div(2));
-
-            await expect(
-                loanCore.connect(borrower).withdrawProtocolFees(mockERC20.address, ethers.constants.AddressZero),
-            ).to.be.revertedWith(`LC_ZeroAddress("to")`);
-        });
-
-        it("reverts if withdrawProtocolFees() is called on token address zero", async () => {
-            const { loanCore, mockERC20, loanId, borrower, lender, terms, mockLenderNote } =
-                await setupLoan();
-            // get loan data
-            const loanData = await loanCore.getLoan(loanId);
-
-            const repayAmount = terms.principal.add(loanData.interestAmountPaid);
-
-            // Hypothetical redeem fee of 50% (also works well with 0.01% APR in this scenario)
-
-            await expect(loanCore.connect(borrower).redeemNote(loanId, repayAmount.div(2), lender.address))
-                .to.emit(loanCore, "NoteRedeemed")
-                .withArgs(mockERC20.address, lender.address, lender.address, loanId, repayAmount.div(2))
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(loanCore.address, lender.address, repayAmount.div(2));
-
-            // Make sure lender note burned
-            await expect(mockLenderNote.ownerOf(loanId)).to.be.revertedWith(
-                "ERC721: owner query for nonexistent token",
-            );
-
-            // Make sure receipt is zero'd out
-            const receipt = await loanCore.noteReceipts(loanId);
-            expect(receipt).to.not.be.undefined;
-            expect(receipt[0]).to.eq(ZERO_ADDRESS);
-            expect(receipt[1]).to.eq(0);
-
-            // Check protocol fees available for withdrawal
-            expect(await loanCore.feesWithdrawable(mockERC20.address, loanCore.address)).to.eq(repayAmount.div(2));
-
-            await expect(
-                loanCore.connect(borrower).withdrawProtocolFees(ethers.constants.AddressZero, borrower.address),
-            ).to.be.revertedWith(`LC_ZeroAddress("token")`);
         });
     });
 
@@ -1209,6 +1104,12 @@ describe("LoanCore", () => {
 
             // Mint fee to LoanCore
             await mockERC20.mint(loanCore.address, fee);
+
+            // cannot withdraw protocol fees with token address(0)
+            await expect(loanCore.connect(borrower).withdrawProtocolFees(ZERO_ADDRESS, borrower.address)).to.be.revertedWith("LC_ZeroAddress");
+
+            // cannot withdraw protocol fees with recipient address(0)
+            await expect(loanCore.connect(borrower).withdrawProtocolFees(mockERC20.address, ZERO_ADDRESS)).to.be.revertedWith("LC_ZeroAddress");
 
             expect(await mockERC20.balanceOf(loanCore.address)).to.equal(fee);
             await expect(loanCore.connect(borrower).withdrawProtocolFees(mockERC20.address, borrower.address))

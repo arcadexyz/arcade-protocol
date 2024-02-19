@@ -64,7 +64,6 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
         maxLoanFees[FL_05] = 10_00;
         maxLoanFees[FL_06] = 50_00;
         maxLoanFees[FL_07] = 10_00;
-        maxLoanFees[FL_08] = 10_00;
     }
 
     // ======================================== GETTER/SETTER ==========================================
