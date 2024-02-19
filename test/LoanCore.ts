@@ -1918,6 +1918,13 @@ describe("LoanCore", () => {
                 // still reverts despite the maxUses arg being arbitrary value
                 await expect(loanCore.connect(user).consumeNonce(user.address, 10, 100)).to.be.revertedWith("LC_NonceUsed");
             });
+
+            it("max uses cannot be zero", async () => {
+                const { loanCore, user } = context;
+
+                await expect(loanCore.connect(user).consumeNonce(user.address, 10, 0))
+                    .to.be.revertedWith("LC_NonceUsed");
+            });
         });
     });
 

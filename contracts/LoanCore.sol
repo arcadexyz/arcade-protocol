@@ -879,7 +879,8 @@ contract LoanCore is
         uint96 _nonceUses = numNonceUses[user][nonce];
 
         // check if nonce has been completely used or cancelled
-        if (_usedNonces[nonce]) revert LC_NonceUsed(user, nonce);
+        // also check that the maxUses is greater than _nonceUses
+        if (_usedNonces[nonce] || maxUses <= _nonceUses) revert LC_NonceUsed(user, nonce);
 
         if (_nonceUses + 1 == maxUses) {
             // if this is the last time nonce can be used, mark the nonce as completely used
