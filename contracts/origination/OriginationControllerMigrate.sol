@@ -90,10 +90,12 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
 
         _validateV3Migration(oldLoanData.terms, newTerms, oldLoanId);
 
-        (, address externalSigner) = _recoverSignature(newTerms, sig, sigProperties, Side.LEND, itemPredicates);
+        {
+            (, address externalSigner) = _recoverSignature(newTerms, sig, sigProperties, Side.LEND, itemPredicates);
 
-        // revert if the signer is not the lender
-        if (externalSigner != lender) revert OCM_SideMismatch(externalSigner);
+            // revert if the signer is not the lender
+            if (externalSigner != lender) revert OCM_SideMismatch(externalSigner);
+        }
 
         // ------------ Migration Execution ------------
 
