@@ -91,16 +91,18 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         _validateV3Migration(oldLoanData.terms, newTerms, oldLoanId);
 
         {
-            (, address externalSigner) = _recoverSignature(newTerms, sig, sigProperties, Side.LEND, lender, itemPredicates);
+            (bytes32 sighash, address externalSigner) = _recoverSignature(newTerms, sig, sigProperties, Side.LEND, lender, itemPredicates);
 
-            // revert if the signer is not the lender
-            if (externalSigner != lender) revert OCM_SideMismatch(externalSigner);
+            // counterparty validation
+            if (!isSelfOrApproved(lender, externalSigner) && !OriginationLibrary.isApprovedForContract(lender, sig, sighash)) {
+                revert OCM_SideMismatch(externalSigner);
+            }
+
+            // consume v4 nonce
+            loanCore.consumeNonce(externalSigner, sigProperties.nonce, sigProperties.maxUses);
         }
 
         // ------------ Migration Execution ------------
-
-        // consume v4 nonce
-        loanCore.consumeNonce(lender, sigProperties.nonce, sigProperties.maxUses);
 
         // collect and distribute settled amounts
         (
