@@ -44,9 +44,13 @@ const typedLoanTermsData: TypeData = {
             { name: "principal", type: "uint256" },
             { name: "collateralId", type: "uint256" },
             { name: "affiliateCode", type: "bytes32" },
+            { name: "sigProperties", type: "SigProperties" },
+            { name: "side", type: "uint8" },
+            { name: "signingCounterparty", type: "address"},
+        ],
+        SigProperties: [
             { name: "nonce", type: "uint160" },
             { name: "maxUses", type: "uint96" },
-            { name: "side", type: "uint8" },
         ],
     },
     primaryType: "LoanTerms" as const,
@@ -63,13 +67,17 @@ const typedLoanItemsData: TypeData = {
             { name: "principal", type: "uint256" },
             { name: "affiliateCode", type: "bytes32" },
             { name: "items", type: "Predicate[]" },
-            { name: "nonce", type: "uint160" },
-            { name: "maxUses", type: "uint96" },
+            { name: "sigProperties", type: "SigProperties" },
             { name: "side", type: "uint8" },
+            { name: "signingCounterparty", type: "address"},
         ],
         Predicate: [
             { name: "data", type: "bytes" },
             { name: "verifier", type: "address" },
+        ],
+        SigProperties: [
+            { name: "nonce", type: "uint160" },
+            { name: "maxUses", type: "uint96" },
         ],
     },
     primaryType: "LoanTermsWithItems" as const,
@@ -110,11 +118,11 @@ export async function createLoanTermsSignature(
     sigProperties: SignatureProperties,
     _side: "b" | "l",
     extraData = "0x",
+    _signingCounterparty?: string,
 ): Promise<InitializeLoanSignature> {
     const side = _side === "b" ? 0 : 1;
-    const nonce = sigProperties.nonce;
-    const maxUses = sigProperties.maxUses;
-    const data = buildData(verifyingContract, name, version, { ...terms, nonce, maxUses, side }, typedLoanTermsData);
+    const signingCounterparty = _signingCounterparty ?? signer.address;
+    const data = buildData(verifyingContract, name, version, { ...terms, sigProperties, side, signingCounterparty }, typedLoanTermsData);
     const signature = await signer._signTypedData(data.domain, data.types, data.message);
 
     const sig: ECDSASignature =  fromRpcSig(signature);
@@ -145,8 +153,6 @@ export async function createLoanItemsSignature(
     extraData = "0x",
 ): Promise<InitializeLoanSignature> {
     const side = _side === "b" ? 0 : 1;
-    const nonce = sigProperties.nonce;
-    const maxUses = sigProperties.maxUses;
     const message: ItemsPayload = {
         interestRate: terms.interestRate,
         durationSecs: terms.durationSecs,
@@ -156,9 +162,9 @@ export async function createLoanItemsSignature(
         principal: terms.principal,
         affiliateCode: terms.affiliateCode,
         items,
-        nonce,
-        maxUses,
-        side
+        sigProperties,
+        side,
+        signingCounterparty: signer.address,
     };
 
     const data = buildData(verifyingContract, name, version, message, typedLoanItemsData);

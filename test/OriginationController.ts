@@ -681,6 +681,8 @@ describe("OriginationController", () => {
                 EIP712_VERSION,
                 defaultSigProperties,
                 "l",
+                "0x",
+                lender.address,
             );
 
             await approve(mockERC20, lender, originationController.address, loanTerms.principal);
@@ -1316,6 +1318,8 @@ describe("OriginationController", () => {
                 EIP712_VERSION,
                 defaultSigProperties,
                 "b",
+                "0x",
+                borrower.address,
             );
 
             await approve(mockERC20, lender, originationController.address, loanTerms.principal);
@@ -1359,6 +1363,8 @@ describe("OriginationController", () => {
                 EIP712_VERSION,
                 defaultSigProperties,
                 "l",
+                "0x",
+                lender.address,
             );
 
             await approve(mockERC20, lender, originationController.address, loanTerms.principal);
@@ -1567,6 +1573,8 @@ describe("OriginationController", () => {
                     EIP712_VERSION,
                     defaultSigProperties,
                     "l",
+                    "0x",
+                    lenderContract.address,
                 );
 
                 await approve(mockERC20, lender, originationController.address, loanTerms.principal);
@@ -1697,6 +1705,7 @@ describe("OriginationController", () => {
                     defaultSigProperties,
                     "l",
                     "0x00001234",
+                    lenderContract.address,
                 );
 
                 await approve(mockERC20, lender, originationController.address, loanTerms.principal);
@@ -1742,6 +1751,8 @@ describe("OriginationController", () => {
                     EIP712_VERSION,
                     defaultSigProperties,
                     "l",
+                    "0x",
+                    lenderContract.address,
                 );
 
                 await approve(mockERC20, lender, originationController.address, loanTerms.principal);
@@ -1788,6 +1799,7 @@ describe("OriginationController", () => {
                     defaultSigProperties,
                     "l",
                     "0x00001234",
+                    lenderContract.address,
                 );
 
                 await approve(mockERC20, lender, originationController.address, loanTerms.principal);
@@ -1876,6 +1888,8 @@ describe("OriginationController", () => {
                     EIP712_VERSION,
                     defaultSigProperties,
                     "l",
+                    "0x",
+                    lenderContract.address,
                 );
 
                 await approve(mockERC20, lender, originationController.address, loanTerms.principal);
@@ -1889,8 +1903,7 @@ describe("OriginationController", () => {
                         "tuple(address, bytes)", // borrower
                         "address", // lender
                         "tuple(uint8, bytes32, bytes32, bytes)", // signature
-                        "uint160", // nonce
-                        "uint96", // maxUses
+                        "tuple(uint160, uint96)", // sig properties
                         "tuple(bytes, address)[]", // predicate array
                     ],
                     [ // values
@@ -1915,8 +1928,7 @@ describe("OriginationController", () => {
                             sig.s,
                             "0x"
                         ],
-                        1,
-                        1,
+                        [1,1],
                         [],
                     ]
                 );
@@ -1973,8 +1985,7 @@ describe("OriginationController", () => {
                         "tuple(address, bytes)", // borrower
                         "address", // lender
                         "tuple(uint8, bytes32, bytes32)", // signature, no extra data
-                        "uint160", // nonce
-                        "uint96", // maxUses
+                        "tuple(uint160, uint96)", // sig properties
                         "tuple(bytes, address)[]", // predicate array
                     ],
                     [ // values
@@ -1999,8 +2010,7 @@ describe("OriginationController", () => {
                             sig.s,
                             // no extra data
                         ],
-                        1,
-                        1,
+                        [1,1],
                         [],
                     ]
                 );
@@ -2316,6 +2326,8 @@ describe("OriginationController", () => {
                 EIP712_VERSION,
                 defaultSigProperties,
                 "b",
+                "0x",
+                borrowerContract.address,
             );
 
             const callbackData = "0x1234";
@@ -2373,6 +2385,8 @@ describe("OriginationController", () => {
                 EIP712_VERSION,
                 defaultSigProperties,
                 "b",
+                "0x",
+                borrowerContract.address,
             );
 
             // create callback data to rollover the new loanID that will be created
@@ -2394,8 +2408,7 @@ describe("OriginationController", () => {
                     "tuple(uint32, uint64, address, uint96, address, uint256, uint256, bytes32)", // loan terms
                     "address", // lender
                     "tuple(uint8, bytes32, bytes32, bytes)", // signature
-                    "uint160", // nonce
-                    "uint96", // maxUses
+                    "tuple(uint160, uint96)", // sig properties
                     "tuple(bytes, address)[]", // predicate array
                 ],
                 [ // values
@@ -2417,8 +2430,7 @@ describe("OriginationController", () => {
                         sigCallback.s,
                         "0x"
                     ],
-                    2,
-                    1,
+                    [2,1],
                     []
                 ]
             );
@@ -2474,6 +2486,8 @@ describe("OriginationController", () => {
                 EIP712_VERSION,
                 defaultSigProperties,
                 "b",
+                "0x",
+                borrowerContract.address,
             );
 
             await mint(mockERC20, lender, loanTerms.principal);
@@ -2499,6 +2513,8 @@ describe("OriginationController", () => {
                 EIP712_VERSION,
                 sigProperties,
                 "l",
+                "0x",
+                lender.address,
             );
             // rollover callback data
             const callbackData = ethers.utils.defaultAbiCoder.encode(
@@ -2507,8 +2523,7 @@ describe("OriginationController", () => {
                     "tuple(uint32, uint64, address, uint96, address, uint256, uint256, bytes32)", // loan terms
                     "address", // lender
                     "tuple(uint8, bytes32, bytes32, bytes)", // signature
-                    "uint160", // nonce
-                    "uint96", // maxUses
+                    "tuple(uint160, uint96)", // sig properties
                     "tuple(bytes, address)[]", // predicate array
                 ],
                 [ // values
@@ -2530,8 +2545,7 @@ describe("OriginationController", () => {
                         sigCallback.s,
                         "0x"
                     ],
-                    2,
-                    1,
+                    [2,1],
                     []
                 ]
             );
@@ -2555,6 +2569,8 @@ describe("OriginationController", () => {
                 EIP712_VERSION,
                 sigProperties,
                 "b",
+                "0x",
+                borrowerContract.address,
             );
 
             await mint(mockERC20, lender, loanTerms2.principal);
@@ -2600,6 +2616,8 @@ describe("OriginationController", () => {
                 EIP712_VERSION,
                 defaultSigProperties,
                 "b",
+                "0x",
+                borrowerContract.address,
             );
 
             // create callback data to rollover the new loanID that will be created
