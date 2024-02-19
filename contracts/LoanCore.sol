@@ -436,6 +436,7 @@ contract LoanCore is
         data.state = LoanLibrary.LoanState.Repaid;
         data.balance = 0;
         data.interestAmountPaid += _interestAmount;
+        data.lastAccrualTimestamp = uint64(block.timestamp);
 
         IERC20 payableCurrency = IERC20(data.terms.payableCurrency);
 
