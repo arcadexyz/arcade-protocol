@@ -153,8 +153,8 @@ contract LoanCore is
      * @param lender                The lender for the loan.
      * @param borrower              The borrower for the loan.
      * @param terms                 The terms of the loan.
-     * @param _amountFromLender     The amount of principal to be collected from the lender.
-     * @param _amountToBorrower     The amount of principal to be distributed to the borrower (net after fees).
+     * @param feesEarned            The amount of fees earned from the loan.
+     * @param _feeSnapshot          A snapshot of current lending fees.
      *
      * @return loanId               The ID of the newly created loan.
      */
@@ -162,23 +162,17 @@ contract LoanCore is
         address lender,
         address borrower,
         LoanLibrary.LoanTerms calldata terms,
-        uint256 _amountFromLender,
-        uint256 _amountToBorrower,
+        uint256 feesEarned,
         LoanLibrary.FeeSnapshot calldata _feeSnapshot
     ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 loanId) {
         // Check collateral is not already used in a loan
         bytes32 collateralKey = keccak256(abi.encode(terms.collateralAddress, terms.collateralId));
         if (collateralInUse[collateralKey]) revert LC_CollateralInUse(terms.collateralAddress, terms.collateralId);
 
-        // Check that we will not net lose tokens
-        if (_amountToBorrower > _amountFromLender) revert LC_CannotSettle(_amountToBorrower, _amountFromLender);
-
         // Mark collateral as escrowed
         collateralInUse[collateralKey] = true;
 
         // Assign fees for withdrawal
-        uint256 feesEarned;
-        unchecked { feesEarned = _amountFromLender - _amountToBorrower; }
         (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
             _getAffiliateSplit(feesEarned, terms.affiliateCode);
 

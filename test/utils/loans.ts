@@ -64,10 +64,9 @@ export const startLoan = async (
     lender: string,
     borrower: string,
     terms: LoanTerms,
-    amountFromLender: BigNumberish,
-    amountToBorrower: BigNumberish,
+    feesEarned: BigNumberish,
 ): Promise<BigNumber> => {
-    const tx = await loanCore.connect(originator).startLoan(lender, borrower, terms, amountFromLender, amountToBorrower, feeSnapshot);
+    const tx = await loanCore.connect(originator).startLoan(lender, borrower, terms, feesEarned, feeSnapshot);
     const receipt = await tx.wait();
 
     const loanStartedEvent = receipt?.events?.find(e => e.event === "LoanStarted");
