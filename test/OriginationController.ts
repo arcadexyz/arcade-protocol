@@ -2316,6 +2316,12 @@ describe("OriginationController", () => {
             // MockSmartBorrower approves borrower to sign terms for them
             await borrowerContract.approveSigner(borrower.address, true);
 
+            const callbackData = "0x1234";
+            const borrowerStruct: Borrower = {
+                borrower: borrowerContract.address,
+                callbackData: callbackData
+            };
+
             // borrower signs terms for the SmartBorrower contract
             const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
             const sig = await createLoanTermsSignature(
@@ -2328,13 +2334,8 @@ describe("OriginationController", () => {
                 "b",
                 "0x",
                 borrowerContract.address,
+                callbackData,
             );
-
-            const callbackData = "0x1234";
-            const borrowerStruct: Borrower = {
-                borrower: borrowerContract.address,
-                callbackData: callbackData
-            };
 
             await mint(mockERC20, lender, loanTerms.principal);
             await approve(mockERC20, lender, originationController.address, loanTerms.principal);
@@ -2375,19 +2376,8 @@ describe("OriginationController", () => {
             // MockSmartBorrower approves borrower to sign terms for them
             await borrowerContract.approveSigner(borrower.address, true);
 
-            // borrower signs terms for the SmartBorrower contract
+            // create loan terms
             const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
-            const sig = await createLoanTermsSignature(
-                originationController.address,
-                "OriginationController",
-                loanTerms,
-                borrower,
-                EIP712_VERSION,
-                defaultSigProperties,
-                "b",
-                "0x",
-                borrowerContract.address,
-            );
 
             // create callback data to rollover the new loanID that will be created
             const totalLoans = await borrowerPromissoryNote.totalSupply();
@@ -2444,6 +2434,20 @@ describe("OriginationController", () => {
                 borrower: borrowerContract.address,
                 callbackData: calldataWithSelector
             };
+
+            // borrower signs terms for the SmartBorrower contract
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                borrower,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "b",
+                "0x",
+                borrowerContract.address,
+                calldataWithSelector,
+            );
 
             await mint(mockERC20, lender, loanTerms.principal);
             await approve(mockERC20, lender, originationController.address, loanTerms.principal);
@@ -2571,6 +2575,7 @@ describe("OriginationController", () => {
                 "b",
                 "0x",
                 borrowerContract.address,
+                calldataWithSelector,
             );
 
             await mint(mockERC20, lender, loanTerms2.principal);
@@ -2603,22 +2608,11 @@ describe("OriginationController", () => {
             const bundleId = await initializeBundle(vaultFactory, borrower);
             await vaultFactory.connect(borrower).transferFrom(borrower.address, borrowerContract.address, bundleId);
 
+            // create loan terms
+            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
+
             // MockSmartBorrower approves borrower to sign terms for them
             await borrowerContract.approveSigner(borrower.address, true);
-
-            // borrower signs terms for the SmartBorrower contract
-            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
-            const sig = await createLoanTermsSignature(
-                originationController.address,
-                "OriginationController",
-                loanTerms,
-                borrower,
-                EIP712_VERSION,
-                defaultSigProperties,
-                "b",
-                "0x",
-                borrowerContract.address,
-            );
 
             // create callback data to rollover the new loanID that will be created
             const sigCallback = await createLoanTermsSignature(
@@ -2684,6 +2678,20 @@ describe("OriginationController", () => {
                 borrower: borrowerContract.address,
                 callbackData: calldataWithSelector
             };
+
+            // borrower signs terms for the SmartBorrower contract
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                borrower,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "b",
+                "0x",
+                borrowerContract.address,
+                calldataWithSelector,
+            );
 
             await mint(mockERC20, lender, loanTerms.principal);
             await approve(mockERC20, lender, originationController.address, loanTerms.principal);
@@ -2754,7 +2762,7 @@ describe("OriginationController", () => {
         });
 
         it("Try to use second lender sig in callback, borrower contract starts loan", async () => {
-            const { originationController, mockERC20, vaultFactory, user: lender, other: borrower, borrowerPromissoryNote } = ctx;
+            const { originationController, mockERC20, vaultFactory, user: lender, other: borrower } = ctx;
 
             // deploy MockSmartBorrower contract
             const borrowerContract = <MockSmartBorrower>await deploy("MockSmartBorrowerTest", borrower, [originationController.address]);
@@ -2763,17 +2771,8 @@ describe("OriginationController", () => {
             const bundleId = await initializeBundle(vaultFactory, borrower);
             await vaultFactory.connect(borrower).transferFrom(borrower.address, borrowerContract.address, bundleId);
 
-            // lender signs terms for the SmartBorrower contract
+            // create loan terms
             const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
-            const sig = await createLoanTermsSignature(
-                originationController.address,
-                "OriginationController",
-                loanTerms,
-                lender,
-                EIP712_VERSION,
-                defaultSigProperties,
-                "l",
-            );
 
             // create callback data to initialize another loan with same asset
             const sigProperties: SignatureProperties = { nonce: 2, maxUses: 1 };
@@ -2842,6 +2841,20 @@ describe("OriginationController", () => {
                 borrower: borrowerContract.address,
                 callbackData: calldataWithSelector
             };
+
+            // lender signs terms for the SmartBorrower contract
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                lender,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "l",
+                "0x",
+                lender.address,
+                calldataWithSelector,
+            );
 
             await mint(mockERC20, lender, loanTerms.principal);
             await approve(mockERC20, lender, originationController.address, loanTerms.principal);

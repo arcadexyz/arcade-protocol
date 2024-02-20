@@ -35,6 +35,13 @@ export interface SignatureProperties {
     maxUses: BigNumberish;
 }
 
+export interface Loan {
+    terms: LoanTerms;
+    sigProperties: SignatureProperties;
+    side: number;
+    signingCounterparty: string;
+    callbackData: string;
+}
 export interface LoanTerms {
     interestRate: BigNumberish;
     durationSecs: BigNumberish;
@@ -46,7 +53,15 @@ export interface LoanTerms {
     affiliateCode: BytesLike;
 }
 
-export interface ItemsPayload {
+export interface LoanWithItems {
+    termsWithItems: LoanTermsWithItems;
+    sigProperties: SignatureProperties;
+    side: number;
+    signingCounterparty: string;
+    callbackData: string;
+}
+
+export interface LoanTermsWithItems {
     interestRate: BigNumberish;
     durationSecs: BigNumberish;
     collateralAddress: string;
@@ -55,9 +70,6 @@ export interface ItemsPayload {
     principal: BigNumber;
     affiliateCode: BytesLike;
     items: ItemsPredicate[];
-    sigProperties: SignatureProperties;
-    side: 0 | 1;
-    signingCounterparty: string;
 }
 
 export interface FeeSnapshot {
