@@ -66,17 +66,19 @@ interface IOriginationController {
     function recoverTokenSignature(
         LoanLibrary.LoanTerms calldata loanTerms,
         Signature calldata sig,
-        bytes32 sigPropertiesHash,
+        SigProperties calldata sigProperties,
         Side side,
-        address signingCounterparty
+        address signingCounterparty,
+        bytes memory callbackData
     ) external view returns (bytes32 sighash, address signer);
 
     function recoverItemsSignature(
         LoanLibrary.LoanTerms calldata loanTerms,
         Signature calldata sig,
-        bytes32 sigPropertiesHash,
+        LoanLibrary.Predicate[] calldata itemPredicates,
+        SigProperties calldata sigProperties,
         Side side,
         address signingCounterparty,
-        bytes32 itemsHash
+        bytes memory callbackData
     ) external view returns (bytes32 sighash, address signer);
 }
