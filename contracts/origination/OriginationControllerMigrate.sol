@@ -24,11 +24,7 @@ import {
     OCM_InvalidState,
     OCM_SideMismatch,
     OCM_CurrencyMismatch,
-    OCM_CollateralMismatch,
-    OCM_PrincipalTooLow,
-    OCM_LoanDuration,
-    OCM_InterestRate,
-    OCM_SignatureIsExpired
+    OCM_CollateralMismatch
 } from "../errors/Lending.sol";
 
 contract OriginationControllerMigrate is IMigrationBase, OriginationController, ERC721Holder {
@@ -146,7 +142,6 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
      * @param newLoanTerms              The terms of the V4 loan.
      * @param borrowerNoteId            The ID of the borrowerNote for the old loan.
      */
-    // solhint-disable-next-line code-complexity
     function _validateV3Migration(
         LoanLibraryV3.LoanTerms memory sourceLoanTerms,
         LoanLibrary.LoanTerms memory newLoanTerms,
@@ -174,17 +169,8 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         }
 
         // ------------- New LoanTerms Validation -------------
-        // principal must be greater than or equal to the configured minimum
-        if (newLoanTerms.principal < originationConfiguration.getMinPrincipal(newLoanTerms.payableCurrency)) revert OCM_PrincipalTooLow(newLoanTerms.principal);
-
-        // loan duration must be greater or equal to 1 hr and less or equal to 3 years
-        if (newLoanTerms.durationSecs < Constants.MIN_LOAN_DURATION || newLoanTerms.durationSecs > Constants.MAX_LOAN_DURATION) revert OCM_LoanDuration(newLoanTerms.durationSecs);
-
-        // interest rate must be greater than or equal to 0.01% and less or equal to 1,000,000%
-        if (newLoanTerms.interestRate < 1 || newLoanTerms.interestRate > 1e8) revert OCM_InterestRate(newLoanTerms.interestRate);
-
-        // signature must not have already expired
-        if (newLoanTerms.deadline < block.timestamp) revert OCM_SignatureIsExpired(newLoanTerms.deadline);
+        // Any collateral or currencies that is whitelisted on v3 also needs to be whitelisted on v4
+        originationConfiguration.validateLoanTerms(newLoanTerms);
     }
 
     // ========================================= HELPERS ================================================
