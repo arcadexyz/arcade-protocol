@@ -208,3 +208,12 @@ For these reason, while `CallBlacklist.sol` contains basic guardrails for the st
 - Could the new function materially change the value of the asset?
 
 When functions are whitelisted that _may_ change the character or value of the asset, lenders should consider those additional risks when choosing to accept that asset as collateral.
+
+### `PromissoryNote` buyers should be cautious when buying a `LenderNote` on the secondary market
+
+Since borrower and lender notes are ERC-721 tokens, they can be bought/sold on secondary markets such as OpenSea. However, the current design of the protocol allows sellers to front-run transactions and decrease the value of lender notes. For example:
+
+- Lenders can call redeemNote() to claim repayments held in note receipts.
+- Borrower can call forceRepay() and fully repay the loan, leaving a worthless LenderNote behind since the collateral is withdrawn. Note, that a LenderNote is not burned when forceRepay() is called, even on full repayments.
+
+As such, if a LenderNote is being sold on the secondary market, there is a risk of the seller front-running a buyer's transaction to remove all value from the loan, right before the buyer's transaction is executed.
