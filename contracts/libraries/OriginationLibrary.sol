@@ -120,7 +120,7 @@ library OriginationLibrary {
     }
 
     /**
-     * @notice Hashes the signature properties for inclusion in the EIP712 signature.
+     * @notice Hashes the signature properties for inclusion in _SIG_PROPERTIES_TYPEHASH.
      *
      * @param sigProperties                 The signature properties.
      *
@@ -137,7 +137,7 @@ library OriginationLibrary {
     }
 
     /**
-     * @notice Hashes the loan terms for inclusion in the EIP712 signature.
+     * @notice Hashes the loan terms for inclusion in _LOAN_TERMS_TYPEHASH.
      *
      * @param terms                         The loan terms.
      *
@@ -160,14 +160,16 @@ library OriginationLibrary {
     }
 
     /**
-     * @notice Hashes the loan terms with items for inclusion in the EIP712 signature.
+     * @notice Hashes a loan for inclusion in the _LOAN_TERMS_WITH_ITEMS_TYPEHASH.
      *
      * @param terms                         The loan terms.
-     * @param itemPredicatesHash            The hash of the item predicates.
+     * @param itemPredicates                The predicate rules for the items in the bundle.
      *
      * @return termsWithItemsHash           The hash of the loan terms with items.
      */
-    function encodeLoanTermsWithItems(LoanLibrary.LoanTerms calldata terms, bytes32 itemPredicatesHash) public pure returns (bytes32 termsWithItemsHash) {
+    function encodeLoanTermsWithItems(LoanLibrary.LoanTerms calldata terms, LoanLibrary.Predicate[] calldata itemPredicates) public pure returns (bytes32 termsWithItemsHash) {
+        bytes32 itemPredicatesHash = encodePredicates(itemPredicates);
+
         termsWithItemsHash = keccak256(
             abi.encode(
                 _LOAN_TERMS_WITH_ITEMS_TYPEHASH,
@@ -184,7 +186,7 @@ library OriginationLibrary {
     }
 
     /**
-     * @notice Hashes the loan terms and signature properties for inclusion in the EIP712 signature.
+     * @notice Hashes a loan for inclusion in the EIP712 signature.
      *
      * @param terms                         The loan terms.
      * @param sigProperties                 The signature properties.
@@ -192,7 +194,7 @@ library OriginationLibrary {
      * @param signingCounterparty           The address of the signing counterparty.
      * @param callbackData                  The borrower callback data.
      *
-     * @return loanHash                     The hash of the loan terms and signature properties.
+     * @return loanHash                     The hash of the loan.
      */
     function encodeLoan(
         LoanLibrary.LoanTerms calldata terms,
@@ -214,20 +216,20 @@ library OriginationLibrary {
     }
 
     /**
-     * @notice Hashes the loan terms with items and signature properties for inclusion in the EIP712 signature.
+     * @notice Hashes a loan with items for inclusion in the EIP712 signature.
      *
      * @param terms                         The loan terms.
-     * @param itemPredicatesHash            The hash of the item predicates.
+     * @param itemPredicates                The predicate rules for the items in the bundle.
      * @param sigProperties                 The signature properties.
      * @param side                          The side of the signature.
      * @param signingCounterparty           The address of the signing counterparty.
      * @param callbackData                  The borrower callback data.
      *
-     * @return loanWithItemsHash            The hash of the loan terms with items and signature properties.
+     * @return loanWithItemsHash            The hash of the loan with items.
      */
     function encodeLoanWithItems(
         LoanLibrary.LoanTerms calldata terms,
-        bytes32 itemPredicatesHash,
+        LoanLibrary.Predicate[] calldata itemPredicates,
         IOriginationController.SigProperties calldata sigProperties,
         uint8 side,
         address signingCounterparty,
@@ -236,7 +238,7 @@ library OriginationLibrary {
         loanWithItemsHash = keccak256(
             abi.encode(
                 _ITEMS_TYPEHASH,
-                encodeLoanTermsWithItems(terms, itemPredicatesHash),
+                encodeLoanTermsWithItems(terms, itemPredicates),
                 encodeSigProperties(sigProperties),
                 side,
                 signingCounterparty,

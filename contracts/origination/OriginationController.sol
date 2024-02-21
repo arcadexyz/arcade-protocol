@@ -309,7 +309,7 @@ contract OriginationController is
      *
      * @param loanTerms                     The terms of the loan.
      * @param sig                           The loan terms signature, with v, r, s fields.
-     * @param itemsHash                     hash of required items in the specified bundle.
+     * @param itemPredicates                The predicate rules for the items in the bundle.
      * @param sigProperties                 Signature nonce and max uses for this nonce.
      * @param side                          The side of the loan being signed.
      * @param signingCounterparty           The address of the counterparty who signed the terms.
@@ -321,7 +321,7 @@ contract OriginationController is
     function recoverItemsSignature(
         LoanLibrary.LoanTerms calldata loanTerms,
         Signature calldata sig,
-        bytes32 itemsHash,
+        LoanLibrary.Predicate[] calldata itemPredicates,
         SigProperties calldata sigProperties,
         Side side,
         address signingCounterparty,
@@ -329,7 +329,7 @@ contract OriginationController is
     ) public view override returns (bytes32 sighash, address signer) {
         bytes32 loanHash = OriginationLibrary.encodeLoanWithItems(
             loanTerms,
-            itemsHash,
+            itemPredicates,
             sigProperties,
             uint8(side),
             signingCounterparty,
@@ -351,6 +351,7 @@ contract OriginationController is
      * @param neededSide                    The side of the loan the signature will take (lend or borrow).
      * @param signingCounterparty           The address of the counterparty who signed the terms.
      * @param itemPredicates                The predicate rules for the items in the bundle.
+     * @param callbackData                  The borrower callback data.
      *
      * @return sighash                      The hash that was signed.
      * @return externalSigner               The address of the recovered signer.
@@ -365,12 +366,10 @@ contract OriginationController is
         bytes memory callbackData
     ) public view returns (bytes32 sighash, address externalSigner) {
         if (itemPredicates.length > 0) {
-            bytes32 encodedPredicates = OriginationLibrary.encodePredicates(itemPredicates);
-
             (sighash, externalSigner) = recoverItemsSignature(
                 loanTerms,
                 sig,
-                encodedPredicates,
+                itemPredicates,
                 sigProperties,
                 neededSide,
                 signingCounterparty,

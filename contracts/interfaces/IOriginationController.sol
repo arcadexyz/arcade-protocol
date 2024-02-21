@@ -75,7 +75,7 @@ interface IOriginationController {
     function recoverItemsSignature(
         LoanLibrary.LoanTerms calldata loanTerms,
         Signature calldata sig,
-        bytes32 itemsHash,
+        LoanLibrary.Predicate[] calldata itemPredicates,
         SigProperties calldata sigProperties,
         Side side,
         address signingCounterparty,
