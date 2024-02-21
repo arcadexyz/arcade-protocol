@@ -25,7 +25,8 @@ import {
     REFI_CollateralMismatch,
     REFI_CurrencyMismatch,
     REFI_SameLender,
-    REFI_PrincipalIncrease
+    REFI_PrincipalIncrease,
+    REFI_PrincipalTooLow
 } from "../errors/Lending.sol";
 
 
@@ -120,6 +121,7 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
         uint256 newDueDate = block.timestamp + newTerms.durationSecs;
         if (
             newDueDate < oldDueDate ||
+            newTerms.durationSecs < Constants.MIN_LOAN_DURATION ||
             newTerms.durationSecs > Constants.MAX_LOAN_DURATION
         ) revert REFI_LoanDuration(oldDueDate, newDueDate);
 
@@ -139,6 +141,11 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
             oldLoanData.terms.payableCurrency,
             newTerms.payableCurrency
         );
+
+        // new principal cannot be less than minimum
+        if (newTerms.principal < originationConfig.getMinPrincipal(newTerms.payableCurrency)) {
+            revert REFI_PrincipalTooLow(newTerms.principal);
+        }
 
         // principal cannot increase
         if (newTerms.principal > oldLoanData.balance) revert REFI_PrincipalIncrease(
