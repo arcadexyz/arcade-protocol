@@ -158,7 +158,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
             uint64(data.lastAccrualTimestamp),
             block.timestamp
         );
-        uint256 totalOwed = terms.principal + interest;
+        uint256 totalOwed = terms.principal + interest + data.interestAmountPaid;
 
         uint256 claimFee = (totalOwed * data.feeSnapshot.lenderDefaultFee) / Constants.BASIS_POINTS_DENOMINATOR;
 
