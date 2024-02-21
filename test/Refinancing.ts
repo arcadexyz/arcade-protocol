@@ -494,7 +494,7 @@ describe("Refinancing", () => {
             const interestDue = ethers.utils.parseEther("5");
             const interestFee = ethers.utils.parseEther("1");
 
-            const newLenderOwes: BigNumber = refiLoanTerms.principal.add(interestDue).add(interestFee);
+            const newLenderOwes: BigNumber = refiLoanTerms.principal.add(interestDue);
 
             await mint(mockERC20, newLender, newLenderOwes);
             await approve(mockERC20, newLender, refinanceController.address, newLenderOwes);
@@ -514,7 +514,7 @@ describe("Refinancing", () => {
             const loanCoreBalanceAfter = await mockERC20.balanceOf(loanCore.address);
 
             // accounting checks
-            expect(oldLenderBalanceAfter).to.equal(oldLenderBalanceBefore.add(loanTerms.principal.add(interestDue)));
+            expect(oldLenderBalanceAfter).to.equal(oldLenderBalanceBefore.add(loanTerms.principal.add(interestDue).sub(interestFee)));
             expect(newLenderBalanceAfter).to.equal(newLenderBalanceBefore.sub(newLenderOwes));
             expect(borrowerBalanceAfter).to.equal(borrowerBalanceBefore);
             expect(loanCoreBalanceAfter).to.equal(loanCoreBalanceBefore.add(interestFee));
@@ -591,7 +591,7 @@ describe("Refinancing", () => {
             const interestDue = ethers.utils.parseEther("5");
             const interestFee = ethers.utils.parseEther("1");
 
-            let newLenderOwes: BigNumber = refiLoanTerms.principal.add(interestDue).add(interestFee);
+            let newLenderOwes: BigNumber = refiLoanTerms.principal.add(interestDue);
 
             await mint(mockERC20, newLender, newLenderOwes);
             await approve(mockERC20, newLender, refinanceController.address, newLenderOwes);
@@ -611,7 +611,7 @@ describe("Refinancing", () => {
             const loanCoreBalanceAfter = await mockERC20.balanceOf(loanCore.address);
 
             // accounting checks
-            expect(oldLenderBalanceAfter).to.equal(oldLenderBalanceBefore.add(loanTerms.principal.add(interestDue)));
+            expect(oldLenderBalanceAfter).to.equal(oldLenderBalanceBefore.add(loanTerms.principal.add(interestDue).sub(interestFee)));
             expect(newLenderBalanceAfter).to.equal(newLenderBalanceBefore.sub(newLenderOwes));
             expect(borrowerBalanceAfter).to.equal(borrowerBalanceBefore);
             expect(loanCoreBalanceAfter).to.equal(loanCoreBalanceBefore.add(interestFee));
