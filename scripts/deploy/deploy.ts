@@ -27,6 +27,7 @@ import {
     ArtBlocksVerifier,
     CallWhitelistAllExtensions,
     OriginationControllerMigrate,
+    OriginationConfiguration,
 } from "../../typechain";
 
 import { DeployedResources } from "../utils/deploy";
@@ -131,6 +132,12 @@ export async function main(): Promise<DeployedResources> {
     console.log("RepaymentController deployed to:", repaymentController.address);
     console.log(SUBSECTION_SEPARATOR);
 
+    const OriginationConfigurationFactory = await ethers.getContractFactory("OriginationConfiguration");
+    const originationConfiguration = <OriginationConfiguration>await OriginationConfigurationFactory.deploy();
+
+    console.log("OriginationConfiguration deployed to:", originationConfiguration.address);
+    console.log(SUBSECTION_SEPARATOR);
+
     const OriginationLibraryFactory = await ethers.getContractFactory("OriginationLibrary");
     const originationLibrary = await OriginationLibraryFactory.deploy();
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationControllerMigrate",
@@ -142,7 +149,7 @@ export async function main(): Promise<DeployedResources> {
         }
     );
     const originationController = <OriginationControllerMigrate>(
-        await OriginationControllerFactory.deploy(loanCore.address, feeController.address)
+        await OriginationControllerFactory.deploy(originationConfiguration.address, loanCore.address, feeController.address)
     );
     await originationController.deployed();
 
@@ -181,6 +188,7 @@ export async function main(): Promise<DeployedResources> {
         loanCore,
         repaymentController,
         originationController,
+        originationConfiguration,
         borrowerNoteURIDescriptor,
         borrowerNote,
         lenderNoteURIDescriptor,
@@ -201,6 +209,7 @@ export async function main(): Promise<DeployedResources> {
         loanCore: [borrowerNote.address, lenderNote.address],
         repaymentController: [loanCore.address, feeController.address],
         originationController: [loanCore.address, feeController.address],
+        originationConfiguration: [],
     });
 
     console.log(SECTION_SEPARATOR);

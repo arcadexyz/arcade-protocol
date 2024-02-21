@@ -257,7 +257,7 @@ export async function main(): Promise<void> {
 
     console.log();
     console.log("Borrower net: ", ethers.utils.formatUnits(borrowerBalanceAfter.sub(borrowerBalanceBefore), DECIMALS));
-    console.log("V3 lender net: ",  ethers.utils.formatUnits(newlenderBalanceAfter.sub(newlenderBalanceBefore), DECIMALS));
+    console.log("V3 lender net: ", ethers.utils.formatUnits(newlenderBalanceAfter.sub(newlenderBalanceBefore), DECIMALS));
 
     console.log(SECTION_SEPARATOR);
 }
