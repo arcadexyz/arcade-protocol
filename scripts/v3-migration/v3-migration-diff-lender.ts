@@ -198,8 +198,8 @@ export async function main(): Promise<void> {
 
     console.log();
     console.log("borrower net: ", ethers.utils.formatUnits(borrowerBalanceAfter.sub(borrowerBalanceBefore), DECIMALS));
-    console.log("v3 lender net: ",  ethers.utils.formatUnits(v3lenderBalanceAfter.sub(v3lenderBalanceBefore), DECIMALS));
-    console.log("v4 lender net: ",  ethers.utils.formatUnits(v4LenderBalanceAfter.sub(v4LenderBalanceBefore), DECIMALS));
+    console.log("v3 lender net: ", ethers.utils.formatUnits(v3lenderBalanceAfter.sub(v3lenderBalanceBefore), DECIMALS));
+    console.log("v4 lender net: ", ethers.utils.formatUnits(v4LenderBalanceAfter.sub(v4LenderBalanceBefore), DECIMALS));
 
     console.log(SECTION_SEPARATOR);
 }

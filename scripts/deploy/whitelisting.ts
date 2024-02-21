@@ -2,7 +2,7 @@ import { Contract, BigNumberish } from "ethers";
 import fetch from "node-fetch";
 import { chunk } from "lodash";
 
-import { OriginationController } from "../../typechain";
+import { OriginationConfiguration } from "../../typechain";
 import { loadContracts, DeployedResources } from "../utils/deploy";
 import { allowedCurrencies, minPrincipals } from "../utils/constants";
 
@@ -31,7 +31,7 @@ export async function getVerifiedTokenData(): Promise<Record<string, any>[]> {
     }
 }
 
-export async function whitelistPayableCurrencies(originationController: OriginationController): Promise<void> {
+export async function whitelistPayableCurrencies(originationConfiguration: OriginationConfiguration): Promise<void> {
     type AllowData = { isAllowed: true; minPrincipal: BigNumberish }[];
 
     const allowData = minPrincipals.reduce((acc: AllowData, minPrincipal) => {
@@ -39,14 +39,14 @@ export async function whitelistPayableCurrencies(originationController: Originat
         return acc;
     }, []);
 
-    const tx = await originationController.setAllowedPayableCurrencies(allowedCurrencies, allowData);
+    const tx = await originationConfiguration.setAllowedPayableCurrencies(allowedCurrencies, allowData);
     await tx.wait();
 
     console.log(`Whitelisted ${allowedCurrencies.length} payable currencies.`);
 }
 
 async function whitelistCollections(
-    originationController: OriginationController,
+    originationConfiguration: OriginationConfiguration,
     vaultFactory: Contract,
 ): Promise<void> {
     const data = await getVerifiedTokenData();
@@ -58,13 +58,13 @@ async function whitelistCollections(
     const chunkedIds = chunk(ids, 50);
 
     for (const chunk of chunkedIds) {
-        const tx = await originationController.setAllowedCollateralAddresses(chunk, Array(chunk.length).fill(true));
+        const tx = await originationConfiguration.setAllowedCollateralAddresses(chunk, Array(chunk.length).fill(true));
         await tx.wait();
     }
 
     console.log(`Whitelisted ${ids.length} collections in ${chunkedIds.length} transactions.`);
 
-    const tx = await originationController.setAllowedCollateralAddresses(
+    const tx = await originationConfiguration.setAllowedCollateralAddresses(
         [
             vaultFactory.address,
             "0x6e9B4c2f6Bd57b7b924d29b5dcfCa1273Ecc94A2", // v2 Vault Factory
@@ -78,10 +78,10 @@ async function whitelistCollections(
     console.log(`Whitelisted VaultFactory at ${vaultFactory.address}.}`);
 }
 
-async function whitelistVerifiers(originationController: OriginationController, verifiers: Contract[]): Promise<void> {
+async function whitelistVerifiers(originationConfiguration: OriginationConfiguration, verifiers: Contract[]): Promise<void> {
     const addrs = verifiers.map(verifier => verifier.address);
 
-    await originationController.setAllowedVerifiers(addrs, Array(addrs.length).fill(true));
+    await originationConfiguration.setAllowedVerifiers(addrs, Array(addrs.length).fill(true));
 
     console.log(`Whitelisted ${addrs.length} verifiers.`);
 }
@@ -92,16 +92,16 @@ export async function doWhitelisting(contracts: DeployedResources): Promise<void
     // Whitelist verifiers
 
     const {
-        originationController,
+        originationConfiguration,
         arcadeItemsVerifier,
         collectionWideOfferVerifier,
         artBlocksVerifier,
         vaultFactory
     } = contracts;
 
-    await whitelistPayableCurrencies(originationController);
-    await whitelistCollections(originationController, vaultFactory);
-    await whitelistVerifiers(originationController, [
+    await whitelistPayableCurrencies(originationConfiguration);
+    await whitelistCollections(originationConfiguration, vaultFactory);
+    await whitelistVerifiers(originationConfiguration, [
         arcadeItemsVerifier,
         collectionWideOfferVerifier,
         artBlocksVerifier,

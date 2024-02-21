@@ -19,6 +19,8 @@ import {
     SECTION_SEPARATOR,
     SHUTDOWN_ROLE,
     SHUTDOWN_CALLER,
+    MIGRATION_MANAGER_ROLE,
+    MIGRATION_MANAGER,
 } from "../utils/constants";
 import { ContractTransaction } from "ethers";
 
@@ -182,16 +184,33 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     const { originationController } = resources;
     tx = await originationController.grantRole(ADMIN_ROLE, ADMIN);
     await tx.wait();
-    tx = await originationController.grantRole(WHITELIST_MANAGER_ROLE, LOAN_WHITELIST_MANAGER);
+    tx = await originationController.grantRole(MIGRATION_MANAGER_ROLE, MIGRATION_MANAGER);
     await tx.wait();
     tx = await originationController.renounceRole(ADMIN_ROLE, deployer.address);
     await tx.wait();
-    tx = await originationController.renounceRole(WHITELIST_MANAGER_ROLE, deployer.address);
+    tx = await originationController.renounceRole(MIGRATION_MANAGER_ROLE, deployer.address);
     await tx.wait();
 
     console.log(`OriginationController: admin role granted to ${ADMIN}`);
-    console.log(`OriginationController: whitelist manager role granted to ${LOAN_WHITELIST_MANAGER}`);
-    console.log(`OriginationController: Deployer renounced admin and whitelist manager role`);
+    console.log(`OriginationController: migration manager role granted to ${MIGRATION_MANAGER}`);
+    console.log(`OriginationController: Deployer renounced admin and migration manager role`);
+    console.log(SUBSECTION_SEPARATOR);
+
+    // ============= OriginationConfiguration ==============
+
+    const { originationConfiguration } = resources;
+    tx = await originationConfiguration.grantRole(ADMIN_ROLE, ADMIN);
+    await tx.wait();
+    tx = await originationConfiguration.grantRole(WHITELIST_MANAGER_ROLE, LOAN_WHITELIST_MANAGER);
+    await tx.wait();
+    tx = await originationConfiguration.renounceRole(ADMIN_ROLE, deployer.address);
+    await tx.wait();
+    tx = await originationConfiguration.renounceRole(WHITELIST_MANAGER_ROLE, deployer.address);
+    await tx.wait();
+
+    console.log(`OriginationConfiguration: admin role granted to ${ADMIN}`);
+    console.log(`OriginationConfiguration: whitelist manager role granted to ${LOAN_WHITELIST_MANAGER}`);
+    console.log(`OriginationConfiguration: Deployer renounced admin and whitelist manager role`);
     console.log(SUBSECTION_SEPARATOR);
 
     console.log("✅ Transferred all ownership.");
