@@ -11,7 +11,7 @@ For more information about Arcade.xyz, please visit https://docs.arcadedao.xyz/d
 ## Target Repository
 
 - Repository - https://github.com/arcadexyz/arcade-protocol
-- Commit hash - `98cd3ad3b292ef040ce691e57f41fbf9ab69a22d`
+- Commit hash - `d5744c758f198df4c62a8eb6d9b07ef08eeb00f6`
 - Language - Solidity
 - Platforms - Ethereum Mainnet, Base
 
