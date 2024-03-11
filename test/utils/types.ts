@@ -40,7 +40,6 @@ export interface Loan {
     sigProperties: SignatureProperties;
     side: number;
     signingCounterparty: string;
-    callbackData: string;
 }
 export interface LoanTerms {
     interestRate: BigNumberish;
@@ -58,7 +57,6 @@ export interface LoanWithItems {
     sigProperties: SignatureProperties;
     side: number;
     signingCounterparty: string;
-    callbackData: string;
 }
 
 export interface LoanTermsWithItems {

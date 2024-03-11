@@ -87,7 +87,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         _validateV3Migration(oldLoanData.terms, newTerms, oldLoanId);
 
         {
-            (bytes32 sighash, address externalSigner) = _recoverSignature(newTerms, sig, sigProperties, Side.LEND, lender, itemPredicates, bytes(""));
+            (bytes32 sighash, address externalSigner) = _recoverSignature(newTerms, sig, sigProperties, Side.LEND, lender, itemPredicates);
 
             // counterparty validation
             if (!isSelfOrApproved(lender, externalSigner) && !OriginationLibrary.isApprovedForContract(lender, sig, sighash)) {

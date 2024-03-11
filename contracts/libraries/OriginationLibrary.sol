@@ -47,7 +47,7 @@ library OriginationLibrary {
     bytes32 public constant _TOKEN_ID_TYPEHASH =
         keccak256(
             // solhint-disable-next-line max-line-length
-            "Loan(LoanTerms terms,SigProperties sigProperties,uint8 side,address signingCounterparty,bytes callbackData)LoanTerms(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,uint256 collateralId,bytes32 affiliateCode)SigProperties(uint160 nonce,uint96 maxUses)"
+            "Loan(LoanTerms terms,SigProperties sigProperties,uint8 side,address signingCounterparty)LoanTerms(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,uint256 collateralId,bytes32 affiliateCode)SigProperties(uint160 nonce,uint96 maxUses)"
         );
 
     /// @notice EIP712 type hash for LoanTerms.
@@ -61,7 +61,7 @@ library OriginationLibrary {
     bytes32 public constant _ITEMS_TYPEHASH =
         keccak256(
             // solhint-disable max-line-length
-            "LoanWithItems(LoanTermsWithItems termsWithItems,SigProperties sigProperties,uint8 side,address signingCounterparty,bytes callbackData)LoanTermsWithItems(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,bytes32 affiliateCode,Predicate[] items)Predicate(bytes data,address verifier)SigProperties(uint160 nonce,uint96 maxUses)"
+            "LoanWithItems(LoanTermsWithItems termsWithItems,SigProperties sigProperties,uint8 side,address signingCounterparty)LoanTermsWithItems(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,bytes32 affiliateCode,Predicate[] items)Predicate(bytes data,address verifier)SigProperties(uint160 nonce,uint96 maxUses)"
         );
 
     /// @notice EIP712 type hash for LoanTermsWithItems.
@@ -192,7 +192,6 @@ library OriginationLibrary {
      * @param sigProperties                 The signature properties.
      * @param side                          The side of the signature.
      * @param signingCounterparty           The address of the signing counterparty.
-     * @param callbackData                  The borrower callback data.
      *
      * @return loanHash                     The hash of the loan.
      */
@@ -200,8 +199,7 @@ library OriginationLibrary {
         LoanLibrary.LoanTerms calldata terms,
         IOriginationController.SigProperties calldata sigProperties,
         uint8 side,
-        address signingCounterparty,
-        bytes memory callbackData
+        address signingCounterparty
     ) public pure returns (bytes32 loanHash) {
         loanHash = keccak256(
             abi.encode(
@@ -209,8 +207,7 @@ library OriginationLibrary {
                 encodeLoanTerms(terms),
                 encodeSigProperties(sigProperties),
                 side,
-                signingCounterparty,
-                keccak256(callbackData)
+                signingCounterparty
             )
         );
     }
@@ -223,7 +220,6 @@ library OriginationLibrary {
      * @param sigProperties                 The signature properties.
      * @param side                          The side of the signature.
      * @param signingCounterparty           The address of the signing counterparty.
-     * @param callbackData                  The borrower callback data.
      *
      * @return loanWithItemsHash            The hash of the loan with items.
      */
@@ -232,8 +228,7 @@ library OriginationLibrary {
         LoanLibrary.Predicate[] calldata itemPredicates,
         IOriginationController.SigProperties calldata sigProperties,
         uint8 side,
-        address signingCounterparty,
-        bytes memory callbackData
+        address signingCounterparty
     ) public pure returns (bytes32 loanWithItemsHash) {
         loanWithItemsHash = keccak256(
             abi.encode(
@@ -241,8 +236,7 @@ library OriginationLibrary {
                 encodeLoanTermsWithItems(terms, itemPredicates),
                 encodeSigProperties(sigProperties),
                 side,
-                signingCounterparty,
-                keccak256(callbackData)
+                signingCounterparty
             )
         );
     }

@@ -2334,7 +2334,6 @@ describe("OriginationController", () => {
                 "b",
                 "0x",
                 borrowerContract.address,
-                callbackData,
             );
 
             await mint(mockERC20, lender, loanTerms.principal);
@@ -2446,7 +2445,6 @@ describe("OriginationController", () => {
                 "b",
                 "0x",
                 borrowerContract.address,
-                calldataWithSelector,
             );
 
             await mint(mockERC20, lender, loanTerms.principal);
@@ -2575,7 +2573,6 @@ describe("OriginationController", () => {
                 "b",
                 "0x",
                 borrowerContract.address,
-                calldataWithSelector,
             );
 
             await mint(mockERC20, lender, loanTerms2.principal);
@@ -2690,7 +2687,6 @@ describe("OriginationController", () => {
                 "b",
                 "0x",
                 borrowerContract.address,
-                calldataWithSelector,
             );
 
             await mint(mockERC20, lender, loanTerms.principal);
@@ -2853,7 +2849,6 @@ describe("OriginationController", () => {
                 "l",
                 "0x",
                 lender.address,
-                calldataWithSelector,
             );
 
             await mint(mockERC20, lender, loanTerms.principal);
