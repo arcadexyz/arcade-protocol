@@ -118,8 +118,8 @@ abstract contract OriginationCalculator is InterestCalculator {
             oldLoanData.balance,
             oldLoanData.terms.interestRate,
             oldLoanData.terms.durationSecs,
-            uint64(oldLoanData.startDate),
-            uint64(oldLoanData.lastAccrualTimestamp),
+            oldLoanData.startDate,
+            oldLoanData.lastAccrualTimestamp,
             block.timestamp
         );
 

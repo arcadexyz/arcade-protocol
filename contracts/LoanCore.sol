@@ -302,9 +302,6 @@ contract LoanCore is
      *         collateral to the lender. All promissory notes will be burned and the loan
      *         will be marked as complete.
      *
-     * @dev If LoanCore is holding a withdrawal balance for this loan's NoteReceipt. The collateral
-     *      cannot be claimed until the available balance is withdrawn.
-     *
      * @param loanId                              The ID of the loan to claim.
      */
     function claim(uint256 loanId) external override onlyRole(REPAYER_ROLE) nonReentrant {
