@@ -85,7 +85,7 @@ error OCC_SignatureIsExpired(uint256 deadline);
 /**
  * @notice Provided collateral address is not approved for lending.
  *
- * @param collateralAddress       ERC721 or ERC1155 token address supplied in loan terms.
+ * @param collateralAddress       ERC721 token address supplied in loan terms.
  */
 error OCC_InvalidCollateral(address collateralAddress);
 
@@ -362,6 +362,20 @@ error REFI_PrincipalIncrease(uint256 oldPrincipal, uint256 newPrincipal);
  * @param principal                   Provided principal amount.
  */
 error REFI_PrincipalTooLow(uint256 principal);
+
+/**
+ * @notice Provided payable currency address is not approved for lending.
+ *
+ * @param payableCurrency       ERC20 token address supplied in loan terms.
+ */
+error REFI_InvalidCurrency(address payableCurrency);
+
+/**
+ * @notice Provided collateral address is not approved for lending.
+ *
+ * @param collateralAddress       ERC721 token address supplied in loan terms.
+ */
+error REFI_InvalidCollateral(address collateralAddress);
 
 // ==================================== ITEMS VERIFIER ======================================
 /// @notice All errors prefixed with IV_, to separate from other contracts in the protocol.
