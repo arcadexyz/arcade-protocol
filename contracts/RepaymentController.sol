@@ -148,7 +148,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         address lender = lenderNote.ownerOf(loanId);
         if (lender != msg.sender) revert RC_OnlyLender(lender, msg.sender);
 
-        loanCore.claim(loanId, 0);
+        loanCore.claim(loanId);
     }
 
     /**

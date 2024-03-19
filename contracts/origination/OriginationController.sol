@@ -516,15 +516,11 @@ contract OriginationController is
         // get fee snapshot from fee controller
         (LoanLibrary.FeeSnapshot memory feeSnapshot) = feeController.getOriginationFeesWithSnapshot();
 
-        // Determine settlement amounts based on fees
-        uint256 amountFromLender = loanTerms.principal;
-        uint256 amountToBorrower = loanTerms.principal;
-
         // ---------------------- Borrower receives principal ----------------------
         // Collect funds from lender and send to borrower minus fees
-        IERC20(loanTerms.payableCurrency).safeTransferFrom(lender, address(this), amountFromLender);
+        IERC20(loanTerms.payableCurrency).safeTransferFrom(lender, address(this), loanTerms.principal);
         // send principal to borrower
-        IERC20(loanTerms.payableCurrency).safeTransfer(borrowerData.borrower, amountToBorrower);
+        IERC20(loanTerms.payableCurrency).safeTransfer(borrowerData.borrower, loanTerms.principal);
 
         // ----------------------- Express borrow callback --------------------------
         // If callback params present, call the callback function on the borrower
@@ -537,7 +533,7 @@ contract OriginationController is
         IERC721(loanTerms.collateralAddress).transferFrom(borrowerData.borrower, address(loanCore), loanTerms.collateralId);
 
         // Create loan in LoanCore
-        loanId = loanCore.startLoan(lender, borrowerData.borrower, loanTerms, 0, feeSnapshot);
+        loanId = loanCore.startLoan(lender, borrowerData.borrower, loanTerms, feeSnapshot);
     }
 
     /**

@@ -153,7 +153,6 @@ contract LoanCore is
      * @param lender                The lender for the loan.
      * @param borrower              The borrower for the loan.
      * @param terms                 The terms of the loan.
-     * @param feesEarned            The amount of fees earned from the loan.
      * @param _feeSnapshot          A snapshot of current lending fees.
      *
      * @return loanId               The ID of the newly created loan.
@@ -162,7 +161,6 @@ contract LoanCore is
         address lender,
         address borrower,
         LoanLibrary.LoanTerms calldata terms,
-        uint256 feesEarned,
         LoanLibrary.FeeSnapshot calldata _feeSnapshot
     ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 loanId) {
         // Check collateral is not already used in a loan
@@ -171,13 +169,6 @@ contract LoanCore is
 
         // Mark collateral as escrowed
         collateralInUse[collateralKey] = true;
-
-        // Assign fees for withdrawal
-        (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
-            _getAffiliateSplit(feesEarned, terms.affiliateCode);
-
-        if (protocolFee > 0) feesWithdrawable[terms.payableCurrency][address(this)] += protocolFee;
-        if (affiliateFee > 0) feesWithdrawable[terms.payableCurrency][affiliate] += affiliateFee;
 
         // Get current loanId and increment for next function call
         loanId = loanIdTracker.current();
@@ -313,14 +304,8 @@ contract LoanCore is
      *      cannot be claimed until the available balance is withdrawn.
      *
      * @param loanId                              The ID of the loan to claim.
-     * @param _amountFromLender                   Any claiming fees to be collected from the lender.
      */
-    function claim(uint256 loanId, uint256 _amountFromLender)
-        external
-        override
-        onlyRole(REPAYER_ROLE)
-        nonReentrant
-    {
+    function claim(uint256 loanId) external override onlyRole(REPAYER_ROLE) nonReentrant {
         LoanLibrary.LoanData memory data = loans[loanId];
         // Ensure valid initial loan state when claiming loan
         if (data.state != LoanLibrary.LoanState.Active) revert LC_InvalidState(data.state);
@@ -336,16 +321,6 @@ contract LoanCore is
 
         collateralInUse[keccak256(abi.encode(data.terms.collateralAddress, data.terms.collateralId))] = false;
 
-        if (_amountFromLender > 0) {
-            // Assign fees for withdrawal
-            (uint256 protocolFee, uint256 affiliateFee, address affiliate) =
-                _getAffiliateSplit(_amountFromLender, data.terms.affiliateCode);
-
-            mapping(address => uint256) storage _feesWithdrawable = feesWithdrawable[data.terms.payableCurrency];
-            if (protocolFee > 0) _feesWithdrawable[address(this)] += protocolFee;
-            if (affiliateFee > 0) _feesWithdrawable[affiliate] += affiliateFee;
-        }
-
         // Get owner of the LenderNote
         address lender = lenderNote.ownerOf(loanId);
         // Burn both notes
@@ -353,9 +328,6 @@ contract LoanCore is
 
         // Collateral redistribution
         IERC721(data.terms.collateralAddress).safeTransferFrom(address(this), lender, data.terms.collateralId);
-
-        // Collect claim fee from lender
-        _collectIfNonzero(IERC20(data.terms.payableCurrency), lender, _amountFromLender);
 
         emit LoanClaimed(loanId);
     }

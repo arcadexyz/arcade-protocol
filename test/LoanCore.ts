@@ -249,7 +249,6 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                fee,
             );
 
             const storedLoanData = await loanCore.getLoan(loanId);
@@ -270,7 +269,6 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                fee,
             );
 
             // ensure the 1% fee was used
@@ -286,12 +284,12 @@ describe("LoanCore", () => {
             let { terms, borrower, lender } = await setupLoan(context);
             let { principal } = terms;
 
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, 0);
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms);
 
             ({ terms, borrower, lender } = await setupLoan(context));
             ({ principal } = terms);
 
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, 0);
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms);
         });
 
         it("rejects calls from non-originator", async () => {
@@ -302,7 +300,6 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    0,
                     feeSnapshot
                 )
             ).to.be.revertedWith(
@@ -319,7 +316,6 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                0,
                 feeSnapshot
             );
 
@@ -328,7 +324,6 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    0,
                     feeSnapshot
                 ),
             ).to.be.revertedWith("LC_CollateralInUse");
@@ -345,7 +340,6 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    0,
                     feeSnapshot
                 ),
             ).to.be.revertedWith("Pausable: paused");
@@ -367,7 +361,6 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                0,
             );
 
             // Transfer vault to LoanCore
@@ -604,7 +597,6 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                0,
             );
 
             // Transfer vault to LoanCore
@@ -743,7 +735,7 @@ describe("LoanCore", () => {
             await blockchainTime.increaseTime(360001); // increase to the end of loan duration
             await blockchainTime.increaseTime(600) // increase 10 mins to the end of repayment grace period
 
-            await loanCore.connect(borrower).claim(loanId, 0);
+            await loanCore.connect(borrower).claim(loanId);
 
             await expect(loanCore.connect(borrower).forceRepay(
                 loanId,
@@ -879,7 +871,6 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                0,
             );
 
             // Transfer vault to LoanCore
@@ -894,7 +885,7 @@ describe("LoanCore", () => {
             await blockchainTime.increaseTime(360001); // increase to the end of loan duration
             await blockchainTime.increaseTime(600) // increase 10 mins to the end of repayment grace period
 
-            await expect(loanCore.connect(borrower).claim(loanId, 0))
+            await expect(loanCore.connect(borrower).claim(loanId))
                 .to.emit(loanCore, "LoanClaimed").withArgs(loanId);
         });
 
@@ -904,7 +895,7 @@ describe("LoanCore", () => {
             await blockchainTime.increaseTime(360001); // increase to the end of loan duration
             await blockchainTime.increaseTime(600) // increase 10 mins to the end of repayment grace period
 
-            await expect(loanCore.connect(other).claim(loanId, 0)).to.be.revertedWith(
+            await expect(loanCore.connect(other).claim(loanId)).to.be.revertedWith(
                 `AccessControl: account ${(other.address).toLowerCase()} is missing role ${REPAYER_ROLE}`,
             );
         });
@@ -916,7 +907,7 @@ describe("LoanCore", () => {
             await blockchainTime.increaseTime(360001); // increase to the end of loan duration
             await blockchainTime.increaseTime(600) // increase 10 mins to the end of repayment grace period
 
-            await expect(loanCore.connect(borrower).claim(invalidLoanId, 0)).to.be.revertedWith("LC_InvalidState");
+            await expect(loanCore.connect(borrower).claim(invalidLoanId)).to.be.revertedWith("LC_InvalidState");
         });
 
         it("should fail if the loan is already repaid", async () => {
@@ -936,7 +927,7 @@ describe("LoanCore", () => {
             );
 
             // cannot claim already repaid loan
-            await expect(loanCore.connect(borrower).claim(loanId, 0)).to.be.revertedWith("LC_InvalidState");
+            await expect(loanCore.connect(borrower).claim(loanId)).to.be.revertedWith("LC_InvalidState");
         });
 
         it("should fail if the loan is already claimed", async () => {
@@ -945,10 +936,10 @@ describe("LoanCore", () => {
             await blockchainTime.increaseTime(360001); // increase to the end of loan duration
             await blockchainTime.increaseTime(600) // increase 10 mins to the end of repayment grace period
 
-            await loanCore.connect(borrower).claim(loanId, 0);
+            await loanCore.connect(borrower).claim(loanId);
 
             // cannot claim already claimed loan
-            await expect(loanCore.connect(borrower).claim(loanId, 0)).to.be.revertedWith("LC_InvalidState");
+            await expect(loanCore.connect(borrower).claim(loanId)).to.be.revertedWith("LC_InvalidState");
         });
 
         it("should fail if the loan is not expired", async () => {
@@ -961,7 +952,7 @@ describe("LoanCore", () => {
 
             await blockchainTime.increaseTime(360001); // increase to the end of loan duration
 
-            await expect(loanCore.connect(borrower).claim(loanId, 0))
+            await expect(loanCore.connect(borrower).claim(loanId))
                 .to.be.revertedWith("LC_NotExpired");
         });
 
@@ -976,7 +967,7 @@ describe("LoanCore", () => {
             // check shutdown
             expect(await loanCore.paused()).to.be.true;
 
-            await expect(loanCore.connect(borrower).claim(loanId, 0))
+            await expect(loanCore.connect(borrower).claim(loanId))
                 .to.emit(loanCore, "LoanClaimed").withArgs(loanId);
         });
     });
@@ -996,7 +987,6 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                0,
             );
 
             // Transfer vault to LoanCore
@@ -1100,7 +1090,7 @@ describe("LoanCore", () => {
             const { principal } = terms;
 
             const fee = principal.mul(5).div(1000);
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, fee);
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms);
 
             // Mint fee to LoanCore
             await mockERC20.mint(loanCore.address, fee);
@@ -1123,7 +1113,7 @@ describe("LoanCore", () => {
             const { principal } = terms;
 
             const fee = principal.mul(5).div(1000);
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, fee);
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms);
 
             // Mint fee to LoanCore
             await mockERC20.mint(loanCore.address, fee);
@@ -1141,7 +1131,7 @@ describe("LoanCore", () => {
             const { loanCore, terms, borrower, lender } = await setupLoan();
             const { principal } = terms;
 
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, 0);
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms);
 
             await loanCore.connect(borrower).grantRole(FEE_CLAIMER_ROLE, lender.address);
             await loanCore.connect(borrower).revokeRole(FEE_CLAIMER_ROLE, borrower.address);
@@ -1158,7 +1148,7 @@ describe("LoanCore", () => {
             const { loanCore, terms, borrower, lender } = await setupLoan();
             const { principal } = terms;
 
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, 0);
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms);
 
             await loanCore.connect(borrower).grantRole(FEE_CLAIMER_ROLE, lender.address);
             await loanCore.connect(borrower).revokeRole(FEE_CLAIMER_ROLE, borrower.address);
@@ -1175,7 +1165,7 @@ describe("LoanCore", () => {
             const { loanCore, terms, borrower, lender } = await setupLoan();
             const { principal } = terms;
 
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, 0);
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms);
 
             await loanCore.connect(borrower).grantRole(AFFILIATE_MANAGER_ROLE, lender.address);
             await loanCore.connect(borrower).revokeRole(AFFILIATE_MANAGER_ROLE, borrower.address);
@@ -1214,7 +1204,6 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                0
             );
 
             // Transfer vault to LoanCore
@@ -1428,7 +1417,7 @@ describe("LoanCore", () => {
             await blockchainTime.increaseTime(360001); // increase to the end of loan duration
             await blockchainTime.increaseTime(600) // increase 10 mins to the end of grace period
 
-            await expect(loanCore.connect(borrower).claim(loanId, 0))
+            await expect(loanCore.connect(borrower).claim(loanId))
                 .to.emit(loanCore, "LoanClaimed").withArgs(loanId);
 
             await expect(
@@ -1580,7 +1569,6 @@ describe("LoanCore", () => {
                 lender.address,
                 borrower.address,
                 terms,
-                0,
             );
 
             return { ...context, loanId, terms, borrower, lender };
@@ -1612,7 +1600,7 @@ describe("LoanCore", () => {
             await mockERC20.connect(lender).mint(lender.address, terms.principal);
             await mockERC20.connect(lender).approve(loanCore.address, terms.principal);
 
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms, 0);
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms);
 
             const collateralId2 = await initializeBundle(vaultFactory, borrower);
             const terms2 = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: collateralId2 });
@@ -1622,7 +1610,7 @@ describe("LoanCore", () => {
             await mockERC20.connect(lender).mint(lender.address, terms2.principal);
             await mockERC20.connect(lender).approve(loanCore.address, terms2.principal);
 
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms2, 0);
+            await startLoan(loanCore, borrower, lender.address, borrower.address, terms2);
 
             expect(await loanCore.canCallOn(borrower.address, collateralId.toString())).to.be.true;
             expect(await loanCore.canCallOn(borrower.address, collateralId2.toString())).to.be.true;
@@ -1681,7 +1669,6 @@ describe("LoanCore", () => {
                 borrower.address,
                 lender.address,
                 terms2,
-                0,
             );
 
             // Borrower has a different loan as well
@@ -2001,7 +1988,6 @@ describe("LoanCore", () => {
                     lender.address,
                     borrower.address,
                     terms,
-                    fee,
                 );
 
                 // Mint fee to LoanCore - accounted for in startLoan

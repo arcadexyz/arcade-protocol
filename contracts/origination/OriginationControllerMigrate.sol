@@ -443,7 +443,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         IERC721(newTerms.collateralAddress).transferFrom(address(this), address(loanCore), newTerms.collateralId);
 
         // create loan in LoanCore
-        newLoanId = loanCore.startLoan(lender, borrower_, newTerms, 0, feeSnapshot);
+        newLoanId = loanCore.startLoan(lender, borrower_, newTerms, feeSnapshot);
 
         emit V3V4Rollover(lender, borrower_, newTerms.collateralId, newLoanId);
     }

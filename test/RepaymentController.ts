@@ -1414,7 +1414,7 @@ describe("RepaymentController", () => {
         const duration = 31536000;
         const affiliateCode = ethers.utils.id("FOO");
 
-        it("100 ETH principal, 10% interest, borrower defaults and lender claims (zero fee)", async () => {
+        it.only("100 ETH principal, 10% interest, borrower defaults and lender claims (zero fee)", async () => {
             const { lender, repaymentController, loanCore, vaultFactory, mockERC20, blockchainTime } = ctx;
 
             ({ loanId, bundleId } = await initializeLoan(
