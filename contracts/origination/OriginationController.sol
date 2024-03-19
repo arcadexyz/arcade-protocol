@@ -563,8 +563,7 @@ contract OriginationController is
             oldLoanData,
             newTerms.principal,
             lender,
-            oldLender,
-            feeController
+            oldLender
         );
 
         // Collect funds based on settle amounts and total them

@@ -140,7 +140,7 @@ const fixture = async (): Promise<TestContext> => {
     );
     await originationController.deployed();
 
-    const refinanceController = <RefinanceController>await deploy("RefinanceController", deployer, [originationConfiguration.address, loanCore.address, feeController.address]);
+    const refinanceController = <RefinanceController>await deploy("RefinanceController", deployer, [originationConfiguration.address, loanCore.address]);
 
     // admin whitelists MockERC20 on OriginationController
     const whitelistCurrency = await originationConfiguration.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
@@ -245,26 +245,18 @@ describe("Refinancing", () => {
 
     describe("constructor", () => {
         it("cannot pass in zero address for shared storage", async () => {
-            const { loanCore, feeController } = ctx;
+            const { loanCore } = ctx;
 
             await expect(
-               deploy("RefinanceController", ctx.signers[0], [ethers.constants.AddressZero, loanCore.address, feeController.address])
+               deploy("RefinanceController", ctx.signers[0], [ethers.constants.AddressZero, loanCore.address])
             ).to.be.revertedWith("REFI_ZeroAddress");
         });
 
         it("cannot pass in zero address for loan core", async () => {
-            const { originationConfiguration, feeController } = ctx;
+            const { originationConfiguration } = ctx;
 
             await expect(
-                deploy("RefinanceController", ctx.signers[0], [originationConfiguration.address, ethers.constants.AddressZero, feeController.address])
-            ).to.be.revertedWith("REFI_ZeroAddress");
-        });
-
-        it("cannot pass in zero address for fee controller", async () => {
-            const { originationConfiguration, loanCore, signers } = ctx;
-
-            await expect(
-                deploy("RefinanceController", ctx.signers[0], [originationConfiguration.address, loanCore.address, ethers.constants.AddressZero])
+                deploy("RefinanceController", ctx.signers[0], [originationConfiguration.address, ethers.constants.AddressZero])
             ).to.be.revertedWith("REFI_ZeroAddress");
         });
     });

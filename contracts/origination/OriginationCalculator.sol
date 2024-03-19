@@ -120,8 +120,7 @@ abstract contract OriginationCalculator is InterestCalculator {
         LoanLibrary.LoanData memory oldLoanData,
         uint256 newPrincipalAmount,
         address lender,
-        address oldLender,
-        IFeeController feeController
+        address oldLender
     ) internal view returns (OriginationLibrary.RolloverAmounts memory) {
         // Calculate prorated interest amount for old loan
         uint256 interest = getProratedInterestAmount(

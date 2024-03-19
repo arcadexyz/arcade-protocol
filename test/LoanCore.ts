@@ -232,7 +232,6 @@ describe("LoanCore", () => {
             const {
                 mockLenderNote,
                 mockBorrowerNote,
-                feeController,
                 loanCore,
                 terms,
                 borrower,
@@ -240,9 +239,6 @@ describe("LoanCore", () => {
                 user,
             } = await setupLoan();
 
-            const fee = terms.principal.mul(5).div(1000);
-            await feeController.setLendingFee(await feeController.FL_01(), 50);
-
             const loanId = await startLoan(
                 loanCore,
                 user,
@@ -251,27 +247,6 @@ describe("LoanCore", () => {
                 terms,
             );
 
-            const storedLoanData = await loanCore.getLoan(loanId);
-            expect(storedLoanData.state).to.equal(LoanState.Active);
-            expect(await mockLenderNote.ownerOf(loanId)).to.equal(lender.address);
-            expect(await mockBorrowerNote.ownerOf(loanId)).to.equal(borrower.address);
-        });
-
-        it("should successfully settle with a fee", async () => {
-            const { mockLenderNote, mockBorrowerNote, loanCore, terms, borrower, lender } =
-                await setupLoan();
-
-            const fee = terms.principal.mul(1).div(100);
-
-            const loanId = await startLoan(
-                loanCore,
-                borrower,
-                lender.address,
-                borrower.address,
-                terms,
-            );
-
-            // ensure the 1% fee was used
             const storedLoanData = await loanCore.getLoan(loanId);
             expect(storedLoanData.state).to.equal(LoanState.Active);
             expect(await mockLenderNote.ownerOf(loanId)).to.equal(lender.address);
@@ -282,12 +257,10 @@ describe("LoanCore", () => {
             const context = await loadFixture(fixture);
             const { loanCore } = context;
             let { terms, borrower, lender } = await setupLoan(context);
-            let { principal } = terms;
 
             await startLoan(loanCore, borrower, lender.address, borrower.address, terms);
 
             ({ terms, borrower, lender } = await setupLoan(context));
-            ({ principal } = terms);
 
             await startLoan(loanCore, borrower, lender.address, borrower.address, terms);
         });
@@ -1077,23 +1050,46 @@ describe("LoanCore", () => {
         const setupLoan = async (context?: TestContext): Promise<StartLoanState> => {
             context = <TestContext>(context || (await loadFixture(fixture)));
 
-            const { vaultFactory, mockERC20, user: borrower, other: lender } = context;
+            const { vaultFactory, mockERC20, user: borrower, other: lender, loanCore } = context;
             const collateralId = await initializeBundle(vaultFactory, borrower);
 
             const terms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId });
+
+            // Mock transfer of vault to LoanCore from OriginationController
+            await vaultFactory.connect(borrower).transferFrom(borrower.address, loanCore.address, collateralId);
 
             return { ...context, terms, borrower, lender };
         };
 
         it("should successfully claim fees", async () => {
-            const { loanCore, mockERC20, terms, borrower, lender } = await setupLoan();
+            const { loanCore, mockERC20, terms, borrower, lender, feeController, signers, blockchainTime } = await setupLoan();
             const { principal } = terms;
 
-            const fee = principal.mul(5).div(1000);
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms);
+            // set interest fee to 0.5%
+            await feeController.connect(borrower).setLendingFee(await feeController.FL_04(), 50);
+            const loanId = await startLoan(loanCore, borrower, lender.address, borrower.address, terms);
 
-            // Mint fee to LoanCore
-            await mockERC20.mint(loanCore.address, fee);
+            // repay loan
+            const interest = principal.mul(1).div(1000);
+            const fee = interest.mul(50).div(1000);
+            const repayAmount = terms.principal.add(interest);
+
+            await mockERC20.connect(borrower).mint(borrower.address, repayAmount);
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
+
+            // fast forward to end of loan
+            await blockchainTime.increaseTime(360000);
+
+            await expect(loanCore.connect(borrower).repay(
+                loanId,
+                borrower.address,
+                repayAmount.sub(fee),
+                interest,
+                terms.principal
+            ))
+                .to.emit(loanCore, "LoanRepaid").withArgs(loanId)
+                .to.emit(mockERC20, "Transfer").withArgs(borrower.address, loanCore.address, repayAmount)
+                .to.emit(mockERC20, "Transfer").withArgs(loanCore.address, lender.address, repayAmount.sub(fee));
 
             // cannot withdraw protocol fees with token address(0)
             await expect(loanCore.connect(borrower).withdrawProtocolFees(ZERO_ADDRESS, borrower.address)).to.be.revertedWith("LC_ZeroAddress");
@@ -1101,35 +1097,22 @@ describe("LoanCore", () => {
             // cannot withdraw protocol fees with recipient address(0)
             await expect(loanCore.connect(borrower).withdrawProtocolFees(mockERC20.address, ZERO_ADDRESS)).to.be.revertedWith("LC_ZeroAddress");
 
-            expect(await mockERC20.balanceOf(loanCore.address)).to.equal(fee);
-            await expect(loanCore.connect(borrower).withdrawProtocolFees(mockERC20.address, borrower.address))
-                .to.emit(loanCore, "FeesWithdrawn")
-                .withArgs(mockERC20.address, borrower.address, borrower.address, fee);
-            expect(await mockERC20.balanceOf(loanCore.address)).to.equal(0);
-        });
-
-        it("should fail for anyone other than the admin", async () => {
-            const { loanCore, mockERC20, terms, borrower, lender } = await setupLoan();
-            const { principal } = terms;
-
-            const fee = principal.mul(5).div(1000);
-            await startLoan(loanCore, borrower, lender.address, borrower.address, terms);
-
-            // Mint fee to LoanCore
-            await mockERC20.mint(loanCore.address, fee);
-
-            expect(await mockERC20.balanceOf(loanCore.address)).to.equal(fee);
-
+            // only the admin can withdraw protocol fees
             await expect(loanCore.connect(lender).withdrawProtocolFees(mockERC20.address, borrower.address)).to.be.revertedWith(
                 `AccessControl: account ${(
                     lender.address
                 ).toLowerCase()} is missing role ${FEE_CLAIMER_ROLE}`,
             );
+
+            expect(await mockERC20.balanceOf(loanCore.address)).to.equal(fee);
+            await expect(loanCore.connect(borrower).withdrawProtocolFees(mockERC20.address, signers[4].address))
+                .to.emit(loanCore, "FeesWithdrawn")
+                .withArgs(mockERC20.address, borrower.address, signers[4].address, fee);
+            expect(await mockERC20.balanceOf(loanCore.address)).to.equal(0);
         });
 
         it("only admin should be able to change fee claimer", async () => {
             const { loanCore, terms, borrower, lender } = await setupLoan();
-            const { principal } = terms;
 
             await startLoan(loanCore, borrower, lender.address, borrower.address, terms);
 
@@ -1960,24 +1943,21 @@ describe("LoanCore", () => {
             const setupLoan = async (context?: TestContext): Promise<RepayLoanState> => {
                 context = <TestContext>(context || (await loadFixture(fixture)));
 
-                const { vaultFactory, mockERC20, loanCore, user: borrower, other: lender } = context;
+                const { feeController, vaultFactory, mockERC20, loanCore, user: borrower, other: lender } = context;
                 const collateralId = await initializeBundle(vaultFactory, borrower);
 
-                // Add a 1 ETH fee
-                fee = ethers.utils.parseEther("1");
+                // set interest fee to 0.5%
+                await feeController.connect(borrower).setLendingFee(await feeController.FL_04(), 50);
 
-                // Set up an affilate code - 50% share
+                // Set up an affiliate code - 50% share
                 await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, borrower.address);
                 await loanCore.setAffiliateSplits([affiliateCode], [{ affiliate: borrower.address, splitBps: 50_00 }]);
 
                 const terms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId, affiliateCode });
 
-                // run originator controller logic inline then invoke loanCore
-                // borrower is originator with originator role
-                await vaultFactory
-                    .connect(borrower)
-                    .transferFrom(borrower.address, borrower.address, collateralId);
-                await vaultFactory.connect(borrower).approve(loanCore.address, collateralId);
+                const interest = terms.principal.mul(1).div(1000);
+                fee = interest.mul(50).div(1000);
+                const repayAmount = terms.principal.add(interest);
 
                 await mockERC20.connect(lender).mint(lender.address, terms.principal.add(fee));
                 await mockERC20.connect(lender).approve(loanCore.address, terms.principal.add(fee));
@@ -1990,8 +1970,26 @@ describe("LoanCore", () => {
                     terms,
                 );
 
-                // Mint fee to LoanCore - accounted for in startLoan
-                await mockERC20.mint(loanCore.address, fee.mul(2));
+                // Mock transfer of vault to LoanCore from OriginationController
+                await vaultFactory.connect(borrower).transferFrom(borrower.address, loanCore.address, collateralId);
+
+                // repay loan
+                await mockERC20.connect(borrower).mint(borrower.address, repayAmount);
+                await mockERC20.connect(borrower).approve(loanCore.address, repayAmount);
+
+                // fast forward to end of loan
+                await blockchainTime.increaseTime(360000);
+
+                await expect(loanCore.connect(borrower).repay(
+                    loanId,
+                    borrower.address,
+                    repayAmount.sub(fee),
+                    interest,
+                    terms.principal
+                ))
+                    .to.emit(loanCore, "LoanRepaid").withArgs(loanId)
+                    .to.emit(mockERC20, "Transfer").withArgs(borrower.address, loanCore.address, repayAmount)
+                    .to.emit(mockERC20, "Transfer").withArgs(loanCore.address, lender.address, repayAmount.sub(fee));
 
                 return  { ...context, loanId, terms, borrower, lender };
             };
