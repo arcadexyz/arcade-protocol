@@ -73,7 +73,6 @@ export interface LoanTermsWithItems {
 }
 
 export interface FeeSnapshot {
-    lenderDefaultFee: BigNumberish;
     lenderInterestFee: BigNumberish;
     lenderPrincipalFee: BigNumberish;
 }

@@ -148,21 +148,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         address lender = lenderNote.ownerOf(loanId);
         if (lender != msg.sender) revert RC_OnlyLender(lender, msg.sender);
 
-        LoanLibrary.LoanTerms memory terms = data.terms;
-
-        uint256 interest = getProratedInterestAmount(
-            data.balance,
-            terms.interestRate,
-            terms.durationSecs,
-            uint64(data.startDate),
-            uint64(data.lastAccrualTimestamp),
-            block.timestamp
-        );
-        uint256 totalOwed = terms.principal + interest + data.interestAmountPaid;
-
-        uint256 claimFee = (totalOwed * data.feeSnapshot.lenderDefaultFee) / Constants.BASIS_POINTS_DENOMINATOR;
-
-        loanCore.claim(loanId, claimFee);
+        loanCore.claim(loanId, 0);
     }
 
     /**

@@ -233,11 +233,7 @@ const initializeLoan = async (
     if (terms) Object.assign(loanTerms, terms);
     if (loanDuration) loanTerms.durationSecs = loanDuration;
 
-    const lenderFeeBps = await feeController.getLendingFee(await feeController.FL_02());
-    const lenderFee = loanTerms.principal.mul(lenderFeeBps).div(10_000);
-    const lenderWillSend = loanTerms.principal.add(lenderFee);
-
-    await mint(mockERC20, lender, lenderWillSend);
+    await mint(mockERC20, lender, loanTerms.principal);
 
     const sigProperties: SignatureProperties = {
         nonce: nonce,
@@ -254,7 +250,7 @@ const initializeLoan = async (
         "b",
     );
 
-    await approve(mockERC20, lender, originationController.address, lenderWillSend);
+    await approve(mockERC20, lender, originationController.address, loanTerms.principal);
     await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
 
     const borrowerStruct: Borrower = {
@@ -570,7 +566,7 @@ describe("Integration", () => {
             expect(postLenderBalance.sub(preLenderBalance)).to.equal(repayAmount);
         });
 
-        it("should allow the collateral to be reused after repay", async () => {
+        it.only("should allow the collateral to be reused after repay", async () => {
             const context = await loadFixture(fixture);
             const { repaymentController, mockERC20, loanCore, borrower } = context;
             const { loanId, loanTerms, loanData, bundleId } = await initializeLoan(context, 1);

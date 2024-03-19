@@ -128,9 +128,6 @@ abstract contract OriginationCalculator is InterestCalculator {
         address oldLender,
         IFeeController feeController
     ) internal view returns (OriginationLibrary.RolloverAmounts memory) {
-        // get origination fees
-        (uint256 borrowerFee, uint256 lenderFee) = feeController.getOriginationFees(newPrincipalAmount);
-
         // Calculate prorated interest amount for old loan
         uint256 interest = getProratedInterestAmount(
             oldLoanData.balance,
@@ -151,8 +148,8 @@ abstract contract OriginationCalculator is InterestCalculator {
             newPrincipalAmount,
             lender,
             oldLender,
-            borrowerFee,
-            lenderFee,
+            0,
+            0,
             interestFee
         );
     }

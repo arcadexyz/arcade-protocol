@@ -101,8 +101,6 @@ library LoanLibrary {
      * @dev Snapshot of lending fees at the time of loan creation.
      */
     struct FeeSnapshot {
-        // The fee taken when lender claims defaulted collateral.
-        uint16 lenderDefaultFee;
         // The fee taken from the borrower's interest repayment.
         uint16 lenderInterestFee;
         // The fee taken from the borrower's principal repayment.

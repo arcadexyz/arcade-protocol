@@ -51,13 +51,7 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
     constructor() {
         /// @dev Vault mint fee - gross
         maxVaultMintFee = 1 ether;
-
-        /// @dev Origination fees - bps
-        maxLoanFees[FL_01] = 10_00;
-        maxLoanFees[FL_02] = 10_00;
-
-        /// @dev Loan closure fees - bps
-        maxLoanFees[FL_03] = 10_00;
+        /// @dev Lending fees
         maxLoanFees[FL_04] = 50_00;
         maxLoanFees[FL_05] = 10_00;
     }
@@ -117,44 +111,18 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
     }
 
     /**
-     * @notice Get the borrower and lender fees for loan origination.
-     *
-     * @param principal                 The principal amount.
-     *
-     * @return borrowerFee              The fee amount to be paid by the borrower.
-     * @return lenderFee                The fee amount to be paid by the lender.
-     */
-    function getOriginationFees(uint256 principal) external view override returns (
-        uint256 borrowerFee,
-        uint256 lenderFee
-    ) {
-        borrowerFee = (principal * loanFees[FL_01]) / Constants.BASIS_POINTS_DENOMINATOR;
-        lenderFee = (principal * loanFees[FL_02]) / Constants.BASIS_POINTS_DENOMINATOR;
-    }
-
-    /**
      * @notice Get the borrower and lender fees for loan origination. Additionally, return
      *         a fee snapshot for the loan.
      *
-     * @param principal                 The principal amount.
-     *
      * @return feeSnapshot              A fee snapshot for the loan.
-     * @return borrowerFee              The fee amount to be paid by the borrower.
-     * @return lenderFee                The fee amount to be paid by the lender.
      */
-    function getOriginationFeesWithSnapshot(uint256 principal) external view override returns (
-        LoanLibrary.FeeSnapshot memory feeSnapshot,
-        uint256 borrowerFee,
-        uint256 lenderFee
+    function getOriginationFeesWithSnapshot() external view override returns (
+        LoanLibrary.FeeSnapshot memory feeSnapshot
     ) {
         feeSnapshot = LoanLibrary.FeeSnapshot({
-            lenderDefaultFee: loanFees[FL_03],
             lenderInterestFee: loanFees[FL_04],
             lenderPrincipalFee: loanFees[FL_05]
         });
-
-        borrowerFee = (principal * loanFees[FL_01]) / Constants.BASIS_POINTS_DENOMINATOR;
-        lenderFee = (principal * loanFees[FL_02]) / Constants.BASIS_POINTS_DENOMINATOR;
     }
 
     /**

@@ -53,7 +53,6 @@ export const encodeAddress = (addr: string): string => {
 }
 
 export const feeSnapshot: FeeSnapshot = {
-    lenderDefaultFee: BigNumber.from(0),
     lenderInterestFee: BigNumber.from(0),
     lenderPrincipalFee: BigNumber.from(0),
 };
