@@ -84,8 +84,6 @@ const fixture = async (): Promise<TestContext> => {
     const descriptor = <BaseURIDescriptor>await deploy("BaseURIDescriptor", signers[0], [BASE_URI])
     const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address]);
 
-    await feeController.setLendingFee(await feeController.FL_01(), 50); // borrower origination fee
-
     const borrowerNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz BorrowerNote", "aBN", descriptor.address]);
     const lenderNote = <PromissoryNote>await deploy("PromissoryNote", admin, ["Arcade.xyz LenderNote", "aLN", descriptor.address]);
 
@@ -659,16 +657,16 @@ describe("Rollovers", () => {
             const ocBalanceAfter = await mockERC20.balanceOf(originationController.address);
             const loanCoreBalanceAfter = await mockERC20.balanceOf(loanCore.address);
 
-            // Borrower pays interest + origination fee
-            expect(borrowerBalanceBefore.sub(borrowerBalanceAfter)).to.eq(ethers.utils.parseUnits("10.5"));
+            // Borrower pays interest
+            expect(borrowerBalanceBefore.sub(borrowerBalanceAfter)).to.eq(ethers.utils.parseUnits("10"));
             // Old lender collects full principal + interest
             expect(lenderBalanceAfter.sub(lenderBalanceBefore)).to.eq(ethers.utils.parseUnits("110"));
             // New lender pays new principal
             expect(newLenderBalanceBefore.sub(newLenderBalanceAfter)).to.eq(ethers.utils.parseUnits("100"));
             // Nothing left in Origination Controller
             expect(ocBalanceAfter.sub(ocBalanceBefore)).to.eq(0);
-            // LoanCore accumulates origination fee
-            expect(loanCoreBalanceAfter.sub(loanCoreBalanceBefore)).to.eq(ethers.utils.parseUnits("0.5"));
+            // LoanCore accumulates 0 fees
+            expect(loanCoreBalanceAfter.sub(loanCoreBalanceBefore)).to.eq(0);
 
             expect(await borrowerNote.ownerOf(newLoanId)).to.eq(borrower.address);
             expect(await lenderNote.ownerOf(newLoanId)).to.eq(newLender.address);

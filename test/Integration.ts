@@ -566,7 +566,7 @@ describe("Integration", () => {
             expect(postLenderBalance.sub(preLenderBalance)).to.equal(repayAmount);
         });
 
-        it.only("should allow the collateral to be reused after repay", async () => {
+        it("should allow the collateral to be reused after repay", async () => {
             const context = await loadFixture(fixture);
             const { repaymentController, mockERC20, loanCore, borrower } = context;
             const { loanId, loanTerms, loanData, bundleId } = await initializeLoan(context, 1);
