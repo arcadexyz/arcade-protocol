@@ -1349,8 +1349,8 @@ describe("Rollovers", () => {
             ctx = await loadFixture(fixture);
 
             // set interest fee to 1% and principal fee to 1%
-            await ctx.feeController.setLendingFee(await ctx.feeController.FL_04(), 100);
-            await ctx.feeController.setLendingFee(await ctx.feeController.FL_05(), 100);
+            await ctx.feeController.setLendingFee(await ctx.feeController.FL_01(), 100);
+            await ctx.feeController.setLendingFee(await ctx.feeController.FL_02(), 100);
 
             loan = await initializeLoan(
                 ctx,

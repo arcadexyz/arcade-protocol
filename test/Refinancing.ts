@@ -438,7 +438,7 @@ describe("Refinancing", () => {
             const { feeController, originationController, refinanceController, loanCore, mockERC20, mockERC721, vaultFactory, lender, borrower, newLender, blockchainTime, } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 20_00);
 
             const bundleId = await initializeBundle(vaultFactory, borrower);
             const bundleAddress = await vaultFactory.instanceAt(bundleId);
@@ -531,7 +531,7 @@ describe("Refinancing", () => {
             const affiliateCode = ethers.utils.id("FOO");
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 20_00);
 
             // Add a 20% affiliate split
             await loanCore.connect(signers[0]).setAffiliateSplits([affiliateCode], [{ affiliate: borrower.address, splitBps: 20_00 }])

@@ -624,9 +624,7 @@ describe("OriginationController", () => {
                     .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, originationController.address, loanTerms.principal)
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                .withArgs(lender.address, borrower.address, loanTerms.principal);
         });
 
         it("Initializes a loan signed by the lender", async () => {
@@ -655,9 +653,7 @@ describe("OriginationController", () => {
                     .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, originationController.address, loanTerms.principal)
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                .withArgs(lender.address, borrower.address, loanTerms.principal);
         });
 
         it("it does not allow a mismatch between signer and loan side", async () => {
@@ -722,9 +718,7 @@ describe("OriginationController", () => {
                     .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, originationController.address, loanTerms.principal)
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                .withArgs(lender.address, borrower.address, loanTerms.principal);
         });
 
         it("does not allow a nonce to be re-used", async () => {
@@ -753,9 +747,7 @@ describe("OriginationController", () => {
                     .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []),
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, originationController.address, loanTerms.principal)
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                .withArgs(lender.address, borrower.address, loanTerms.principal);
 
             // Successful loan - try to initialize loan again with same sig
             await expect(
@@ -1035,9 +1027,7 @@ describe("OriginationController", () => {
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, originationController.address, loanTerms.principal)
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                .withArgs(lender.address, borrower.address, loanTerms.principal);
         });
 
         it("Initializes a loan on an unvaulted asset using an items signature with a specific tokenId", async () => {
@@ -1083,9 +1073,7 @@ describe("OriginationController", () => {
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, originationController.address, loanTerms.principal)
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                .withArgs(lender.address, borrower.address, loanTerms.principal);
         });
 
         it("Unvaulted items signature reverts if address doesn't match", async () => {
@@ -1221,9 +1209,7 @@ describe("OriginationController", () => {
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, originationController.address, loanTerms.principal)
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                .withArgs(lender.address, borrower.address, loanTerms.principal);
         });
 
         it("initializes a vaulted loan with the same CWO signature", async () => {
@@ -1270,9 +1256,7 @@ describe("OriginationController", () => {
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, originationController.address, loanTerms.principal)
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                .withArgs(lender.address, borrower.address, loanTerms.principal);
         });
     });
 
@@ -1338,9 +1322,7 @@ describe("OriginationController", () => {
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, originationController.address, loanTerms.principal)
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                .withArgs(lender.address, borrower.address, loanTerms.principal);
         });
 
         it("allows the lender to approve another signer", async () => {
@@ -1383,9 +1365,7 @@ describe("OriginationController", () => {
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, originationController.address, loanTerms.principal)
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                .withArgs(lender.address, borrower.address, loanTerms.principal);
         });
 
         it("allows the borrower to approve another originator", async () => {
@@ -1426,9 +1406,7 @@ describe("OriginationController", () => {
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, originationController.address, loanTerms.principal)
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                .withArgs(lender.address, borrower.address, loanTerms.principal);
         });
 
         it("allows the lender to approve another originator", async () => {
@@ -1469,9 +1447,7 @@ describe("OriginationController", () => {
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, originationController.address, loanTerms.principal)
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                .withArgs(lender.address, borrower.address, loanTerms.principal);
         });
 
         it("does not allow unilateral borrower origination even if the lender approves", async () => {
@@ -1593,9 +1569,7 @@ describe("OriginationController", () => {
                         ),
                 )
                     .to.emit(mockERC20, "Transfer")
-                    .withArgs(lenderContract.address, originationController.address, loanTerms.principal)
-                    .to.emit(mockERC20, "Transfer")
-                    .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                    .withArgs(lenderContract.address, borrower.address, loanTerms.principal);
             });
 
             it("rejects an ERC-1271 approval, where signature has data appended and the lender is not aware", async () => {
@@ -1724,9 +1698,7 @@ describe("OriginationController", () => {
                         ),
                 )
                     .to.emit(mockERC20, "Transfer")
-                    .withArgs(lenderContract.address, originationController.address, loanTerms.principal)
-                    .to.emit(mockERC20, "Transfer")
-                    .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                    .withArgs(lenderContract.address, borrower.address, loanTerms.principal);
             });
 
             it("accepts an ERC1271 approval even if the lending contract is unaware (zero extra data)", async () => {
@@ -1771,9 +1743,7 @@ describe("OriginationController", () => {
                         ),
                 )
                     .to.emit(mockERC20, "Transfer")
-                    .withArgs(lenderContract.address, originationController.address, loanTerms.principal)
-                    .to.emit(mockERC20, "Transfer")
-                    .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                    .withArgs(lenderContract.address, borrower.address, loanTerms.principal);
             });
 
             it("honors an ERC-1271 approval where extra sig data is utilized", async () => {
@@ -1818,9 +1788,7 @@ describe("OriginationController", () => {
                         ),
                 )
                     .to.emit(mockERC20, "Transfer")
-                    .withArgs(lenderContract.address, originationController.address, loanTerms.principal)
-                    .to.emit(mockERC20, "Transfer")
-                    .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                    .withArgs(lenderContract.address, borrower.address, loanTerms.principal);
             });
 
             it("rejects an ERC-1271 approval with extra data if the contract does not return the magic value", async () => {
@@ -1944,9 +1912,7 @@ describe("OriginationController", () => {
                     data: calldataWithSelector
                 }))
                     .to.emit(mockERC20, "Transfer")
-                    .withArgs(lenderContract.address, originationController.address, loanTerms.principal)
-                    .to.emit(mockERC20, "Transfer")
-                    .withArgs(originationController.address, borrower.address, loanTerms.principal);
+                    .withArgs(lenderContract.address, borrower.address, loanTerms.principal);
             });
 
             it("rejects an 1271 approval using calldata, extra data not present in calldata", async () => {
@@ -2187,9 +2153,7 @@ describe("OriginationController", () => {
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, originationController.address, loanTerms.principal)
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(originationController.address, borrowerContract.address, loanTerms.principal)
+                .withArgs(lender.address, borrowerContract.address, loanTerms.principal)
                 .to.emit(borrowerContract, "OpExecuted");
 
             // expect borrower contract to be holder of the borrower note
@@ -2589,9 +2553,7 @@ describe("OriginationController", () => {
                     )
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, originationController.address, loanTerms.principal)
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(originationController.address, borrowerContract.address, loanTerms.principal)
+                .withArgs(lender.address, borrowerContract.address, loanTerms.principal);
         });
 
         it("Try to use second lender sig in callback, borrower contract starts loan", async () => {

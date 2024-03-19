@@ -517,10 +517,8 @@ contract OriginationController is
         (LoanLibrary.FeeSnapshot memory feeSnapshot) = feeController.getFeeSnapshot();
 
         // ---------------------- Borrower receives principal ----------------------
-        // Collect funds from lender and send to borrower minus fees
-        IERC20(loanTerms.payableCurrency).safeTransferFrom(lender, address(this), loanTerms.principal);
-        // send principal to borrower
-        IERC20(loanTerms.payableCurrency).safeTransfer(borrowerData.borrower, loanTerms.principal);
+        // Collect principal from lender and send to borrower
+        IERC20(loanTerms.payableCurrency).safeTransferFrom(lender, borrowerData.borrower, loanTerms.principal);
 
         // ----------------------- Express borrow callback --------------------------
         // If callback params present, call the callback function on the borrower

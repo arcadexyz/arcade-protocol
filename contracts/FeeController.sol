@@ -52,8 +52,8 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
         /// @dev Vault mint fee - gross
         maxVaultMintFee = 1 ether;
         /// @dev Lending fees
-        maxLoanFees[FL_04] = 50_00;
-        maxLoanFees[FL_05] = 10_00;
+        maxLoanFees[FL_01] = 50_00;
+        maxLoanFees[FL_02] = 10_00;
     }
 
     // ======================================== GETTER/SETTER ==========================================
@@ -120,8 +120,8 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
         LoanLibrary.FeeSnapshot memory feeSnapshot
     ) {
         feeSnapshot = LoanLibrary.FeeSnapshot({
-            lenderInterestFee: loanFees[FL_04],
-            lenderPrincipalFee: loanFees[FL_05]
+            lenderInterestFee: loanFees[FL_01],
+            lenderPrincipalFee: loanFees[FL_02]
         });
     }
 

@@ -708,7 +708,7 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 20_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -746,7 +746,7 @@ describe("RepaymentController", () => {
             const code = ethers.utils.id("FOO");
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 20_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -794,8 +794,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -831,8 +831,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -868,7 +868,7 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_05(), 5_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 5_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -906,8 +906,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -957,8 +957,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1019,8 +1019,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1079,8 +1079,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1139,8 +1139,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1232,8 +1232,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1287,8 +1287,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1300,8 +1300,8 @@ describe("RepaymentController", () => {
             );
 
             // lender fees change during loan
-            await feeController.setLendingFee(await feeController.FL_04(), 21_00);
-            await feeController.setLendingFee(await feeController.FL_05(), 3_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 21_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 3_00);
 
             // total repayment amount
             const total = ethers.utils.parseEther("110");
@@ -1349,8 +1349,8 @@ describe("RepaymentController", () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, other, feeController, lenderNote, blockchainTime } = ctx;
 
             // Assess fee on lender
-            await feeController.setLendingFee(await feeController.FL_04(), 20_00);
-            await feeController.setLendingFee(await feeController.FL_05(), 2_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 20_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 2_00);
 
             const { loanId, bundleId } = await initializeLoan(
                 ctx,
@@ -1362,8 +1362,8 @@ describe("RepaymentController", () => {
             );
 
             // lender fees change during loan
-            await feeController.setLendingFee(await feeController.FL_04(), 21_00);
-            await feeController.setLendingFee(await feeController.FL_05(), 3_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 21_00);
+            await feeController.setLendingFee(await feeController.FL_02(), 3_00);
 
             // total repayment amount
             const total = ethers.utils.parseEther("110");

@@ -10,6 +10,6 @@ pragma solidity 0.8.18;
  * that the lending protocol uses.
  */
 abstract contract FeeLookups {
-    bytes32 public constant FL_04 = keccak256("LENDER_INTEREST_FEE");
-    bytes32 public constant FL_05 = keccak256("LENDER_PRINCIPAL_FEE");
+    bytes32 public constant FL_01 = keccak256("LENDER_INTEREST_FEE");
+    bytes32 public constant FL_02 = keccak256("LENDER_PRINCIPAL_FEE");
 }

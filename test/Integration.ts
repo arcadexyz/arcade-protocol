@@ -396,9 +396,7 @@ describe("Integration", () => {
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, originationController.address, loanTerms.principal)
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(originationController.address, borrower.address, loanTerms.principal)
+                .withArgs(lender.address, borrower.address, loanTerms.principal)
                 .to.emit(loanCore, "LoanStarted");
 
             // nonce validation
@@ -764,7 +762,7 @@ describe("Integration", () => {
 
 
             // 10% fee on interest. Total fees earned should be 1 ETH
-            await feeController.setLendingFee(await feeController.FL_04(), 10_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 10_00);
 
             // Set affiliate share to 10% of fees for borrower
             await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);
@@ -831,7 +829,7 @@ describe("Integration", () => {
             const { feeController, repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, admin, lenderNote } = context;
 
             // 10% fee on interest. Total fees earned should be 1 ETH
-            await feeController.setLendingFee(await feeController.FL_04(), 10_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 10_00);
 
             // Set affiliate share to 10% of fees for borrower
             await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);
@@ -910,7 +908,7 @@ describe("Integration", () => {
             await originationConfiguration.setAllowedCollateralAddresses([mockERC721.address], [true]);
 
             // 10% fee on interest.
-            await feeController.setLendingFee(await feeController.FL_04(), 10_00);
+            await feeController.setLendingFee(await feeController.FL_01(), 10_00);
 
             // Set affiliate share to 10% of fees for borrower
             await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);

@@ -1066,7 +1066,7 @@ describe("LoanCore", () => {
             const { principal } = terms;
 
             // set interest fee to 0.5%
-            await feeController.connect(borrower).setLendingFee(await feeController.FL_04(), 50);
+            await feeController.connect(borrower).setLendingFee(await feeController.FL_01(), 50);
             const loanId = await startLoan(loanCore, borrower, lender.address, borrower.address, terms);
 
             // repay loan
@@ -1947,7 +1947,7 @@ describe("LoanCore", () => {
                 const collateralId = await initializeBundle(vaultFactory, borrower);
 
                 // set interest fee to 0.5%
-                await feeController.connect(borrower).setLendingFee(await feeController.FL_04(), 50);
+                await feeController.connect(borrower).setLendingFee(await feeController.FL_01(), 50);
 
                 // Set up an affiliate code - 50% share
                 await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, borrower.address);
