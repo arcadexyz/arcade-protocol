@@ -177,10 +177,11 @@ contract LoanCore is
         // Initiate loan state
         loans[loanId] = LoanLibrary.LoanData({
             state: LoanLibrary.LoanState.Active,
+            lenderInterestFee: _feeSnapshot.lenderInterestFee,
+            lenderPrincipalFee: _feeSnapshot.lenderPrincipalFee,
             startDate: uint64(block.timestamp),
             lastAccrualTimestamp: uint64(block.timestamp),
             terms: terms,
-            feeSnapshot: _feeSnapshot,
             balance: terms.principal,
             interestAmountPaid: 0
         });
@@ -436,10 +437,11 @@ contract LoanCore is
 
         loans[newLoanId] = LoanLibrary.LoanData({
             state: LoanLibrary.LoanState.Active,
+            lenderInterestFee: data.lenderInterestFee,
+            lenderPrincipalFee: data.lenderPrincipalFee,
             startDate: uint64(block.timestamp),
             lastAccrualTimestamp: uint64(block.timestamp),
             terms: terms,
-            feeSnapshot: data.feeSnapshot,
             balance: terms.principal,
             interestAmountPaid: 0
         });

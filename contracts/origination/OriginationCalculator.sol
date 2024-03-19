@@ -27,7 +27,6 @@ abstract contract OriginationCalculator is InterestCalculator {
      * @param newPrincipalAmount    The principal amount of the new loan.
      * @param lender                The address of the new lender.
      * @param oldLender             The address of the old lender.
-     * @param borrowerFee           The fee amount to be paid by the borrower.
      * @param lenderFee             The fee amount to be paid by the lender.
      * @param interestFee           The fee amount to be paid by the borrower to the lender.
      *
@@ -39,15 +38,12 @@ abstract contract OriginationCalculator is InterestCalculator {
         uint256 newPrincipalAmount,
         address lender,
         address oldLender,
-        uint256 borrowerFee,
         uint256 lenderFee,
         uint256 interestFee
     ) public pure returns (OriginationLibrary.RolloverAmounts memory amounts) {
-        uint256 borrowerOwedForNewLoan = 0;
-        if (borrowerFee > 0 || lenderFee > 0 || interestFee > 0) {
+        if (lenderFee > 0 || interestFee > 0) {
             // account for fees if they exist
             unchecked {
-                borrowerOwedForNewLoan = newPrincipalAmount - borrowerFee;
                 amounts.amountFromLender = newPrincipalAmount + lenderFee;
             }
 
@@ -55,7 +51,6 @@ abstract contract OriginationCalculator is InterestCalculator {
                 amounts.amountFromLender += interestFee;
             }
         } else {
-            borrowerOwedForNewLoan = newPrincipalAmount;
             amounts.amountFromLender = newPrincipalAmount;
         }
 
@@ -64,10 +59,10 @@ abstract contract OriginationCalculator is InterestCalculator {
 
         // Calculate net amounts based on if repayment amount for old loan is
         // greater than new loan principal
-        if (repayAmount > borrowerOwedForNewLoan) {
+        if (repayAmount > newPrincipalAmount) {
             // amount to collect from borrower
             unchecked {
-                amounts.needFromBorrower = repayAmount - borrowerOwedForNewLoan;
+                amounts.needFromBorrower = repayAmount - newPrincipalAmount;
             }
 
             // amount to collect from lender (either old or new)
@@ -82,7 +77,7 @@ abstract contract OriginationCalculator is InterestCalculator {
 
             // amount to send to borrower
             unchecked {
-                amounts.amountToBorrower = borrowerOwedForNewLoan - repayAmount;
+                amounts.amountToBorrower = newPrincipalAmount - repayAmount;
             }
         }
 
@@ -139,7 +134,9 @@ abstract contract OriginationCalculator is InterestCalculator {
         );
 
         // Calculate interest fee
-        uint256 interestFee = (interest * oldLoanData.feeSnapshot.lenderInterestFee)
+        uint256 interestFee = (interest * oldLoanData.lenderInterestFee)
+            / Constants.BASIS_POINTS_DENOMINATOR;
+        uint256 principalFee = (oldLoanData.balance * oldLoanData.lenderPrincipalFee)
             / Constants.BASIS_POINTS_DENOMINATOR;
 
         return rolloverAmounts(
@@ -148,8 +145,7 @@ abstract contract OriginationCalculator is InterestCalculator {
             newPrincipalAmount,
             lender,
             oldLender,
-            0,
-            0,
+            principalFee,
             interestFee
         );
     }

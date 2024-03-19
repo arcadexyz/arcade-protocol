@@ -79,10 +79,11 @@ export interface FeeSnapshot {
 
 export interface LoanData {
     state: LoanState;
+    lenderInterestFee: BigNumberish;
+    lenderPrincipalFee: BigNumberish;
     startDate: BigNumberish;
     lastAccrualTimestamp: BigNumberish;
     terms: LoanTerms;
-    feeSnapshot: FeeSnapshot;
     balance: BigNumber;
     interestAmountPaid: BigNumber;
 }

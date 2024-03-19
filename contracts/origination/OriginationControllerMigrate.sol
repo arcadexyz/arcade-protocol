@@ -206,16 +206,14 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         IERC20 payableCurrency = IERC20(oldLoanData.terms.payableCurrency);
 
         // get fee snapshot from fee controller
-        (feeSnapshot) = feeController.getOriginationFeesWithSnapshot();
+        (feeSnapshot) = feeController.getFeeSnapshot();
 
         // Calculate settle amounts
         (amounts, repayAmount) = _calculateV3MigrationAmounts(
             oldLoanData,
             newPrincipalAmount,
             lender,
-            oldLender,
-            0,
-            0
+            oldLender
         );
 
         // Collect funds based on settle amounts and total them
@@ -256,9 +254,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         LoanLibraryV3.LoanData memory oldLoanData,
         uint256 newPrincipalAmount,
         address lender,
-        address oldLender,
-        uint256 borrowerFee,
-        uint256 lenderFee
+        address oldLender
     ) internal view returns (OriginationLibrary.RolloverAmounts memory amounts, uint256 repayAmount) {
         // get total interest to close v3 loan
         uint256 interest = IRepaymentControllerV3(repaymentControllerV3).getInterestAmount(
@@ -275,8 +271,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
             newPrincipalAmount,
             lender,
             oldLender,
-            borrowerFee,
-            lenderFee,
+            0,
             0
         );
     }

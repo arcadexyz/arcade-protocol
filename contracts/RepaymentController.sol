@@ -216,8 +216,8 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
         }
 
         // calculate fees on interest and principal
-        uint256 interestFee = (interestAmount * data.feeSnapshot.lenderInterestFee) / Constants.BASIS_POINTS_DENOMINATOR;
-        uint256 principalFee = (paymentToPrincipal * data.feeSnapshot.lenderPrincipalFee) / Constants.BASIS_POINTS_DENOMINATOR;
+        uint256 interestFee = (interestAmount * data.lenderInterestFee) / Constants.BASIS_POINTS_DENOMINATOR;
+        uint256 principalFee = (paymentToPrincipal * data.lenderPrincipalFee) / Constants.BASIS_POINTS_DENOMINATOR;
 
         // the amount to collect from the caller
         uint256 amountFromBorrower = paymentToPrincipal + interestAmount;

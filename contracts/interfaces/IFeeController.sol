@@ -21,9 +21,7 @@ interface IFeeController {
 
     function getVaultMintFee() external view returns (uint64);
 
-    function getOriginationFeesWithSnapshot() external view returns (
-        LoanLibrary.FeeSnapshot memory feeSnapshot
-    );
+    function getFeeSnapshot() external view returns (LoanLibrary.FeeSnapshot memory feeSnapshot);
 
     function getMaxLendingFee(bytes32 id) external view returns (uint16);
 

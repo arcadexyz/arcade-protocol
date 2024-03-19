@@ -116,7 +116,7 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
      *
      * @return feeSnapshot              A fee snapshot for the loan.
      */
-    function getOriginationFeesWithSnapshot() external view override returns (
+    function getFeeSnapshot() external view override returns (
         LoanLibrary.FeeSnapshot memory feeSnapshot
     ) {
         feeSnapshot = LoanLibrary.FeeSnapshot({

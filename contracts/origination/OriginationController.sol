@@ -514,7 +514,7 @@ contract OriginationController is
         address lender
     ) internal nonReentrant returns (uint256 loanId) {
         // get fee snapshot from fee controller
-        (LoanLibrary.FeeSnapshot memory feeSnapshot) = feeController.getOriginationFeesWithSnapshot();
+        (LoanLibrary.FeeSnapshot memory feeSnapshot) = feeController.getFeeSnapshot();
 
         // ---------------------- Borrower receives principal ----------------------
         // Collect funds from lender and send to borrower minus fees
