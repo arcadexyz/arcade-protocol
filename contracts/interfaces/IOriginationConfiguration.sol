@@ -16,6 +16,13 @@ interface IOriginationConfiguration {
 
     function validateLoanTerms(LoanLibrary.LoanTerms memory terms) external view;
 
+    function runPredicatesCheck(
+        address borrower,
+        address lender,
+        LoanLibrary.LoanTerms memory loanTerms,
+        LoanLibrary.Predicate[] memory itemPredicates
+    ) external view;
+
     function isAllowedVerifier(address verifier) external view returns (bool);
 
     function isAllowedCurrency(address currency) external view returns (bool);
