@@ -13,7 +13,6 @@ import "./OriginationCalculator.sol";
 import "../interfaces/IOriginationController.sol";
 import "../interfaces/IOriginationConfiguration.sol";
 import "../interfaces/ILoanCore.sol";
-import "../interfaces/ISignatureVerifier.sol";
 import "../interfaces/IFeeController.sol";
 import "../interfaces/IExpressBorrow.sol";
 
@@ -26,8 +25,6 @@ import "../verifiers/ArcadeItemsVerifier.sol";
 import {
     OC_ZeroAddress,
     OC_InvalidState,
-    OC_InvalidVerifier,
-    OC_PredicateFailed,
     OC_SelfApprove,
     OC_ApprovedOwnLoan,
     OC_InvalidSignature,
@@ -167,7 +164,7 @@ contract OriginationController is
 
         // Run predicates check at the end of the function, after vault is in escrow. This makes sure
         // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
-        if (itemPredicates.length > 0) _runPredicatesCheck(borrowerData.borrower, lender, loanTerms, itemPredicates);
+        if (itemPredicates.length > 0) originationConfiguration.runPredicatesCheck(borrowerData.borrower, lender, loanTerms, itemPredicates);
     }
 
     /**
@@ -223,7 +220,7 @@ contract OriginationController is
 
         // Run predicates check at the end of the function, after vault is in escrow. This makes sure
         // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
-        if (itemPredicates.length > 0) _runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
+        if (itemPredicates.length > 0) originationConfiguration.runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
     }
 
     // ==================================== PERMISSION MANAGEMENT =======================================
@@ -450,52 +447,6 @@ contract OriginationController is
 
         // Revert if the signer is the calling counterparty
         if (signer == callingCounterparty) revert OC_SideMismatch(signer);
-    }
-
-    /**
-     * @dev Run the predicates check for an items signature, sending the defined
-     *      predicate payload to each defined verifier contract, and reverting
-     *      if a verifier returns false.
-     *
-     * @param borrower              The borrower of the loan.
-     * @param lender                The lender of the loan.
-     * @param loanTerms             The terms of the loan.
-     * @param itemPredicates        The array of predicates to check.
-     */
-    function _runPredicatesCheck(
-        address borrower,
-        address lender,
-        LoanLibrary.LoanTerms memory loanTerms,
-        LoanLibrary.Predicate[] memory itemPredicates
-    ) internal view {
-        for (uint256 i = 0; i < itemPredicates.length;) {
-            // Verify items are held in the wrapper
-            address verifier = itemPredicates[i].verifier;
-            if (!originationConfiguration.isAllowedVerifier(verifier)) revert OC_InvalidVerifier(verifier);
-
-            if (!ISignatureVerifier(verifier).verifyPredicates(
-                borrower,
-                lender,
-                loanTerms.collateralAddress,
-                loanTerms.collateralId,
-                itemPredicates[i].data
-            )) {
-                revert OC_PredicateFailed(
-                    verifier,
-                    borrower,
-                    lender,
-                    loanTerms.collateralAddress,
-                    loanTerms.collateralId,
-                    itemPredicates[i].data
-                );
-            }
-
-            // Predicates is calldata, overflow is impossible bc of calldata
-            // size limits vis-a-vis gas
-            unchecked {
-                i++;
-            }
-        }
     }
 
     /**

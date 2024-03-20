@@ -848,7 +848,7 @@ describe("Rollovers", () => {
                 originationController
                     .connect(borrower)
                     .rolloverLoan(loanId, newTerms, newLender.address, sig, rolloverSigProperties, predicates),
-            ).to.be.revertedWith("OC_InvalidVerifier");
+            ).to.be.revertedWith("OCC_InvalidVerifier");
         });
 
         it("rollover with items signature reverts if invalid collateral in predicates", async () => {
@@ -909,7 +909,7 @@ describe("Rollovers", () => {
                 originationController
                     .connect(borrower)
                     .rolloverLoan(loanId, newTerms, newLender.address, sig, rolloverSigProperties, predicates),
-            ).to.be.revertedWith("OC_PredicateFailed");
+            ).to.be.revertedWith("OCC_PredicateFailed");
         });
 
         it("rollover with items signature reverts if already repaid", async () => {

@@ -887,7 +887,7 @@ describe("OriginationController", () => {
                         defaultSigProperties,
                         predicates
                     ),
-            ).to.be.revertedWith("OC_PredicateFailed");
+            ).to.be.revertedWith("OCC_PredicateFailed");
         });
 
         it("Reverts if the predicates array is empty", async () => {
@@ -981,7 +981,7 @@ describe("OriginationController", () => {
                         defaultSigProperties,
                         predicates
                     ),
-            ).to.be.revertedWith("OC_InvalidVerifier");
+            ).to.be.revertedWith("OCC_InvalidVerifier");
         });
 
         it("Initializes a loan on an unvaulted asset using an items signature", async () => {
@@ -1118,7 +1118,7 @@ describe("OriginationController", () => {
                         predicates
                     ),
             )
-                .to.be.revertedWith("OC_PredicateFailed");
+                .to.be.revertedWith("OCC_PredicateFailed");
         });
 
         it("Unvaulted items signature reverts if tokenId doesn't match", async () => {
@@ -1163,7 +1163,7 @@ describe("OriginationController", () => {
                         predicates
                     ),
             )
-                .to.be.revertedWith("OC_PredicateFailed");
+                .to.be.revertedWith("OCC_PredicateFailed");
         });
 
         it("initializes an unvaulted loan with a CWO signature", async () => {

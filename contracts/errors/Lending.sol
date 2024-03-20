@@ -82,6 +82,32 @@ error OCC_SignatureIsExpired(uint256 deadline);
  */
 error OCC_InvalidCollateral(address collateralAddress);
 
+/**
+ * @notice The verifier contract specified in a predicate has not been whitelisted.
+ *
+ * @param verifier                      The verifier the caller attempted to use.
+ */
+error OCC_InvalidVerifier(address verifier);
+
+/**
+ * @notice One of the predicates for item verification failed.
+ *
+ * @param borrower                      The address of the borrower.
+ * @param lender                        The address of the lender.
+ * @param verifier                      The address of the verifier contract.
+ * @param collateralAddress             The address of the collateral token.
+ * @param collateralId                  The token ID of the collateral.
+ * @param data                          The verification data (to be parsed by verifier).
+ */
+error OCC_PredicateFailed(
+    address borrower,
+    address lender,
+    address verifier,
+    address collateralAddress,
+    uint256 collateralId,
+    bytes data
+);
+
 // ==================================== ORIGINATION CONTROLLER ======================================
 /// @notice All errors prefixed with OC_, to separate from other contracts in the protocol.
 
@@ -98,25 +124,6 @@ error OC_ZeroAddress(string addressType);
  * @param state                         Current state of a loan according to LoanState enum.
  */
 error OC_InvalidState(LoanLibrary.LoanState state);
-
-/**
- * @notice One of the predicates for item verification failed.
- *
- * @param borrower                      The address of the borrower.
- * @param lender                        The address of the lender.
- * @param verifier                      The address of the verifier contract.
- * @param collateralAddress             The address of the collateral token.
- * @param collateralId                  The token ID of the collateral.
- * @param data                          The verification data (to be parsed by verifier).
- */
-error OC_PredicateFailed(
-    address borrower,
-    address lender,
-    address verifier,
-    address collateralAddress,
-    uint256 collateralId,
-    bytes data
-);
 
 /**
  * @notice A caller attempted to approve themselves.
@@ -140,13 +147,6 @@ error OC_ApprovedOwnLoan(address caller);
  * @param signer                        The signer determined from ECDSA.recover.
  */
 error OC_InvalidSignature(address target, address signer);
-
-/**
- * @notice The verifier contract specified in a predicate has not been whitelisted.
- *
- * @param verifier                      The verifier the caller attempted to use.
- */
-error OC_InvalidVerifier(address verifier);
 
 /**
  * @notice The function caller was neither borrower or lender, and was not approved by either.

@@ -61,12 +61,14 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
      *
      * @param loanId                             The ID of the loan to be refinanced.
      * @param newTerms                           The new loan terms.
+     * @param itemPredicates                     The predicate rules for the items in the bundle.
      *
      * @return newLoanId                         The ID of the new loan.
      */
     function refinanceLoan(
         uint256 loanId,
-        LoanLibrary.LoanTerms calldata newTerms
+        LoanLibrary.LoanTerms calldata newTerms,
+        LoanLibrary.Predicate[] calldata itemPredicates
     ) external override returns (uint256 newLoanId) {
         LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
 
@@ -74,13 +76,18 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
         _validateRefinance(data, newTerms);
 
         address borrower = IERC721(loanCore.borrowerNote()).ownerOf(loanId);
+        address lender = msg.sender;
 
         newLoanId = _refinance(
             loanId,
             newTerms,
             borrower,
-            msg.sender
+            lender
         );
+
+        // Run predicates check at the end of the function, after vault is in escrow. This makes sure
+        // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
+        if (itemPredicates.length > 0) originationConfig.runPredicatesCheck(borrower, lender, newTerms, itemPredicates);
     }
 
     /**

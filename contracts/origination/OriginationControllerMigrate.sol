@@ -125,7 +125,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
 
         // Run predicates check at the end of the function, after vault is in escrow. This makes sure
         // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
-        if (itemPredicates.length > 0) _runPredicatesCheck(msg.sender, lender, newTerms, itemPredicates);
+        if (itemPredicates.length > 0) originationConfiguration.runPredicatesCheck(msg.sender, lender, newTerms, itemPredicates);
     }
 
     // =================================== MIGRATION VALIDATION =========================================
