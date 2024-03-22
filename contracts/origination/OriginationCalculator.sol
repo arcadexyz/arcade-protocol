@@ -27,8 +27,8 @@ abstract contract OriginationCalculator is InterestCalculator {
      * @param newPrincipalAmount    The principal amount of the new loan.
      * @param lender                The address of the new lender.
      * @param oldLender             The address of the old lender.
-     * @param lenderFee             The fee amount to be paid by the lender.
-     * @param interestFee           The fee amount to be paid by the borrower to the lender.
+     * @param principalFee          The fee taken from repaid principal.
+     * @param interestFee           The fee taken from interest.
      *
      * @return amounts              The net amounts owed to each party.
      */
@@ -38,23 +38,12 @@ abstract contract OriginationCalculator is InterestCalculator {
         uint256 newPrincipalAmount,
         address lender,
         address oldLender,
-        uint256 lenderFee,
+        uint256 principalFee,
         uint256 interestFee
     ) public pure returns (OriginationLibrary.RolloverAmounts memory amounts) {
-        if (lenderFee > 0 || interestFee > 0) {
-            // account for fees if they exist
-            unchecked {
-                amounts.amountFromLender = newPrincipalAmount + lenderFee;
-            }
-
-            if (lender == oldLender) {
-                amounts.amountFromLender += interestFee;
-            }
-        } else {
-            amounts.amountFromLender = newPrincipalAmount;
-        }
-
+        amounts.amountFromLender = newPrincipalAmount;
         amounts.interestAmount = oldInterestAmount;
+
         uint256 repayAmount = oldBalance + oldInterestAmount;
 
         // Calculate net amounts based on if repayment amount for old loan is
@@ -64,27 +53,27 @@ abstract contract OriginationCalculator is InterestCalculator {
             unchecked {
                 amounts.needFromBorrower = repayAmount - newPrincipalAmount;
             }
-
+        } else if (repayAmount < newPrincipalAmount) {
             // amount to collect from lender (either old or new)
-            if (repayAmount < amounts.amountFromLender) {
-                unchecked {
-                    amounts.leftoverPrincipal = amounts.amountFromLender - repayAmount;
-                }
+            unchecked {
+                amounts.leftoverPrincipal = newPrincipalAmount + interestFee + principalFee - repayAmount;
             }
-        } else {
-            // amount to collect from lender (either old or new)
-            amounts.leftoverPrincipal = amounts.amountFromLender - repayAmount;
 
             // amount to send to borrower
             unchecked {
                 amounts.amountToBorrower = newPrincipalAmount - repayAmount;
             }
+        } else {
+            // no leftover principal, fees paid by the lender
+            amounts.leftoverPrincipal = interestFee + principalFee;
+            // no amount to collect from borrower
+            amounts.needFromBorrower = 0;
         }
 
         // Calculate lender amounts based on if the lender is the same as the old lender
         if (lender != oldLender) {
             // different lenders, repay old lender
-            amounts.amountToOldLender = repayAmount - interestFee;
+            amounts.amountToOldLender = repayAmount - interestFee - principalFee;
 
             // different lender, new lender is owed zero tokens
             amounts.amountToLender = 0;
@@ -95,9 +84,9 @@ abstract contract OriginationCalculator is InterestCalculator {
             // same lender, so check if the amount to collect from the lender is less than
             // the amount the lender is owed for the old loan. If so, the lender is owed the
             // difference
-            if (amounts.needFromBorrower > 0 && repayAmount > amounts.amountFromLender) {
+            if (amounts.needFromBorrower > 0 && repayAmount > newPrincipalAmount) {
                 unchecked {
-                    amounts.amountToLender = repayAmount - amounts.amountFromLender;
+                    amounts.amountToLender = repayAmount - newPrincipalAmount - interestFee - principalFee;
                 }
             }
         }

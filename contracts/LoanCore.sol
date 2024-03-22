@@ -145,10 +145,11 @@ contract LoanCore is
     // ====================================== LIFECYCLE OPERATIONS ======================================
 
     /**
-     * @notice Start a loan, matching a set of terms, with a given
-     *         lender and borrower. Collects collateral and distributes
-     *         principal, along with collecting an origination fee for the
-     *         protocol and/or affiliate. Can only be called by OriginationController.
+     * @notice Start a loan, matching a set of terms, with a given lender and borrower.
+     *         Collateral for the loan is transferred from the borrower to this contract
+     *         by the OriginationController and loan notes are minted for the borrower and lender.
+     *
+     * @dev Only be callable by OriginationController.
      *
      * @param lender                The lender for the loan.
      * @param borrower              The borrower for the loan.

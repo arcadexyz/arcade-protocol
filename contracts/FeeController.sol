@@ -111,8 +111,7 @@ contract FeeController is IFeeController, FeeLookups, Ownable {
     }
 
     /**
-     * @notice Get the borrower and lender fees for loan origination. Additionally, return
-     *         a fee snapshot for the loan.
+     * @notice Get a snapshot of all the current fee values.
      *
      * @return feeSnapshot              A fee snapshot for the loan.
      */
