@@ -40,11 +40,12 @@ abstract contract OriginationCalculator is InterestCalculator {
         address oldLender,
         uint256 principalFee,
         uint256 interestFee
-    ) public pure returns (OriginationLibrary.RolloverAmounts memory amounts) {
+    ) public view returns (OriginationLibrary.RolloverAmounts memory amounts) {
         amounts.amountFromLender = newPrincipalAmount;
         amounts.interestAmount = oldInterestAmount;
 
         uint256 repayAmount = oldBalance + oldInterestAmount;
+        uint256 totalFees = principalFee + interestFee;
 
         // Calculate net amounts based on if repayment amount for old loan is
         // greater than new loan principal
@@ -53,40 +54,41 @@ abstract contract OriginationCalculator is InterestCalculator {
             unchecked {
                 amounts.needFromBorrower = repayAmount - newPrincipalAmount;
             }
+
+            if (amounts.needFromBorrower < totalFees) {
+                // if the amount to collect from the borrower is less than the total fees, the
+                // lender pays the difference
+                amounts.leftoverPrincipal = totalFees - amounts.needFromBorrower;
+            }
         } else if (repayAmount < newPrincipalAmount) {
             // amount to collect from lender (either old or new)
             unchecked {
-                amounts.leftoverPrincipal = newPrincipalAmount + interestFee + principalFee - repayAmount;
+                amounts.leftoverPrincipal = newPrincipalAmount + totalFees - repayAmount;
             }
-
             // amount to send to borrower
             unchecked {
                 amounts.amountToBorrower = newPrincipalAmount - repayAmount;
             }
         } else {
             // no leftover principal, fees paid by the lender
-            amounts.leftoverPrincipal = interestFee + principalFee;
-            // no amount to collect from borrower
-            amounts.needFromBorrower = 0;
+            amounts.leftoverPrincipal = totalFees;
         }
 
         // Calculate lender amounts based on if the lender is the same as the old lender
         if (lender != oldLender) {
             // different lenders, repay old lender
-            amounts.amountToOldLender = repayAmount - interestFee - principalFee;
+            amounts.amountToOldLender = repayAmount - totalFees;
 
-            // different lender, new lender is owed zero tokens
-            amounts.amountToLender = 0;
+            // different lender, amountToLender is zero
         } else {
-            // same lender
-            amounts.amountToOldLender = 0;
+            // same lender amountToOldLender is zero
 
             // same lender, so check if the amount to collect from the lender is less than
             // the amount the lender is owed for the old loan. If so, the lender is owed the
             // difference
-            if (amounts.needFromBorrower > 0 && repayAmount > newPrincipalAmount) {
+            if (amounts.needFromBorrower > 0 && repayAmount - totalFees > newPrincipalAmount) {
                 unchecked {
-                    amounts.amountToLender = repayAmount - newPrincipalAmount - interestFee - principalFee;
+                    amounts.amountToLender = repayAmount - totalFees - newPrincipalAmount;
                 }
             }
         }
