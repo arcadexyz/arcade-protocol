@@ -198,8 +198,8 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
             data.balance,
             data.terms.interestRate,
             data.terms.durationSecs,
-            uint64(data.startDate),
-            uint64(data.lastAccrualTimestamp),
+            data.startDate,
+            data.lastAccrualTimestamp,
             block.timestamp
         );
 
