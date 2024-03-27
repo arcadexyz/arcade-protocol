@@ -111,8 +111,6 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
         if (
             // interest rate cannot be 0
             newTerms.interestRate < 1 ||
-            // if old interest rate is 1, new interest rate cannot be 1
-            oldLoanData.terms.interestRate == 1 ||
             // new interest rate APR must be lower than old interest rate by minimum
             newTerms.interestRate * Constants.BASIS_POINTS_DENOMINATOR > aprMinimumScaled
         ) revert REFI_InterestRate(aprMinimumScaled);
