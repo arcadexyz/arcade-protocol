@@ -101,8 +101,6 @@ library LoanLibrary {
      * @dev Snapshot of lending fees at the time of loan creation.
      */
     struct FeeSnapshot {
-        // The fee taken when lender claims defaulted collateral.
-        uint16 lenderDefaultFee;
         // The fee taken from the borrower's interest repayment.
         uint16 lenderInterestFee;
         // The fee taken from the borrower's principal repayment.
@@ -116,6 +114,10 @@ library LoanLibrary {
         /// @dev Packed variables
         // The current state of the loan.
         LoanState state;
+        // The fee taken from the borrower's interest repayment.
+        uint16 lenderInterestFee;
+        // The fee taken from the borrower's principal repayment.
+        uint16 lenderPrincipalFee;
         // Start date of the loan, using block.timestamp.
         uint64 startDate;
         // last time interest was accrued
@@ -123,8 +125,6 @@ library LoanLibrary {
         /// @dev Full-slot variables
         // The raw terms of the loan.
         LoanTerms terms;
-        // Record of lending fees at the time of loan creation.
-        FeeSnapshot feeSnapshot;
         // total principal minus amount of principal repaid
         uint256 balance;
         // total interest paid

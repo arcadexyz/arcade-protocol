@@ -233,11 +233,7 @@ const initializeLoan = async (
     if (terms) Object.assign(loanTerms, terms);
     if (loanDuration) loanTerms.durationSecs = loanDuration;
 
-    const lenderFeeBps = await feeController.getLendingFee(await feeController.FL_02());
-    const lenderFee = loanTerms.principal.mul(lenderFeeBps).div(10_000);
-    const lenderWillSend = loanTerms.principal.add(lenderFee);
-
-    await mint(mockERC20, lender, lenderWillSend);
+    await mint(mockERC20, lender, loanTerms.principal);
 
     const sigProperties: SignatureProperties = {
         nonce: nonce,
@@ -254,7 +250,7 @@ const initializeLoan = async (
         "b",
     );
 
-    await approve(mockERC20, lender, originationController.address, lenderWillSend);
+    await approve(mockERC20, lender, originationController.address, loanTerms.principal);
     await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
 
     const borrowerStruct: Borrower = {
@@ -400,9 +396,7 @@ describe("Integration", () => {
                     ),
             )
                 .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, originationController.address, loanTerms.principal)
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(originationController.address, borrower.address, loanTerms.principal)
+                .withArgs(lender.address, borrower.address, loanTerms.principal)
                 .to.emit(loanCore, "LoanStarted");
 
             // nonce validation
@@ -766,11 +760,9 @@ describe("Integration", () => {
             const context = await loadFixture(fixture);
             const { feeController, repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, admin } = context;
 
-            // Set a 50 bps lender fee on origination,
-            // and a 10% fee on interest. Total fees earned should be
-            // 0.5 (on principal) + 1 (on interest) = 1.5 ETH
-            await feeController.setLendingFee(await feeController.FL_02(), 50);
-            await feeController.setLendingFee(await feeController.FL_04(), 10_00);
+
+            // 10% fee on interest. Total fees earned should be 1 ETH
+            await feeController.setLendingFee(await feeController.FL_01(), 10_00);
 
             // Set affiliate share to 10% of fees for borrower
             await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);
@@ -791,8 +783,7 @@ describe("Integration", () => {
             const repayAmount = loanTerms.principal.add(grossInterest);
             const interestFee = grossInterest.mul(1000).div(10000);
             const lenderRepayment = repayAmount.sub(interestFee);
-            const principalFee = loanTerms.principal.mul(50).div(10000);
-            const totalFees = interestFee.add(principalFee);
+            const totalFees = interestFee;
             const affiliateFee = totalFees.mul(1000).div(10000);
             const protocolFee = totalFees.sub(affiliateFee);
 
@@ -837,11 +828,8 @@ describe("Integration", () => {
             const context = await loadFixture(fixture);
             const { feeController, repaymentController, vaultFactory, mockERC20, loanCore, borrower, lender, admin, lenderNote } = context;
 
-            // Set a 50 bps lender fee on origination and a 10% fee on interest
-            // Total fees earned should be
-            // 0.5 (on principal) + 1 (on interest) = 1.5 ETH
-            await feeController.setLendingFee(await feeController.FL_02(), 50);
-            await feeController.setLendingFee(await feeController.FL_04(), 10_00);
+            // 10% fee on interest. Total fees earned should be 1 ETH
+            await feeController.setLendingFee(await feeController.FL_01(), 10_00);
 
             // Set affiliate share to 10% of fees for borrower
             await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);
@@ -862,8 +850,7 @@ describe("Integration", () => {
             const repayAmount = loanTerms.principal.add(grossInterest);
             const interestFee = grossInterest.mul(1000).div(10000);
             const lenderRepayment = repayAmount.sub(interestFee);
-            const principalFee = loanTerms.principal.mul(50).div(10000);
-            const totalFees = interestFee.add(principalFee);
+            const totalFees = interestFee;
             const affiliateFee = totalFees.mul(1000).div(10000);
             const protocolFee = totalFees.sub(affiliateFee);
 
@@ -920,11 +907,8 @@ describe("Integration", () => {
             await originationConfiguration.setAllowedVerifiers([uvVerifier.address], [true]);
             await originationConfiguration.setAllowedCollateralAddresses([mockERC721.address], [true]);
 
-            // Set a 50 bps lender fee on origination, and 3% for borrower origination
-            // fee, and a 10% fee on interest.
-            await feeController.setLendingFee(await feeController.FL_01(), 3_00);
-            await feeController.setLendingFee(await feeController.FL_02(), 50);
-            await feeController.setLendingFee(await feeController.FL_04(), 10_00);
+            // 10% fee on interest.
+            await feeController.setLendingFee(await feeController.FL_01(), 10_00);
 
             // Set affiliate share to 10% of fees for borrower
             await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);
@@ -939,14 +923,6 @@ describe("Integration", () => {
                 durationSecs: 31536000
             });
 
-            // lender origination fee
-            const lenderFee = loanTerms.principal.mul(50).div(10_000); // 5e17
-            const borrowerFee = loanTerms.principal.mul(3).div(100); // 3e18
-            // lender will send 100.5e18 --> borrower will receive: 100e18 - 3e18 = 97e18
-            // protocol will receive: 5e17 + 3e18 = 3.5e18 at origination
-            const lenderWillSend = loanTerms.principal.add(lenderFee);
-            let totalFees = lenderFee.add(borrowerFee);
-
             const predicates: ItemsPredicate[] = [
                 {
                     verifier: uvVerifier.address,
@@ -954,7 +930,7 @@ describe("Integration", () => {
                 }
             ];
 
-            await mint(mockERC20, lender, lenderWillSend);
+            await mint(mockERC20, lender, loanTerms.principal);
 
             const sig = await createLoanItemsSignature(
                 originationController.address,
@@ -967,7 +943,7 @@ describe("Integration", () => {
                 "b",
             );
 
-            await approve(mockERC20, lender, originationController.address, lenderWillSend);
+            await approve(mockERC20, lender, originationController.address, loanTerms.principal);
 
             const borrowerStruct: Borrower = {
                 borrower: borrower.address,
@@ -986,8 +962,8 @@ describe("Integration", () => {
                 )
             ).to.emit(loanCore, "LoanStarted");
 
-            // expect balance of loan core to be 3.5e18
-            expect(await mockERC20.balanceOf(loanCore.address)).to.equal(totalFees);
+            // no fees accrued
+            expect(await mockERC20.balanceOf(loanCore.address)).to.equal(0);
 
             const loanId = 1;
 
@@ -1029,9 +1005,9 @@ describe("Integration", () => {
                 t1
             ); // 5e18
             const interestFee = grossInterest.mul(1000).div(10000); // 0.5e18
-            const lenderReceives = grossInterest.sub(interestFee).sub(lenderFee); // 5e18 - 0.5e18 - 0.5e18 = 4e18
-            const borrowerRepayment = grossInterest.add(borrowerFee); // 5e18 + 3e18 = 8e18
-            totalFees = totalFees.add(lenderFee.add(borrowerFee).add(interestFee)); // 3.5e18 + 0.5e18 + 3e18 + 0.5e18 = 7.5e18
+            const lenderReceives = grossInterest.sub(interestFee); // 5e18 - 0.5e18 = 4.5e18
+            const borrowerRepayment = grossInterest; // 5e18
+            let totalFees = interestFee; // 0.5e18
 
             await mint(mockERC20, borrower, borrowerRepayment);
             await approve(mockERC20, borrower, originationController.address, borrowerRepayment);

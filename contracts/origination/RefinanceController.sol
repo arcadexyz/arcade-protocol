@@ -14,7 +14,6 @@ import "../libraries/Constants.sol";
 import "../interfaces/IRefinanceController.sol";
 import "../interfaces/IOriginationConfiguration.sol";
 import "../interfaces/ILoanCore.sol";
-import "../interfaces/IFeeController.sol";
 
 import {
     REFI_ZeroAddress,
@@ -46,16 +45,13 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
     /// @notice The lending protocol contracts
     IOriginationConfiguration public immutable originationConfig;
     ILoanCore public immutable loanCore;
-    IFeeController public immutable feeController;
 
-    constructor(address _originationConfig, address _loanCore, address _feeController) {
+    constructor(address _originationConfig, address _loanCore) {
         if (_originationConfig == address(0)) revert REFI_ZeroAddress("_originationConfig");
         if (_loanCore == address(0)) revert REFI_ZeroAddress("_loanCore");
-        if (_feeController == address(0)) revert REFI_ZeroAddress("_feeController");
 
         originationConfig = IOriginationConfiguration(_originationConfig);
         loanCore = ILoanCore(_loanCore);
-        feeController = IFeeController(_feeController);
     }
 
     /**
@@ -183,8 +179,7 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
             oldLoanData,
             newTerms.principal,
             lender,
-            oldLender,
-            feeController
+            oldLender
         );
 
         // Collect funds based on settle amounts and total them

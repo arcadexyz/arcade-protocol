@@ -73,17 +73,17 @@ export interface LoanTermsWithItems {
 }
 
 export interface FeeSnapshot {
-    lenderDefaultFee: BigNumberish;
     lenderInterestFee: BigNumberish;
     lenderPrincipalFee: BigNumberish;
 }
 
 export interface LoanData {
     state: LoanState;
+    lenderInterestFee: BigNumberish;
+    lenderPrincipalFee: BigNumberish;
     startDate: BigNumberish;
     lastAccrualTimestamp: BigNumberish;
     terms: LoanTerms;
-    feeSnapshot: FeeSnapshot;
     balance: BigNumber;
     interestAmountPaid: BigNumber;
 }

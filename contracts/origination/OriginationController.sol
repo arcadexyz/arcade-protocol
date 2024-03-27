@@ -513,42 +513,25 @@ contract OriginationController is
         BorrowerData calldata borrowerData,
         address lender
     ) internal nonReentrant returns (uint256 loanId) {
-        // get lending origination fees from fee controller
-        (
-            LoanLibrary.FeeSnapshot memory feeSnapshot,
-            uint256 borrowerFee,
-            uint256 lenderFee
-        ) = feeController.getOriginationFeesWithSnapshot(loanTerms.principal);
-
-        // Determine settlement amounts based on fees
-        uint256 amountFromLender = loanTerms.principal + lenderFee;
-        uint256 amountToBorrower = loanTerms.principal - borrowerFee;
-
-        // Calculate fees earned
-        uint256 feesEarned = borrowerFee + lenderFee;
+        // get fee snapshot from fee controller
+        (LoanLibrary.FeeSnapshot memory feeSnapshot) = feeController.getFeeSnapshot();
 
         // ---------------------- Borrower receives principal ----------------------
-        // Collect funds from lender and send to borrower minus fees
-        IERC20(loanTerms.payableCurrency).safeTransferFrom(lender, address(this), amountFromLender);
-        // send principal to borrower
-        IERC20(loanTerms.payableCurrency).safeTransfer(borrowerData.borrower, amountToBorrower);
+        // Collect principal from lender and send to borrower
+        IERC20(loanTerms.payableCurrency).safeTransferFrom(lender, borrowerData.borrower, loanTerms.principal);
 
         // ----------------------- Express borrow callback --------------------------
         // If callback params present, call the callback function on the borrower
         if (borrowerData.callbackData.length > 0) {
-            IExpressBorrow(borrowerData.borrower).executeOperation(msg.sender, lender, loanTerms, borrowerFee, borrowerData.callbackData);
+            IExpressBorrow(borrowerData.borrower).executeOperation(msg.sender, lender, loanTerms, 0, borrowerData.callbackData);
         }
 
         // ---------------------- LoanCore collects collateral ----------------------
         // Post-callback: collect collateral from borrower and send to LoanCore
         IERC721(loanTerms.collateralAddress).transferFrom(borrowerData.borrower, address(loanCore), loanTerms.collateralId);
 
-        // ------------------------ Send fees to LoanCore ---------------------------
-        // Send fees to LoanCore
-        IERC20(loanTerms.payableCurrency).safeTransfer(address(loanCore), feesEarned);
-
         // Create loan in LoanCore
-        loanId = loanCore.startLoan(lender, borrowerData.borrower, loanTerms, feesEarned, feeSnapshot);
+        loanId = loanCore.startLoan(lender, borrowerData.borrower, loanTerms, feeSnapshot);
     }
 
     /**
@@ -578,8 +561,7 @@ contract OriginationController is
             oldLoanData,
             newTerms.principal,
             lender,
-            oldLender,
-            feeController
+            oldLender
         );
 
         // Collect funds based on settle amounts and total them

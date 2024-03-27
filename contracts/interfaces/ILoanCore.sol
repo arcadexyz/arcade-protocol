@@ -39,7 +39,6 @@ interface ILoanCore {
         address lender,
         address borrower,
         LoanLibrary.LoanTerms calldata terms,
-        uint256 feesEarned,
         LoanLibrary.FeeSnapshot calldata feeSnapshot
     ) external returns (uint256 loanId);
 
@@ -59,10 +58,7 @@ interface ILoanCore {
         uint256 _paymentToPrincipal
     ) external;
 
-    function claim(
-        uint256 loanId,
-        uint256 _amountFromLender
-    ) external;
+    function claim(uint256 loanId) external;
 
     function redeemNote(
         uint256 loanId,
