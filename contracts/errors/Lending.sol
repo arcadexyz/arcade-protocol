@@ -49,7 +49,7 @@ error OCC_BatchLengthMismatch();
 /**
  * @notice Provided payable currency address is not approved for lending.
  *
- * @param payableCurrency       ERC20 token address supplied in loan terms.
+ * @param payableCurrency       Address supplied in loan terms.
  */
 error OCC_InvalidCurrency(address payableCurrency);
 
@@ -85,7 +85,7 @@ error OCC_SignatureIsExpired(uint256 deadline);
 /**
  * @notice Provided collateral address is not approved for lending.
  *
- * @param collateralAddress       ERC721 token address supplied in loan terms.
+ * @param collateralAddress       Address supplied in loan terms.
  */
 error OCC_InvalidCollateral(address collateralAddress);
 
@@ -366,14 +366,14 @@ error REFI_PrincipalTooLow(uint256 principal);
 /**
  * @notice Provided payable currency address is not approved for lending.
  *
- * @param payableCurrency       ERC20 token address supplied in loan terms.
+ * @param payableCurrency        Address supplied in loan terms.
  */
 error REFI_InvalidCurrency(address payableCurrency);
 
 /**
  * @notice Provided collateral address is not approved for lending.
  *
- * @param collateralAddress       ERC721 token address supplied in loan terms.
+ * @param collateralAddress       Address supplied in loan terms.
  */
 error REFI_InvalidCollateral(address collateralAddress);
 
