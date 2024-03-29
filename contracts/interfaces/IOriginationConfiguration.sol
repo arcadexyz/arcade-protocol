@@ -16,6 +16,8 @@ interface IOriginationConfiguration {
 
     function validateLoanTerms(LoanLibrary.LoanTerms memory terms) external view;
 
+    function validateWhitelist(address currency, uint256 principalAmount, address collateral) external view;
+
     function isAllowedVerifier(address verifier) external view returns (bool);
 
     function isAllowedCurrency(address currency) external view returns (bool);

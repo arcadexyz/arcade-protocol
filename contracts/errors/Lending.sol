@@ -25,13 +25,6 @@ import "../libraries/LoanLibrary.sol";
 error OCC_ZeroAddress(string addressType);
 
 /**
- *  @notice Error message for when a currency is not whitelisted
- *
- * @param currency              The address of the currency that is not whitelisted.
- */
-error OCC_NotWhitelisted(address currency);
-
-/**
  * @notice Provided token array does not hold any token addresses.
  */
 error OCC_ZeroArrayElements();
@@ -355,27 +348,6 @@ error REFI_SameLender(address lender);
  * @param newPrincipal                  The principal of the refinance terms.
  */
 error REFI_PrincipalIncrease(uint256 oldPrincipal, uint256 newPrincipal);
-
-/**
- * @notice New principal cannot be less than minimum.
- *
- * @param principal                   Provided principal amount.
- */
-error REFI_PrincipalTooLow(uint256 principal);
-
-/**
- * @notice Provided payable currency address is not approved for lending.
- *
- * @param payableCurrency        Address supplied in loan terms.
- */
-error REFI_InvalidCurrency(address payableCurrency);
-
-/**
- * @notice Provided collateral address is not approved for lending.
- *
- * @param collateralAddress       Address supplied in loan terms.
- */
-error REFI_InvalidCollateral(address collateralAddress);
 
 // ==================================== ITEMS VERIFIER ======================================
 /// @notice All errors prefixed with IV_, to separate from other contracts in the protocol.

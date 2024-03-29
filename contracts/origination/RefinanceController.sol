@@ -24,10 +24,7 @@ import {
     REFI_CollateralMismatch,
     REFI_CurrencyMismatch,
     REFI_SameLender,
-    REFI_PrincipalIncrease,
-    REFI_PrincipalTooLow,
-    REFI_InvalidCollateral,
-    REFI_InvalidCurrency
+    REFI_PrincipalIncrease
 } from "../errors/Lending.sol";
 
 
@@ -100,6 +97,10 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
         LoanLibrary.LoanData memory oldLoanData,
         LoanLibrary.LoanTerms calldata newTerms
     ) internal view {
+        // payable currency and collateral must be whitelisted
+        // principal must be greater than or equal to the configured minimum
+        originationConfig.validateWhitelist(newTerms.payableCurrency, newTerms.principal, newTerms.collateralAddress);
+
         // cannot refinance a loan that has already been repaid
         if (oldLoanData.state != LoanLibrary.LoanState.Active) revert REFI_InvalidState(oldLoanData.state);
 
@@ -136,26 +137,11 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
             newTerms.collateralId
         );
 
-        // collateral must be whitelisted
-        if (!originationConfig.isAllowedCollateral(newTerms.collateralAddress)) {
-            revert REFI_InvalidCollateral(newTerms.collateralAddress);
-        }
-
         // payable currency must be the same
         if (newTerms.payableCurrency != oldLoanData.terms.payableCurrency) revert REFI_CurrencyMismatch(
             oldLoanData.terms.payableCurrency,
             newTerms.payableCurrency
         );
-
-        // payable currency must be whitelisted
-        if (!originationConfig.isAllowedCurrency(newTerms.payableCurrency)) {
-            revert REFI_InvalidCurrency(newTerms.payableCurrency);
-        }
-
-        // new principal cannot be less than minimum
-        if (newTerms.principal < originationConfig.getMinPrincipal(newTerms.payableCurrency)) {
-            revert REFI_PrincipalTooLow(newTerms.principal);
-        }
 
         // principal cannot increase
         if (newTerms.principal > oldLoanData.balance) revert REFI_PrincipalIncrease(
