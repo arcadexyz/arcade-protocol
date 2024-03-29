@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "../libraries/OriginationLibrary.sol";
 import "../libraries/Constants.sol";
 
-import "../interfaces/IOriginationConfiguration.sol";
+import "../interfaces/IOriginationHelpers.sol";
 import "../interfaces/ISignatureVerifier.sol";
 
 import {
@@ -25,7 +25,7 @@ import {
     OCC_PredicateFailed
 } from "../errors/Lending.sol";
 
-contract OriginationConfiguration is IOriginationConfiguration, AccessControlEnumerable {
+contract OriginationHelpers is IOriginationHelpers, AccessControlEnumerable {
     // ====================================== CONSTANTS ===========================================
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");

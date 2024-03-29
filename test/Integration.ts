@@ -19,7 +19,7 @@ import {
     ArcadeItemsVerifier,
     MockERC721,
     BaseURIDescriptor,
-    OriginationConfiguration
+    OriginationHelpers
 } from "../typechain";
 import { BlockchainTime } from "./utils/time";
 import { deploy } from "./utils/contracts";
@@ -59,7 +59,7 @@ interface TestContext {
     feeController: FeeController;
     repaymentController: RepaymentController;
     originationController: OriginationController;
-    originationConfiguration: OriginationConfiguration;
+    originationHelpers: OriginationHelpers;
     descriptor: BaseURIDescriptor;
     borrower: SignerWithAddress;
     lender: SignerWithAddress;
@@ -121,7 +121,7 @@ const fixture = async (): Promise<TestContext> => {
     );
     await updateRepaymentControllerPermissions.wait();
 
-    const originationConfiguration = <OriginationConfiguration> await deploy("OriginationConfiguration", admin, []);
+    const originationHelpers = <OriginationHelpers> await deploy("OriginationHelpers", admin, []);
 
     const originationLibrary = await deploy("OriginationLibrary", admin, []);
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationController",
@@ -133,27 +133,27 @@ const fixture = async (): Promise<TestContext> => {
         },
     );
     const originationController = <OriginationController>(
-        await OriginationControllerFactory.deploy(originationConfiguration.address, loanCore.address, feeController.address)
+        await OriginationControllerFactory.deploy(originationHelpers.address, loanCore.address, feeController.address)
     );
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController
-    await originationConfiguration.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
+    await originationHelpers.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
     // verify the currency is whitelisted
-    const isWhitelisted = await originationConfiguration.isAllowedCurrency(mockERC20.address);
+    const isWhitelisted = await originationHelpers.isAllowedCurrency(mockERC20.address);
     expect(isWhitelisted).to.be.true;
-    const minPrincipal = await originationConfiguration.getMinPrincipal(mockERC20.address);
+    const minPrincipal = await originationHelpers.getMinPrincipal(mockERC20.address);
     expect(minPrincipal).to.eq(MIN_LOAN_PRINCIPAL);
 
     // admin whitelists MockERC721 and vaultFactory on OriginationController
-    await originationConfiguration.setAllowedCollateralAddresses(
+    await originationHelpers.setAllowedCollateralAddresses(
         [mockERC721.address, vaultFactory.address],
         [true, true]
     );
     // verify the collateral is whitelisted
-    const isCollateralWhitelisted = await originationConfiguration.isAllowedCollateral(mockERC721.address);
+    const isCollateralWhitelisted = await originationHelpers.isAllowedCollateral(mockERC721.address);
     expect(isCollateralWhitelisted).to.be.true;
-    const isVaultFactoryWhitelisted = await originationConfiguration.isAllowedCollateral(vaultFactory.address);
+    const isVaultFactoryWhitelisted = await originationHelpers.isAllowedCollateral(vaultFactory.address);
     expect(isVaultFactoryWhitelisted).to.be.true;
 
     const updateOriginationControllerPermissions = await loanCore.grantRole(
@@ -171,7 +171,7 @@ const fixture = async (): Promise<TestContext> => {
         feeController,
         repaymentController,
         originationController,
-        originationConfiguration,
+        originationHelpers,
         mockERC20,
         mockERC721,
         descriptor,
@@ -302,7 +302,7 @@ describe("Integration", () => {
                 feeController,
                 repaymentController,
                 originationController,
-                originationConfiguration,
+                originationHelpers,
                 admin
             } = await loadFixture(fixture);
 
@@ -347,11 +347,11 @@ describe("Integration", () => {
             expect(await originationController.getRoleMemberCount(ADMIN_ROLE)).to.eq(1);
             expect(await originationController.hasRole(MIGRATION_MANAGER_ROLE, admin.address)).to.be.true;
             expect(await originationController.getRoleMemberCount(MIGRATION_MANAGER_ROLE)).to.eq(1);
-            // originationConfiguration roles
-            expect(await originationConfiguration.hasRole(ADMIN_ROLE, admin.address)).to.be.true;
-            expect(await originationConfiguration.getRoleMemberCount(ADMIN_ROLE)).to.eq(1);
-            expect(await originationConfiguration.hasRole(WHITELIST_MANAGER_ROLE, admin.address)).to.be.true;
-            expect(await originationConfiguration.getRoleMemberCount(WHITELIST_MANAGER_ROLE)).to.eq(1);
+            // originationHelpers roles
+            expect(await originationHelpers.hasRole(ADMIN_ROLE, admin.address)).to.be.true;
+            expect(await originationHelpers.getRoleMemberCount(ADMIN_ROLE)).to.eq(1);
+            expect(await originationHelpers.hasRole(WHITELIST_MANAGER_ROLE, admin.address)).to.be.true;
+            expect(await originationHelpers.getRoleMemberCount(WHITELIST_MANAGER_ROLE)).to.eq(1);
         });
     });
 
@@ -901,11 +901,11 @@ describe("Integration", () => {
 
         it("full loan cycle, with realistic fees and registered affiliate, on an unvaulted asset with a rollover", async () => {
             const context = await loadFixture(fixture);
-            const { feeController, repaymentController, originationController, originationConfiguration, mockERC20, mockERC721, loanCore, borrower, lender, admin } = context;
+            const { feeController, repaymentController, originationController, originationHelpers, mockERC20, mockERC721, loanCore, borrower, lender, admin } = context;
 
             const uvVerifier = <ArcadeItemsVerifier>await deploy("UnvaultedItemsVerifier", admin, []);
-            await originationConfiguration.setAllowedVerifiers([uvVerifier.address], [true]);
-            await originationConfiguration.setAllowedCollateralAddresses([mockERC721.address], [true]);
+            await originationHelpers.setAllowedVerifiers([uvVerifier.address], [true]);
+            await originationHelpers.setAllowedCollateralAddresses([mockERC721.address], [true]);
 
             // 10% fee on interest.
             await feeController.setLendingFee(await feeController.FL_01(), 10_00);

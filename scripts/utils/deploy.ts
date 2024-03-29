@@ -15,7 +15,7 @@ import {
     ArtBlocksVerifier,
     CallWhitelistAllExtensions,
     OriginationControllerMigrate,
-    OriginationConfiguration
+    OriginationHelpers
 } from "../../typechain";
 
 export interface DeployedResources {
@@ -27,7 +27,7 @@ export interface DeployedResources {
     loanCore: LoanCore;
     repaymentController: RepaymentController;
     originationController: OriginationControllerMigrate;
-    originationConfiguration: OriginationConfiguration;
+    originationHelpers: OriginationHelpers;
     borrowerNoteURIDescriptor: StaticURIDescriptor;
     borrowerNote: PromissoryNote;
     lenderNoteURIDescriptor: StaticURIDescriptor;
@@ -50,7 +50,7 @@ const jsonContracts: { [key: string]: string } = {
     LoanCore: "loanCore",
     RepaymentController: "repaymentController",
     OriginationController: "originationController",
-    OriginationConfiguration: "originationConfiguration",
+    OriginationHelpers: "originationHelpers",
     ArcadeItemsVerifier: "arcadeItemsVerifier",
     CollectionWideOfferVerifier: "collectionWideOfferVerifier",
     ArtBlocksVerifier: "artBlocksVerifier",

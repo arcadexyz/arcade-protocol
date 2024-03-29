@@ -5,7 +5,7 @@ pragma solidity 0.8.18;
 import "../libraries/OriginationLibrary.sol";
 import "../libraries/LoanLibrary.sol";
 
-interface IOriginationConfiguration {
+interface IOriginationHelpers {
     // ================ Events ===================
 
     event SetAllowedVerifier(address indexed verifier, bool isAllowed);

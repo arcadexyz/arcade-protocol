@@ -12,7 +12,7 @@ import "../libraries/LoanLibrary.sol";
 import "../libraries/Constants.sol";
 
 import "../interfaces/IRefinanceController.sol";
-import "../interfaces/IOriginationConfiguration.sol";
+import "../interfaces/IOriginationHelpers.sol";
 import "../interfaces/ILoanCore.sol";
 
 import {
@@ -42,14 +42,14 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
     uint256 public constant MINIMUM_INTEREST_CHANGE = 1000; // 10%
 
     /// @notice The lending protocol contracts
-    IOriginationConfiguration public immutable originationConfig;
+    IOriginationHelpers public immutable originationHelpers;
     ILoanCore public immutable loanCore;
 
-    constructor(address _originationConfig, address _loanCore) {
-        if (_originationConfig == address(0)) revert REFI_ZeroAddress("_originationConfig");
+    constructor(address _originationHelpers, address _loanCore) {
+        if (_originationHelpers == address(0)) revert REFI_ZeroAddress("_originationHelpers");
         if (_loanCore == address(0)) revert REFI_ZeroAddress("_loanCore");
 
-        originationConfig = IOriginationConfiguration(_originationConfig);
+        originationHelpers = IOriginationHelpers(_originationHelpers);
         loanCore = ILoanCore(_loanCore);
     }
 
@@ -87,7 +87,7 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
 
         // Run predicates check at the end of the function, after vault is in escrow. This makes sure
         // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
-        if (itemPredicates.length > 0) originationConfig.runPredicatesCheck(borrower, lender, newTerms, itemPredicates);
+        if (itemPredicates.length > 0) originationHelpers.runPredicatesCheck(borrower, lender, newTerms, itemPredicates);
     }
 
     /**

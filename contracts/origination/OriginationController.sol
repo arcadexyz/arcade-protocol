@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./OriginationCalculator.sol";
 
 import "../interfaces/IOriginationController.sol";
-import "../interfaces/IOriginationConfiguration.sol";
+import "../interfaces/IOriginationHelpers.sol";
 import "../interfaces/ILoanCore.sol";
 import "../interfaces/IFeeController.sol";
 import "../interfaces/IExpressBorrow.sol";
@@ -72,7 +72,7 @@ contract OriginationController is
 
     // =============== Contract References ===============
 
-    IOriginationConfiguration public immutable originationConfiguration;
+    IOriginationHelpers public immutable originationHelpers;
     ILoanCore public immutable loanCore;
     IFeeController public immutable feeController;
 
@@ -90,16 +90,16 @@ contract OriginationController is
      * @dev For this controller to work, it needs to be granted the ORIGINATOR_ROLE
      *      in loan core after deployment.
      *
-     * @param _originationConfiguration     The address of the origination shared storage contract.
+     * @param _originationHelpers     The address of the origination shared storage contract.
      * @param _loanCore                     The address of the loan core logic of the protocol.
      * @param _feeController                The address of the fee logic of the protocol.
      */
     constructor(
-        address _originationConfiguration,
+        address _originationHelpers,
         address _loanCore,
         address _feeController
     ) EIP712("OriginationController", "4") {
-        if (_originationConfiguration == address(0)) revert OC_ZeroAddress("originationConfiguration");
+        if (_originationHelpers == address(0)) revert OC_ZeroAddress("originationHelpers");
         if (_loanCore == address(0)) revert OC_ZeroAddress("loanCore");
         if (_feeController == address(0)) revert OC_ZeroAddress("feeController");
 
@@ -109,7 +109,7 @@ contract OriginationController is
         _setupRole(MIGRATION_MANAGER_ROLE, msg.sender);
         _setRoleAdmin(MIGRATION_MANAGER_ROLE, ADMIN_ROLE);
 
-        originationConfiguration = IOriginationConfiguration(_originationConfiguration);
+        originationHelpers = IOriginationHelpers(_originationHelpers);
         loanCore = ILoanCore(_loanCore);
         feeController = IFeeController(_feeController);
     }
@@ -142,7 +142,7 @@ contract OriginationController is
         SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates
     ) public override returns (uint256 loanId) {
-        originationConfiguration.validateLoanTerms(loanTerms);
+        originationHelpers.validateLoanTerms(loanTerms);
 
         // Determine if signature needs to be on the borrow or lend side
         Side neededSide = isSelfOrApproved(borrowerData.borrower, msg.sender) ? Side.LEND : Side.BORROW;
@@ -164,7 +164,7 @@ contract OriginationController is
 
         // Run predicates check at the end of the function, after vault is in escrow. This makes sure
         // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
-        if (itemPredicates.length > 0) originationConfiguration.runPredicatesCheck(borrowerData.borrower, lender, loanTerms, itemPredicates);
+        if (itemPredicates.length > 0) originationHelpers.runPredicatesCheck(borrowerData.borrower, lender, loanTerms, itemPredicates);
     }
 
     /**
@@ -192,7 +192,7 @@ contract OriginationController is
         SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates
     ) public override returns (uint256 newLoanId) {
-        originationConfiguration.validateLoanTerms(loanTerms);
+        originationHelpers.validateLoanTerms(loanTerms);
 
         {
             LoanLibrary.LoanData memory data = loanCore.getLoan(oldLoanId);
@@ -220,7 +220,7 @@ contract OriginationController is
 
         // Run predicates check at the end of the function, after vault is in escrow. This makes sure
         // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
-        if (itemPredicates.length > 0) originationConfiguration.runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
+        if (itemPredicates.length > 0) originationHelpers.runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
     }
 
     // ==================================== PERMISSION MANAGEMENT =======================================

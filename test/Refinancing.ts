@@ -20,7 +20,7 @@ import {
     FeeController,
     BaseURIDescriptor,
     RepaymentController,
-    OriginationConfiguration,
+    OriginationHelpers,
     RefinanceController,
     OriginationLibrary,
     ArcadeItemsVerifier,
@@ -46,7 +46,7 @@ import {
 type Signer = SignerWithAddress;
 
 interface TestContext {
-    originationConfiguration: OriginationConfiguration;
+    originationHelpers: OriginationHelpers;
     originationLibrary: OriginationLibrary;
     originationController: OriginationController;
     refinanceController: RefinanceController;
@@ -126,7 +126,7 @@ const fixture = async (): Promise<TestContext> => {
     );
     await updateRepaymentControllerPermissions.wait();
 
-    const originationConfiguration = <OriginationConfiguration> await deploy("OriginationConfiguration", deployer, []);
+    const originationHelpers = <OriginationHelpers> await deploy("OriginationHelpers", deployer, []);
 
     const originationLibrary = <OriginationLibrary> await deploy("OriginationLibrary", deployer, []);
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationController",
@@ -138,29 +138,29 @@ const fixture = async (): Promise<TestContext> => {
         },
     );
     const originationController = <OriginationController>(
-        await OriginationControllerFactory.deploy(originationConfiguration.address, loanCore.address, feeController.address)
+        await OriginationControllerFactory.deploy(originationHelpers.address, loanCore.address, feeController.address)
     );
     await originationController.deployed();
 
-    const refinanceController = <RefinanceController>await deploy("RefinanceController", deployer, [originationConfiguration.address, loanCore.address]);
+    const refinanceController = <RefinanceController>await deploy("RefinanceController", deployer, [originationHelpers.address, loanCore.address]);
 
     // admin whitelists MockERC20 on OriginationController
-    const whitelistCurrency = await originationConfiguration.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
+    const whitelistCurrency = await originationHelpers.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
     await whitelistCurrency.wait();
     // verify the currency is whitelisted
-    const isWhitelisted = await originationConfiguration.isAllowedCurrency(mockERC20.address);
+    const isWhitelisted = await originationHelpers.isAllowedCurrency(mockERC20.address);
     expect(isWhitelisted).to.be.true;
 
     // admin whitelists MockERC721 and vaultFactory on OriginationController
-    await originationConfiguration.setAllowedCollateralAddresses(
+    await originationHelpers.setAllowedCollateralAddresses(
         [mockERC721.address, vaultFactory.address],
         [true, true]
     );
 
     // verify the collateral is whitelisted
-    const isCollateralWhitelisted = await originationConfiguration.isAllowedCollateral(mockERC721.address);
+    const isCollateralWhitelisted = await originationHelpers.isAllowedCollateral(mockERC721.address);
     expect(isCollateralWhitelisted).to.be.true;
-    const isVaultFactoryWhitelisted = await originationConfiguration.isAllowedCollateral(vaultFactory.address);
+    const isVaultFactoryWhitelisted = await originationHelpers.isAllowedCollateral(vaultFactory.address);
     expect(isVaultFactoryWhitelisted).to.be.true;
 
     // add both OriginationController and refinanceController as originators in LoanCore
@@ -181,10 +181,10 @@ const fixture = async (): Promise<TestContext> => {
     await loanCore.grantRole(FEE_CLAIMER_ROLE, signers[3].address);
 
     const verifier = <ArcadeItemsVerifier>await deploy("ArcadeItemsVerifier", deployer, []);
-    await originationConfiguration.setAllowedVerifiers([verifier.address], [true]);
+    await originationHelpers.setAllowedVerifiers([verifier.address], [true]);
 
     return {
-        originationConfiguration,
+        originationHelpers,
         originationLibrary,
         originationController,
         refinanceController,
@@ -259,10 +259,10 @@ describe("Refinancing", () => {
         });
 
         it("cannot pass in zero address for loan core", async () => {
-            const { originationConfiguration } = ctx;
+            const { originationHelpers } = ctx;
 
             await expect(
-                deploy("RefinanceController", ctx.signers[0], [originationConfiguration.address, ethers.constants.AddressZero])
+                deploy("RefinanceController", ctx.signers[0], [originationHelpers.address, ethers.constants.AddressZero])
             ).to.be.revertedWith("REFI_ZeroAddress");
         });
     });
