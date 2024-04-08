@@ -106,7 +106,7 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
     ) internal view {
         // payable currency and collateral must be whitelisted
         // principal must be greater than or equal to the configured minimum
-        originationConfig.validateWhitelist(newTerms.payableCurrency, newTerms.principal, newTerms.collateralAddress);
+        originationHelpers.validateWhitelist(newTerms.payableCurrency, newTerms.principal, newTerms.collateralAddress);
 
         // cannot refinance a loan that has already been repaid
         if (oldLoanData.state != LoanLibrary.LoanState.Active) revert REFI_InvalidState(oldLoanData.state);
