@@ -47,10 +47,10 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
     bool public paused;
 
     constructor(
-        address _originationConfiguration,
+        address _originationHelpers,
         address _loanCore,
         address _feeController
-    ) OriginationController(_originationConfiguration, _loanCore, _feeController) {}
+    ) OriginationController(_originationHelpers, _loanCore, _feeController) {}
 
     // ======================================= V3 MIGRATION =============================================
 
@@ -125,7 +125,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
 
         // Run predicates check at the end of the function, after vault is in escrow. This makes sure
         // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
-        if (itemPredicates.length > 0) _runPredicatesCheck(msg.sender, lender, newTerms, itemPredicates);
+        if (itemPredicates.length > 0) originationHelpers.runPredicatesCheck(msg.sender, lender, newTerms, itemPredicates);
     }
 
     // =================================== MIGRATION VALIDATION =========================================
@@ -169,7 +169,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
 
         // ------------- New LoanTerms Validation -------------
         // Any collateral or currencies that is whitelisted on v3 also needs to be whitelisted on v4
-        originationConfiguration.validateLoanTerms(newLoanTerms);
+        originationHelpers.validateLoanTerms(newLoanTerms);
     }
 
     // ========================================= HELPERS ================================================

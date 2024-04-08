@@ -7,7 +7,8 @@ import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "../libraries/OriginationLibrary.sol";
 import "../libraries/Constants.sol";
 
-import "../interfaces/IOriginationConfiguration.sol";
+import "../interfaces/IOriginationHelpers.sol";
+import "../interfaces/ISignatureVerifier.sol";
 
 import {
     OCC_ZeroAddress,
@@ -19,10 +20,12 @@ import {
     OCC_LoanDuration,
     OCC_InterestRate,
     OCC_SignatureIsExpired,
-    OCC_InvalidCollateral
+    OCC_InvalidCollateral,
+    OCC_InvalidVerifier,
+    OCC_PredicateFailed
 } from "../errors/Lending.sol";
 
-contract OriginationConfiguration is IOriginationConfiguration, AccessControlEnumerable {
+contract OriginationHelpers is IOriginationHelpers, AccessControlEnumerable {
     // ====================================== CONSTANTS ===========================================
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
@@ -87,6 +90,54 @@ contract OriginationConfiguration is IOriginationConfiguration, AccessControlEnu
         if (principalAmount < getMinPrincipal(currency)) revert OCC_PrincipalTooLow(principalAmount);
         // collateral must be whitelisted
         if (!isAllowedCollateral(collateral)) revert OCC_InvalidCollateral(collateral);
+    }
+
+    // ================================= PREDICATE VALIDATION ===================================
+
+    /**
+     * @dev Run the predicates check for an items signature, sending the defined
+     *      predicate payload to each defined verifier contract, and reverting
+     *      if a verifier returns false.
+     *
+     * @param borrower              The borrower of the loan.
+     * @param lender                The lender of the loan.
+     * @param loanTerms             The terms of the loan.
+     * @param itemPredicates        The array of predicates to check.
+     */
+    function runPredicatesCheck(
+        address borrower,
+        address lender,
+        LoanLibrary.LoanTerms memory loanTerms,
+        LoanLibrary.Predicate[] memory itemPredicates
+    ) public view {
+        for (uint256 i = 0; i < itemPredicates.length;) {
+            // Verify items are held in the wrapper
+            address verifier = itemPredicates[i].verifier;
+            if (!isAllowedVerifier(verifier)) revert OCC_InvalidVerifier(verifier);
+
+            if (!ISignatureVerifier(verifier).verifyPredicates(
+                borrower,
+                lender,
+                loanTerms.collateralAddress,
+                loanTerms.collateralId,
+                itemPredicates[i].data
+            )) {
+                revert OCC_PredicateFailed(
+                    verifier,
+                    borrower,
+                    lender,
+                    loanTerms.collateralAddress,
+                    loanTerms.collateralId,
+                    itemPredicates[i].data
+                );
+            }
+
+            // Predicates is calldata, overflow is impossible bc of calldata
+            // size limits vis-a-vis gas
+            unchecked {
+                i++;
+            }
+        }
     }
 
     // ========================================= VIEW ===========================================

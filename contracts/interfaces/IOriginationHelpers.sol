@@ -5,7 +5,7 @@ pragma solidity 0.8.18;
 import "../libraries/OriginationLibrary.sol";
 import "../libraries/LoanLibrary.sol";
 
-interface IOriginationConfiguration {
+interface IOriginationHelpers {
     // ================ Events ===================
 
     event SetAllowedVerifier(address indexed verifier, bool isAllowed);
@@ -17,6 +17,13 @@ interface IOriginationConfiguration {
     function validateLoanTerms(LoanLibrary.LoanTerms memory terms) external view;
 
     function validateWhitelist(address currency, uint256 principalAmount, address collateral) external view;
+
+    function runPredicatesCheck(
+        address borrower,
+        address lender,
+        LoanLibrary.LoanTerms memory loanTerms,
+        LoanLibrary.Predicate[] memory itemPredicates
+    ) external view;
 
     function isAllowedVerifier(address verifier) external view returns (bool);
 

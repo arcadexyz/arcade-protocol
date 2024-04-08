@@ -196,21 +196,21 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     console.log(`OriginationController: Deployer renounced admin and migration manager role`);
     console.log(SUBSECTION_SEPARATOR);
 
-    // ============= OriginationConfiguration ==============
+    // ============= OriginationHelpers ==============
 
-    const { originationConfiguration } = resources;
-    tx = await originationConfiguration.grantRole(ADMIN_ROLE, ADMIN);
+    const { originationHelpers } = resources;
+    tx = await originationHelpers.grantRole(ADMIN_ROLE, ADMIN);
     await tx.wait();
-    tx = await originationConfiguration.grantRole(WHITELIST_MANAGER_ROLE, LOAN_WHITELIST_MANAGER);
+    tx = await originationHelpers.grantRole(WHITELIST_MANAGER_ROLE, LOAN_WHITELIST_MANAGER);
     await tx.wait();
-    tx = await originationConfiguration.renounceRole(ADMIN_ROLE, deployer.address);
+    tx = await originationHelpers.renounceRole(ADMIN_ROLE, deployer.address);
     await tx.wait();
-    tx = await originationConfiguration.renounceRole(WHITELIST_MANAGER_ROLE, deployer.address);
+    tx = await originationHelpers.renounceRole(WHITELIST_MANAGER_ROLE, deployer.address);
     await tx.wait();
 
-    console.log(`OriginationConfiguration: admin role granted to ${ADMIN}`);
-    console.log(`OriginationConfiguration: whitelist manager role granted to ${LOAN_WHITELIST_MANAGER}`);
-    console.log(`OriginationConfiguration: Deployer renounced admin and whitelist manager role`);
+    console.log(`OriginationHelpers: admin role granted to ${ADMIN}`);
+    console.log(`OriginationHelpers: whitelist manager role granted to ${LOAN_WHITELIST_MANAGER}`);
+    console.log(`OriginationHelpers: Deployer renounced admin and whitelist manager role`);
     console.log(SUBSECTION_SEPARATOR);
 
     console.log("✅ Transferred all ownership.");

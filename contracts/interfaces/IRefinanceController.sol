@@ -9,6 +9,7 @@ interface IRefinanceController {
 
     function refinanceLoan(
         uint256 loanId,
-        LoanLibrary.LoanTerms calldata newTerms
+        LoanLibrary.LoanTerms calldata newTerms,
+        LoanLibrary.Predicate[] calldata itemPredicates
     ) external returns (uint256 newLoanId);
 }

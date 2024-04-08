@@ -20,7 +20,7 @@ import {
     MockERC20,
     MockERC721,
     BaseURIDescriptor,
-    OriginationConfiguration
+    OriginationHelpers
 } from "../typechain";
 import { BlockchainTime } from "./utils/time";
 import { mint as mint721 } from "./utils/erc721";
@@ -49,7 +49,7 @@ interface TestContext {
     feeController: FeeController;
     repaymentController: RepaymentController;
     originationController: OriginationController;
-    originationConfiguration: OriginationConfiguration;
+    originationHelpers: OriginationHelpers;
     borrower: SignerWithAddress;
     lender: SignerWithAddress;
     admin: SignerWithAddress;
@@ -106,7 +106,7 @@ const fixture = async (): Promise<TestContext> => {
     );
     await updateRepaymentControllerPermissions.wait();
 
-    const originationConfiguration = <OriginationConfiguration> await deploy("OriginationConfiguration", admin, []);
+    const originationHelpers = <OriginationHelpers> await deploy("OriginationHelpers", admin, []);
 
     const originationLibrary = await deploy("OriginationLibrary", admin, []);
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationController",
@@ -118,27 +118,27 @@ const fixture = async (): Promise<TestContext> => {
         },
     );
     const originationController = <OriginationController>(
-        await OriginationControllerFactory.deploy(originationConfiguration.address, loanCore.address, feeController.address)
+        await OriginationControllerFactory.deploy(originationHelpers.address, loanCore.address, feeController.address)
     );
     await originationController.deployed();
 
     // admin whitelists MockERC20 on OriginationController
-    await originationConfiguration.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
+    await originationHelpers.setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
     // verify the currency is whitelisted
-    const isWhitelisted = await originationConfiguration.isAllowedCurrency(mockERC20.address);
+    const isWhitelisted = await originationHelpers.isAllowedCurrency(mockERC20.address);
     expect(isWhitelisted).to.be.true;
-    const minPrincipal = await originationConfiguration.getMinPrincipal(mockERC20.address);
+    const minPrincipal = await originationHelpers.getMinPrincipal(mockERC20.address);
     expect(minPrincipal).to.eq(MIN_LOAN_PRINCIPAL);
 
     // admin whitelists MockERC721 and vaultFactory on OriginationController
-    await originationConfiguration.setAllowedCollateralAddresses(
+    await originationHelpers.setAllowedCollateralAddresses(
         [mockERC721.address, vaultFactory.address],
         [true, true]
     );
     // verify the collateral is whitelisted
-    const isCollateralWhitelisted = await originationConfiguration.isAllowedCollateral(mockERC721.address);
+    const isCollateralWhitelisted = await originationHelpers.isAllowedCollateral(mockERC721.address);
     expect(isCollateralWhitelisted).to.be.true;
-    const isVaultFactoryWhitelisted = await originationConfiguration.isAllowedCollateral(vaultFactory.address);
+    const isVaultFactoryWhitelisted = await originationHelpers.isAllowedCollateral(vaultFactory.address);
     expect(isVaultFactoryWhitelisted).to.be.true;
 
     const updateOriginationControllerPermissions = await loanCore.grantRole(
@@ -150,7 +150,7 @@ const fixture = async (): Promise<TestContext> => {
     await loanCore.grantRole(AFFILIATE_MANAGER_ROLE, admin.address);
 
     const verifier = <ArcadeItemsVerifier>await deploy("ArcadeItemsVerifier", admin, []);
-    await originationConfiguration.setAllowedVerifiers([verifier.address], [true]);
+    await originationHelpers.setAllowedVerifiers([verifier.address], [true]);
 
     return {
         loanCore,
@@ -160,7 +160,7 @@ const fixture = async (): Promise<TestContext> => {
         feeController,
         repaymentController,
         originationController,
-        originationConfiguration,
+        originationHelpers,
         mockERC20,
         borrower,
         lender,
@@ -351,11 +351,11 @@ describe("Rollovers", () => {
         });
 
         it("should not allow a rollover if the loan currencies don't match", async () => {
-            const { originationController, originationConfiguration, vaultFactory, borrower, lender, admin } = ctx;
+            const { originationController, originationHelpers, vaultFactory, borrower, lender, admin } = ctx;
             const { loanId, loanTerms } = loan;
 
             const otherERC20 = <MockERC20>await deploy("MockERC20", admin, ["Mock ERC20", "MOCK"]);
-            await originationConfiguration.setAllowedPayableCurrencies([otherERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
+            await originationHelpers.setAllowedPayableCurrencies([otherERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
 
             // create new terms for rollover and sign them
             const newTerms = await createLoanTerms(
@@ -791,7 +791,7 @@ describe("Rollovers", () => {
         it("rollover with items signature reverts if the verifier is not approved", async () => {
             const {
                 originationController,
-                originationConfiguration,
+                originationHelpers,
                 mockERC20,
                 mockERC721,
                 vaultFactory,
@@ -805,7 +805,7 @@ describe("Rollovers", () => {
             await mockERC721.connect(borrower).transferFrom(borrower.address, bundleId.toString(), collateralId);
 
             // Remove verifier approval
-            await originationConfiguration.setAllowedVerifiers([verifier.address], [false]);
+            await originationHelpers.setAllowedVerifiers([verifier.address], [false]);
 
             // create new terms for rollover and sign them
             const newTerms = await createLoanTerms(mockERC20.address, vaultFactory.address, loanTerms);
@@ -848,7 +848,7 @@ describe("Rollovers", () => {
                 originationController
                     .connect(borrower)
                     .rolloverLoan(loanId, newTerms, newLender.address, sig, rolloverSigProperties, predicates),
-            ).to.be.revertedWith("OC_InvalidVerifier");
+            ).to.be.revertedWith("OCC_InvalidVerifier");
         });
 
         it("rollover with items signature reverts if invalid collateral in predicates", async () => {
@@ -909,7 +909,7 @@ describe("Rollovers", () => {
                 originationController
                     .connect(borrower)
                     .rolloverLoan(loanId, newTerms, newLender.address, sig, rolloverSigProperties, predicates),
-            ).to.be.revertedWith("OC_PredicateFailed");
+            ).to.be.revertedWith("OCC_PredicateFailed");
         });
 
         it("rollover with items signature reverts if already repaid", async () => {

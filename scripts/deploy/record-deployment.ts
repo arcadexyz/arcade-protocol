@@ -91,8 +91,8 @@ export async function recordDeployment(
         constructorArgs: constructorArgs.originationController,
     };
 
-    contractInfo["OriginationConfiguration"] = {
-        contractAddress: resources.originationConfiguration.address,
+    contractInfo["OriginationHelpers"] = {
+        contractAddress: resources.originationHelpers.address,
         constructorArgs: [],
     };
 

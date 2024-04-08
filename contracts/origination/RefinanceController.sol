@@ -12,7 +12,7 @@ import "../libraries/LoanLibrary.sol";
 import "../libraries/Constants.sol";
 
 import "../interfaces/IRefinanceController.sol";
-import "../interfaces/IOriginationConfiguration.sol";
+import "../interfaces/IOriginationHelpers.sol";
 import "../interfaces/ILoanCore.sol";
 
 import {
@@ -42,14 +42,14 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
     uint256 public constant MINIMUM_INTEREST_CHANGE = 1000; // 10%
 
     /// @notice The lending protocol contracts
-    IOriginationConfiguration public immutable originationConfig;
+    IOriginationHelpers public immutable originationHelpers;
     ILoanCore public immutable loanCore;
 
-    constructor(address _originationConfig, address _loanCore) {
-        if (_originationConfig == address(0)) revert REFI_ZeroAddress("_originationConfig");
+    constructor(address _originationHelpers, address _loanCore) {
+        if (_originationHelpers == address(0)) revert REFI_ZeroAddress("_originationHelpers");
         if (_loanCore == address(0)) revert REFI_ZeroAddress("_loanCore");
 
-        originationConfig = IOriginationConfiguration(_originationConfig);
+        originationHelpers = IOriginationHelpers(_originationHelpers);
         loanCore = ILoanCore(_loanCore);
     }
 
@@ -61,12 +61,14 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
      *
      * @param loanId                             The ID of the loan to be refinanced.
      * @param newTerms                           The new loan terms.
+     * @param itemPredicates                     The predicate rules for the items in the bundle.
      *
      * @return newLoanId                         The ID of the new loan.
      */
     function refinanceLoan(
         uint256 loanId,
-        LoanLibrary.LoanTerms calldata newTerms
+        LoanLibrary.LoanTerms calldata newTerms,
+        LoanLibrary.Predicate[] calldata itemPredicates
     ) external override returns (uint256 newLoanId) {
         LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
 
@@ -74,13 +76,18 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
         _validateRefinance(data, newTerms);
 
         address borrower = IERC721(loanCore.borrowerNote()).ownerOf(loanId);
+        address lender = msg.sender;
 
         newLoanId = _refinance(
             loanId,
             newTerms,
             borrower,
-            msg.sender
+            lender
         );
+
+        // Run predicates check at the end of the function, after vault is in escrow. This makes sure
+        // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
+        if (itemPredicates.length > 0) originationHelpers.runPredicatesCheck(borrower, lender, newTerms, itemPredicates);
     }
 
     /**
@@ -99,7 +106,7 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
     ) internal view {
         // payable currency and collateral must be whitelisted
         // principal must be greater than or equal to the configured minimum
-        originationConfig.validateWhitelist(newTerms.payableCurrency, newTerms.principal, newTerms.collateralAddress);
+        originationHelpers.validateWhitelist(newTerms.payableCurrency, newTerms.principal, newTerms.collateralAddress);
 
         // cannot refinance a loan that has already been repaid
         if (oldLoanData.state != LoanLibrary.LoanState.Active) revert REFI_InvalidState(oldLoanData.state);
