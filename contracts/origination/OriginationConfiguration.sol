@@ -11,7 +11,6 @@ import "../interfaces/IOriginationConfiguration.sol";
 
 import {
     OCC_ZeroAddress,
-    OCC_NotWhitelisted,
     OCC_BatchLengthMismatch,
     OCC_ZeroArrayElements,
     OCC_ArrayTooManyElements,
@@ -53,29 +52,41 @@ contract OriginationConfiguration is IOriginationConfiguration, AccessControlEnu
     // ================================ LOAN TERMS VALIDATION ===================================
 
     /**
-     * @dev Validates argument bounds for the loan terms.
+     * @dev Validates loan terms constraints.
      *
      * @param terms                  The terms of the loan.
      */
-    // solhint-disable-next-line code-complexity
     function validateLoanTerms(LoanLibrary.LoanTerms memory terms) public view {
-        // validate payable currency
-        if (!isAllowedCurrency(terms.payableCurrency)) revert OCC_InvalidCurrency(terms.payableCurrency);
-
-        // principal must be greater than or equal to the configured minimum
-        if (terms.principal < getMinPrincipal(terms.payableCurrency)) revert OCC_PrincipalTooLow(terms.principal);
+        validateWhitelist(terms.payableCurrency, terms.principal, terms.collateralAddress);
 
         // loan duration must be greater or equal to 1 hr and less or equal to 3 years
-        if (terms.durationSecs < Constants.MIN_LOAN_DURATION || terms.durationSecs > Constants.MAX_LOAN_DURATION) revert OCC_LoanDuration(terms.durationSecs);
+        if (
+            terms.durationSecs < Constants.MIN_LOAN_DURATION ||
+            terms.durationSecs > Constants.MAX_LOAN_DURATION
+        ) revert OCC_LoanDuration(terms.durationSecs);
 
         // interest rate must be greater than or equal to 0.01% and less or equal to 1,000,000%
         if (terms.interestRate < 1 || terms.interestRate > 1e8) revert OCC_InterestRate(terms.interestRate);
 
         // signature must not have already expired
         if (terms.deadline < block.timestamp) revert OCC_SignatureIsExpired(terms.deadline);
+    }
 
-        // validate collateral
-        if (!isAllowedCollateral(terms.collateralAddress)) revert OCC_InvalidCollateral(terms.collateralAddress);
+    /**
+     * @notice Validates that the currency and collateral are whitelisted. Also checks that
+     *         the principal amount is larger than the minimum allowable amount. Reverts if
+     *         any of the conditions are not met.
+     *
+     * @param currency               The address of the specified currency.
+     * @param principalAmount        The principal amount of the loan.
+     * @param collateral             The address of the specified collateral.
+     */
+    function validateWhitelist(address currency, uint256 principalAmount, address collateral) public view {
+        // principal must be greater than or equal to the configured minimum
+        // also checks that the currency is whitelisted
+        if (principalAmount < getMinPrincipal(currency)) revert OCC_PrincipalTooLow(principalAmount);
+        // collateral must be whitelisted
+        if (!isAllowedCollateral(collateral)) revert OCC_InvalidCollateral(collateral);
     }
 
     // ========================================= VIEW ===========================================
@@ -103,14 +114,15 @@ contract OriginationConfiguration is IOriginationConfiguration, AccessControlEnu
     }
 
     /**
-     * @notice Returns the minimum principal amount for the specified currency.
+     * @notice Returns the minimum principal amount for the specified currency. The currency must be
+     *         whitelisted else the function will revert.
      *
      * @param currency              The address of the specified currency.
      *
      * @return minPrincipal         The minimum principal amount for the specified currency.
      */
     function getMinPrincipal(address currency) public view returns (uint256) {
-        if (!_allowedCurrencies[currency].isAllowed) revert OCC_NotWhitelisted(currency);
+        if (!_allowedCurrencies[currency].isAllowed) revert OCC_InvalidCurrency(currency);
 
         return _allowedCurrencies[currency].minPrincipal;
     }

@@ -280,7 +280,7 @@ describe("OriginationConfiguration", () => {
             const { originationConfiguration, mockERC20 } = ctx;
 
             await expect(originationConfiguration.getMinPrincipal(mockERC20.address))
-                .to.be.revertedWith("OCC_NotWhitelisted");
+                .to.be.revertedWith("OCC_InvalidCurrency");
         });
 
         it("Reverts when whitelist manager role tries to whitelist collateral with no address provided", async () => {

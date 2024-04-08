@@ -24,8 +24,7 @@ import {
     REFI_CollateralMismatch,
     REFI_CurrencyMismatch,
     REFI_SameLender,
-    REFI_PrincipalIncrease,
-    REFI_PrincipalTooLow
+    REFI_PrincipalIncrease
 } from "../errors/Lending.sol";
 
 
@@ -98,25 +97,31 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
         LoanLibrary.LoanData memory oldLoanData,
         LoanLibrary.LoanTerms calldata newTerms
     ) internal view {
+        // payable currency and collateral must be whitelisted
+        // principal must be greater than or equal to the configured minimum
+        originationConfig.validateWhitelist(newTerms.payableCurrency, newTerms.principal, newTerms.collateralAddress);
+
         // cannot refinance a loan that has already been repaid
         if (oldLoanData.state != LoanLibrary.LoanState.Active) revert REFI_InvalidState(oldLoanData.state);
 
         // cannot refinance a loan before it has been active for 2 days
         if (block.timestamp < oldLoanData.startDate + 2 days) revert REFI_TooEarly(oldLoanData.startDate + 2 days);
 
-        // new interest rate APR must be lower than old interest rate by minimum
         uint256 aprMinimumScaled =
             oldLoanData.terms.interestRate * (Constants.BASIS_POINTS_DENOMINATOR - MINIMUM_INTEREST_CHANGE);
         if (
+            // interest rate cannot be 0
             newTerms.interestRate < 1 ||
+            // new interest rate APR must be lower than old interest rate by minimum
             newTerms.interestRate * Constants.BASIS_POINTS_DENOMINATOR > aprMinimumScaled
         ) revert REFI_InterestRate(aprMinimumScaled);
 
-        // new due date cannot be shorter than old due date and must be shorter than 3 years
         uint256 oldDueDate = oldLoanData.startDate + oldLoanData.terms.durationSecs;
         uint256 newDueDate = block.timestamp + newTerms.durationSecs;
         if (
+            // new due date cannot be shorter than old due date
             newDueDate < oldDueDate ||
+            // new duration must be within loan duration limits
             newTerms.durationSecs < Constants.MIN_LOAN_DURATION ||
             newTerms.durationSecs > Constants.MAX_LOAN_DURATION
         ) revert REFI_LoanDuration(oldDueDate, newDueDate);
@@ -137,11 +142,6 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
             oldLoanData.terms.payableCurrency,
             newTerms.payableCurrency
         );
-
-        // new principal cannot be less than minimum
-        if (newTerms.principal < originationConfig.getMinPrincipal(newTerms.payableCurrency)) {
-            revert REFI_PrincipalTooLow(newTerms.principal);
-        }
 
         // principal cannot increase
         if (newTerms.principal > oldLoanData.balance) revert REFI_PrincipalIncrease(

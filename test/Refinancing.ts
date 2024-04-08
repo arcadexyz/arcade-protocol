@@ -1179,21 +1179,26 @@ describe("Refinancing", () => {
             await mint(mockERC20, newLender, newLenderOwes);
             await approve(mockERC20, newLender, loanCore.address, newLenderOwes);
 
-            // refinance loan
+            // try to refinance loan with different collateral Id
             await expect(refinanceController.connect(newLender).refinanceLoan(1, refiLoanTerms1))
                 .to.be.revertedWith("REFI_CollateralMismatch");
 
-            const refiLoanTerms2 = createLoanTerms(mockERC20.address, ethers.constants.AddressZero, {
+            const refiLoanTerms2 = createLoanTerms(mockERC20.address, mockERC721.address, {
                 collateralId: bundleId,
                 interestRate: BigNumber.from(500)
             });
 
+            // try to refinance loan with different collateral address
             await expect(refinanceController.connect(newLender).refinanceLoan(1, refiLoanTerms2))
                 .to.be.revertedWith("REFI_CollateralMismatch");
         });
 
         it("Payable currency cannot be changed in during refinancing", async () => {
-            const { originationController, refinanceController, loanCore, mockERC20, mockERC721, vaultFactory, lender, borrower, newLender, blockchainTime, } = ctx;
+            const { originationController, originationConfiguration, refinanceController, loanCore, mockERC20, mockERC721, vaultFactory, lender, borrower, newLender, blockchainTime } = ctx;
+
+            // deploy a new ERC20 token
+            const otherERC20 = <MockERC20>await deploy("MockERC20", lender, ["Mock ERC20", "MOCK"]);
+            await originationConfiguration.connect(lender).setAllowedPayableCurrencies([otherERC20.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
 
             const bundleId = await initializeBundle(vaultFactory, borrower);
             const bundleAddress = await vaultFactory.instanceAt(bundleId);
@@ -1225,7 +1230,7 @@ describe("Refinancing", () => {
 
             // refinance loan terms
             const loanData: LoanData = await loanCore.getLoan(1);
-            const refiLoanTerms = createLoanTerms(ethers.constants.AddressZero, vaultFactory.address, {
+            const refiLoanTerms = createLoanTerms(otherERC20.address, vaultFactory.address, {
                 collateralId: bundleId,
                 interestRate: BigNumber.from(500)
             });
@@ -1365,7 +1370,7 @@ describe("Refinancing", () => {
 
             // refinance loan
             await expect(refinanceController.connect(newLender).refinanceLoan(1, refiLoanTerms))
-                .to.be.revertedWith("REFI_PrincipalTooLow");
+                .to.be.revertedWith("OCC_PrincipalTooLow");
         });
 
         it("New principal cannot greater than loan's balance", async () => {
@@ -1430,6 +1435,198 @@ describe("Refinancing", () => {
             // refinance loan
             await expect(refinanceController.connect(newLender).refinanceLoan(1, refiLoanTerms))
                 .to.be.revertedWith("REFI_PrincipalIncrease");
+        });
+
+        it("cannot refinance if old interest rate is minimum (0.01%)", async () => {
+            const { originationController, refinanceController, loanCore, mockERC20, mockERC721, vaultFactory, lender, borrower, newLender, blockchainTime, } = ctx;
+
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            const tokenId = await mint721(mockERC721, borrower);
+            await mockERC721.connect(borrower).transferFrom(borrower.address, bundleAddress, tokenId);
+
+            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId, interestRate: BigNumber.from(1) });
+            await mint(mockERC20, lender, loanTerms.principal);
+            await approve(mockERC20, lender, originationController.address, loanTerms.principal);
+
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                lender,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "l",
+            );
+
+            // start initial loan
+            await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
+            await originationController
+                .connect(borrower)
+                .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []);
+
+            // fast forward 2 days
+            await blockchainTime.increaseTime(60 * 60 * 24 * 2);
+
+            // refinance loan terms, same due date, better interest and principal
+            const loanData: LoanData = await loanCore.getLoan(1);
+            const loanEndDate = BigNumber.from(loanData.startDate).add(loanData.terms.durationSecs);
+            const sameDueDate = loanEndDate.sub(await blockchainTime.secondsFromNow(3));
+            const refiLoanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, {
+                collateralId: bundleId,
+                principal: loanTerms.principal, // same principal
+                interestRate: BigNumber.from(1),
+                durationSecs: sameDueDate
+            });
+
+            // approve old loan interest and new principal to be collected by LoanCore
+            const interestDue = await originationController.getProratedInterestAmount(
+                loanData.balance,
+                loanData.terms.interestRate,
+                loanData.terms.durationSecs,
+                loanData.startDate,
+                loanData.lastAccrualTimestamp,
+                await blockchainTime.secondsFromNow(3),
+            );
+
+            const newLenderOwes: BigNumber = refiLoanTerms.principal.add(interestDue);
+
+            await mint(mockERC20, newLender, newLenderOwes);
+            await approve(mockERC20, newLender, refinanceController.address, newLenderOwes);
+
+            // try to refinance loan
+            await expect(refinanceController.connect(newLender).refinanceLoan(1, refiLoanTerms))
+                .to.be.revertedWith("REFI_InterestRate");
+        });
+
+        it("cannot refinance with invalid collateral", async () => {
+            const { originationController, originationConfiguration, refinanceController, loanCore, mockERC20, mockERC721, vaultFactory, lender, borrower, newLender, blockchainTime, } = ctx;
+
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            const tokenId = await mint721(mockERC721, borrower);
+            await mockERC721.connect(borrower).transferFrom(borrower.address, bundleAddress, tokenId);
+
+            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
+            await mint(mockERC20, lender, loanTerms.principal);
+            await approve(mockERC20, lender, originationController.address, loanTerms.principal);
+
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                lender,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "l",
+            );
+
+            // start initial loan
+            await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
+            await originationController
+                .connect(borrower)
+                .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []);
+
+            // admin removes collateral
+            await originationConfiguration.connect(lender).setAllowedCollateralAddresses([vaultFactory.address], [false]);
+
+            // fast forward 2 days
+            await blockchainTime.increaseTime(60 * 60 * 24 * 2);
+
+            // refinance loan terms, same due date, better interest and principal
+            const loanData: LoanData = await loanCore.getLoan(1);
+            const loanEndDate = BigNumber.from(loanData.startDate).add(loanData.terms.durationSecs);
+            const sameDueDate = loanEndDate.sub(await blockchainTime.secondsFromNow(3));
+            const refiLoanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, {
+                collateralId: bundleId,
+                principal: loanTerms.principal, // same principal
+                interestRate: BigNumber.from(500),
+                durationSecs: sameDueDate
+            });
+
+            // approve old loan interest and new principal to be collected by LoanCore
+            const interestDue = await originationController.getProratedInterestAmount(
+                loanData.balance,
+                loanData.terms.interestRate,
+                loanData.terms.durationSecs,
+                loanData.startDate,
+                loanData.lastAccrualTimestamp,
+                await blockchainTime.secondsFromNow(3),
+            );
+
+            const newLenderOwes: BigNumber = refiLoanTerms.principal.add(interestDue);
+
+            await mint(mockERC20, newLender, newLenderOwes);
+            await approve(mockERC20, newLender, refinanceController.address, newLenderOwes);
+
+            // try to refinance loan
+            await expect(refinanceController.connect(newLender).refinanceLoan(1, refiLoanTerms))
+                .to.be.revertedWith("OCC_InvalidCollateral");
+        });
+
+        it("cannot refinance with invalid payable currency", async () => {
+            const { originationController, originationConfiguration, refinanceController, loanCore, mockERC20, mockERC721, vaultFactory, lender, borrower, newLender, blockchainTime, } = ctx;
+
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            const tokenId = await mint721(mockERC721, borrower);
+            await mockERC721.connect(borrower).transferFrom(borrower.address, bundleAddress, tokenId);
+
+            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
+            await mint(mockERC20, lender, loanTerms.principal);
+            await approve(mockERC20, lender, originationController.address, loanTerms.principal);
+
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                lender,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "l",
+            );
+
+            // start initial loan
+            await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
+            await originationController
+                .connect(borrower)
+                .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, []);
+
+            // admin removes payable currency
+            await originationConfiguration.connect(lender).setAllowedPayableCurrencies([mockERC20.address], [{ isAllowed: false, minPrincipal: MIN_LOAN_PRINCIPAL }]);
+
+            // fast forward 2 days
+            await blockchainTime.increaseTime(60 * 60 * 24 * 2);
+
+            // refinance loan terms, same due date, better interest and principal
+            const loanData: LoanData = await loanCore.getLoan(1);
+            const loanEndDate = BigNumber.from(loanData.startDate).add(loanData.terms.durationSecs);
+            const sameDueDate = loanEndDate.sub(await blockchainTime.secondsFromNow(3));
+            const refiLoanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, {
+                collateralId: bundleId,
+                principal: loanTerms.principal, // same principal
+                interestRate: BigNumber.from(500),
+                durationSecs: sameDueDate
+            });
+
+            // approve old loan interest and new principal to be collected by LoanCore
+            const interestDue = await originationController.getProratedInterestAmount(
+                loanData.balance,
+                loanData.terms.interestRate,
+                loanData.terms.durationSecs,
+                loanData.startDate,
+                loanData.lastAccrualTimestamp,
+                await blockchainTime.secondsFromNow(3),
+            );
+
+            const newLenderOwes: BigNumber = refiLoanTerms.principal.add(interestDue);
+
+            await mint(mockERC20, newLender, newLenderOwes);
+            await approve(mockERC20, newLender, refinanceController.address, newLenderOwes);
+
+            // try to refinance loan
+            await expect(refinanceController.connect(newLender).refinanceLoan(1, refiLoanTerms))
+                .to.be.revertedWith("OCC_InvalidCurrency");
         });
     });
 });
