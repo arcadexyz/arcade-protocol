@@ -47,28 +47,14 @@ library OriginationLibrary {
     bytes32 public constant _TOKEN_ID_TYPEHASH =
         keccak256(
             // solhint-disable-next-line max-line-length
-            "Loan(LoanTerms terms,SigProperties sigProperties,uint8 side,address signingCounterparty)LoanTerms(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,uint256 collateralId,bytes32 affiliateCode)SigProperties(uint160 nonce,uint96 maxUses)"
-        );
-
-    /// @notice EIP712 type hash for LoanTerms.
-    bytes32 public constant _LOAN_TERMS_TYPEHASH =
-        keccak256(
-            // solhint-disable-next-line max-line-length
-            "LoanTerms(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,uint256 collateralId,bytes32 affiliateCode)"
+            "LoanTerms(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,uint256 collateralId,bytes32 affiliateCode,SigProperties sigProperties,uint8 side,address signingCounterparty)SigProperties(uint160 nonce,uint96 maxUses)"
         );
 
     /// @notice EIP712 type hash for item-based signatures.
     bytes32 public constant _ITEMS_TYPEHASH =
         keccak256(
             // solhint-disable max-line-length
-            "LoanWithItems(LoanTermsWithItems termsWithItems,SigProperties sigProperties,uint8 side,address signingCounterparty)LoanTermsWithItems(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,bytes32 affiliateCode,Predicate[] items)Predicate(bytes data,address verifier)SigProperties(uint160 nonce,uint96 maxUses)"
-        );
-
-    /// @notice EIP712 type hash for LoanTermsWithItems.
-    bytes32 public constant _LOAN_TERMS_WITH_ITEMS_TYPEHASH =
-        keccak256(
-            // solhint-disable-next-line max-line-length
-            "LoanTermsWithItems(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,bytes32 affiliateCode,Predicate[] items)Predicate(bytes data,address verifier)"
+            "LoanTermsWithItems(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,bytes32 affiliateCode,Predicate[] items,SigProperties sigProperties,uint8 side,address signingCounterparty)Predicate(bytes data,address verifier)SigProperties(uint160 nonce,uint96 maxUses)"
         );
 
     /// @notice EIP712 type hash for Predicate.
@@ -137,55 +123,6 @@ library OriginationLibrary {
     }
 
     /**
-     * @notice Hashes the loan terms for inclusion in _LOAN_TERMS_TYPEHASH.
-     *
-     * @param terms                         The loan terms.
-     *
-     * @return termsHash                    The hash of the loan terms.
-     */
-    function encodeLoanTerms(LoanLibrary.LoanTerms calldata terms) public pure returns (bytes32 termsHash) {
-        termsHash = keccak256(
-            abi.encode(
-                _LOAN_TERMS_TYPEHASH,
-                terms.interestRate,
-                terms.durationSecs,
-                terms.collateralAddress,
-                terms.deadline,
-                terms.payableCurrency,
-                terms.principal,
-                terms.collateralId,
-                terms.affiliateCode
-            )
-        );
-    }
-
-    /**
-     * @notice Hashes a loan for inclusion in the _LOAN_TERMS_WITH_ITEMS_TYPEHASH.
-     *
-     * @param terms                         The loan terms.
-     * @param itemPredicates                The predicate rules for the items in the bundle.
-     *
-     * @return termsWithItemsHash           The hash of the loan terms with items.
-     */
-    function encodeLoanTermsWithItems(LoanLibrary.LoanTerms calldata terms, LoanLibrary.Predicate[] calldata itemPredicates) public pure returns (bytes32 termsWithItemsHash) {
-        bytes32 itemPredicatesHash = encodePredicates(itemPredicates);
-
-        termsWithItemsHash = keccak256(
-            abi.encode(
-                _LOAN_TERMS_WITH_ITEMS_TYPEHASH,
-                terms.interestRate,
-                terms.durationSecs,
-                terms.collateralAddress,
-                terms.deadline,
-                terms.payableCurrency,
-                terms.principal,
-                terms.affiliateCode,
-                itemPredicatesHash
-            )
-        );
-    }
-
-    /**
      * @notice Hashes a loan for inclusion in the EIP712 signature.
      *
      * @param terms                         The loan terms.
@@ -204,9 +141,16 @@ library OriginationLibrary {
         loanHash = keccak256(
             abi.encode(
                 _TOKEN_ID_TYPEHASH,
-                encodeLoanTerms(terms),
+                terms.interestRate,
+                terms.durationSecs,
+                terms.collateralAddress,
+                terms.deadline,
+                terms.payableCurrency,
+                terms.principal,
+                terms.collateralId,
+                terms.affiliateCode,
                 encodeSigProperties(sigProperties),
-                side,
+                uint8(side),
                 signingCounterparty
             )
         );
@@ -233,7 +177,14 @@ library OriginationLibrary {
         loanWithItemsHash = keccak256(
             abi.encode(
                 _ITEMS_TYPEHASH,
-                encodeLoanTermsWithItems(terms, itemPredicates),
+                terms.interestRate,
+                terms.durationSecs,
+                terms.collateralAddress,
+                terms.deadline,
+                terms.payableCurrency,
+                terms.principal,
+                terms.affiliateCode,
+                encodePredicates(itemPredicates),
                 encodeSigProperties(sigProperties),
                 side,
                 signingCounterparty
