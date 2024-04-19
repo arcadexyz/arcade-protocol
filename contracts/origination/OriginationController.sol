@@ -158,7 +158,7 @@ contract OriginationController is
             loanCore.consumeNonce(externalSigner, sigProperties.nonce, sigProperties.maxUses);
         }
 
-        loanId = _initialize(loanTerms, borrowerData, lender);
+        loanId = _initialize(loanTerms, borrowerData, lender, neededSide);
 
         // Run predicates check at the end of the function, after vault is in escrow. This makes sure
         // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
@@ -444,13 +444,15 @@ contract OriginationController is
      * @param loanTerms                     The terms agreed by the lender and borrower.
      * @param borrowerData                  Struct containing borrower address and any callback data.
      * @param lender                        Address of the lender.
+     * @param neededSide                    The side of the loan the signature will take (lend or borrow).
      *
      * @return loanId                       The unique ID of the new loan.
      */
     function _initialize(
         LoanLibrary.LoanTerms calldata loanTerms,
         BorrowerData calldata borrowerData,
-        address lender
+        address lender,
+        Side neededSide
     ) internal nonReentrant returns (uint256 loanId) {
         // get fee snapshot from fee controller
         (LoanLibrary.FeeSnapshot memory feeSnapshot) = feeController.getFeeSnapshot();
@@ -460,9 +462,9 @@ contract OriginationController is
         IERC20(loanTerms.payableCurrency).safeTransferFrom(lender, borrowerData.borrower, loanTerms.principal);
 
         // ----------------------- Express borrow callback --------------------------
-        // If callback params present, call the callback function on the borrower
-        if (borrowerData.callbackData.length > 0) {
-            IExpressBorrow(borrowerData.borrower).executeOperation(msg.sender, lender, loanTerms, 0, borrowerData.callbackData);
+        // If callback params present and the caller is on the borrow side, call the callback function on the borrower
+        if (borrowerData.callbackData.length > 0 && neededSide == Side.LEND) {
+            IExpressBorrow(borrowerData.borrower).executeOperation(msg.sender, lender, loanTerms, borrowerData.callbackData);
         }
 
         // ---------------------- LoanCore collects collateral ----------------------
