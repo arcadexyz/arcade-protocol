@@ -40,7 +40,6 @@ const typedLoanData: TypeData = {
             { name: "sigProperties", type: "SigProperties" },
             { name: "side", type: "uint8" },
             { name: "signingCounterparty", type: "address"},
-            { name: "callbackData", type: "bytes"}
         ],
         LoanTerms: [
             { name: "interestRate", type: "uint32" },
@@ -67,7 +66,6 @@ const typedLoanItemsData: TypeData = {
             { name: "sigProperties", type: "SigProperties" },
             { name: "side", type: "uint8" },
             { name: "signingCounterparty", type: "address"},
-            { name: "callbackData", type: "bytes"}
         ],
         SigProperties: [
             { name: "nonce", type: "uint160" },
@@ -127,7 +125,6 @@ export async function createLoanTermsSignature(
     _side: "b" | "l",
     extraData = "0x",
     _signingCounterparty?: string,
-    callbackData= "0x",
 ): Promise<InitializeLoanSignature> {
     const side = _side === "b" ? 0 : 1;
     const signingCounterparty = _signingCounterparty ?? signer.address;
@@ -136,7 +133,6 @@ export async function createLoanTermsSignature(
         sigProperties,
         side,
         signingCounterparty,
-        callbackData: callbackData,
     }
     const data = buildData(verifyingContract, name, version, message, typedLoanData);
     const signature = await signer._signTypedData(data.domain, data.types, data.message);
@@ -168,7 +164,6 @@ export async function createLoanItemsSignature(
     _side: "b" | "l",
     extraData = "0x",
     _signingCounterparty?: string,
-    callbackData= "0x",
 ): Promise<InitializeLoanSignature> {
     const side = _side === "b" ? 0 : 1;
     const signingCounterparty = _signingCounterparty ?? signer.address;
@@ -181,7 +176,6 @@ export async function createLoanItemsSignature(
         sigProperties,
         side,
         signingCounterparty,
-        callbackData: callbackData,
     };
 
     const data = buildData(verifyingContract, name, version, message, typedLoanItemsData);
