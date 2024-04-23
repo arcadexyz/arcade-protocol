@@ -18,7 +18,8 @@ import {
     RC_ZeroAddress,
     RC_InvalidState,
     RC_OnlyLender,
-    RC_InvalidRepayment
+    RC_InvalidRepayment,
+    RC_NeedFullRepayAmount
 } from "./errors/Lending.sol";
 
 /**
@@ -77,19 +78,11 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     function repay(uint256 loanId, uint256 amount) external override {
         // no zero amount check, minimum principal could be 0 for this payable currency
 
-        // get loan data
-        LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
-
-        // if the loan duration has passed, the loan must be paid in full
-        if (block.timestamp >= data.startDate + data.terms.durationSecs) {
-            amount = type(uint256).max;
-        }
-
         (
             uint256 amountToLender,
             uint256 interestAmount,
             uint256 paymentToPrincipal
-        ) = _prepareRepay(data, amount);
+        ) = _prepareRepay(loanId, amount);
 
         // call repay function in LoanCore - msg.sender will pay the amountFromBorrower
         loanCore.repay(loanId, msg.sender, amountToLender, interestAmount, paymentToPrincipal);
@@ -104,14 +97,11 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
      * @param  loanId               The ID of the loan.
      */
     function repayFull(uint256 loanId) external override {
-        // get loan data
-        LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
-
         (
             uint256 amountToLender,
             uint256 interestAmount,
             uint256 paymentToPrincipal
-        ) = _prepareRepay(data, type(uint256).max);
+        ) = _prepareRepay(loanId, type(uint256).max);
 
         // call repay function in LoanCore - msg.sender will pay the amountFromBorrower
         loanCore.repay(loanId, msg.sender, amountToLender, interestAmount, paymentToPrincipal);
@@ -133,19 +123,11 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     function forceRepay(uint256 loanId, uint256 amount) external override {
         // no zero amount check, minimum principal could be 0 for this payable currency
 
-        // get loan data
-        LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
-
-        // if the loan duration has passed, the loan must be paid in full
-        if (block.timestamp >= data.startDate + data.terms.durationSecs) {
-            amount = type(uint256).max;
-        }
-
         (
             uint256 amountToLender,
             uint256 interestAmount,
             uint256 paymentToPrincipal
-        ) = _prepareRepay(data, amount);
+        ) = _prepareRepay(loanId, amount);
 
         // call repay function in LoanCore - msg.sender will pay the amountFromBorrower
         loanCore.forceRepay(loanId, msg.sender, amountToLender, interestAmount, paymentToPrincipal);
@@ -190,14 +172,14 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     /**
      * @dev Shared logic to perform validation and calculations for repay and forceRepay.
      *
-     * @param data                  The active loan's data.
+     * @param loanId                The ID of the loan.
      * @param amount                The amount to repay.
      *
      * @return amountToLender       The amount owed to the lender.
      * @return interestAmount       The amount of interest due.
      * @return paymentToPrincipal   The portion of the repayment amount that goes to principal.
      */
-    function _prepareRepay(LoanLibrary.LoanData memory data, uint256 amount)
+    function _prepareRepay(uint256 loanId, uint256 amount)
         internal
         view
         returns (
@@ -206,6 +188,9 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
             uint256 paymentToPrincipal
         )
     {
+        // get loan data
+        LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
+
         // loan state checks
         if (data.state != LoanLibrary.LoanState.Active) revert RC_InvalidState(data.state);
 
@@ -230,6 +215,12 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
             // if so, set payment to principal to the loan balance
             paymentToPrincipal = data.balance;
         }
+
+        // if the loan duration has passed, loan must be paid in full
+        if (
+            block.timestamp >= data.startDate + data.terms.durationSecs && // loan duration has passed
+            paymentToPrincipal != data.balance // payment to principal must equal remaining balance
+        ) revert RC_NeedFullRepayAmount(paymentToPrincipal, data.balance);
 
         // calculate fees on interest and principal
         uint256 interestFee = (interestAmount * data.lenderInterestFee) / Constants.BASIS_POINTS_DENOMINATOR;

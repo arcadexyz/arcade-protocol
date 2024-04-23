@@ -758,7 +758,7 @@ describe("PartialRepayments", () => {
             // partial repayment
             await expect(
                 repaymentController.connect(borrower).repay(loanId, grossInterest1)
-            ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
+            ).to.be.revertedWith("RC_NeedFullRepayAmount");
         });
 
         it("borrower repays after loan has ended.", async () => {
@@ -786,17 +786,16 @@ describe("PartialRepayments", () => {
                 loanData.lastAccrualTimestamp,
                 t1
             );
+            const repayAmount1 = grossInterest1.add(loanData.terms.principal);
 
             // mint borrower interest
             await mint(mockERC20, borrower, grossInterest1);
-            // approve loan core to spend interest
-            await mockERC20.connect(borrower).approve(loanCore.address, grossInterest1.add(loanData.terms.principal));
+            // approve loan core to spend full repay amount
+            await mockERC20.connect(borrower).approve(loanCore.address, repayAmount1);
 
-            // borrower repays entire loan even after loan has ended
-            // note the interest amount is less than the amount owes
-            // but the borrower has an open approval for the entire interest and principal amount
+            // borrower repays entire loan after loan has ended
             await expect(
-                repaymentController.connect(borrower).repay(loanId, grossInterest1)
+                repaymentController.connect(borrower).repay(loanId, repayAmount1)
             ).to.emit(loanCore, "LoanRepaid").withArgs(loanId);
 
             // check loan data

@@ -616,7 +616,7 @@ describe("RepaymentController", () => {
             await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(repaymentController.connect(borrower).repay(loanId, total))
-                .to.be.revertedWith("ERC20: transfer amount exceeds balance");
+                .to.be.revertedWith("RC_NeedFullRepayAmount");
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
 
