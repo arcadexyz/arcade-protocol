@@ -349,6 +349,13 @@ error REFI_SameLender(address lender);
  */
 error REFI_PrincipalIncrease(uint256 oldPrincipal, uint256 newPrincipal);
 
+/**
+ * @notice Cannot refinance a loan that is past it's due date.
+ *
+ * @param oldDueDate                  The due date of the active loan.
+ */
+error REFI_AfterLoanDuration(uint256 oldDueDate);
+
 // ==================================== ITEMS VERIFIER ======================================
 /// @notice All errors prefixed with IV_, to separate from other contracts in the protocol.
 

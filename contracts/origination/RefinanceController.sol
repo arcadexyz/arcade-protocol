@@ -24,7 +24,8 @@ import {
     REFI_CollateralMismatch,
     REFI_CurrencyMismatch,
     REFI_SameLender,
-    REFI_PrincipalIncrease
+    REFI_PrincipalIncrease,
+    REFI_AfterLoanDuration
 } from "../errors/Lending.sol";
 
 
@@ -132,6 +133,9 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
             newTerms.durationSecs < Constants.MIN_LOAN_DURATION ||
             newTerms.durationSecs > Constants.MAX_LOAN_DURATION
         ) revert REFI_LoanDuration(oldDueDate, newDueDate);
+
+        // must be before the old due date
+        if (oldDueDate <= block.timestamp) revert REFI_AfterLoanDuration(oldDueDate);
 
         // collateral must be the same
         if (
