@@ -271,6 +271,11 @@ error OCM_CollateralMismatch(
     uint256 newCollateralId
 );
 
+/**
+ * @notice The lender specified for a migration cannot be the current borrower.
+ */
+error OCM_LenderIsBorrower();
+
 // ================================= REFINANCE CONTROLLER =====================================
 /// @notice All errors prefixed with REFI_, to separate from other contracts in the protocol.
 

@@ -24,7 +24,8 @@ import {
     OCM_InvalidState,
     OCM_SideMismatch,
     OCM_CurrencyMismatch,
-    OCM_CollateralMismatch
+    OCM_CollateralMismatch,
+    OCM_LenderIsBorrower
 } from "../errors/Lending.sol";
 
 contract OriginationControllerMigrate is IMigrationBase, OriginationController, ERC721Holder {
@@ -93,6 +94,9 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
             if (!isSelfOrApproved(lender, externalSigner) && !OriginationLibrary.isApprovedForContract(lender, sig, sighash)) {
                 revert OCM_SideMismatch(externalSigner);
             }
+
+            // new lender cannot be the same as the borrower
+            if (msg.sender == lender) revert OCM_LenderIsBorrower();
 
             // consume v4 nonce
             loanCore.consumeNonce(externalSigner, sigProperties.nonce, sigProperties.maxUses);
