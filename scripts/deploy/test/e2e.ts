@@ -58,7 +58,7 @@ describe("Deployment", function () {
     this.timeout(0);
     this.bail();
 
-    it.skip("deploys the contracts and creates the correct artifacts", async () => {
+    it("deploys the contracts and creates the correct artifacts", async () => {
         if (process.env.EXEC) {
             // Deploy everything, via command-line
             console.log(); // whitespace
