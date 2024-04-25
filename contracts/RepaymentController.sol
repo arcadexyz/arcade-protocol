@@ -18,7 +18,8 @@ import {
     RC_ZeroAddress,
     RC_InvalidState,
     RC_OnlyLender,
-    RC_InvalidRepayment
+    RC_InvalidRepayment,
+    RC_NeedFullRepayAmount
 } from "./errors/Lending.sol";
 
 /**
@@ -171,8 +172,8 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
     /**
      * @dev Shared logic to perform validation and calculations for repay and forceRepay.
      *
-     * @param loanId               The ID of the loan.
-     * @param amount               The amount to repay.
+     * @param loanId                The ID of the loan.
+     * @param amount                The amount to repay.
      *
      * @return amountToLender       The amount owed to the lender.
      * @return interestAmount       The amount of interest due.
@@ -214,6 +215,12 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
             // if so, set payment to principal to the loan balance
             paymentToPrincipal = data.balance;
         }
+
+        // if the loan duration has passed, loan must be paid in full
+        if (
+            block.timestamp >= data.startDate + data.terms.durationSecs && // loan duration has passed
+            paymentToPrincipal != data.balance // payment to principal must equal remaining balance
+        ) revert RC_NeedFullRepayAmount(paymentToPrincipal, data.balance);
 
         // calculate fees on interest and principal
         uint256 interestFee = (interestAmount * data.lenderInterestFee) / Constants.BASIS_POINTS_DENOMINATOR;

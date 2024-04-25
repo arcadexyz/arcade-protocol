@@ -593,7 +593,7 @@ describe("RepaymentController", () => {
             expect(await mockERC20.balanceOf(other.address)).to.eq(0);
         });
 
-        it("Repay interest and principal. 25 ETH principal, 2.5% interest rate. Borrower tries to repay with insufficient balance. Loan stays open.", async () => {
+        it("25 ETH principal, 2.5% interest rate. Borrower tries to repay less than total amount due after loan duration passed, reverts.", async () => {
             const { repaymentController, vaultFactory, mockERC20, loanCore, borrower, blockchainTime } = ctx;
 
             const { loanId, bundleId } = await initializeLoan(
@@ -616,7 +616,7 @@ describe("RepaymentController", () => {
             await blockchainTime.increaseTime(31536000 - 3);
 
             await expect(repaymentController.connect(borrower).repay(loanId, total))
-                .to.emit(loanCore, "LoanPayment").withArgs(loanId);
+                .to.be.revertedWith("RC_NeedFullRepayAmount");
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
 

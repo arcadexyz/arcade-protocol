@@ -450,9 +450,9 @@ error RC_OnlyLender(address lender, address caller);
 error RC_InvalidRepayment(uint256 amount, uint256 interestOwed);
 
 /**
- * @notice Repayment amount must be greater than 0.
+ * @notice After the loan duration has passed, a loan can only be repaid in full.
  */
-error RC_ZeroAmount();
+error RC_NeedFullRepayAmount(uint256 principalAmountSent, uint256 currentBalance);
 
 // ====================================== LOAN CORE ======================================
 /// @notice All errors prefixed with LC_, to separate from other contracts in the protocol.
