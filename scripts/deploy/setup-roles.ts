@@ -93,13 +93,11 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     await tx.wait();
     tx = await vaultFactory.renounceRole(FEE_CLAIMER_ROLE, deployer.address);
     await tx.wait();
-    tx = await vaultFactory.renounceRole(RESOURCE_MANAGER_ROLE, deployer.address);
-    await tx.wait();
 
     console.log(`VaultFactory: admin role granted to ${ADMIN}`);
     console.log(`VaultFactory: fee claimer role granted to ${FEE_CLAIMER}`);
     console.log(`VaultFactory: resource manager role granted to ${RESOURCE_MANAGER}`);
-    console.log(`VaultFactory: deployer renounced admin, fee claimer, and resource manager role`);
+    console.log(`VaultFactory: deployer renounced admin and fee claimer role`);
     console.log(SUBSECTION_SEPARATOR);
 
     // =========== borrowerNoteURIDescriptor ============
