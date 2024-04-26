@@ -22,6 +22,8 @@ import {
     SECTION_SEPARATOR,
     SHUTDOWN_ROLE,
     SHUTDOWN_CALLER,
+    MIGRATION_MANAGER,
+    MIGRATION_MANAGER_ROLE,
 } from "../utils/constants";
 
 export interface TxData {
@@ -39,8 +41,10 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     console.log("Resource manager address:", RESOURCE_MANAGER);
     console.log("Call whitelist manager address:", CALL_WHITELIST_MANAGER);
     console.log("Loan whitelist manager address:", LOAN_WHITELIST_MANAGER);
+    console.log("Migration manager address:", MIGRATION_MANAGER);
     console.log("Fee claimer address:", FEE_CLAIMER);
     console.log("Affiliate manager address:", AFFILIATE_MANAGER);
+    console.log("Shutdown caller address:", SHUTDOWN_CALLER);
 
     // Define roles
     const ORIGINATION_CONTROLLER_ADDRESS = resources.originationController.address;
@@ -423,6 +427,66 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     console.log(`LoanCore: old admin to renounce admin, affiliate manager, fee claimer, shutdown roles`);
     console.log(SUBSECTION_SEPARATOR);
 
+    // ============= OriginationHelpers ==============
+
+    const { originationHelpers } = resources;
+    calldata = originationHelpers.interface.encodeFunctionData(
+        "grantRole",
+        [ADMIN_ROLE, ADMIN]
+    );
+    txs.push({
+        index: index++,
+        contractName: "OriginationHelpers",
+        to: originationHelpers.address,
+        functionName: "grantRole",
+        description: "Grant the admin role",
+        calldata
+    });
+
+    calldata = originationHelpers.interface.encodeFunctionData(
+        "grantRole",
+        [WHITELIST_MANAGER_ROLE, LOAN_WHITELIST_MANAGER]
+    );
+    txs.push({
+        index: index++,
+        contractName: "OriginationHelpers",
+        to: originationHelpers.address,
+        functionName: "grantRole",
+        description: "Grant the whitelist manager role",
+        calldata
+    });
+
+    calldata = originationHelpers.interface.encodeFunctionData(
+        "renounceRole",
+        [ADMIN_ROLE, OLD_ADMIN]
+    );
+    txs.push({
+        index: index++,
+        contractName: "OriginationHelpers",
+        to: originationHelpers.address,
+        functionName: "renounceRole",
+        description: "Current owner renounces admin role",
+        calldata
+    });
+
+    calldata = originationHelpers.interface.encodeFunctionData(
+        "renounceRole",
+        [WHITELIST_MANAGER_ROLE, OLD_ADMIN]
+    );
+    txs.push({
+        index: index++,
+        contractName: "OriginationHelpers",
+        to: originationHelpers.address,
+        functionName: "renounceRole",
+        description: "Current owner renounces whitelist manager role",
+        calldata
+    });
+
+    console.log(`OriginationHelpers: admin role to be granted to ${ADMIN}`);
+    console.log(`OriginationHelpers: whitelist manager role to be granted to ${LOAN_WHITELIST_MANAGER}`);
+    console.log(`OriginationHelpers: old admin to renounce admin and whitelist manager role`);
+    console.log(SUBSECTION_SEPARATOR);
+
     // ============= OriginationController ==============
 
     const { originationController } = resources;
@@ -441,25 +505,25 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
 
     calldata = originationController.interface.encodeFunctionData(
         "grantRole",
-        [WHITELIST_MANAGER_ROLE, LOAN_WHITELIST_MANAGER]
+        [MIGRATION_MANAGER_ROLE, MIGRATION_MANAGER]
     );
     txs.push({
         index: index++,
         contractName: "OriginationController",
         to: originationController.address,
         functionName: "grantRole",
-        description: "Grant the whitelist manager role",
+        description: "Grant the migration manager role",
         calldata
     });
 
-    calldata = originationController.interface.encodeFunctionData(
+    calldata = originationHelpers.interface.encodeFunctionData(
         "renounceRole",
         [ADMIN_ROLE, OLD_ADMIN]
     );
     txs.push({
         index: index++,
-        contractName: "OriginationController",
-        to: originationController.address,
+        contractName: "OriginationHelpers",
+        to: originationHelpers.address,
         functionName: "renounceRole",
         description: "Current owner renounces admin role",
         calldata
@@ -467,21 +531,23 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
 
     calldata = originationController.interface.encodeFunctionData(
         "renounceRole",
-        [WHITELIST_MANAGER_ROLE, OLD_ADMIN]
+        [MIGRATION_MANAGER_ROLE, OLD_ADMIN]
     );
     txs.push({
         index: index++,
         contractName: "OriginationController",
         to: originationController.address,
         functionName: "renounceRole",
-        description: "Current owner renounces whitelist manager role",
+        description: "Current owner renounces migration manager role",
         calldata
     });
 
     console.log(`OriginationController: admin role to be granted to ${ADMIN}`);
-    console.log(`OriginationController: whitelist manager role to be granted to ${LOAN_WHITELIST_MANAGER}`);
-    console.log(`OriginationController: old admin to renounce admin and whitelist manager role`);
+    console.log(`OriginationController: migration manager role to be granted to ${MIGRATION_MANAGER}`);
+    console.log(`OriginationController: old admin to renounce admin and migration manager role`);
     console.log(SUBSECTION_SEPARATOR);
+
+    // ============= Save Calldata ==============
 
     const file = process.env.DEPLOYMENT_FILE;
     const filepath = file!.split("/");
@@ -500,7 +566,7 @@ if (require.main === module) {
 
     console.log("File:", file);
 
-    // assemble args to access the relevant deplyment json in .deployment
+    // assemble args to access the relevant deployment json in .deployment
     void loadContracts(file!)
         .then(setupRoles)
         .then(() => process.exit(0))
