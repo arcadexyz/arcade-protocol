@@ -288,14 +288,13 @@ describe("PartialRepayments", () => {
             // partial repayment
             await expect(
                 repaymentController.connect(borrower).repay(loanId, repayAmount1)
-            ).to.emit(loanCore, "LoanPayment").withArgs(loanId);
+            ).to.emit(loanCore, "LoanPayment").withArgs(loanId, ethers.utils.parseEther("10"), grossInterest1);
 
             // check loan data
             const loadData1: LoanData = await loanCore.getLoan(loanId);
             expect(loadData1.state).to.eq(1);
             expect(loadData1.lastAccrualTimestamp).to.eq(t1);
             expect(loadData1.balance).to.eq(ethers.utils.parseEther("110"));
-            expect(loadData1.interestAmountPaid).to.eq(grossInterest1);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
@@ -333,19 +332,13 @@ describe("PartialRepayments", () => {
             // partial repayment
             await expect(
                 repaymentController.connect(borrower).repay(loanId, repayAmount2)
-            ).to.emit(loanCore, "LoanPayment").withArgs(loanId);
+            ).to.emit(loanCore, "LoanPayment").withArgs(loanId, ethers.utils.parseEther("10"), grossInterest2);
 
             // check loan data
             const loadData3: LoanData = await loanCore.getLoan(loanId);
             expect(loadData3.state).to.eq(1);
             expect(loadData3.lastAccrualTimestamp).to.eq(t2);
             expect(loadData3.balance).to.eq(ethers.utils.parseEther("100"));
-            expect(loadData3.interestAmountPaid).to.eq(grossInterest1.add(grossInterest2));
-
-            // check effective interest rate
-            const effectiveInterestRate2 = await loanCore.getCloseEffectiveInterestRate(loanId);
-            // expecting 958
-            expect(effectiveInterestRate2).to.be.gt(948).and.lt(968);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
@@ -390,12 +383,6 @@ describe("PartialRepayments", () => {
             expect(loadDataAfterRepay3.state).to.eq(2);
             expect(loadDataAfterRepay3.lastAccrualTimestamp).to.eq(t3);
             expect(loadDataAfterRepay3.balance).to.eq(0);
-            expect(loadDataAfterRepay3.interestAmountPaid).to.eq(grossInterest1.add(grossInterest2).add(grossInterest3));
-
-            // check effective interest rate
-            const effectiveInterestRate3 = await loanCore.getCloseEffectiveInterestRate(loanId);
-            // expecting 916
-            expect(effectiveInterestRate3).to.be.gt(906).and.lt(926);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
@@ -443,14 +430,13 @@ describe("PartialRepayments", () => {
             // partial repayment
             await expect(
                 repaymentController.connect(borrower).repay(loanId, repayAmount1)
-            ).to.emit(loanCore, "LoanPayment").withArgs(loanId);
+            ).to.emit(loanCore, "LoanPayment").withArgs(loanId, ethers.utils.parseEther("50"), grossInterest1);
 
             // check loan data
             const loadData1: LoanData = await loanCore.getLoan(loanId);
             expect(loadData1.state).to.eq(1);
             expect(loadData1.lastAccrualTimestamp).to.eq(t1);
             expect(loadData1.balance).to.eq(ethers.utils.parseEther("50"));
-            expect(loadData1.interestAmountPaid).to.eq(grossInterest1);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
@@ -495,16 +481,6 @@ describe("PartialRepayments", () => {
             expect(loadData3.state).to.eq(2);
             expect(loadData3.lastAccrualTimestamp).to.eq(t2);
             expect(loadData3.balance).to.eq(0);
-            expect(loadData3.interestAmountPaid).to.eq(grossInterest1.add(grossInterest2));
-
-            // check effective interest rate
-            const effectiveInterestRate = await repaymentController.effectiveInterestRate(
-                loadData3.interestAmountPaid,
-                BigNumber.from(loadData3.lastAccrualTimestamp).sub(BigNumber.from(loanData.startDate)),
-                loanData.terms.principal
-            );
-            // expecting 1500
-            expect(effectiveInterestRate).to.be.gt(1490).and.lt(1510);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
@@ -552,14 +528,13 @@ describe("PartialRepayments", () => {
             // partial repayment
             await expect(
                 repaymentController.connect(borrower).repay(loanId, repayAmount1)
-            ).to.emit(loanCore, "LoanPayment").withArgs(loanId);
+            ).to.emit(loanCore, "LoanPayment").withArgs(loanId, ethers.utils.parseEther("50"), grossInterest1);
 
             // check loan data
             const loadData1: LoanData = await loanCore.getLoan(loanId);
             expect(loadData1.state).to.eq(1);
             expect(loadData1.lastAccrualTimestamp).to.eq(t1);
             expect(loadData1.balance).to.eq(ethers.utils.parseEther("50"));
-            expect(loadData1.interestAmountPaid).to.eq(grossInterest1);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
@@ -605,17 +580,11 @@ describe("PartialRepayments", () => {
             expect(loadData3.state).to.eq(2);
             expect(loadData3.lastAccrualTimestamp).to.eq(t2);
             expect(loadData3.balance).to.eq(0);
-            expect(loadData3.interestAmountPaid).to.eq(grossInterest1.add(grossInterest2));
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
             expect(await mockERC20.balanceOf(borrower.address)).to.eq(0);
             expect(await mockERC20.balanceOf(lender.address)).to.eq(ethers.utils.parseEther("100").add(grossInterest1).add(grossInterest2));
-
-            // check effective interest rate
-            const effectiveInterestRate = await loanCore.getCloseEffectiveInterestRate(loanId);
-            // expecting 1666
-            expect(effectiveInterestRate).to.be.gt(1656).and.lt(1676);
         });
 
         it("repayment amount must be greater than interest due", async () => {
@@ -661,7 +630,6 @@ describe("PartialRepayments", () => {
             expect(loadData1.state).to.eq(1);
             expect(loadData1.lastAccrualTimestamp).to.eq(loanData.startDate);
             expect(loadData1.balance).to.eq(ethers.utils.parseEther("120"));
-            expect(loadData1.interestAmountPaid).to.eq(0);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
@@ -715,7 +683,6 @@ describe("PartialRepayments", () => {
             expect(loadData1.state).to.eq(2);
             expect(loadData1.lastAccrualTimestamp).to.eq(t1);
             expect(loadData1.balance).to.eq(ethers.utils.parseEther("0"));
-            expect(loadData1.interestAmountPaid).to.eq(grossInterest1);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
@@ -803,22 +770,12 @@ describe("PartialRepayments", () => {
             expect(loadData1.state).to.eq(2);
             expect(loadData1.lastAccrualTimestamp).to.eq(t1 + 3);
             expect(loadData1.balance).to.eq(0);
-            expect(loadData1.interestAmountPaid).to.eq(grossInterest1);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
             expect(await mockERC20.balanceOf(borrower.address)).to.eq(0);
             expect(await mockERC20.balanceOf(lender.address)).to.eq(grossInterest1.add(loanData.terms.principal));
             expect(await mockERC20.balanceOf(loanCore.address)).to.eq(0);
-        });
-
-        it("getCloseEffectiveInterestRate on invalid tokenId", async () => {
-            const { loanCore } = ctx;
-
-            // invalid tokenId
-            await expect(
-                loanCore.getCloseEffectiveInterestRate(1234)
-            ).to.be.revertedWith("LC_InvalidState");
         });
     });
 
@@ -863,14 +820,13 @@ describe("PartialRepayments", () => {
             // partial repayment
             await expect(
                 repaymentController.connect(borrower).forceRepay(loanId, repayAmount1)
-            ).to.emit(loanCore, "LoanPayment").withArgs(loanId);
+            ).to.emit(loanCore, "LoanPayment").withArgs(loanId, ethers.utils.parseEther("10"), grossInterest1);
 
             // check loan data
             const loadData1: LoanData = await loanCore.getLoan(loanId);
             expect(loadData1.state).to.eq(1);
             expect(loadData1.lastAccrualTimestamp).to.eq(t1);
             expect(loadData1.balance).to.eq(ethers.utils.parseEther("110"));
-            expect(loadData1.interestAmountPaid).to.eq(grossInterest1);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
@@ -908,14 +864,13 @@ describe("PartialRepayments", () => {
             // partial repayment
             await expect(
                 repaymentController.connect(borrower).forceRepay(loanId, repayAmount2)
-            ).to.emit(loanCore, "LoanPayment").withArgs(loanId);
+            ).to.emit(loanCore, "LoanPayment").withArgs(loanId, ethers.utils.parseEther("10"), grossInterest2);
 
             // check loan data
             const loadData3: LoanData = await loanCore.getLoan(loanId);
             expect(loadData3.state).to.eq(1);
             expect(loadData3.lastAccrualTimestamp).to.eq(t2);
             expect(loadData3.balance).to.eq(ethers.utils.parseEther("100"));
-            expect(loadData3.interestAmountPaid).to.eq(grossInterest1.add(grossInterest2));
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
@@ -960,7 +915,6 @@ describe("PartialRepayments", () => {
             expect(loadDataAfterRepay3.state).to.eq(2);
             expect(loadDataAfterRepay3.lastAccrualTimestamp).to.eq(t3);
             expect(loadDataAfterRepay3.balance).to.eq(0);
-            expect(loadDataAfterRepay3.interestAmountPaid).to.eq(grossInterest1.add(grossInterest2).add(grossInterest3));
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
@@ -1009,14 +963,13 @@ describe("PartialRepayments", () => {
             // partial repayment
             await expect(
                 repaymentController.connect(borrower).forceRepay(loanId, repayAmount1)
-            ).to.emit(loanCore, "LoanPayment").withArgs(loanId);
+            ).to.emit(loanCore, "LoanPayment").withArgs(loanId, ethers.utils.parseEther("50"), grossInterest1);
 
             // check loan data
             const loadData1: LoanData = await loanCore.getLoan(loanId);
             expect(loadData1.state).to.eq(1);
             expect(loadData1.lastAccrualTimestamp).to.eq(t1);
             expect(loadData1.balance).to.eq(ethers.utils.parseEther("50"));
-            expect(loadData1.interestAmountPaid).to.eq(grossInterest1);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
@@ -1061,16 +1014,6 @@ describe("PartialRepayments", () => {
             expect(loadData3.state).to.eq(2);
             expect(loadData3.lastAccrualTimestamp).to.eq(t2);
             expect(loadData3.balance).to.eq(0);
-            expect(loadData3.interestAmountPaid).to.eq(grossInterest1.add(grossInterest2));
-
-            // check effective interest rate
-            const effectiveInterestRate = await repaymentController.effectiveInterestRate(
-                loadData3.interestAmountPaid,
-                BigNumber.from(loadData3.lastAccrualTimestamp).sub(BigNumber.from(loanData.startDate)),
-                loanData.terms.principal
-            );
-            // expecting 1500
-            expect(effectiveInterestRate).to.gt(1490).and.lt(1510);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
@@ -1119,14 +1062,13 @@ describe("PartialRepayments", () => {
             // partial repayment
             await expect(
                 repaymentController.connect(borrower).forceRepay(loanId, repayAmount1)
-            ).to.emit(loanCore, "LoanPayment").withArgs(loanId);
+            ).to.emit(loanCore, "LoanPayment").withArgs(loanId, ethers.utils.parseEther("50"), grossInterest1);
 
             // check loan data
             const loadData1: LoanData = await loanCore.getLoan(loanId);
             expect(loadData1.state).to.eq(1);
             expect(loadData1.lastAccrualTimestamp).to.eq(t1);
             expect(loadData1.balance).to.eq(ethers.utils.parseEther("50"));
-            expect(loadData1.interestAmountPaid).to.eq(grossInterest1);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
@@ -1173,7 +1115,6 @@ describe("PartialRepayments", () => {
             expect(loadData3.state).to.eq(2);
             expect(loadData3.lastAccrualTimestamp).to.eq(t2);
             expect(loadData3.balance).to.eq(0);
-            expect(loadData3.interestAmountPaid).to.eq(grossInterest1.add(grossInterest2));
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
@@ -1229,7 +1170,6 @@ describe("PartialRepayments", () => {
             expect(loadData1.state).to.eq(2);
             expect(loadData1.lastAccrualTimestamp).to.eq(t1);
             expect(loadData1.balance).to.eq(ethers.utils.parseEther("0"));
-            expect(loadData1.interestAmountPaid).to.eq(grossInterest1);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
@@ -1272,11 +1212,6 @@ describe("PartialRepayments", () => {
 
             // expecting 0
             expect(await mockERC20.balanceOf(borrower.address)).to.gte(0).and.lte(timingToleranceAmount);
-
-            // get effective interest rate
-            const effectiveInterestRate = await loanCore.getCloseEffectiveInterestRate(loanId);
-            // no tolerance here because we are well over the loan duration
-            expect(effectiveInterestRate).to.eq(1000);
         });
 
         it("Repay full. 100 ETH principal, 10% interest rate, half duration.", async () => {
@@ -1310,11 +1245,6 @@ describe("PartialRepayments", () => {
 
             // expecting 0
             expect(await mockERC20.balanceOf(borrower.address)).to.gte(0).and.lte(timingToleranceAmount);
-
-            // get effective interest rate
-            const effectiveInterestRate = await loanCore.getCloseEffectiveInterestRate(loanId);
-            // expecting 1000
-            expect(effectiveInterestRate).to.gt(990).and.lt(1010);
         });
 
         it("Force repay full. 100 ETH principal, 10% interest rate, full duration.", async () => {
@@ -1433,14 +1363,13 @@ describe("PartialRepayments", () => {
             // partial repayment
             await expect(
                 repaymentController.connect(borrower).forceRepay(loanId, repayAmount1)
-            ).to.emit(loanCore, "LoanPayment").withArgs(loanId);
+            ).to.emit(loanCore, "LoanPayment").withArgs(loanId, ethers.utils.parseEther("10"), grossInterest1);
 
             // check loan data
             const loadData1: LoanData = await loanCore.getLoan(loanId);
             expect(loadData1.state).to.eq(1);
             expect(loadData1.lastAccrualTimestamp).to.eq(t1);
             expect(loadData1.balance).to.eq(ethers.utils.parseEther("110"));
-            expect(loadData1.interestAmountPaid).to.eq(grossInterest1);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
@@ -1498,14 +1427,13 @@ describe("PartialRepayments", () => {
             // partial repayment
             await expect(
                 repaymentController.connect(borrower).forceRepay(loanId, repayAmount2)
-            ).to.emit(loanCore, "LoanPayment").withArgs(loanId);
+            ).to.emit(loanCore, "LoanPayment").withArgs(loanId, ethers.utils.parseEther("10"), grossInterest2);
 
             // check loan data
             const loadData3: LoanData = await loanCore.getLoan(loanId);
             expect(loadData3.state).to.eq(1);
             expect(loadData3.lastAccrualTimestamp).to.eq(t2);
             expect(loadData3.balance).to.eq(ethers.utils.parseEther("100"));
-            expect(loadData3.interestAmountPaid).to.eq(grossInterest1.add(grossInterest2));
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
@@ -1552,7 +1480,6 @@ describe("PartialRepayments", () => {
             expect(loadDataAfterRepay3.state).to.eq(2);
             expect(loadDataAfterRepay3.lastAccrualTimestamp).to.eq(t3);
             expect(loadDataAfterRepay3.balance).to.eq(0);
-            expect(loadDataAfterRepay3.interestAmountPaid).to.eq(grossInterest1.add(grossInterest2).add(grossInterest3));
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
@@ -1614,14 +1541,13 @@ describe("PartialRepayments", () => {
             // partial repayment
             await expect(
                 repaymentController.connect(borrower).forceRepay(loanId, repayAmount1)
-            ).to.emit(loanCore, "LoanPayment").withArgs(loanId);
+            ).to.emit(loanCore, "LoanPayment").withArgs(loanId, ethers.utils.parseEther("50"), grossInterest1);
 
             // check loan data
             const loadData1: LoanData = await loanCore.getLoan(loanId);
             expect(loadData1.state).to.eq(1);
             expect(loadData1.lastAccrualTimestamp).to.eq(t1);
             expect(loadData1.balance).to.eq(ethers.utils.parseEther("50"));
-            expect(loadData1.interestAmountPaid).to.eq(grossInterest1);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(loanCore.address);
@@ -1682,16 +1608,6 @@ describe("PartialRepayments", () => {
             expect(loadData3.state).to.eq(2);
             expect(loadData3.lastAccrualTimestamp).to.eq(t2);
             expect(loadData3.balance).to.eq(0);
-            expect(loadData3.interestAmountPaid).to.eq(grossInterest1.add(grossInterest2));
-
-            // check effective interest rate
-            const effectiveInterestRate = await repaymentController.effectiveInterestRate(
-                loadData3.interestAmountPaid,
-                BigNumber.from(loadData3.lastAccrualTimestamp).sub(BigNumber.from(loanData.startDate)),
-                loanData.terms.principal
-            );
-            // expecting 1500
-            expect(effectiveInterestRate).to.gt(1490).and.lt(1510);
 
             // check balances
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(borrower.address);
@@ -1753,7 +1669,7 @@ describe("PartialRepayments", () => {
             // partial repayment
             await expect(
                 repaymentController.connect(borrower).forceRepay(loanId, repayAmount1)
-            ).to.emit(loanCore, "LoanPayment").withArgs(loanId);
+            ).to.emit(loanCore, "LoanPayment").withArgs(loanId, ethers.utils.parseEther("50"), grossInterest1);
 
             // borrower defaults, fast forwards to end of loan
             await blockchainTime.increaseTime(31536000 / 2 + 3600); // 1 hr after loan ends
@@ -1816,7 +1732,7 @@ describe("PartialRepayments", () => {
             // partial repayment using force repay
             await expect(
                 repaymentController.connect(borrower).forceRepay(loanId, repayAmount1)
-            ).to.emit(loanCore, "LoanPayment").withArgs(loanId);
+            ).to.emit(loanCore, "LoanPayment").withArgs(loanId, ethers.utils.parseEther("50"), grossInterest1);
 
             // ------------------ Second Repayment ------------------
 

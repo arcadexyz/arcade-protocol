@@ -536,8 +536,7 @@ contract OriginationController is
             settledAmount,
             amounts.amountToOldLender,
             amounts.amountToLender,
-            amounts.amountToBorrower,
-            amounts.interestAmount
+            amounts.amountToBorrower
         );
     }
 }

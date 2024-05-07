@@ -97,7 +97,6 @@ export interface LoanData {
     lastAccrualTimestamp: BigNumberish;
     terms: LoanTerms;
     balance: BigNumber;
-    interestAmountPaid: BigNumber;
 }
 
 export interface InitializeLoanSignature {

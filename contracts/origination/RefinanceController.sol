@@ -209,8 +209,7 @@ contract RefinanceController is IRefinanceController, OriginationCalculator, Ree
             newLenderOwes,
             amounts.amountToOldLender,
             0,
-            0,
-            amounts.interestAmount
+            0
         );
     }
 }
