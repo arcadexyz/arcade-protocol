@@ -68,8 +68,7 @@ interface IOriginationController {
         Signature calldata sig,
         SigProperties calldata sigProperties,
         Side side,
-        address signingCounterparty,
-        bytes memory callbackData
+        address signingCounterparty
     ) external view returns (bytes32 sighash, address signer);
 
     function recoverItemsSignature(
@@ -78,7 +77,6 @@ interface IOriginationController {
         LoanLibrary.Predicate[] calldata itemPredicates,
         SigProperties calldata sigProperties,
         Side side,
-        address signingCounterparty,
-        bytes memory callbackData
+        address signingCounterparty
     ) external view returns (bytes32 sighash, address signer);
 }

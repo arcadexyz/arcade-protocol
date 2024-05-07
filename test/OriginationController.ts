@@ -2102,7 +2102,7 @@ describe("OriginationController", () => {
             ctx = await loadFixture(fixture);
         });
 
-        it("Execute borrower callback", async () => {
+        it("Execute borrower callback, borrower EOA calls", async () => {
             const { originationController, mockERC20, vaultFactory, user: lender, other: borrower, borrowerPromissoryNote } = ctx;
 
             // deploy MockSmartBorrower contract
@@ -2112,7 +2112,116 @@ describe("OriginationController", () => {
             const bundleId = await initializeBundle(vaultFactory, borrower);
             await vaultFactory.connect(borrower).transferFrom(borrower.address, borrowerContract.address, bundleId);
 
-            // MockSmartBorrower approves borrower to sign terms for them
+            // MockSmartBorrower approves borrower to start loan for them
+            await borrowerContract.approveSigner(borrower.address, true);
+
+            const callbackData = "0x1234";
+            const borrowerStruct: Borrower = {
+                borrower: borrowerContract.address,
+                callbackData: callbackData
+            };
+
+            // borrower signs terms for the SmartBorrower contract
+            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                lender,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "l",
+                "0x",
+            );
+
+            await mint(mockERC20, lender, loanTerms.principal);
+            await approve(mockERC20, lender, originationController.address, loanTerms.principal);
+            await borrowerContract.approveERC721(vaultFactory.address, originationController.address, bundleId);
+
+            await expect(
+                originationController
+                    .connect(borrower)
+                    .initializeLoan(
+                        loanTerms,
+                        borrowerStruct,
+                        lender.address,
+                        sig,
+                        defaultSigProperties,
+                        []
+                    ),
+            )
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(lender.address, borrowerContract.address, loanTerms.principal)
+                .to.emit(borrowerContract, "OpExecuted");
+
+            // expect borrower contract to be holder of the borrower note
+            expect(await borrowerPromissoryNote.balanceOf(borrowerContract.address)).to.equal(1);
+        });
+
+        it("Execute borrower callback, borrower contract calls", async () => {
+            const { originationController, mockERC20, vaultFactory, user: lender, other: borrower, borrowerPromissoryNote } = ctx;
+
+            // deploy MockSmartBorrower contract
+            const borrowerContract = <MockSmartBorrower>await deploy("MockSmartBorrower", borrower, [originationController.address]);
+
+            // create a bundle and send it to the borrower contract
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            await vaultFactory.connect(borrower).transferFrom(borrower.address, borrowerContract.address, bundleId);
+
+            const callbackData = "0x1234";
+            const borrowerStruct: Borrower = {
+                borrower: borrowerContract.address,
+                callbackData: callbackData
+            };
+
+            // borrower signs terms for the SmartBorrower contract
+            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
+            const sig = await createLoanTermsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                lender,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "l",
+                "0x",
+            );
+
+            await mint(mockERC20, lender, loanTerms.principal);
+            await approve(mockERC20, lender, originationController.address, loanTerms.principal);
+            await borrowerContract.approveERC721(vaultFactory.address, originationController.address, bundleId);
+
+            await expect(
+                borrowerContract
+                    .connect(borrower)
+                    .initializeLoan(
+                        loanTerms,
+                        borrowerStruct,
+                        lender.address,
+                        sig,
+                        defaultSigProperties,
+                        []
+                    ),
+            )
+                .to.emit(mockERC20, "Transfer")
+                .withArgs(lender.address, borrowerContract.address, loanTerms.principal)
+                .to.emit(borrowerContract, "OpExecuted");
+
+            // expect borrower contract to be holder of the borrower note
+            expect(await borrowerPromissoryNote.balanceOf(borrowerContract.address)).to.equal(1);
+        });
+
+        it("lender tries to execute borrower callback, does not execute", async () => {
+            const { originationController, mockERC20, vaultFactory, user: lender, other: borrower, borrowerPromissoryNote } = ctx;
+
+            // deploy MockSmartBorrower contract
+            const borrowerContract = <MockSmartBorrower>await deploy("MockSmartBorrower", borrower, [originationController.address]);
+
+            // create a bundle and send it to the borrower contract
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            await vaultFactory.connect(borrower).transferFrom(borrower.address, borrowerContract.address, bundleId);
+
+            // MockSmartBorrower approves borrower to start loan for them
             await borrowerContract.approveSigner(borrower.address, true);
 
             const callbackData = "0x1234";
@@ -2133,7 +2242,6 @@ describe("OriginationController", () => {
                 "b",
                 "0x",
                 borrowerContract.address,
-                callbackData,
             );
 
             await mint(mockERC20, lender, loanTerms.principal);
@@ -2154,7 +2262,7 @@ describe("OriginationController", () => {
             )
                 .to.emit(mockERC20, "Transfer")
                 .withArgs(lender.address, borrowerContract.address, loanTerms.principal)
-                .to.emit(borrowerContract, "OpExecuted");
+                .to.not.emit(borrowerContract, "OpExecuted");
 
             // expect borrower contract to be holder of the borrower note
             expect(await borrowerPromissoryNote.balanceOf(borrowerContract.address)).to.equal(1);
@@ -2237,13 +2345,11 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms,
-                borrower,
+                lender,
                 EIP712_VERSION,
                 defaultSigProperties,
-                "b",
+                "l",
                 "0x",
-                borrowerContract.address,
-                calldataWithSelector,
             );
 
             await mint(mockERC20, lender, loanTerms.principal);
@@ -2253,7 +2359,7 @@ describe("OriginationController", () => {
             // reverts due to reentrancy guard which is triggered by the initializeLoan call
             await expect(
                 originationController
-                    .connect(lender)
+                    .connect(borrower)
                     .initializeLoan(
                         loanTerms,
                         borrowerStruct,
@@ -2262,7 +2368,7 @@ describe("OriginationController", () => {
                         defaultSigProperties,
                         []
                     )
-            ).to.be.revertedWith("MockSmartBorrowerRollover: Operation failed");
+            ).to.be.revertedWith("MockSmartBorrowerTest: Operation failed");
         });
 
         it("Start a loan and then try to rollover first loan in second loan callback", async () => {
@@ -2300,6 +2406,7 @@ describe("OriginationController", () => {
                 callbackData: "0x"
             };
 
+            // start the first loan
             await originationController
                     .connect(lender)
                     .initializeLoan(loanTerms, borrowerStruct, lender.address, sig, defaultSigProperties, [])
@@ -2366,13 +2473,11 @@ describe("OriginationController", () => {
                 originationController.address,
                 "OriginationController",
                 loanTerms2,
-                borrower,
+                lender,
                 EIP712_VERSION,
                 sigProperties,
-                "b",
+                "l",
                 "0x",
-                borrowerContract.address,
-                calldataWithSelector,
             );
 
             await mint(mockERC20, lender, loanTerms2.principal);
@@ -2387,15 +2492,15 @@ describe("OriginationController", () => {
             // reverts due to reentrancy guard which is triggered by the second initializeLoan call
             await expect(
                 originationController
-                    .connect(lender)
+                    .connect(borrower)
                     .initializeLoan(loanTerms2, borrowerStruct2, lender.address, sig2, sigProperties, [], { gasLimit: 10000000 })
-            ).to.be.revertedWith("MockSmartBorrowerRollover: Operation failed");
+            ).to.be.revertedWith("MockSmartBorrowerTest: Operation failed");
 
             // expect borrower contract to be holder of just one borrower note
             expect(await borrowerPromissoryNote.balanceOf(borrowerContract.address)).to.equal(1);
         });
 
-        it("Try to use another sig in callback to start loan with same collateral", async () => {
+        it("Try to use same sig in callback to start loan with same collateral", async () => {
             const { originationController, mockERC20, vaultFactory, user: lender, other: borrower, borrowerPromissoryNote } = ctx;
 
             // deploy MockSmartBorrower contract
@@ -2408,11 +2513,11 @@ describe("OriginationController", () => {
             // create loan terms
             const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
 
-            // MockSmartBorrower approves borrower to sign terms for them
+            // MockSmartBorrower approves borrower to start loan for them
             await borrowerContract.approveSigner(borrower.address, true);
 
-            // create callback data to rollover the new loanID that will be created
-            const sigCallback = await createLoanTermsSignature(
+            // create callback data to start the exact same loan again
+            const sig = await createLoanTermsSignature(
                 originationController.address,
                 "OriginationController",
                 loanTerms,
@@ -2449,9 +2554,9 @@ describe("OriginationController", () => {
                     ],
                     lender.address,
                     [
-                        sigCallback.v,
-                        sigCallback.r,
-                        sigCallback.s,
+                        sig.v,
+                        sig.r,
+                        sig.s,
                         "0x"
                     ],
                     [defaultSigProperties.nonce, defaultSigProperties.maxUses],
@@ -2466,29 +2571,15 @@ describe("OriginationController", () => {
                 ]
             );
 
-            // get rolloverLoan function selector
+            // get initializeLoan function selector
             const initializeLoanSelector = originationController.interface.getSighash("initializeLoan");
-            // append calldata to rolloverLoan function selector
+            // append calldata to initializeLoan function selector
             const calldataWithSelector = initializeLoanSelector + callbackData.slice(2);
 
             const borrowerStruct: Borrower = {
                 borrower: borrowerContract.address,
                 callbackData: calldataWithSelector
             };
-
-            // borrower signs terms for the SmartBorrower contract
-            const sig = await createLoanTermsSignature(
-                originationController.address,
-                "OriginationController",
-                loanTerms,
-                borrower,
-                EIP712_VERSION,
-                defaultSigProperties,
-                "b",
-                "0x",
-                borrowerContract.address,
-                calldataWithSelector,
-            );
 
             await mint(mockERC20, lender, loanTerms.principal);
             await approve(mockERC20, lender, originationController.address, loanTerms.principal);
@@ -2498,7 +2589,7 @@ describe("OriginationController", () => {
             // Lender is not the signer of the terms and lender has not approved borrower to sign for them
             await expect(
                 originationController
-                    .connect(lender)
+                    .connect(borrower)
                     .initializeLoan(
                         loanTerms,
                         borrowerStruct,
@@ -2507,53 +2598,7 @@ describe("OriginationController", () => {
                         defaultSigProperties,
                         []
                     )
-            ).to.be.revertedWith("MockSmartBorrowerRollover: Operation failed");
-        });
-
-        it("Borrower contract starts loan, lender signs terms", async () => {
-            const { originationController, mockERC20, vaultFactory, user: lender, other: borrower } = ctx;
-
-            // deploy MockSmartBorrower contract
-            const borrowerContract = <MockSmartBorrower>await deploy("MockSmartBorrowerTest", borrower, [originationController.address]);
-
-            // create a bundle and send it to the borrower contract
-            const bundleId = await initializeBundle(vaultFactory, borrower);
-            await vaultFactory.connect(borrower).transferFrom(borrower.address, borrowerContract.address, bundleId);
-
-            // lender signs terms for the SmartBorrower contract
-            const loanTerms = createLoanTerms(mockERC20.address, vaultFactory.address, { collateralId: bundleId });
-            const sig = await createLoanTermsSignature(
-                originationController.address,
-                "OriginationController",
-                loanTerms,
-                lender,
-                EIP712_VERSION,
-                defaultSigProperties,
-                "l",
-            );
-
-            const borrowerStruct: Borrower = {
-                borrower: borrowerContract.address,
-                callbackData: "0x"
-            };
-
-            await mint(mockERC20, lender, loanTerms.principal);
-            await approve(mockERC20, lender, originationController.address, loanTerms.principal);
-            await borrowerContract.approveERC721(vaultFactory.address, originationController.address, bundleId);
-
-            await expect(
-                borrowerContract
-                    .initializeLoan(
-                        loanTerms,
-                        borrowerStruct,
-                        lender.address,
-                        sig,
-                        defaultSigProperties,
-                        []
-                    )
-            )
-                .to.emit(mockERC20, "Transfer")
-                .withArgs(lender.address, borrowerContract.address, loanTerms.principal);
+            ).to.be.revertedWith("MockSmartBorrowerTest: Operation failed");
         });
 
         it("Try to use second lender sig in callback, borrower contract starts loan", async () => {
@@ -2648,7 +2693,6 @@ describe("OriginationController", () => {
                 "l",
                 "0x",
                 lender.address,
-                calldataWithSelector,
             );
 
             await mint(mockERC20, lender, loanTerms.principal);
@@ -2658,6 +2702,7 @@ describe("OriginationController", () => {
             // fails due to _initialize reentrancy guard
             await expect(
                 borrowerContract
+                    .connect(borrower)
                     .initializeLoan(
                         loanTerms,
                         borrowerStruct,
@@ -2666,7 +2711,7 @@ describe("OriginationController", () => {
                         defaultSigProperties,
                         []
                     )
-            ).to.be.revertedWith("MockSmartBorrowerRollover: Operation failed");
+            ).to.be.revertedWith("MockSmartBorrowerTest: Operation failed");
         });
     });
 });

@@ -35,13 +35,6 @@ const typedPermitData: TypeData = {
 
 const typedLoanData: TypeData = {
     types: {
-        Loan: [
-            { name: "terms", type: "LoanTerms" },
-            { name: "sigProperties", type: "SigProperties" },
-            { name: "side", type: "uint8" },
-            { name: "signingCounterparty", type: "address"},
-            { name: "callbackData", type: "bytes"}
-        ],
         LoanTerms: [
             { name: "interestRate", type: "uint32" },
             { name: "durationSecs", type: "uint64" },
@@ -51,28 +44,20 @@ const typedLoanData: TypeData = {
             { name: "principal", type: "uint256" },
             { name: "collateralId", type: "uint256" },
             { name: "affiliateCode", type: "bytes32" },
+            { name: "sigProperties", type: "SigProperties" },
+            { name: "side", type: "uint8" },
+            { name: "signingCounterparty", type: "address"},
         ],
         SigProperties: [
             { name: "nonce", type: "uint160" },
             { name: "maxUses", type: "uint96" },
         ],
     },
-    primaryType: "Loan" as const,
+    primaryType: "LoanTerms" as const,
 };
 
 const typedLoanItemsData: TypeData = {
     types: {
-        LoanWithItems: [
-            { name: "termsWithItems", type: "LoanTermsWithItems" },
-            { name: "sigProperties", type: "SigProperties" },
-            { name: "side", type: "uint8" },
-            { name: "signingCounterparty", type: "address"},
-            { name: "callbackData", type: "bytes"}
-        ],
-        SigProperties: [
-            { name: "nonce", type: "uint160" },
-            { name: "maxUses", type: "uint96" },
-        ],
         LoanTermsWithItems: [
             { name: "interestRate", type: "uint32" },
             { name: "durationSecs", type: "uint64" },
@@ -82,10 +67,17 @@ const typedLoanItemsData: TypeData = {
             { name: "principal", type: "uint256" },
             { name: "affiliateCode", type: "bytes32" },
             { name: "items", type: "Predicate[]" },
+            { name: "sigProperties", type: "SigProperties" },
+            { name: "side", type: "uint8" },
+            { name: "signingCounterparty", type: "address"},
         ],
         Predicate: [
             { name: "data", type: "bytes" },
             { name: "verifier", type: "address" },
+        ],
+        SigProperties: [
+            { name: "nonce", type: "uint160" },
+            { name: "maxUses", type: "uint96" },
         ],
     },
     primaryType: "LoanWithItems" as const,
@@ -127,16 +119,21 @@ export async function createLoanTermsSignature(
     _side: "b" | "l",
     extraData = "0x",
     _signingCounterparty?: string,
-    callbackData= "0x",
 ): Promise<InitializeLoanSignature> {
     const side = _side === "b" ? 0 : 1;
     const signingCounterparty = _signingCounterparty ?? signer.address;
     const message: Loan = {
-        terms,
+        interestRate: terms.interestRate,
+        durationSecs: terms.durationSecs,
+        collateralAddress: terms.collateralAddress,
+        deadline: terms.deadline,
+        payableCurrency: terms.payableCurrency,
+        principal: terms.principal,
+        collateralId: terms.collateralId,
+        affiliateCode: terms.affiliateCode,
         sigProperties,
         side,
         signingCounterparty,
-        callbackData: callbackData,
     }
     const data = buildData(verifyingContract, name, version, message, typedLoanData);
     const signature = await signer._signTypedData(data.domain, data.types, data.message);
@@ -168,20 +165,21 @@ export async function createLoanItemsSignature(
     _side: "b" | "l",
     extraData = "0x",
     _signingCounterparty?: string,
-    callbackData= "0x",
 ): Promise<InitializeLoanSignature> {
     const side = _side === "b" ? 0 : 1;
     const signingCounterparty = _signingCounterparty ?? signer.address;
-    const termsWithItems: LoanTermsWithItems = {
-        ...terms,
-        items,
-    };
     const message: LoanWithItems = {
-        termsWithItems,
+        interestRate: terms.interestRate,
+        durationSecs: terms.durationSecs,
+        collateralAddress: terms.collateralAddress,
+        deadline: terms.deadline,
+        payableCurrency: terms.payableCurrency,
+        principal: terms.principal,
+        affiliateCode: terms.affiliateCode,
+        items,
         sigProperties,
         side,
-        signingCounterparty,
-        callbackData: callbackData,
+        signingCounterparty: signingCounterparty,
     };
 
     const data = buildData(verifyingContract, name, version, message, typedLoanItemsData);

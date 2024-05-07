@@ -27,7 +27,6 @@ contract MockSmartBorrower is IExpressBorrow, ERC721Holder {
         address, // loanOriginationCaller
         address, // lender
         LoanLibrary.LoanTerms calldata, // loanTerms
-        uint256, // borrowerFee
         bytes calldata // callbackData
     ) external virtual override {
         // This contract receives the borrowerNet amount of tokens from the OriginationController
@@ -42,6 +41,24 @@ contract MockSmartBorrower is IExpressBorrow, ERC721Holder {
         emit OpExecuted();
     }
 
+    function initializeLoan(
+        LoanLibrary.LoanTerms calldata loanTerms,
+        IOriginationController.BorrowerData calldata borrowerData,
+        address lender,
+        IOriginationController.Signature calldata sig,
+        IOriginationController.SigProperties calldata sigProperties,
+        LoanLibrary.Predicate[] calldata itemPredicates
+    ) public virtual {
+        IOriginationController(originationController).initializeLoan(
+            loanTerms,
+            borrowerData,
+            lender,
+            sig,
+            sigProperties,
+            itemPredicates
+        );
+    }
+
     function approveSigner(address target, bool approved) external {
         IOriginationController(originationController).approve(target, approved);
     }
@@ -53,7 +70,8 @@ contract MockSmartBorrower is IExpressBorrow, ERC721Holder {
 
 /**
  * @notice Mock smart contract that implements IExpressBorrow::executeOperation.
- *         This variant of the contract is used to test callbacks to the OriginationController.
+ *         This variant of the contract is used to test malicious callbacks targeting
+ *         the OriginationController.
  */
 contract MockSmartBorrowerTest is MockSmartBorrower {
 
@@ -63,7 +81,6 @@ contract MockSmartBorrowerTest is MockSmartBorrower {
         address, // loanOriginationCaller
         address, // lender
         LoanLibrary.LoanTerms calldata, // loanTerms
-        uint256, // borrowerFee
         bytes calldata callbackData // callbackData
     ) external override {
         // This contract receives the borrowerNet amount of tokens from the lender
@@ -71,7 +88,7 @@ contract MockSmartBorrowerTest is MockSmartBorrower {
         // Rollover the loan
         (bool success,) = originationController.call(callbackData);
 
-        require(success, "MockSmartBorrowerRollover: Operation failed");
+        require(success, "MockSmartBorrowerTest: Operation failed");
 
         emit OpExecuted();
     }
@@ -83,7 +100,7 @@ contract MockSmartBorrowerTest is MockSmartBorrower {
         IOriginationController.Signature calldata sig,
         IOriginationController.SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates
-    ) public {
+    ) public override {
         IOriginationController(originationController).initializeLoan(
             loanTerms,
             borrowerData,

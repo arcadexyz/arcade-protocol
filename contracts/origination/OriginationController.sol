@@ -151,16 +151,14 @@ contract OriginationController is
         address callingCounterparty = neededSide == Side.LEND ? borrowerData.borrower : lender;
 
         {
-            bytes memory callbackData = borrowerData.callbackData;
-
-            (bytes32 sighash, address externalSigner) = _recoverSignature(loanTerms, sig, sigProperties, neededSide, signingCounterparty, itemPredicates, callbackData);
+            (bytes32 sighash, address externalSigner) = _recoverSignature(loanTerms, sig, sigProperties, neededSide, signingCounterparty, itemPredicates);
 
             _validateCounterparties(signingCounterparty, callingCounterparty, msg.sender, externalSigner, sig, sighash);
 
             loanCore.consumeNonce(externalSigner, sigProperties.nonce, sigProperties.maxUses);
         }
 
-        loanId = _initialize(loanTerms, borrowerData, lender);
+        loanId = _initialize(loanTerms, borrowerData, lender, neededSide);
 
         // Run predicates check at the end of the function, after vault is in escrow. This makes sure
         // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
@@ -209,7 +207,7 @@ contract OriginationController is
         address callingCounterparty = neededSide == Side.LEND ? borrower : lender;
 
         {
-            (bytes32 sighash, address externalSigner) = _recoverSignature(loanTerms, sig, sigProperties, neededSide, signingCounterparty, itemPredicates, bytes(""));
+            (bytes32 sighash, address externalSigner) = _recoverSignature(loanTerms, sig, sigProperties, neededSide, signingCounterparty, itemPredicates);
 
             _validateCounterparties(signingCounterparty, callingCounterparty, msg.sender, externalSigner, sig, sighash);
 
@@ -274,7 +272,6 @@ contract OriginationController is
      * @param sigProperties                 Signature nonce and max uses for this nonce.
      * @param side                          The side of the loan being signed.
      * @param signingCounterparty           The address of the counterparty who signed the terms.
-     * @param callbackData                  The borrower callback data.
      *
      * @return sighash                      The hash that was signed.
      * @return signer                       The address of the recovered signer.
@@ -284,15 +281,13 @@ contract OriginationController is
         Signature calldata sig,
         SigProperties calldata sigProperties,
         Side side,
-        address signingCounterparty,
-        bytes memory callbackData
+        address signingCounterparty
     ) public view override returns (bytes32 sighash, address signer) {
         bytes32 loanHash = OriginationLibrary.encodeLoan(
             loanTerms,
             sigProperties,
             uint8(side),
-            signingCounterparty,
-            callbackData
+            signingCounterparty
         );
 
         sighash = _hashTypedDataV4(loanHash);
@@ -310,7 +305,6 @@ contract OriginationController is
      * @param sigProperties                 Signature nonce and max uses for this nonce.
      * @param side                          The side of the loan being signed.
      * @param signingCounterparty           The address of the counterparty who signed the terms.
-     * @param callbackData                  The borrower callback data.
      *
      * @return sighash                      The hash that was signed.
      * @return signer                       The address of the recovered signer.
@@ -321,16 +315,14 @@ contract OriginationController is
         LoanLibrary.Predicate[] calldata itemPredicates,
         SigProperties calldata sigProperties,
         Side side,
-        address signingCounterparty,
-        bytes memory callbackData
+        address signingCounterparty
     ) public view override returns (bytes32 sighash, address signer) {
         bytes32 loanHash = OriginationLibrary.encodeLoanWithItems(
             loanTerms,
             itemPredicates,
             sigProperties,
             uint8(side),
-            signingCounterparty,
-            callbackData
+            signingCounterparty
         );
 
         sighash = _hashTypedDataV4(loanHash);
@@ -348,7 +340,6 @@ contract OriginationController is
      * @param neededSide                    The side of the loan the signature will take (lend or borrow).
      * @param signingCounterparty           The address of the counterparty who signed the terms.
      * @param itemPredicates                The predicate rules for the items in the bundle.
-     * @param callbackData                  The borrower callback data.
      *
      * @return sighash                      The hash that was signed.
      * @return externalSigner               The address of the recovered signer.
@@ -359,8 +350,7 @@ contract OriginationController is
         SigProperties calldata sigProperties,
         Side neededSide,
         address signingCounterparty,
-        LoanLibrary.Predicate[] calldata itemPredicates,
-        bytes memory callbackData
+        LoanLibrary.Predicate[] calldata itemPredicates
     ) public view returns (bytes32 sighash, address externalSigner) {
         if (itemPredicates.length > 0) {
             (sighash, externalSigner) = recoverItemsSignature(
@@ -369,8 +359,7 @@ contract OriginationController is
                 itemPredicates,
                 sigProperties,
                 neededSide,
-                signingCounterparty,
-                callbackData
+                signingCounterparty
             );
         } else {
             (sighash, externalSigner) = recoverTokenSignature(
@@ -378,8 +367,7 @@ contract OriginationController is
                 sig,
                 sigProperties,
                 neededSide,
-                signingCounterparty,
-                callbackData
+                signingCounterparty
             );
         }
     }
@@ -456,13 +444,15 @@ contract OriginationController is
      * @param loanTerms                     The terms agreed by the lender and borrower.
      * @param borrowerData                  Struct containing borrower address and any callback data.
      * @param lender                        Address of the lender.
+     * @param neededSide                    The side of the loan the signature will take (lend or borrow).
      *
      * @return loanId                       The unique ID of the new loan.
      */
     function _initialize(
         LoanLibrary.LoanTerms calldata loanTerms,
         BorrowerData calldata borrowerData,
-        address lender
+        address lender,
+        Side neededSide
     ) internal nonReentrant returns (uint256 loanId) {
         // get fee snapshot from fee controller
         (LoanLibrary.FeeSnapshot memory feeSnapshot) = feeController.getFeeSnapshot();
@@ -472,9 +462,9 @@ contract OriginationController is
         IERC20(loanTerms.payableCurrency).safeTransferFrom(lender, borrowerData.borrower, loanTerms.principal);
 
         // ----------------------- Express borrow callback --------------------------
-        // If callback params present, call the callback function on the borrower
-        if (borrowerData.callbackData.length > 0) {
-            IExpressBorrow(borrowerData.borrower).executeOperation(msg.sender, lender, loanTerms, 0, borrowerData.callbackData);
+        // If callback params present and the caller is on the borrow side, call the callback function on the borrower
+        if (borrowerData.callbackData.length > 0 && neededSide == Side.LEND) {
+            IExpressBorrow(borrowerData.borrower).executeOperation(msg.sender, lender, loanTerms, borrowerData.callbackData);
         }
 
         // ---------------------- LoanCore collects collateral ----------------------
