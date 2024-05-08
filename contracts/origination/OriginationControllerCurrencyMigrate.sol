@@ -84,11 +84,9 @@ contract OriginationControllerCurrencyMigrate is IMigrationBase, OriginationCont
         // transfer the specified amount of tokenIn to this contract
         IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
 
-        // approve the router to spend tokenIn
+        // approve the uniswapv3 router to spend tokenIn
         IERC20(tokenIn).safeApprove(address(swapRouter), amountIn);
 
-        // Use an oracle or other data source to choose a safer value for amountOutMinimum
-        // set the sqrtPriceLimitx96 to be 0 to ensure we swap our exact input amount
         ISwapRouter.ExactInputSingleParams memory params =
             ISwapRouter.ExactInputSingleParams({
                 tokenIn: tokenIn,
