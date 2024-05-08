@@ -28,6 +28,7 @@ import {
     CallWhitelistAllExtensions,
     OriginationControllerMigrate,
     OriginationHelpers,
+    OriginationLibrary,
 } from "../../typechain";
 
 import { DeployedResources } from "../utils/deploy";
@@ -139,14 +140,14 @@ export async function main(): Promise<DeployedResources> {
     console.log(SUBSECTION_SEPARATOR);
 
     const OriginationLibraryFactory = await ethers.getContractFactory("OriginationLibrary");
-    const originationLibrary = await OriginationLibraryFactory.deploy();
+    const originationLibrary = <OriginationLibrary> await OriginationLibraryFactory.deploy();
+
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationControllerMigrate",
         {
-            signer: signers[0],
             libraries: {
                 OriginationLibrary: originationLibrary.address,
             },
-        }
+        },
     );
     const originationController = <OriginationControllerMigrate>(
         await OriginationControllerFactory.deploy(originationHelpers.address, loanCore.address, feeController.address)
@@ -187,6 +188,7 @@ export async function main(): Promise<DeployedResources> {
         vaultFactory,
         loanCore,
         repaymentController,
+        originationLibrary,
         originationController,
         originationHelpers,
         borrowerNoteURIDescriptor,
@@ -208,8 +210,7 @@ export async function main(): Promise<DeployedResources> {
         lenderNote: [LENDER_NOTE_NAME, LENDER_NOTE_SYMBOL, lenderNoteURIDescriptor.address],
         loanCore: [borrowerNote.address, lenderNote.address],
         repaymentController: [loanCore.address, feeController.address],
-        originationController: [loanCore.address, feeController.address],
-        originationHelpers: [],
+        originationController: [originationHelpers.address, loanCore.address, feeController.address],
     });
 
     console.log(SECTION_SEPARATOR);

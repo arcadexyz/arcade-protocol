@@ -125,6 +125,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     await tx.wait();
     console.log(`BorrowerNote: resource manager role granted to ${RESOURCE_MANAGER}`);
     console.log(`BorrowerNote: deployer renounced resource manager role`);
+    console.log(SUBSECTION_SEPARATOR);
 
     // =========== lenderNoteURIDescriptor ============
 
@@ -151,6 +152,7 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     await tx.wait();
     console.log(`lenderNote: resource manager role granted to ${RESOURCE_MANAGER}`);
     console.log(`lenderNote: deployer renounced resource manager role`);
+    console.log(SUBSECTION_SEPARATOR);
 
     // ============= LoanCore ==============
 

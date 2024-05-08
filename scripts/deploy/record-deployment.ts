@@ -86,6 +86,11 @@ export async function recordDeployment(
         constructorArgs: constructorArgs.repaymentController,
     };
 
+    contractInfo["OriginationLibrary"] = {
+        contractAddress: resources.originationLibrary.address,
+        constructorArgs: [],
+    };
+
     contractInfo["OriginationController"] = {
         contractAddress: resources.originationController.address,
         constructorArgs: constructorArgs.originationController,

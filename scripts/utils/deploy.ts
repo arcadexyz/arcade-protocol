@@ -15,7 +15,8 @@ import {
     ArtBlocksVerifier,
     CallWhitelistAllExtensions,
     OriginationControllerMigrate,
-    OriginationHelpers
+    OriginationHelpers,
+    OriginationLibrary
 } from "../../typechain";
 
 export interface DeployedResources {
@@ -26,6 +27,7 @@ export interface DeployedResources {
     vaultFactory: VaultFactory;
     loanCore: LoanCore;
     repaymentController: RepaymentController;
+    originationLibrary: OriginationLibrary;
     originationController: OriginationControllerMigrate;
     originationHelpers: OriginationHelpers;
     borrowerNoteURIDescriptor: StaticURIDescriptor;

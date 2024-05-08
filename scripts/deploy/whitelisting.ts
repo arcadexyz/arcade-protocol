@@ -67,11 +67,12 @@ async function whitelistCollections(
     const tx = await originationHelpers.setAllowedCollateralAddresses(
         [
             vaultFactory.address,
-            "0x6e9B4c2f6Bd57b7b924d29b5dcfCa1273Ecc94A2", // v2 Vault Factory
-            "0x666faa632E5f7bA20a7FCe36596A6736f87133Be", // v2 Vault Factory
-            "0x7594916540e60fC8d6e9Ba5c3C83632F7001Cf53", // v2 Vault Factory
+            "0x6e9B4c2f6Bd57b7b924d29b5dcfCa1273Ecc94A2", // v2 Vault Factory (General)
+            "0x666faa632E5f7bA20a7FCe36596A6736f87133Be", // v2 Vault Factory (Ape Staking)
+            "0x7594916540e60fC8d6e9Ba5c3C83632F7001Cf53", // v2 Vault Factory (SuperRare)
+            "0x269363665Dbb1582b143099a3cb467E98a476D55", // v3 Vault Factory
         ],
-        [true, true, true, true],
+        [true, true, true, true, true],
     );
     await tx.wait();
 
