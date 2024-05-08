@@ -65,8 +65,11 @@ contract OriginationControllerCurrencyMigrate is IMigrationBase, OriginationCont
      * @param tokenIn                   Address of the token being swapped.
      * @param tokenOut                  Address of the token to be received.
      * @param amountIn                  The exact amount of tokenIn that will be swapped for tokenOut.
-     * @param amountOutMinimum          Minimum amount of tokenOut expected.
-     * @param fee                       Fee tier for the Uniswap V3 pool being used.
+     * @param amountOutMinimum          Minimum amount of tokenOut expected. Helps protect against
+     *                                  getting an unusually bad price for a trade due to a front
+     *                                  running, sandwich or another type of price manipulation.
+     * @param fee                       The fee tier of the pool. Determines the pool contract in
+     *                                  which to execute the swap.
      * @param recipient                 Address receiving the output token
      *
      * @return amountOut                The amount of tokenOut received.
@@ -87,6 +90,12 @@ contract OriginationControllerCurrencyMigrate is IMigrationBase, OriginationCont
         // approve the uniswapv3 router to spend tokenIn
         IERC20(tokenIn).safeApprove(address(swapRouter), amountIn);
 
+        // Setting sqrtPriceLimitX96 to zero makes the parameter inactive.
+        // TODO: implement a way to set this parameter.
+        // This parameter sets a boundary on the pool's swap price. It defines the
+        // worst acceptable price before the transaction reverts.
+        // If the price to execute the swap exceeds this limit (due to slippage or
+        // market movement), the transaction will fail.
         ISwapRouter.ExactInputSingleParams memory params =
             ISwapRouter.ExactInputSingleParams({
                 tokenIn: tokenIn,

@@ -92,8 +92,8 @@ export async function main(): Promise<void> {
 
     // amount to swap
     const amountIn = ethers.utils.parseEther("100"); // 100 DAI
-    // TODO: explain about fee
-    const fee = 3000; // pool fee, which is 0.3%
+    // 0.3% pool fee
+    const fee = 3000;
 
     await currencyIn.connect(whale).transfer(borrower.address, amountIn);
     await currencyIn.connect(borrower).approve(originationControllerCurrencyMigrate.address, amountIn);
@@ -101,6 +101,9 @@ export async function main(): Promise<void> {
     console.log("Borrower DAI balance: ", ethers.utils.formatEther(await currencyIn.balanceOf(borrower.address)));
 
     // make the swap
+    // for the sake of simplicity, we set amountOutMinimum to 0, but this
+    // value should be calculated using the Uniswap SDK to protect
+    // against price manipulation.
     await originationControllerCurrencyMigrate
         .connect(borrower)
         .swapExactInputSingle(DAIAddress, WETHAddress, amountIn, 0, fee, originationControllerCurrencyMigrate.address);
