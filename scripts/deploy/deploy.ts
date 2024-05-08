@@ -135,12 +135,17 @@ export async function main(): Promise<DeployedResources> {
 
     const OriginationHelpersFactory = await ethers.getContractFactory("OriginationHelpers");
     const originationHelpers = <OriginationHelpers>await OriginationHelpersFactory.deploy();
+    await originationHelpers.deployed();
 
     console.log("OriginationHelpers deployed to:", originationHelpers.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const OriginationLibraryFactory = await ethers.getContractFactory("OriginationLibrary");
     const originationLibrary = <OriginationLibrary> await OriginationLibraryFactory.deploy();
+    await originationLibrary.deployed();
+
+    console.log("OriginationLibrary deployed to:", originationLibrary.address);
+    console.log(SUBSECTION_SEPARATOR);
 
     const OriginationControllerFactory = await ethers.getContractFactory("OriginationControllerMigrate",
         {
