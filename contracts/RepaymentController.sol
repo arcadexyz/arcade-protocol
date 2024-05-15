@@ -180,7 +180,7 @@ contract RepaymentController is IRepaymentController, InterestCalculator, FeeLoo
      * @return paymentToPrincipal   The portion of the repayment amount that goes to principal.
      */
     function _prepareRepay(uint256 loanId, uint256 amount)
-        internal
+        public
         view
         returns (
             uint256 amountToLender,
