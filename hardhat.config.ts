@@ -49,7 +49,7 @@ if (forkMainnet && !process.env.ALCHEMY_API_KEY) {
 // create testnet network
 function createTestnetConfig(network: keyof typeof chainIds): NetworkUserConfig {
     const sepoliaUri = `https://rpc.sepolia.org/`;
-    const defaultUri = `https://eth-${network}.alchemyapi.io/v2/${alchemyApiKey}`;
+    const defaultUri = `https://eth-${network}.g.alchemy.com/v2/${alchemyApiKey}`;
     const url = network === `sepolia` ? sepoliaUri : defaultUri;
 
     return {
@@ -84,7 +84,7 @@ function createHardhatConfig(): HardhatNetworkUserConfig {
     if (forkMainnet) {
         return Object.assign(config, {
             forking: {
-                url: `https://eth-mainnet.alchemyapi.io/v2/${alchemyApiKey}`,
+                url: `https://eth-mainnet.g.alchemy.com/v2/${alchemyApiKey}`,
                 blockNumber: 18852467,
             },
         });
@@ -156,13 +156,13 @@ export const config: HardhatUserConfig = {
                 },
             },
             {
-                version: "0.7.0",
-            },
-            {
                 version: "0.4.12",
             },
             {
                 version: "0.4.18",
+            },
+            {
+                version: "0.7.6",
             },
         ],
     },

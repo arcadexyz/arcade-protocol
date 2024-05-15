@@ -97,5 +97,9 @@
         "bootstrap-no-loans": "npx hardhat --network localhost run scripts/bootstrap-state-no-loans.ts",
         "verify-contracts": "ts-node scripts/verify-contracts.ts",
         "setup-roles": "ts-node scripts/utils/setup-roles.ts"
+    },
+    "dependencies": {
+        "@uniswap/v3-core": "^1.0.1",
+        "@uniswap/v3-periphery": "^1.4.4"
     }
 }

@@ -10,7 +10,6 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 /**
  * @dev Original implementation at:
@@ -140,7 +139,6 @@ interface Randomizer {
 }
 
 contract GenArt721Core is CustomERC721Metadata {
-    using SafeMath for uint256;
 
     event Mint(
         address indexed _to,
@@ -239,7 +237,7 @@ contract GenArt721Core is CustomERC721Metadata {
 
     function mint(address _to, uint256 _projectId, address _by) external returns (uint256 _tokenId) {
         require(isMintWhitelisted[msg.sender], "Must mint from whitelisted minter contract.");
-        require(projects[_projectId].invocations.add(1) <= projects[_projectId].maxInvocations, "Must not exceed max invocations");
+        require(projects[_projectId].invocations + 1 <= projects[_projectId].maxInvocations, "Must not exceed max invocations");
         require(projects[_projectId].active || _by == projectIdToArtistAddress[_projectId], "Project must exist and be active");
         require(!projects[_projectId].paused || _by == projectIdToArtistAddress[_projectId], "Purchases are paused.");
 
@@ -253,7 +251,7 @@ contract GenArt721Core is CustomERC721Metadata {
 
         uint256 tokenIdToBe = (_projectId * ONE_MILLION) + projects[_projectId].invocations;
 
-        projects[_projectId].invocations = projects[_projectId].invocations.add(1);
+        projects[_projectId].invocations = projects[_projectId].invocations + 1;
 
         bytes32 idHash = keccak256(abi.encodePacked(projects[_projectId].invocations, block.number, blockhash(block.number - 1), msg.sender, uint(1)));
         tokenIdToHash[tokenIdToBe]=idHash;
@@ -329,7 +327,7 @@ contract GenArt721Core is CustomERC721Metadata {
         } else {
             projects[projectId].useHashString = true;
         }
-        nextProjectId = nextProjectId.add(1);
+        nextProjectId = nextProjectId + 1;
     }
 
     function updateProjectCurrencyInfo(uint256 _projectId, string memory _currencySymbol, address _currencyAddress) onlyArtist(_projectId) public {
@@ -386,7 +384,7 @@ contract GenArt721Core is CustomERC721Metadata {
 
     function addProjectScript(uint256 _projectId, string memory _script) onlyUnlocked(_projectId) onlyArtistOrWhitelisted(_projectId) public {
         projects[_projectId].scripts[projects[_projectId].scriptCount] = _script;
-        projects[_projectId].scriptCount = projects[_projectId].scriptCount.add(1);
+        projects[_projectId].scriptCount = projects[_projectId].scriptCount + 1;
     }
 
     function updateProjectScript(uint256 _projectId, uint256 _scriptId, string memory _script) onlyUnlocked(_projectId) onlyArtistOrWhitelisted(_projectId) public {
@@ -397,7 +395,7 @@ contract GenArt721Core is CustomERC721Metadata {
     function removeProjectLastScript(uint256 _projectId) onlyUnlocked(_projectId) onlyArtistOrWhitelisted(_projectId) public {
         require(projects[_projectId].scriptCount > 0, "there are no scripts to remove");
         delete projects[_projectId].scripts[projects[_projectId].scriptCount - 1];
-        projects[_projectId].scriptCount = projects[_projectId].scriptCount.sub(1);
+        projects[_projectId].scriptCount = projects[_projectId].scriptCount - 1;
     }
 
     function updateProjectScriptJSON(uint256 _projectId, string memory _projectScriptJSON) onlyUnlocked(_projectId) onlyArtistOrWhitelisted(_projectId) public {

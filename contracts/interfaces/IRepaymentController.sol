@@ -14,4 +14,6 @@ interface IRepaymentController {
     function claim(uint256 loanId) external;
 
     function redeemNote(uint256 loanId, address to) external;
+
+    function _prepareRepay(uint256 loanId, uint256 amount) external returns (uint256 amountToLender, uint256 interestAmount, uint256 paymentToPrincipal); // TODO: remove underscore
 }
