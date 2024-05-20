@@ -107,7 +107,7 @@ contract OriginationControllerCurrencyMigrate is ICurrencyMigrationBase, Origina
         _validateCurrencyMigration(oldLoanData.terms, newTerms, oldLoanId, newCurrency);
 
         {
-            (bytes32 sighash, address externalSigner) = _recoverSignature(newTerms, sig, sigProperties, Side.LEND, lender, itemPredicates, "");
+            (bytes32 sighash, address externalSigner) = _recoverSignature(newTerms, sig, sigProperties, Side.LEND, lender, itemPredicates);
 
             // counterparty validation
             if (!isSelfOrApproved(lender, externalSigner) && !OriginationLibrary.isApprovedForContract(lender, sig, sighash)) {
