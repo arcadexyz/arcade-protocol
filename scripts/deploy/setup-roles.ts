@@ -169,8 +169,8 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     await tx.wait();
     tx = await loanCore.grantRole(SHUTDOWN_ROLE, SHUTDOWN_CALLER);
     await tx.wait();
-    tx = await loanCore.renounceRole(ADMIN_ROLE, deployer.address);
-    await tx.wait();
+    //tx = await loanCore.renounceRole(ADMIN_ROLE, deployer.address);
+   // await tx.wait(); TODO: Move this to after crosscurrency migration
 
     console.log(`LoanCore: admin role granted to ${ADMIN}`);
     console.log(`LoanCore: originator role granted to ${ORIGINATION_CONTROLLER_ADDRESS}`);
@@ -190,8 +190,8 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     await tx.wait();
     tx = await originationController.renounceRole(ADMIN_ROLE, deployer.address);
     await tx.wait();
-    tx = await originationController.renounceRole(MIGRATION_MANAGER_ROLE, deployer.address);
-    await tx.wait();
+    // tx = await originationController.renounceRole(MIGRATION_MANAGER_ROLE, deployer.address);
+    // await tx.wait();  TODO: Move this to after crosscurrency migration
 
     console.log(`OriginationController: admin role granted to ${ADMIN}`);
     console.log(`OriginationController: migration manager role granted to ${MIGRATION_MANAGER}`);

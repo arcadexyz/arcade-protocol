@@ -13,6 +13,7 @@ import "../interfaces/ICurrencyMigrationBase.sol";
 import "../interfaces/ILoanCore.sol";
 import "../interfaces/IRepaymentController.sol";
 import "../libraries/LoanLibrary.sol";
+import "../libraries/InterestCalculator.sol";
 
 import "../external/uniswapV3/interfaces/IUniswapV3Pool.sol";
 import "../external/uniswapV3/libraries/PoolAddress.sol";
@@ -43,7 +44,7 @@ contract OriginationControllerCurrencyMigrate is ICurrencyMigrationBase, Origina
     address private constant POOL_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
     /// @notice lending protocol
-    address private immutable borrowerNote;  // TODO: does it need to be immutable
+    address private immutable borrowerNote;
     address private immutable repaymentController;
 
     /// @notice State variable used for checking the inheriting contract initiated the flash
@@ -121,28 +122,26 @@ contract OriginationControllerCurrencyMigrate is ICurrencyMigrationBase, Origina
         }
 
         // ------------ Migration Execution ------------
-
         // collect and distribute settled amounts
         (
             OriginationLibrary.RolloverAmounts memory amounts,
             LoanLibrary.FeeSnapshot memory feeSnapshot,
             uint256 repayAmount,
             bool flashLoanTrigger
-        ) = _migrate(oldLoanId, oldLoanData, newTerms.principal, msg.sender, lender);
+        ) = _migrate(oldLoanId, oldLoanData, newTerms.principal, newTerms.payableCurrency, msg.sender, lender);
 
         // repay original loan via flash loan
-        _initiateFlashLoan(oldLoanId, newTerms, msg.sender, lender, amounts, repayAmount, oldLoanData.terms.payableCurrency); // TODO: check this function. added old loan currency
-        // flashloan repaid in executeOperation
+        _initiateFlashLoan(oldLoanId, newTerms, msg.sender, lender, amounts, repayAmount, oldLoanData.terms.payableCurrency);
 
         // initialize new loan
         _initializeMigrationLoan(newTerms, msg.sender, lender, feeSnapshot);
 
         // Run predicates check at the end of the function, after vault is in escrow. This makes sure
         // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
-        if (itemPredicates.length > 0) originationHelpers.runPredicatesCheck(msg.sender, lender, newTerms, itemPredicates); // TODO: check this function
+        if (itemPredicates.length > 0) originationHelpers.runPredicatesCheck(msg.sender, lender, newTerms, itemPredicates);
     }
 
-    /**
+    /** TODO: make this function internal
      * @notice swapExactInputSingle swaps a fixed amount of tokenIn for a maximum possible amount of
      *         tokenOut by calling `exactInputSingle` in the swap router.
      *
@@ -167,11 +166,8 @@ contract OriginationControllerCurrencyMigrate is ICurrencyMigrationBase, Origina
         uint256 amountOutMinimum,
         uint24 fee,
         address recipient
-    ) public returns (uint256 amountOut) {
-        require(address(swapRouter) != address(0), "SwapRouter address not set");
-
-        // transfer the specified amount of tokenIn to this contract
-        IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
+    ) internal returns (uint256 amountOut) {
+        require(address(swapRouter) != address(0), "SwapRouter address not set"); // TODO: add to custom errors
 
         // approve the uniswapv3 router to spend tokenIn
         IERC20(tokenIn).safeApprove(address(swapRouter), amountIn);
@@ -235,7 +231,7 @@ contract OriginationControllerCurrencyMigrate is ICurrencyMigrationBase, Origina
             );
         }
 
-        newLoanTerms.payableCurrency = newCurrency; // TODO: added this here
+        newLoanTerms.payableCurrency = newCurrency;
 
         // ------------- New LoanTerms Validation -------------
         originationHelpers.validateLoanTerms(newLoanTerms);
@@ -262,6 +258,7 @@ contract OriginationControllerCurrencyMigrate is ICurrencyMigrationBase, Origina
         uint256 oldLoanId,
         LoanLibrary.LoanData memory oldLoanData,
         uint256 newPrincipalAmount,
+        address newCurrency,
         address borrower_,
         address lender
     ) internal nonReentrant returns (
@@ -278,31 +275,26 @@ contract OriginationControllerCurrencyMigrate is ICurrencyMigrationBase, Origina
 
         // Calculate settle amounts
         (amounts, repayAmount) = _calculateCurrencyMigrationAmounts(
-            oldLoanId,
             oldLoanData,
             newPrincipalAmount,
+            newCurrency,
             lender,
             oldLender
         );
 
-        // Collect funds based on settle amounts and total them
-
         // initiate flash loan for the funds needed to repay the original loan in old curency
         flashLoanTrigger = true;
 
-        if (amounts.needFromBorrower > 0) {
-            // Borrower owes from old loan
-            payableCurrency.safeTransferFrom(borrower_, address(this), amounts.needFromBorrower);
-        }
+        // TODO: All mount coming from the new lender. Resolve this
+        // if (amounts.needFromBorrower > 0) {
+        //     // Borrower owes from old loan
+        //     payableCurrency.safeTransferFrom(borrower_, address(this), amounts.needFromBorrower);
+        // }
     }
 
-    /** // TODO: refactor and optimize this function
+    /**
      * @notice Helper function to calculate the amounts needed to settle the old loan.
      *
-     * @dev When calling OriginationCalculator.rolloverAmounts, the first param is the // TODO: check this
-     *      loan principal not balance, since V3 is not pro-rata. // TODO: check this
-     *
-     * @param loanId                    The ID of the loan to repay. // TODO: needed?
      * @param oldLoanData               The terms of the original loan.
      * @param newPrincipalAmount        The principal amount of the new loan.
      * @param lender                    The address of the new lender.
@@ -312,27 +304,50 @@ contract OriginationControllerCurrencyMigrate is ICurrencyMigrationBase, Origina
      * @return repayAmount              The amount needed to repay the original loan.
      */
     function _calculateCurrencyMigrationAmounts(
-        uint256 loanId,
-        LoanLibrary.LoanData memory oldLoanData, // Todo: check if this is no longer needed
+        LoanLibrary.LoanData memory oldLoanData,
         uint256 newPrincipalAmount,
+        address newCurrency,
         address lender,
         address oldLender
     ) internal returns (OriginationLibrary.RolloverAmounts memory amounts, uint256 repayAmount) {
-        // get total interest to close the original loan
-        (uint256 amountToLender, uint256 interest, uint256 paymentToPrincipal) = IRepaymentController(repaymentController)._prepareRepay(loanId, type(uint256).max);
+
+        // get interest amount due
+        uint256 interestAmount = InterestCalculator.getProratedInterestAmount(
+            oldLoanData.balance,
+            oldLoanData.terms.interestRate,
+            oldLoanData.terms.durationSecs,
+            oldLoanData.startDate,
+            oldLoanData.lastAccrualTimestamp,
+            block.timestamp
+        );
 
         // calculate the repay amount to settle the original loan
-        repayAmount = amountToLender;  // TODO: confimr this number. I changed here
+        repayAmount = oldLoanData.terms.principal + interestAmount;
 
         amounts = rolloverAmounts(
-            paymentToPrincipal,
-            interest,
+            oldLoanData.terms.principal,
+            interestAmount,
             newPrincipalAmount,
             lender,
             oldLender,
             0,
             0
         );
+    }
+
+    // TODO: Add Natspec
+    function calculateProratedInterestAmount(uint256 loanId) external view returns (uint256) {
+        uint256 currentTimestamp = block.timestamp;
+        LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
+        uint256 interestAmount = InterestCalculator.getProratedInterestAmount(
+            data.balance,
+            data.terms.interestRate,
+            data.terms.durationSecs,
+            data.startDate,
+            data.lastAccrualTimestamp,
+            currentTimestamp
+        );
+        return interestAmount;
     }
 
     /**
@@ -360,15 +375,18 @@ contract OriginationControllerCurrencyMigrate is ICurrencyMigrationBase, Origina
         emit CurrencyRollover(lender, borrower_, newTerms.collateralId, newLoanId);
     }
 
-    // TODO: add Natspec
-    function _getLoanCore() public view returns (ILoanCore) { // TODO: replace this by getting LC address from constructor
+    // TODO: confirm this is needed then add Natspec if keeping
+    function _getLoanCore() public view returns (ILoanCore) {
         return ILoanCore(loanCore);
     }
 
+    // TODO: this is not fetching the correct price. FIX
     // TODO: add Natspec
-    // TODO: make internal
-    // TODO: WHAT IF NOT BOTH TOKENS ARE 18 DECIMAL? NEED TO ADJUST PRICE
+    // TODO: WHAT IF NOT BOTH TOKENS ARE 18 DECIMAL? NEED TO ADJUST
     // fetch current price from a Uniswap V3 Pool
+    // returned price should reflect the price of tokenOut in terms of tokenIn
+    // If tokenIn is DAI and tokenOut is WETH, the price will indicate how much DAI
+    // is worth in WETH.
     function _fetchCurrentPrice(address tokenIn, address tokenOut, uint24 poolFee) public view returns (uint256 price) {
         poolFee = 3000; // 0.3% fee TODO: REMOVE HARDCODED VALUE
         PoolAddress.PoolKey memory poolKey = PoolAddress.getPoolKey(tokenIn, tokenOut, poolFee);
@@ -376,26 +394,25 @@ contract OriginationControllerCurrencyMigrate is ICurrencyMigrationBase, Origina
         IUniswapV3Pool uniswapPool = IUniswapV3Pool(pool);
 
         (uint160 sqrtPriceX96,,,,,,) = uniswapPool.slot0();
-        // convert the sqrt price to a regular price
-        price = uint256(sqrtPriceX96) * uint256(sqrtPriceX96) >> (96 * 2);
-        if (tokenIn > tokenOut) {  // adjust the price based on token order
+
+        uint256 sqrtPrice = uint256(sqrtPriceX96);
+
+        // square to get the price
+        uint256 priceX192 = sqrtPrice * sqrtPrice;
+
+        // scale down by dividing by 2^192, which is equivalent to dividing by 1e18 twice
+        uint256 scalingFactor = 1e18;
+        price = (priceX192 / scalingFactor) / scalingFactor;
+
+
+        // in Uniswap, the token with the smaller address should be tokenIn and the
+        // token with the larger address should be tokenOut
+        // if tokenIn is greater than tokenOut, invert the price
+        if (tokenIn > tokenOut) {
             price = type(uint256).max / price;
         }
-        console.log("SOL 375 --------- Price: ", price);
+
         return price;
-    }
-
-    // TODO: add Natspec
-    // TODO: make internal
-    // Example using Uniswap for fetching the current price and calculating required new currency amount
-    function _newCurrencyAmountNeeded(uint256 oldCurrencyAmount, uint256 premium, address tokenIn, address tokenOut, uint24 poolFee) public view returns (uint256) {
-        // fetch current price from Uniswap
-        uint256 price = _fetchCurrentPrice(tokenIn, tokenOut, poolFee);
-
-        // Calculate the required amount of new currency
-        uint256 newCurrencyAmountNeeded = (oldCurrencyAmount + premium) * price;
-        console.log("SOL 375 --------- newCurrencyAmountNeeded: ", newCurrencyAmountNeeded);
-        return newCurrencyAmountNeeded;
     }
 
     // ======================================= FLASH LOAN OPS ===========================================
@@ -418,13 +435,13 @@ contract OriginationControllerCurrencyMigrate is ICurrencyMigrationBase, Origina
         address lender,
         OriginationLibrary.RolloverAmounts memory _amounts,
         uint256 repayAmount,
-        address oldLoanCurrency
+        address oldLoanCurrency // TODO: add to Natpsec
     ) internal {
         // cache borrower address for flash loan callback
         borrower = borrower_;
 
         IERC20[] memory assets = new IERC20[](1);
-        assets[0] = IERC20(oldLoanCurrency); // TODO: cahnged to old loan currency here
+        assets[0] = IERC20(oldLoanCurrency);
 
         // flash loan amount = new principal + any difference supplied by borrower
         uint256[] memory amounts = new uint256[](1);
@@ -494,33 +511,33 @@ contract OriginationControllerCurrencyMigrate is ICurrencyMigrationBase, Origina
         uint256[] memory premiums,
         OriginationLibrary.OperationData memory opData
     ) internal {
-        IERC20 asset = assets[0]; // TODO: double check this is the old loan currency
-console.log("SOL 375 --------- asset.address: ", address(asset));
+        IERC20 asset = assets[0]; // old loan currency
+
         _repayLoan(borrower, asset, opData.oldLoanId, amounts[0]); // flashloan used to repay old loan
+
+        // amount = original loan repayment amount - leftover principal + flash loan fee
+        uint256 amount = opData.migrationAmounts.amountFromLender - opData.migrationAmounts.leftoverPrincipal + premiums[0]; // TODO: what is the purpose of this?
+
+        uint256 scaledAmount = amounts[0] * 1e18;
+
+        uint24 fee = 3000; // 0.3% fee // TODO: REMOVE HARDCODED VALUE
+        uint256 price = _fetchCurrentPrice(address(asset), opData.newLoanTerms.payableCurrency, 3000);
+
+        uint256 amountInNewCurrency = scaledAmount / price;
+
 
         // pull funds from the lender to repay the flash loan
         IERC20(opData.newLoanTerms.payableCurrency).safeTransferFrom(
             opData.lender,
             address(this),
-            // amount = original loan repayment amount - leftover principal + flash loan fee
-            opData.migrationAmounts.amountFromLender - opData.migrationAmounts.leftoverPrincipal + premiums[0]
+            amountInNewCurrency
         );
 
-        // THIS how much amountIn is needed. Needs to be swapped to NEW currency
-        uint256 amountIn = opData.migrationAmounts.amountFromLender - opData.migrationAmounts.leftoverPrincipal + premiums[0];  // TODO: refactor this to remove redundant code
-console.log("SOL 375 --------- opData.newLoanTerms.payableCurrency: ", opData.newLoanTerms.payableCurrency);
-console.log("SOL 375 --------- opData.newLoanTerms.collateralAddress: ", opData.newLoanTerms.collateralAddress);
-
-        uint24 fee = 3000; // 0.3% fee
-
-        uint256 amountOutMinimum = _newCurrencyAmountNeeded(amountIn, premiums[0], address(asset), opData.newLoanTerms.payableCurrency, fee); // TODO: set the pool fee via the opData
-
         // swap the lender paid funds into the original payable currency
-        uint256 swappedAmount = swapExactInputSingle(opData.newLoanTerms.payableCurrency, address(asset), amountIn, amountOutMinimum, fee, address(this));
-console.log("SOL 375 --------- swappedAmount: ", swappedAmount);
+        uint256 swappedAmount = swapExactInputSingle(opData.newLoanTerms.payableCurrency, address(asset), amountInNewCurrency, 0, fee, address(this));
 
-        // Check if the swapped amount is sufficient
-        require(swappedAmount >= amounts[0] + premiums[0], "Swap output insufficient to repay the flash loan.");
+        // check if the swapped amount is sufficient
+        require(swappedAmount >= amounts[0] + premiums[0], "Swap output insufficient to repay the flash loan."); // TODO: add to custom errors
 
         if (opData.migrationAmounts.amountToBorrower > 0) {
             // If new amount is greater than old loan repayment amount, send the difference to the borrower
@@ -555,7 +572,7 @@ console.log("SOL 375 --------- swappedAmount: ", swappedAmount);
         payableCurrency.safeApprove(address(loanCoreInterface), repayAmount);
 
         // repay original currency loan, this contract receives the collateral
-        IRepaymentController(repaymentController).repayFull(borrowerNoteId); // TODO: make repay param loanId
+        IRepaymentController(repaymentController).repayFull(borrowerNoteId);
     }
 
     // ========================================== ADMIN =================================================
