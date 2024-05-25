@@ -10698,6 +10698,11 @@ snapdragon@^0.8.1:
     source-map-resolve "^0.5.0"
     use "^3.1.0"
 
+solady@^0.0.201:
+  version "0.0.201"
+  resolved "https://registry.yarnpkg.com/solady/-/solady-0.0.201.tgz#278bcf859bc2bafe02c571c8fd4c4dededae836f"
+  integrity sha512-5K0abYDz4y/XwylslIZ1yEeh2xDsFfgmF3sPNhT8z4cQcX/ucz0ImyRfQHnc31J1j1MGuuQTdtSxz3Sfbz9FDQ==
+
 "solc-0.8@npm:solc@^0.8.18":
   version "0.8.20"
   resolved "https://registry.yarnpkg.com/solc/-/solc-0.8.20.tgz#b49151cf5ecc8de088d3d32b0afb607b3522ba8d"

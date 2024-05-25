@@ -1,5 +1,5 @@
 import hre, { ethers } from "hardhat";
-import { ContractTransaction } from "ethers";
+import { ContractTransaction, BigNumber } from "ethers";
 
 import { createLoanTermsSignature } from "../../test/utils/eip712";
 import { LoanTerms, SignatureProperties } from "../../test/utils/types";
@@ -28,7 +28,7 @@ import {
 
 const swapRouterAddress = "0xE592427A0AEce92De3Edee1F18E0157C05861564"; // UniswapV3 Swap Router address on mainnet
 
-// currencies to migrate to
+// currencies for rollover
 const DAIAddress = "0x6B175474E89094C44Da98b954EedeAC495271d0F"; // Mainnet DAI address
 const WETHAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"; // Mainnet WETH address
 const DECIMALS = 18;
@@ -40,9 +40,12 @@ const ETH_WHALE = "0xd9858d573A26Bca124282AfA21ca4f4A06EfF98A";
 const BORROWER = "0xAaf7cd37c3B353c9570f791c0877f57C2a9b3236";
 const DEPLOYER = "0x6c6F915B21d43107d83c47541e5D29e872d82Da6";
 
+// 0.3% Uniswap pool fee tier
+const poolFeeTier = 3000;
+
 /**
  * To run:
- * `FORK_MAINNET=true npx hardhat run scripts/currency-migration/migrate-currency.ts`
+ * `FORK_MAINNET=true npx hardhat run scripts/rollover/cross-currency-rollover.ts`
  * use block number: 19884656
  */
 
@@ -63,8 +66,15 @@ export async function main(): Promise<void> {
 
     console.log(SECTION_SEPARATOR);
 
-    const { loanCore, feeController, borrowerNote, lenderNote, repaymentController, originationHelpers, originationController } =
-        resources;
+    const {
+        loanCore,
+        feeController,
+        borrowerNote,
+        lenderNote,
+        repaymentController,
+        originationHelpers,
+        originationController,
+    } = resources;
 
     const erc20Factory = await ethers.getContractFactory("ERC20");
     const dai = <ERC20>erc20Factory.attach(DAIAddress);
@@ -73,17 +83,14 @@ export async function main(): Promise<void> {
     const OriginationLibraryFactory = await ethers.getContractFactory("OriginationLibrary");
     const originationLibrary = <OriginationLibrary>await OriginationLibraryFactory.deploy();
 
-    // deploy the currency migration contract
-    const OriginationControllerCurrencyMigrateFactory = await ethers.getContractFactory(
-        "OriginationControllerCurrencyMigrate",
-        {
-            libraries: {
-                OriginationLibrary: originationLibrary.address,
-            },
+    // deploy the cross currency rollover contract
+    const CrossCurrencyRolloverFactory = await ethers.getContractFactory("CrossCurrencyRollover", {
+        libraries: {
+            OriginationLibrary: originationLibrary.address,
         },
-    );
+    });
 
-    const originationControllerCurrencyMigrate = await OriginationControllerCurrencyMigrateFactory.deploy(
+    const crossCurrencyRollover = await CrossCurrencyRolloverFactory.deploy(
         originationHelpers.address,
         loanCore.address,
         borrowerNote.address,
@@ -91,28 +98,28 @@ export async function main(): Promise<void> {
         feeController.address,
         swapRouterAddress,
     );
-    await originationControllerCurrencyMigrate.deployed();
+    await crossCurrencyRollover.deployed();
 
-    console.log("OriginationControllerCurrencyMigrate address: ", originationControllerCurrencyMigrate.address);
+    console.log("CrossCurrencyRollover address: ", crossCurrencyRollover.address);
     console.log(SECTION_SEPARATOR);
 
     let tx: ContractTransaction;
-    tx = await loanCore.grantRole(ORIGINATOR_ROLE, originationControllerCurrencyMigrate.address);
+    tx = await loanCore.grantRole(ORIGINATOR_ROLE, crossCurrencyRollover.address);
     await tx.wait();
-    tx = await originationControllerCurrencyMigrate.grantRole(ADMIN_ROLE, ADMIN);
+    tx = await crossCurrencyRollover.grantRole(ADMIN_ROLE, ADMIN);
     await tx.wait();
-    tx = await originationControllerCurrencyMigrate.grantRole(MIGRATION_MANAGER_ROLE, MIGRATION_MANAGER);
+    tx = await crossCurrencyRollover.grantRole(MIGRATION_MANAGER_ROLE, MIGRATION_MANAGER);
     await tx.wait();
-    tx = await originationControllerCurrencyMigrate.renounceRole(ADMIN_ROLE, DEPLOYER);
+    tx = await crossCurrencyRollover.renounceRole(ADMIN_ROLE, DEPLOYER);
     await tx.wait();
-    tx = await originationControllerCurrencyMigrate.renounceRole(MIGRATION_MANAGER_ROLE, DEPLOYER);
+    tx = await crossCurrencyRollover.renounceRole(MIGRATION_MANAGER_ROLE, DEPLOYER);
     await tx.wait();
 
     console.log(`ORIGINATOR ROLE ${ORIGINATOR_ROLE}`);
 
-    console.log(`OriginationControllerCurrencyMigrate: admin role granted to ${ADMIN}`);
-    console.log(`OriginationControllerCurrencyMigrate: migration manager role granted to ${MIGRATION_MANAGER}`);
-    console.log(`OriginationControllerCurrencyMigrate: Deployer renounced admin and migration manager role`);
+    console.log(`CrossCurrencyRollover: admin role granted to ${ADMIN}`);
+    console.log(`CrossCurrencyRollover: migration manager role granted to ${MIGRATION_MANAGER}`);
+    console.log(`CrossCurrencyRollover: Deployer renounced admin and migration manager role`);
     console.log(SUBSECTION_SEPARATOR);
 
     await hre.network.provider.request({
@@ -256,19 +263,23 @@ export async function main(): Promise<void> {
 
     // Calculate amount owed in the new currency:
     // (PRINCIPAL + Interest rate ) / swap rate.
-    const interestAmount = await originationControllerCurrencyMigrate.calculateProratedInterestAmount(1);
+    const interestAmount = await crossCurrencyRollover.calculateProratedInterestAmount(1);
     console.log("Interest Owed: ", ethers.utils.formatUnits(interestAmount, 18));
 
     const amountOwed = PRINCIPAL.add(interestAmount);
     console.log("Total Amount Owed = Principal + Interest: ", ethers.utils.formatUnits(amountOwed, 18));
 
-    // price of wETH in DAI
-    const price = await originationControllerCurrencyMigrate._fetchCurrentPrice(DAIAddress, WETHAddress, 3000);
+    // price of Dai in wETH
+    const price = await crossCurrencyRollover.fetchCurrentPrice(DAIAddress, WETHAddress, 3000);
+    console.log("Price of Dai in wETH: ", ethers.utils.formatUnits(price, 18));
 
-    // get the amount owed in the new currency
-    const scaledPrice = price.div(ethers.BigNumber.from(`${1e18}`)); // price is in 18 decimals
-    const NEW_PRINCIPAL = amountOwed.div(scaledPrice);
+    // amount owed in wETH
+    let NEW_PRINCIPAL = amountOwed.mul(price).div(ethers.constants.WeiPerEther); // Divide by 1e18 to correct unit
     console.log("Amount in New Currency Owed: ", ethers.utils.formatUnits(NEW_PRINCIPAL, 18));
+    // add 3% for slippage
+    const slippage = NEW_PRINCIPAL.mul(3).div(100);
+    // NEW_PRINCIPAL with added slippage amount
+    NEW_PRINCIPAL = NEW_PRINCIPAL.add(slippage);
 
     const newLoanTerms: LoanTerms = {
         interestRate: INTEREST_RATE,
@@ -282,7 +293,7 @@ export async function main(): Promise<void> {
     };
 
     const newLenderSig = await createLoanTermsSignature(
-        originationControllerCurrencyMigrate.address,
+        crossCurrencyRollover.address,
         "OriginationController",
         newLoanTerms,
         newLender,
@@ -293,21 +304,35 @@ export async function main(): Promise<void> {
 
     console.log("Approving WETH...");
     // new lender approves WETH amount to contract
-    const approveWETHTx = await weth
-        .connect(newLender)
-        .approve(originationControllerCurrencyMigrate.address, wethAmount);
+    const approveWETHTx = await weth.connect(newLender).approve(crossCurrencyRollover.address, wethAmount);
     await approveWETHTx.wait();
 
     // borrower approves borrower note
-    await borrowerNote.connect(borrower).approve(originationControllerCurrencyMigrate.address, 1);
-
-    // TODO: add pool fee to the function arguments
-    await originationControllerCurrencyMigrate
+    await borrowerNote.connect(borrower).approve(crossCurrencyRollover.address, 1);
+console.log("TST AFTER APPROVALS ------------------");
+try {
+    const tx = await crossCurrencyRollover
         .connect(borrower)
-        .migrateCurrencyLoan(1, newLoanTerms, newLender.address, NEW_PAYABLE_CURRENCY, newLenderSig, sigProperties, []);
+        .rolloverCrossCurrencyLoan(
+            1,
+            newLoanTerms,
+            newLender.address,
+            NEW_PAYABLE_CURRENCY,
+            newLenderSig,
+            sigProperties,
+            [],
+            poolFeeTier,
+        );
+    const receipt = await tx.wait();
+    console.log("Transaction successful with receipt:", receipt);
+} catch (error) {
+    console.error("Transaction failed:", error);
+    console.log("Failed transaction receipt:", error.receipt);
+    console.error("Transaction failed:", error);
+}
 
     console.log();
-    console.log("✅ Loan migrated to new currency!");
+    console.log("✅ Loan rolled over to new currency!");
     console.log();
 
     // check the borrower and lender notes
@@ -335,29 +360,3 @@ if (require.main === module) {
             process.exit(1);
         });
 }
-
- ///////////////////// SIMPLE SWAP EXAMPLE //////////////////////
-
-    // // amount to swap
-
-    // const amountIn = ethers.utils.parseEther("100"); // 100 DAI
-    // // 0.3% pool fee
-    // const fee = 3000;
-
-    // await currencyIn.connect(lender).transfer(borrower.address, amountIn);
-    // await currencyIn.connect(borrower).approve(originationControllerCurrencyMigrate.address, amountIn);
-
-    // console.log("Borrower DAI balance: ", ethers.utils.formatEther(await currencyIn.balanceOf(borrower.address)));
-
-    // // make the swap
-    // // for the sake of simplicity, we set amountOutMinimum to 0, but this
-    // // value should be calculated using the Uniswap SDK to protect
-    // // against price manipulation.
-    // await originationControllerCurrencyMigrate
-    //     .connect(borrower)
-    //     .swapExactInputSingle(DAIAddress, WETHAddress, amountIn, 0, fee, originationControllerCurrencyMigrate.address);
-
-    // console.log(
-    //     "CurrencyMigrate contract WETH balance: ",
-    //     ethers.utils.formatEther(await currencyOut.balanceOf(originationControllerCurrencyMigrate.address)),
-    // );

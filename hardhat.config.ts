@@ -99,7 +99,7 @@ function createMainnetConfig(): NetworkUserConfig {
             mnemonic,
         },
         chainId: chainIds.mainnet,
-        url: `https://eth-mainnet.alchemyapi.io/v2/${alchemyApiKey}`,
+        url: `https://eth-mainnet.g.alchemy.com/v2/${alchemyApiKey}`,
     };
 }
 

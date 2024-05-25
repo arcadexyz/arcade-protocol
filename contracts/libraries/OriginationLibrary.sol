@@ -41,6 +41,15 @@ library OriginationLibrary {
         RolloverAmounts migrationAmounts;
     }
 
+    struct OperationDataCurrency { // TODO: optimize for storage
+        uint256 oldLoanId;
+        LoanLibrary.LoanTerms newLoanTerms;
+        address borrower;
+        address lender;
+        RolloverAmounts rolloverAmounts;
+        uint24 poolFeeTier;
+    }
+
     // ======================================= CONSTANTS ==============================================
 
     /// @notice EIP712 type hash for bundle-based signatures.

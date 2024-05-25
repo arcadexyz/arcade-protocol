@@ -8,20 +8,21 @@ import "./IOriginationController.sol";
 
 import "../external/interfaces/IFlashLoanRecipient.sol";
 
-interface ICurrencyMigrationBase is IFlashLoanRecipient {
+interface ICrossCurrencyRollover is IFlashLoanRecipient {
     event PausedStateChanged(bool isPaused);
     event CurrencyRollover(address indexed lender, address indexed borrower, uint256 collateralTokenId, uint256 newLoanId);
 
     // ================== Cross Currency Migration ==================
 
-    function migrateCurrencyLoan(
+    function rolloverCrossCurrencyLoan(
         uint256 oldLoanId,
         LoanLibrary.LoanTerms calldata loanTerms,
         address lender,
         address newCurrency,
         IOriginationController.Signature calldata sig,
         IOriginationController.SigProperties calldata sigProperties,
-        LoanLibrary.Predicate[] calldata itemPredicates
+        LoanLibrary.Predicate[] calldata itemPredicates,
+        uint24 poolFeeTier
     ) external;
 
     // ==================== OWNER OPS ====================
