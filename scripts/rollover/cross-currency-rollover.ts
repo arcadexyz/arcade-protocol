@@ -280,7 +280,7 @@ export async function main(): Promise<void> {
     const slippage = NEW_PRINCIPAL.mul(3).div(100);
     // NEW_PRINCIPAL with added slippage amount
     NEW_PRINCIPAL = NEW_PRINCIPAL.add(slippage);
-
+console.log("TST slippage amt: ", ethers.utils.formatUnits(slippage, 18));
     const newLoanTerms: LoanTerms = {
         interestRate: INTEREST_RATE,
         durationSecs: DURATION_SECS,
@@ -309,9 +309,8 @@ export async function main(): Promise<void> {
 
     // borrower approves borrower note
     await borrowerNote.connect(borrower).approve(crossCurrencyRollover.address, 1);
-console.log("TST AFTER APPROVALS ------------------");
-try {
-    const tx = await crossCurrencyRollover
+
+    await crossCurrencyRollover
         .connect(borrower)
         .rolloverCrossCurrencyLoan(
             1,
@@ -321,15 +320,8 @@ try {
             newLenderSig,
             sigProperties,
             [],
-            poolFeeTier,
-        );
-    const receipt = await tx.wait();
-    console.log("Transaction successful with receipt:", receipt);
-} catch (error) {
-    console.error("Transaction failed:", error);
-    console.log("Failed transaction receipt:", error.receipt);
-    console.error("Transaction failed:", error);
-}
+            poolFeeTier
+    );
 
     console.log();
     console.log("✅ Loan rolled over to new currency!");

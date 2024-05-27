@@ -107,14 +107,13 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         LoanLibrary.Predicate[] calldata itemPredicates,
         uint24 poolFee
     ) external override whenNotPaused whenBorrowerReset {
-console.log("SOL 110 Before LOANDATA: =============== ");
         LoanLibrary.LoanData memory oldLoanData = ILoanCore(loanCore).getLoan(oldLoanId);
-console.log("SOL 110 AFTER LOANDATA: ===============");
+
         // ------------ Rollover Validation ------------
         if (oldLoanData.state != LoanLibrary.LoanState.Active) revert CCR_InvalidState(uint8(oldLoanData.state));
-console.log("SOL 114 Before VALIDATE: ===============");
-        _validateCurrencyRollover(oldLoanData.terms, newTerms, oldLoanId, newCurrency);
-console.log("SOL 114 AFTER VALIDATE: ===============");
+
+        _validateCurrencyRollover(oldLoanData.terms, newTerms, oldLoanId);
+
         {
             (bytes32 sighash, address externalSigner) = _recoverSignature(newTerms, sig, sigProperties, Side.LEND, lender, itemPredicates);
 
@@ -133,23 +132,11 @@ console.log("SOL 114 AFTER VALIDATE: ===============");
         // ------------ Rollover Execution ------------
         // collect and distribute settled amounts
 
-        // TODO: need conditional re. what token in and what token out is?
-        // TODO: This is being called twice (also in _executeOperation), dry up
-        uint256 price = fetchCurrentPrice(oldLoanData.terms.payableCurrency, newCurrency, poolFee); // Todo: give this var a better name
-        // tokein is dai token out is weth, so price in wETH for DAI.
-        console.log("SOL 139 price: ", price);
-        price = price / ONE;
-
-        console.log("SOL 137 newTerms.principal: ", newTerms.principal);
-        console.log("SOL 143 price: ", price);
-        uint256 newCurrencyPrincipal = newTerms.principal / price; // to reversethe price, and get price of dai in wETH
-        console.log("SOL 140 newCurrencyPrincipal: ", newCurrencyPrincipal);
-
         (
             OriginationLibrary.RolloverAmounts memory amounts,
             LoanLibrary.FeeSnapshot memory feeSnapshot,
             uint256 repayAmount
-        ) = _migrate(oldLoanId, oldLoanData, newCurrencyPrincipal, newTerms.payableCurrency, msg.sender, lender);
+        ) = _migrate(oldLoanId, oldLoanData, newTerms.principal, newTerms.payableCurrency, msg.sender, lender, poolFee);
 
         // repay original loan via flash loan
         _initiateFlashLoan(oldLoanId, newTerms, msg.sender, lender, amounts, repayAmount, oldLoanData.terms.payableCurrency, poolFee);
@@ -162,55 +149,69 @@ console.log("SOL 114 AFTER VALIDATE: ===============");
         if (itemPredicates.length > 0) originationHelpers.runPredicatesCheck(msg.sender, lender, newTerms, itemPredicates);
     }
 
-    /** TODO: make this function internal
-     * @notice swapExactInputSingle swaps a fixed amount of tokenIn for a maximum possible amount of
-     *         tokenOut by calling `exactInputSingle` in the swap router.
+    /** TODO: Add to interface
+     * @notice Gets the current price of tokenIn in terms of tokenOut from a specified
+     *         UniswapV3 pool.
      *
-     * @dev The calling address must approve this contract to spend at least amountIn worth of tokenIn.
+     * @dev This function computes the price based on the pool's returned square root price.
+     *      It also adjusts for token decimals and ensures that the price correlates with the
+     *      correct token direction.
+     *      If tokenIn is not the native token of the pool, i.e., token0, the price is inverted.
      *
-     * @param tokenIn                   Address of the token being swapped.
-     * @param tokenOut                  Address of the token to be received.
-     * @param amountIn                  The exact amount of tokenIn that will be swapped for tokenOut.
-     * @param amountOutMinimum          Minimum amount of tokenOut expected. Helps protect against
-     *                                  getting an unusually bad price for a trade due to a front
-     *                                  running, sandwich or another type of price manipulation.
-     * @param fee                       The fee tier of the pool. Determines the pool contract in
-     *                                  which to execute the swap.
-     * @param recipient                 Address receiving the output token
+     * @param tokenIn                    The address of the input token.
+     * @param tokenOut                   The address of the output token / the token we want
+     *                                   to receive.
+     * @param poolFee                    The pool's fee tier, used to locate the correct pool.
      *
-     * @return amountOut                The amount of tokenOut received.
+     * @return price                     The price of one unit of tokenIn expressed in units
+     *                                   of tokenOut.
      */
-    function swapExactInputSingle(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn,
-        uint256 amountOutMinimum,
-        uint24 fee,
-        address recipient
-    ) internal returns (uint256 amountOut) {
-        require(address(swapRouter) != address(0), "SwapRouter address not set"); // TODO: add to custom errors
+    function fetchCurrentPrice(address tokenIn, address tokenOut, uint24 poolFee) public view returns (uint256 price) {
+        PoolAddress.PoolKey memory poolKey = PoolAddress.getPoolKey(tokenIn, tokenOut, poolFee);
+        // get the pool address
+        address pool = PoolAddress.computeAddress(POOL_FACTORY, poolKey);
+        IUniswapV3Pool uniswapPool = IUniswapV3Pool(pool);
 
-        // approve the uniswapv3 router to spend tokenIn
-        IERC20(tokenIn).safeApprove(address(swapRouter), amountIn);
+        // price is stored as the square root of the ratio of the two tokens, and its value is
+        // encoded in a fixed-point format Q64.96.
+        (uint160 sqrtPriceX96,,,,,,) = uniswapPool.slot0();
 
-        // Setting sqrtPriceLimitX96 to zero makes the parameter inactive.
-        // This parameter sets a boundary on the pool's swap price. It defines the
-        // worst acceptable price before the transaction reverts. Allows for partial
-        // swaps. hence the here is zero value.
-        ISwapRouter.ExactInputSingleParams memory params =
-            ISwapRouter.ExactInputSingleParams({
-                tokenIn: tokenIn,
-                tokenOut: tokenOut,
-                fee: fee,
-                recipient: recipient,
-                deadline: block.timestamp,
-                amountIn: amountIn,
-                amountOutMinimum: amountOutMinimum,
-                sqrtPriceLimitX96: 0
-            });
+        // square the sqrtPriceX96 to revert to the non-root price
+        uint256 basePrice = uint256(sqrtPriceX96) * uint256(sqrtPriceX96);
+        // multiply by scaleFactor and divide by 2^192 because basePrice is multiplying two 96-bit numbers
+        basePrice = FixedPointMathLib.mulDiv(basePrice, ONE, uint256(1) << 192);
 
-        // execute the swap
-        amountOut = swapRouter.exactInputSingle(params);
+        // get the decimal places for both tokenIn and tokenOut. Needed for adjusting the price
+        // based on how many decimal places each token uses
+        uint8 decimalsTokenIn = IERC20Metadata(tokenIn).decimals();
+        uint8 decimalsTokenOut = IERC20Metadata(tokenOut).decimals();
+
+        // adjusts the basePrice depending on the difference in decimals between tokenIn and tokenOut.
+        // If tokenIn has more decimals than tokenOut, the price is scaled up because each unit of
+        // tokenIn represents a smaller amount of value than one unit of tokenOut.
+        // If tokenOut has more decimals, the price is scaled down.
+        // Otherwise no scaling is needed.
+        if (decimalsTokenIn > decimalsTokenOut) {
+            price = basePrice * (10 ** (decimalsTokenIn - decimalsTokenOut));
+        } else if (decimalsTokenOut > decimalsTokenIn) {
+            uint256 divisionFactor = 10 ** (decimalsTokenOut - decimalsTokenIn);
+            price = FixedPointMathLib.mulDiv(basePrice, 1, divisionFactor);
+        } else {
+            price = basePrice;
+        }
+
+        // in UniswapV3 pools the determination of which token is token0 and which is token1
+        // is based on the tokens' Ethereum addresses: the token with the lower address becomes
+        // token0, and the higher address becomes token1.
+        // if function args tokenIn is not token0, the price needs to be inverted
+        // to reflect the cost of tokenIn in terms of tokenOut.
+        address token0 = tokenIn < tokenOut ? tokenIn : tokenOut;
+        if (tokenIn != token0) {
+            // if tokenIn is not the base token, invert the price
+            price = type(uint256).max / (price > 0 ? price : 1);
+        }
+
+        return price;
     }
 
     // =================================== MIGRATION VALIDATION =========================================
@@ -227,8 +228,7 @@ console.log("SOL 114 AFTER VALIDATE: ===============");
     function _validateCurrencyRollover(
         LoanLibrary.LoanTerms memory sourceLoanTerms,
         LoanLibrary.LoanTerms memory newLoanTerms,
-        uint256 borrowerNoteId,
-        address newCurrency // TODO: add to Natpsec
+        uint256 borrowerNoteId
     ) internal view {
         // ------------- Caller Validation -------------
         address _borrower = IPromissoryNote(borrowerNote).ownerOf(borrowerNoteId);
@@ -250,8 +250,6 @@ console.log("SOL 114 AFTER VALIDATE: ===============");
                 newLoanTerms.collateralId
             );
         }
-
-        newLoanTerms.payableCurrency = newCurrency;
 
         // ------------- New LoanTerms Validation -------------
         originationHelpers.validateLoanTerms(newLoanTerms);
@@ -276,9 +274,10 @@ console.log("SOL 114 AFTER VALIDATE: ===============");
         uint256 oldLoanId,
         LoanLibrary.LoanData memory oldLoanData,
         uint256 newPrincipalAmount,
-        address newCurrency,
+        address newCurrency, // TODO: add to Natpsec
         address borrower_,
-        address lender
+        address lender,
+        uint24 poolFee
     ) internal nonReentrant returns (
         OriginationLibrary.RolloverAmounts memory amounts,
         LoanLibrary.FeeSnapshot memory feeSnapshot,
@@ -296,7 +295,8 @@ console.log("SOL 114 AFTER VALIDATE: ===============");
             newPrincipalAmount,
             newCurrency,
             lender,
-            oldLender
+            oldLender,
+            poolFee
         );
 
         if (amounts.needFromBorrower > 0) {
@@ -319,11 +319,11 @@ console.log("SOL 114 AFTER VALIDATE: ===============");
     function _calculateCurrencyRolloverAmounts(
         LoanLibrary.LoanData memory oldLoanData,
         uint256 newPrincipalAmount,
-        address newCurrency,
+        address newCurrency,  // TODO: add to Natpsec
         address lender,
-        address oldLender
+        address oldLender,
+        uint24 poolFee  // TODO: add to Natpsec
     ) internal returns (OriginationLibrary.RolloverAmounts memory amounts, uint256 repayAmount) {
-        console.log("SOL 320 newPrincipalAmount", newPrincipalAmount);
         // get interest amount due
         uint256 interestAmount = InterestCalculator.getProratedInterestAmount(
             oldLoanData.balance,
@@ -337,28 +337,24 @@ console.log("SOL 114 AFTER VALIDATE: ===============");
         // calculate the repay amount to settle the original loan
         repayAmount = oldLoanData.terms.principal + interestAmount;
 
-        console.log("SOL 333 repayAmount", repayAmount);
+        uint256 price = fetchCurrentPrice(oldLoanData.terms.payableCurrency, newCurrency, poolFee); // Todo: give this var a better name
+        // tokein is dai token out is weth, so price in wETH for DAI.
+
+        uint256 newCurrencyPrincipal = (newPrincipalAmount / price) * ONE;
 
         amounts = rolloverAmounts(
             oldLoanData.terms.principal,
             interestAmount,
-            newPrincipalAmount,
+            newCurrencyPrincipal,
             lender,
             oldLender,
             0,
             0
         );
-
-        console.log("SOL 345 needFromBorrower", amounts.needFromBorrower);
-        console.log("SOL 346 leftoverPrincipal", amounts.leftoverPrincipal);
-        console.log("SOL 347 amountFromLender", amounts.amountFromLender);
-        console.log("SOL 348 amountToOldLender", amounts.amountToOldLender);
-        console.log("SOL 349 amountToLender", amounts.amountToLender);
-        console.log("SOL 350 amountToBorrower", amounts.amountToBorrower);
-        console.log("SOL 351 interestAmount", amounts.interestAmount);
     }
 
     // TODO: Add Natspec
+    // TODO: Add to interface
     function calculateProratedInterestAmount(uint256 loanId) external view returns (uint256) {
         uint256 currentTimestamp = block.timestamp;
         LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
@@ -400,87 +396,55 @@ console.log("SOL 114 AFTER VALIDATE: ===============");
         emit CurrencyRollover(lender, borrower_, newTerms.collateralId, newLoanId);
     }
 
-    // TODO: confirm this is needed then add Natspec if keeping
-    function _getLoanCore() public view returns (ILoanCore) {
-        return ILoanCore(loanCore);
-    }
-
-    // TODO: Not fetching the correct price. FIX
     /**
-    * @notice  Fetches the current price of tokenIn in terms of tokenOut from a specified
-     *         Uniswap V3 pool.
+     * @notice swapExactInputSingle swaps a fixed amount of tokenIn for a maximum possible amount of
+     *         tokenOut by calling `exactInputSingle` in the Uniswap swap router.
      *
-     * @dev This function computes the price based on the square root price returned by
-     *      the Uniswap V3 pool, adjusting for token decimals and ensuring that the price
-     *      is presented for the correct token direction.
-     *      If `tokenIn` is not the native token of the pool (token0), the price is inverted.
+     * @dev The calling address must approve this contract to spend at least amountIn worth of tokenIn.
      *
-     * @param tokenIn                    The address of the input token.
-     * @param tokenOut                   The address of the output token / the token we want
-     *                                   to receive.
-     * @param poolFee                    The pool's fee tier, used to locate the correct pool.
+     * @param tokenIn                   Address of the token being swapped.
+     * @param tokenOut                  Address of the token to be received.
+     * @param amountIn                  The exact amount of tokenIn that will be swapped for tokenOut.
+     * @param amountOutMinimum          Minimum amount of tokenOut expected. Helps protect against
+     *                                  front running, sandwich or another type of price manipulation.
+     * @param fee                       The fee tier of the pool. Determines the pool contract in
+     *                                  which to execute the swap.
+     * @param recipient                 Address receiving the output token
      *
-     * @return price                     The price of one unit of tokenIn expressed in units
-     *                                   of tokenOut.
+     * @return amountOut                The amount of tokenOut received.
      */
-    function fetchCurrentPrice(address tokenIn, address tokenOut, uint24 poolFee) public view returns (uint256 price) {
-        PoolAddress.PoolKey memory poolKey = PoolAddress.getPoolKey(tokenIn, tokenOut, poolFee);
-        address pool = PoolAddress.computeAddress(POOL_FACTORY, poolKey); // https://etherscan.io/address/0xc2e9f25be6257c210d7adf0d4cd6e3e881ba25f8
-        IUniswapV3Pool uniswapPool = IUniswapV3Pool(pool);
+    function _swapExactInputSingle(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 amountOutMinimum,
+        uint24 fee,
+        address recipient
+    ) internal returns (uint256 amountOut) {
+        require(address(swapRouter) != address(0), "SwapRouter address not set"); // TODO: add to custom errors
 
-        // retrieves the square root price (sqrtPriceX96) from the pool's slot0 function. This price
-        // is a Q64.96 fixed-point number representing the square root of the price of token0 in
-        // terms of token1, adjusted by 2^96.
-        (uint160 sqrtPriceX96,,,,,,) = uniswapPool.slot0();
-        console.log("SOL 417 sqrtPriceX96: ", sqrtPriceX96);
+        // approve the UniswapV3 router to spend tokenIn
+        IERC20(tokenIn).safeApprove(address(swapRouter), amountIn);
 
-        // squares the sqrtPriceX96 to revert to the non-root price but still scaled by 2^96 twice,
-        // so by 2^192 in total
-        uint256 basePrice = uint256(sqrtPriceX96) * uint256(sqrtPriceX96);
-        // applies scaling factor (10^18 here) to balance the squaring and prevent overflow or underflow
-        uint256 scaleFactor = ONE;
-        // multiply by scaleFactor and divide by 2^192 in a single step
-        basePrice = FixedPointMathLib.mulDiv(basePrice, scaleFactor, uint256(1) << 192);
-        //basePrice = basePrice / (uint256(1) << 192);
-        console.log("SOL 426 basePrice: ", basePrice);
+        // setting sqrtPriceLimitX96 to zero makes the parameter inactive.
+        // This parameter sets a boundary on the pool's swap price. It defines the
+        // worst acceptable price before the transaction reverts to allow for partial
+        // swaps, hence the value here is zero as we do not want to accept partial
+        // swaps.
+        ISwapRouter.ExactInputSingleParams memory params =
+            ISwapRouter.ExactInputSingleParams({
+                tokenIn: tokenIn,
+                tokenOut: tokenOut,
+                fee: fee,
+                recipient: recipient,
+                deadline: block.timestamp,
+                amountIn: amountIn,
+                amountOutMinimum: amountOutMinimum,
+                sqrtPriceLimitX96: 0
+            });
 
-        // fetch the decimal places for both tokenIn and tokenOut. Crucial for adjusting the price
-        // based on how many decimal places each token uses
-        uint8 decimalsTokenIn = IERC20Metadata(tokenIn).decimals();
-        uint8 decimalsTokenOut = IERC20Metadata(tokenOut).decimals();
-
-        // adjusts the basePrice based on the difference in decimals between tokenIn and tokenOut.
-        // If tokenIn has more decimals than tokenOut, the price is scaled up.
-        // If tokenOut has more decimals, the price is scaled down using FullMath.mulDiv to ensure precision.
-        // If the decimals are the same, no scaling is applied.
-        if (decimalsTokenIn > decimalsTokenOut) {
-            price = basePrice * (10 ** (decimalsTokenIn - decimalsTokenOut));
-        } else if (decimalsTokenOut > decimalsTokenIn) {
-            uint256 divisionFactor = 10 ** (decimalsTokenOut - decimalsTokenIn);
-            // scale down the price to match token decimals
-            price = FixedPointMathLib.mulDiv(basePrice, 1, divisionFactor);
-        } else {
-            // no adjustment needed if decimals are the same
-            price = basePrice;
-        }
-
-        // Uniswap V3 pools contain two tokens, referred to as token0 and token1.
-        // The determination of which token is token0 and which is token1 is based strictly on
-        // their Ethereum addresses: the token with the lower address becomes token0, and the
-        // higher address becomes token1.
-        // If you are querying the price of tokenIn in terms of tokenOut, and tokenIn is not
-        // token0, then the price you compute from sqrtPriceX96 would be the inverse of what you
-        // actually need because it gives you token0 in terms of token1.
-        // The price returned, sqrtPriceX96 always expresses the price of token1 in terms of token0.
-        address token0 = tokenIn < tokenOut ? tokenIn : tokenOut;
-        if (tokenIn != token0) {
-            // if tokenIn is not the base token, invert the price
-            price = type(uint256).max / (price > 0 ? price : 1);
-        }
-
-        //console.log("SOL 462 price: ", price * scaleFactor); // TODO: remove???
-        //price = price * scaleFactor;
-        return price;
+        // execute the swap
+        amountOut = swapRouter.exactInputSingle(params);
     }
 
     // ======================================= FLASH LOAN OPS ===========================================
@@ -506,7 +470,7 @@ console.log("SOL 114 AFTER VALIDATE: ===============");
         uint24 poolFee // TODO: add to Natpsec
     ) internal {
         // cache borrower address for flash loan callback
-        borrower = borrower_; // TODO: why are we caching this?
+        borrower = borrower_;
 
         IERC20[] memory assets = new IERC20[](1);
         assets[0] = IERC20(oldLoanCurrency);
@@ -586,31 +550,36 @@ console.log("SOL 114 AFTER VALIDATE: ===============");
 
         // amount = original loan repayment amount - leftover principal + flash loan fee
         uint256 amount = opData.rolloverAmounts.amountFromLender - opData.rolloverAmounts.leftoverPrincipal + premiums[0];
-        console.log("SOL 573: amountOwed: ", amount);
+        console.log("SOL 579: amountOwed in OLD currency: ", amount);
 
-        // pull funds from the lender to repay the flash loan
+        // pull funds from the new lender to repay the flash loan
         IERC20(opData.newLoanTerms.payableCurrency).safeTransferFrom(
             opData.lender,
             address(this),
             opData.newLoanTerms.principal
         );
-
-        // swap the lender paid new currency funds into the original payable currency
-        uint256 swappedAmount = swapExactInputSingle(opData.newLoanTerms.payableCurrency, address(asset), opData.newLoanTerms.principal, 0, opData.poolFeeTier, address(this));
-        console.log("SOL 590:  Swapped swappedAmount: ", swappedAmount);
+console.log("SOL 587:  opData.newLoanTerms.principal in NEW currency: ", opData.newLoanTerms.principal);
+        // swap the new lender payment from new currency to the original currency
+        uint256 swappedAmount = _swapExactInputSingle(opData.newLoanTerms.payableCurrency, address(asset), opData.newLoanTerms.principal, 0, opData.poolFeeTier, address(this));
+        console.log("SOL 590:  Swapped swappedAmount (should be equal to amount owed): ", swappedAmount);
 
         // check if the swapped amount is sufficient
         require(swappedAmount >= amount, "Swap output insufficient to repay the flash loan."); // TODO: add to custom errors
 
-        console.log("SOL 591:  opData.rolloverAmounts.amountToBorrower: ", opData.rolloverAmounts.amountToBorrower);
-        if (opData.rolloverAmounts.amountToBorrower > 0) {
+        console.log("SOL 612:  amounts[0] + premiums[0]: ", amounts[0] + premiums[0]);
+        console.log("SOL 612:  opData.rolloverAmounts.amountToBorrower: ", opData.rolloverAmounts.amountToBorrower);
+
+        if (opData.rolloverAmounts.amountToBorrower > 0) { // TODO: this needs re-thining. amount to borrower will always be bigger, but some if it is going to slippage etc...
+            uint256 amountToBorrower = swappedAmount - (amounts[0] + premiums[0]);
+            console.log("SOL 598:  amountToBorrower = swappedAmount - (amounts[0] + premiums[0]) ", amountToBorrower);
             // If new amount is greater than old loan repayment amount, send the difference to the borrower
-            asset.safeTransfer(borrower, opData.rolloverAmounts.amountToBorrower);
+            asset.safeTransfer(borrower, amountToBorrower);
         }
 
         // Make flash loan repayment
         // Balancer requires a transfer back the vault
         asset.safeTransfer(VAULT, amounts[0] + premiums[0]);
+        console.log("SOL 615:  Contract balance in old curreny: ", IERC20(asset).balanceOf(address(this)));
     }
 
     /**
@@ -632,7 +601,7 @@ console.log("SOL 114 AFTER VALIDATE: ===============");
         IPromissoryNote(borrowerNote).transferFrom(_borrower, address(this), borrowerNoteId);
 
         // approve LoanCore to take the total settled amount
-        ILoanCore loanCoreInterface = _getLoanCore();
+        ILoanCore loanCoreInterface = ILoanCore(loanCore);
         payableCurrency.safeApprove(address(loanCoreInterface), repayAmount);
 
         // repay original currency loan, this contract receives the collateral
