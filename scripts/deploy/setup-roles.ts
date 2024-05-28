@@ -169,8 +169,6 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     await tx.wait();
     tx = await loanCore.grantRole(SHUTDOWN_ROLE, SHUTDOWN_CALLER);
     await tx.wait();
-    //tx = await loanCore.renounceRole(ADMIN_ROLE, deployer.address);
-   // await tx.wait(); TODO: Move this to after crosscurrency migration
 
     console.log(`LoanCore: admin role granted to ${ADMIN}`);
     console.log(`LoanCore: originator role granted to ${ORIGINATION_CONTROLLER_ADDRESS}`);
@@ -178,7 +176,6 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     console.log(`LoanCore: affiliate manager role granted to ${AFFILIATE_MANAGER}`);
     console.log(`LoanCore: fee claimer role granted to ${FEE_CLAIMER}`);
     console.log(`LoanCore: shutdown role granted to ${SHUTDOWN_CALLER}`);
-    console.log(`LoanCore: deployer renounced admin role`);
     console.log(SUBSECTION_SEPARATOR);
 
     // ============= OriginationController ==============
@@ -190,8 +187,8 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     await tx.wait();
     tx = await originationController.renounceRole(ADMIN_ROLE, deployer.address);
     await tx.wait();
-    // tx = await originationController.renounceRole(MIGRATION_MANAGER_ROLE, deployer.address);
-    // await tx.wait();  TODO: Move this to after crosscurrency migration
+    tx = await originationController.renounceRole(MIGRATION_MANAGER_ROLE, deployer.address);
+    await tx.wait();
 
     console.log(`OriginationController: admin role granted to ${ADMIN}`);
     console.log(`OriginationController: migration manager role granted to ${MIGRATION_MANAGER}`);
@@ -213,6 +210,30 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     console.log(`OriginationHelpers: admin role granted to ${ADMIN}`);
     console.log(`OriginationHelpers: whitelist manager role granted to ${LOAN_WHITELIST_MANAGER}`);
     console.log(`OriginationHelpers: Deployer renounced admin and whitelist manager role`);
+    console.log(SUBSECTION_SEPARATOR);
+
+    // ============= CrossCurrencyRollover ==============
+
+    const { crossCurrencyRollover } = resources;
+    tx = await loanCore.grantRole(ORIGINATOR_ROLE, crossCurrencyRollover.address);
+    await tx.wait();
+    tx = await crossCurrencyRollover.grantRole(ADMIN_ROLE, ADMIN);
+    await tx.wait();
+    tx = await crossCurrencyRollover.grantRole(SHUTDOWN_ROLE, SHUTDOWN_CALLER);
+    await tx.wait();
+    tx = await crossCurrencyRollover.renounceRole(ADMIN_ROLE, deployer.address);
+    await tx.wait();
+
+    console.log(`LoanCore: originator role granted to ${crossCurrencyRollover.address}`);
+    console.log(`CrossCurrencyRollover: admin role granted to ${ADMIN}`);
+    console.log(`CrossCurrencyRollover: shutdown role granted to ${SHUTDOWN_CALLER}`);
+    console.log(`CrossCurrencyRollover: Deployer renounced admin role`);
+    console.log(SUBSECTION_SEPARATOR);
+
+    tx = await loanCore.renounceRole(ADMIN_ROLE, deployer.address);
+    await tx.wait();
+
+    console.log(`LoanCore: deployer renounced admin role`);
     console.log(SUBSECTION_SEPARATOR);
 
     console.log("✅ Transferred all ownership.");

@@ -2,8 +2,6 @@
 
 pragma solidity 0.8.18;
 
-import "../libraries/LoanLibrary.sol";
-
 /**
  * @title LendingErrors
  * @author Non-Fungible Technologies, Inc.
@@ -83,7 +81,7 @@ error CCR_SideMismatch(address signer);
  * @param oldCurrency                   The currency of the active loan.
  * @param newCurrency                   The currency of the new loan.
  */
-error CCR_CurrencyMatch(address oldCurrency, address newCurrency);
+error CCR_SameCurrency(address oldCurrency, address newCurrency);
 
 /**
  * @notice New collateral does not match for a loan migration request.
@@ -104,3 +102,15 @@ error CCR_CollateralMismatch(
  * @notice The lender specified for a migration cannot be the current borrower.
  */
 error CCR_LenderIsBorrower();
+
+/**
+ * @notice Zero address passed in where not allowed.
+ *
+ * @param addressType                  The name of the parameter for which a zero address was provided.
+ */
+error CCR_ZeroAddress(string addressType);
+
+/**
+ * @notice Output of the swap is insufficient to cover the flah loan repayment amount.
+ */
+ error CCR_InsufficientSwappedAmount();

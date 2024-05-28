@@ -9,23 +9,27 @@ import "./IOriginationController.sol";
 import "../external/interfaces/IFlashLoanRecipient.sol";
 
 interface ICrossCurrencyRollover is IFlashLoanRecipient {
+    // =========================== EVENTS ==========================
     event PausedStateChanged(bool isPaused);
     event CurrencyRollover(address indexed lender, address indexed borrower, uint256 collateralTokenId, uint256 newLoanId);
 
-    // ================== Cross Currency Migration ==================
+    // ================== CROSS CURRENCY ROLLOVER ==================
 
     function rolloverCrossCurrencyLoan(
         uint256 oldLoanId,
         LoanLibrary.LoanTerms calldata loanTerms,
         address lender,
-        address newCurrency,
         IOriginationController.Signature calldata sig,
         IOriginationController.SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates,
         uint24 poolFeeTier
     ) external;
 
-    // ==================== OWNER OPS ====================
+    function calculateProratedInterestAmount(uint256 loanId) external returns (uint256);
+
+    function fetchCurrentPrice(address tokenIn, address tokenOut, uint24 poolFee) external returns (uint256 price);
+
+    // ======================== OWNER OPS =========================
 
     function pause(bool _pause) external;
 }

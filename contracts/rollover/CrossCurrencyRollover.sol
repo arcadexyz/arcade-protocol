@@ -29,19 +29,21 @@ import {
     CCR_Paused,
     CCR_InvalidState,
     CCR_SideMismatch,
-    CCR_CurrencyMatch,
+    CCR_SameCurrency,
     CCR_CollateralMismatch,
     CCR_LenderIsBorrower,
-    CCR_CallerNotBorrower
+    CCR_CallerNotBorrower,
+    CCR_ZeroAddress,
+    CCR_InsufficientSwappedAmount
 } from "../errors/Rollover.sol";
-
-import "hardhat/console.sol";
 
 contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController, ERC721Holder {
     using SafeERC20 for IERC20;
 
     // ============================================ STATE ==============================================
     // ============== Constants ==============
+    bytes32 public constant SHUTDOWN_ROLE = keccak256("SHUTDOWN");
+
     uint256 public constant ONE = 1e18;
 
     /// @notice Balancer vault
@@ -72,10 +74,16 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         address _repaymentController,
         address _feeController,
         ISwapRouter _swapRouter
-    ) OriginationController(_originationHelpers, _loanCore, _feeController) { // TODO: Import OGController vs. inherit.
+    ) OriginationController(_originationHelpers, _loanCore, _feeController) {
+        if (address(_borrowerNote) == address(0)) revert CCR_ZeroAddress("borrowerNote");
+        if (address(_repaymentController) == address(0)) revert CCR_ZeroAddress("repaymentController");
+        if (address(_swapRouter) == address(0)) revert CCR_ZeroAddress("swapRouter");
+
         borrowerNote = _borrowerNote;
         repaymentController = _repaymentController;
         swapRouter = _swapRouter;
+
+        _setRoleAdmin(SHUTDOWN_ROLE, ADMIN_ROLE);
     }
 
     // ======================================= Currency MIGRATION =============================================
@@ -101,7 +109,6 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         uint256 oldLoanId,
         LoanLibrary.LoanTerms calldata newTerms,
         address lender,
-        address newCurrency, // TODO: add to Natpsec
         Signature calldata sig,
         SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates,
@@ -136,10 +143,10 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
             OriginationLibrary.RolloverAmounts memory amounts,
             LoanLibrary.FeeSnapshot memory feeSnapshot,
             uint256 repayAmount
-        ) = _migrate(oldLoanId, oldLoanData, newTerms.principal, newTerms.payableCurrency, msg.sender, lender, poolFee);
+        ) = _rollover(oldLoanId, oldLoanData, newTerms.principal, newTerms.payableCurrency, msg.sender, lender, poolFee);
 
         // repay original loan via flash loan
-        _initiateFlashLoan(oldLoanId, newTerms, msg.sender, lender, amounts, repayAmount, oldLoanData.terms.payableCurrency, poolFee);
+        _initiateFlashLoan(oldLoanId, msg.sender, lender, oldLoanData.terms.payableCurrency, newTerms, amounts, repayAmount, poolFee);
 
         // initialize new loan
         _initializeRolloverLoan(newTerms, msg.sender, lender, feeSnapshot);
@@ -149,7 +156,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         if (itemPredicates.length > 0) originationHelpers.runPredicatesCheck(msg.sender, lender, newTerms, itemPredicates);
     }
 
-    /** TODO: Add to interface
+    /**
      * @notice Gets the current price of tokenIn in terms of tokenOut from a specified
      *         UniswapV3 pool.
      *
@@ -214,7 +221,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         return price;
     }
 
-    // =================================== MIGRATION VALIDATION =========================================
+    // =================================== ROLLOVER VALIDATION =========================================
     /**
      * @notice Validates that the rollover is valid. If any of these conditionals are not met
      *         the transaction will revert.
@@ -238,7 +245,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         // ------------- Rollover Terms Validation -------------
         // currency must not be the same
         if (sourceLoanTerms.payableCurrency == newLoanTerms.payableCurrency) {
-            revert CCR_CurrencyMatch(sourceLoanTerms.payableCurrency, newLoanTerms.payableCurrency);
+            revert CCR_SameCurrency(sourceLoanTerms.payableCurrency, newLoanTerms.payableCurrency);
         }
 
         // collateral address and id must be the same
@@ -260,9 +267,10 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
      * @notice Helper function to distribute funds based on the rollover amounts. A flash loan must be
      *         initiated to repay the old loan.
      *
-     * @param oldLoanId                 The ID of the original loan to be migrated.
+     * @param oldLoanId                 The ID of the original loan to be rolled over.
      * @param oldLoanData               The loan data of the original loan.
      * @param newPrincipalAmount        The principal amount of the new loan.
+     * @param newCurrency               The currency of the new loan.
      * @param borrower_                 The address of the borrower.
      * @param lender                    The address of the new lender.
      *
@@ -270,11 +278,11 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
      * @return feeSnapshot              A snapshot of current lending fees.
      * @return repayAmount              The amount needed to repay the old loan.
      */
-    function _migrate(
+    function _rollover(
         uint256 oldLoanId,
         LoanLibrary.LoanData memory oldLoanData,
         uint256 newPrincipalAmount,
-        address newCurrency, // TODO: add to Natpsec
+        address newCurrency,
         address borrower_,
         address lender,
         uint24 poolFee
@@ -310,8 +318,10 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
      *
      * @param oldLoanData               The terms of the original loan.
      * @param newPrincipalAmount        The principal amount of the new loan.
+     * @param newCurrency               The currency of the new loan.
      * @param lender                    The address of the new lender.
      * @param oldLender                 The address of the old lender.
+     * @param poolFee                   The fee tier of the pool.
      *
      * @return amounts                  The rollover amounts.
      * @return repayAmount              The amount needed to repay the original loan.
@@ -319,10 +329,10 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
     function _calculateCurrencyRolloverAmounts(
         LoanLibrary.LoanData memory oldLoanData,
         uint256 newPrincipalAmount,
-        address newCurrency,  // TODO: add to Natpsec
+        address newCurrency,
         address lender,
         address oldLender,
-        uint24 poolFee  // TODO: add to Natpsec
+        uint24 poolFee
     ) internal returns (OriginationLibrary.RolloverAmounts memory amounts, uint256 repayAmount) {
         // get interest amount due
         uint256 interestAmount = InterestCalculator.getProratedInterestAmount(
@@ -337,9 +347,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         // calculate the repay amount to settle the original loan
         repayAmount = oldLoanData.terms.principal + interestAmount;
 
-        uint256 price = fetchCurrentPrice(oldLoanData.terms.payableCurrency, newCurrency, poolFee); // Todo: give this var a better name
-        // tokein is dai token out is weth, so price in wETH for DAI.
-
+        uint256 price = fetchCurrentPrice(oldLoanData.terms.payableCurrency, newCurrency, poolFee);
         uint256 newCurrencyPrincipal = (newPrincipalAmount / price) * ONE;
 
         amounts = rolloverAmounts(
@@ -353,8 +361,17 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         );
     }
 
-    // TODO: Add Natspec
-    // TODO: Add to interface
+    /**
+     * @notice Calculates the prorated interest amount for a loan based on the current
+     *         time and the loan data.
+     *
+     * @param loanId                    The ID of the loan for which to calculate the
+     *                                  prorated interest amount.
+     *
+     * @return interestAmount           The amount of prorated interest that has accrued
+     *                                  on the loan.
+     *
+     */
     function calculateProratedInterestAmount(uint256 loanId) external view returns (uint256) {
         uint256 currentTimestamp = block.timestamp;
         LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
@@ -421,8 +438,6 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         uint24 fee,
         address recipient
     ) internal returns (uint256 amountOut) {
-        require(address(swapRouter) != address(0), "SwapRouter address not set"); // TODO: add to custom errors
-
         // approve the UniswapV3 router to spend tokenIn
         IERC20(tokenIn).safeApprove(address(swapRouter), amountIn);
 
@@ -453,21 +468,23 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
      *         needed to repay the old loan.
      *
      * @param oldLoanId                 The ID of the original loan to be migrated.
-     * @param newLoanTerms              The terms of the new currency loan.
      * @param borrower_                 The address of the borrower.
      * @param lender                    The address of the new lender.
+     * @param oldLoanCurrency           The currency of the old loan.
+     * @param newLoanTerms              The terms of the new currency loan.
      * @param _amounts                  The rollover amounts.
      * @param repayAmount               The flash loan amount.
+     * @param poolFee                   The fee tier of the pool.
      */
     function _initiateFlashLoan(
         uint256 oldLoanId,
-        LoanLibrary.LoanTerms memory newLoanTerms,
         address borrower_,
         address lender,
+        address oldLoanCurrency,
+        LoanLibrary.LoanTerms memory newLoanTerms,
         OriginationLibrary.RolloverAmounts memory _amounts,
         uint256 repayAmount,
-        address oldLoanCurrency, // TODO: add to Natpsec
-        uint24 poolFee // TODO: add to Natpsec
+        uint24 poolFee
     ) internal {
         // cache borrower address for flash loan callback
         borrower = borrower_;
@@ -550,7 +567,6 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
 
         // amount = original loan repayment amount - leftover principal + flash loan fee
         uint256 amount = opData.rolloverAmounts.amountFromLender - opData.rolloverAmounts.leftoverPrincipal + premiums[0];
-        console.log("SOL 579: amountOwed in OLD currency: ", amount);
 
         // pull funds from the new lender to repay the flash loan
         IERC20(opData.newLoanTerms.payableCurrency).safeTransferFrom(
@@ -558,28 +574,25 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
             address(this),
             opData.newLoanTerms.principal
         );
-console.log("SOL 587:  opData.newLoanTerms.principal in NEW currency: ", opData.newLoanTerms.principal);
+
         // swap the new lender payment from new currency to the original currency
         uint256 swappedAmount = _swapExactInputSingle(opData.newLoanTerms.payableCurrency, address(asset), opData.newLoanTerms.principal, 0, opData.poolFeeTier, address(this));
-        console.log("SOL 590:  Swapped swappedAmount (should be equal to amount owed): ", swappedAmount);
 
         // check if the swapped amount is sufficient
-        require(swappedAmount >= amount, "Swap output insufficient to repay the flash loan."); // TODO: add to custom errors
+        if (swappedAmount < amount) revert CCR_InsufficientSwappedAmount();
 
-        console.log("SOL 612:  amounts[0] + premiums[0]: ", amounts[0] + premiums[0]);
-        console.log("SOL 612:  opData.rolloverAmounts.amountToBorrower: ", opData.rolloverAmounts.amountToBorrower);
+        // any amount left over after repaying the flash loan is sent to the borrower
+        // it does not == opData.rolloverAmounts.amountToBorrower because of slippage
+        uint256 remainingFunds = swappedAmount - amount;
 
-        if (opData.rolloverAmounts.amountToBorrower > 0) { // TODO: this needs re-thining. amount to borrower will always be bigger, but some if it is going to slippage etc...
-            uint256 amountToBorrower = swappedAmount - (amounts[0] + premiums[0]);
-            console.log("SOL 598:  amountToBorrower = swappedAmount - (amounts[0] + premiums[0]) ", amountToBorrower);
-            // If new amount is greater than old loan repayment amount, send the difference to the borrower
-            asset.safeTransfer(borrower, amountToBorrower);
+        if (remainingFunds > 0) {
+            // if funds remain, send the difference to the borrower
+            asset.safeTransfer(borrower, remainingFunds);
         }
 
         // Make flash loan repayment
         // Balancer requires a transfer back the vault
         asset.safeTransfer(VAULT, amounts[0] + premiums[0]);
-        console.log("SOL 615:  Contract balance in old curreny: ", IERC20(asset).balanceOf(address(this)));
     }
 
     /**
@@ -617,7 +630,7 @@ console.log("SOL 587:  opData.newLoanTerms.principal in NEW currency: ", opData.
      *
      * @param _pause              The state to set the contract to.
      */
-    function pause(bool _pause) external override onlyRole(MIGRATION_MANAGER_ROLE) { //TODO: need different role. this is not migration
+    function pause(bool _pause) external override onlyRole(SHUTDOWN_ROLE) {
         if (paused == _pause) revert CCR_StateAlreadySet();
 
         paused = _pause;

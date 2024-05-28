@@ -41,7 +41,7 @@ library OriginationLibrary {
         RolloverAmounts migrationAmounts;
     }
 
-    struct OperationDataCurrency { // TODO: optimize for storage
+    struct OperationDataCurrency {
         uint256 oldLoanId;
         LoanLibrary.LoanTerms newLoanTerms;
         address borrower;

@@ -12,6 +12,7 @@ import {
     BORROWER_NOTE_SYMBOL,
     LENDER_NOTE_NAME,
     LENDER_NOTE_SYMBOL,
+    SWAP_ADDRESS
 } from "../utils/constants";
 
 import {
@@ -29,6 +30,7 @@ import {
     OriginationControllerMigrate,
     OriginationHelpers,
     OriginationLibrary,
+    CrossCurrencyRollover
 } from "../../typechain";
 
 import { DeployedResources } from "../utils/deploy";
@@ -162,6 +164,29 @@ export async function main(): Promise<DeployedResources> {
     console.log("OriginationController deployed to:", originationController.address);
     console.log(SUBSECTION_SEPARATOR);
 
+    const CrossCurrencyRolloverFactory = await ethers.getContractFactory("CrossCurrencyRollover",
+        {
+            libraries: {
+                OriginationLibrary: originationLibrary.address,
+            },
+        }
+    );
+
+    const crossCurrencyRollover = <CrossCurrencyRollover>(
+        await CrossCurrencyRolloverFactory.deploy(
+            originationHelpers.address,
+            loanCore.address,
+            borrowerNote.address,
+            repaymentController.address,
+            feeController.address,
+            SWAP_ADDRESS,
+        )
+    );
+    await crossCurrencyRollover.deployed();
+
+    console.log("CrossCurrencyRollover address: ", crossCurrencyRollover.address);
+    console.log(SUBSECTION_SEPARATOR);
+
     const VerifierFactory = await ethers.getContractFactory("ArcadeItemsVerifier");
     const verifier = <ArcadeItemsVerifier>await VerifierFactory.deploy();
     await verifier.deployed();
@@ -203,6 +228,7 @@ export async function main(): Promise<DeployedResources> {
         arcadeItemsVerifier: verifier,
         collectionWideOfferVerifier,
         artBlocksVerifier,
+        crossCurrencyRollover
     };
 
     await recordDeployment(resources, {
@@ -216,6 +242,7 @@ export async function main(): Promise<DeployedResources> {
         loanCore: [borrowerNote.address, lenderNote.address],
         repaymentController: [loanCore.address, feeController.address],
         originationController: [originationHelpers.address, loanCore.address, feeController.address],
+        crossCurrencyRollover: [originationHelpers.address, loanCore.address, borrowerNote.address, repaymentController.address, feeController.address, SWAP_ADDRESS],
     });
 
     console.log(SECTION_SEPARATOR);

@@ -40,7 +40,7 @@ abstract contract OriginationCalculator is InterestCalculator {
         address oldLender,
         uint256 principalFee,
         uint256 interestFee
-    ) public view returns (OriginationLibrary.RolloverAmounts memory amounts) { // TODO: make pure after tsting
+    ) public pure returns (OriginationLibrary.RolloverAmounts memory amounts) {
         amounts.amountFromLender = newPrincipalAmount;
         amounts.interestAmount = oldInterestAmount;
 
