@@ -78,6 +78,7 @@ abstract contract OriginationCalculator is InterestCalculator {
         if (lender != oldLender) {
             // different lenders, repay old lender
             amounts.amountToOldLender = repayAmount - totalFees;
+
             // different lender, amountToLender is zero
         } else {
             // same lender amountToOldLender is zero
