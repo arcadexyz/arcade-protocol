@@ -48,12 +48,7 @@ export async function main(): Promise<void> {
 
     console.log(SECTION_SEPARATOR);
 
-    const {
-        borrowerNote,
-        lenderNote,
-        originationController,
-        crossCurrencyRollover,
-    } = resources;
+    const { borrowerNote, lenderNote, originationController, crossCurrencyRollover } = resources;
 
     const erc20Factory = await ethers.getContractFactory("ERC20");
     const dai = <ERC20>erc20Factory.attach(DAIAddress);
@@ -118,7 +113,7 @@ export async function main(): Promise<void> {
         value: ethers.utils.parseEther("0.5"),
     });
 
-    // fund borrower with some DAI
+    // fund original lender with some DAI
     const daiAmount = ethers.utils.parseUnits("10000", DECIMALS); // 10,000 DAI
     await dai.connect(daiWhale).transfer(originalLender.address, daiAmount);
 
@@ -247,15 +242,7 @@ export async function main(): Promise<void> {
 
     await crossCurrencyRollover
         .connect(borrower)
-        .rolloverCrossCurrencyLoan(
-            1,
-            newLoanTerms,
-            newLender.address,
-            newLenderSig,
-            sigProperties,
-            [],
-            poolFeeTier
-    );
+        .rolloverCrossCurrencyLoan(1, newLoanTerms, newLender.address, newLenderSig, sigProperties, [], poolFeeTier);
 
     console.log();
     console.log("✅ Loan rolled over to new currency!");

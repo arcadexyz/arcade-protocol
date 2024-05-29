@@ -14,7 +14,6 @@ interface ICrossCurrencyRollover is IFlashLoanRecipient {
     event CurrencyRollover(address indexed lender, address indexed borrower, uint256 collateralTokenId, uint256 newLoanId);
 
     // ================== CROSS CURRENCY ROLLOVER ==================
-
     function rolloverCrossCurrencyLoan(
         uint256 oldLoanId,
         LoanLibrary.LoanTerms calldata loanTerms,
@@ -30,6 +29,5 @@ interface ICrossCurrencyRollover is IFlashLoanRecipient {
     function fetchCurrentPrice(address tokenIn, address tokenOut, uint24 poolFee) external returns (uint256 price);
 
     // ======================== OWNER OPS =========================
-
     function pause(bool _pause) external;
 }
