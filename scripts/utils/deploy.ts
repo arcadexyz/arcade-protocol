@@ -16,7 +16,8 @@ import {
     CallWhitelistAllExtensions,
     OriginationControllerMigrate,
     OriginationHelpers,
-    OriginationLibrary
+    OriginationLibrary,
+    CrossCurrencyRollover,
 } from "../../typechain";
 
 export interface DeployedResources {
@@ -37,6 +38,7 @@ export interface DeployedResources {
     arcadeItemsVerifier: ArcadeItemsVerifier;
     collectionWideOfferVerifier: CollectionWideOfferVerifier;
     artBlocksVerifier: ArtBlocksVerifier;
+    crossCurrencyRollover: CrossCurrencyRollover;
 }
 
 const jsonContracts: { [key: string]: string } = {
@@ -53,6 +55,7 @@ const jsonContracts: { [key: string]: string } = {
     RepaymentController: "repaymentController",
     OriginationController: "originationController",
     OriginationHelpers: "originationHelpers",
+    CrossCurrencyRollover: "crossCurrencyRollover",
     ArcadeItemsVerifier: "arcadeItemsVerifier",
     CollectionWideOfferVerifier: "collectionWideOfferVerifier",
     ArtBlocksVerifier: "artBlocksVerifier",
