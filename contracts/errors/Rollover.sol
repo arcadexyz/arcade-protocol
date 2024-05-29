@@ -3,7 +3,7 @@
 pragma solidity 0.8.18;
 
 /**
- * @title LendingErrors
+ * @title Rollover Errors
  * @author Non-Fungible Technologies, Inc.
  *
  * This file contains custom errors for the core lending protocol contracts, with errors
