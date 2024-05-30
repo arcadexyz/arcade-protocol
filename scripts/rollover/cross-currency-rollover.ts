@@ -1,7 +1,7 @@
 import hre, { ethers } from "hardhat";
 
 import { createLoanTermsSignature } from "../../test/utils/eip712";
-import { LoanTerms, SignatureProperties } from "../../test/utils/types";
+import { LoanTerms, SignatureProperties, SwapParameters } from "../../test/utils/types";
 import { EIP712_VERSION } from "../../test/utils/constants";
 
 import { main as deploy } from "../deploy/deploy";
@@ -254,6 +254,11 @@ export async function main(): Promise<void> {
         "l",
     );
 
+    const swapParams: SwapParameters = {
+        minAmountOut: amountOwed,
+        poolFeeTier: poolFeeTier,
+    };
+
     console.log();
     console.log("Approvals for rollover loan...");
 
@@ -271,7 +276,7 @@ export async function main(): Promise<void> {
 
     await crossCurrencyRollover
         .connect(borrower)
-        .rolloverCrossCurrencyLoan(1, newLoanTerms, newLender.address, newLenderSig, sigProperties, [], poolFeeTier);
+        .rolloverCrossCurrencyLoan(1, newLoanTerms, newLender.address, newLenderSig, sigProperties, [], swapParams);
 
     console.log("✅ Loan rolled over to new currency!");
     console.log();

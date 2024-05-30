@@ -109,8 +109,3 @@ error CCR_LenderIsBorrower();
  * @param addressType               The name of the parameter for which a zero address was provided.
  */
 error CCR_ZeroAddress(string addressType);
-
-/**
- * @notice Output of the swap is insufficient to cover the flah loan repayment amount.
- */
- error CCR_InsufficientSwappedAmount();

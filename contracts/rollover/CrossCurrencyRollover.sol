@@ -34,8 +34,7 @@ import {
     CCR_CollateralMismatch,
     CCR_LenderIsBorrower,
     CCR_CallerNotBorrower,
-    CCR_ZeroAddress,
-    CCR_InsufficientSwappedAmount
+    CCR_ZeroAddress
 } from "../errors/Rollover.sol";
 
 contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController, ERC721Holder {
@@ -113,7 +112,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         Signature calldata sig,
         SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates,
-        uint24 poolFee
+        OriginationLibrary.SwapParameters calldata swapParams
     ) external override whenNotPaused whenBorrowerReset {
         LoanLibrary.LoanData memory oldLoanData = ILoanCore(loanCore).getLoan(oldLoanId);
 
@@ -144,10 +143,10 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
             OriginationLibrary.RolloverAmounts memory amounts,
             LoanLibrary.FeeSnapshot memory feeSnapshot,
             uint256 repayAmount
-        ) = _rollover(oldLoanId, oldLoanData, newTerms.principal, newTerms.payableCurrency, msg.sender, lender, poolFee);
+        ) = _rollover(oldLoanId, oldLoanData, newTerms.principal, newTerms.payableCurrency, msg.sender, lender, swapParams.poolFeeTier);
 
         // repay original loan via flash loan
-        _initiateFlashLoan(oldLoanId, msg.sender, lender, oldLoanData.terms.payableCurrency, newTerms, amounts, repayAmount, poolFee);
+        _initiateFlashLoan(oldLoanId, msg.sender, lender, oldLoanData.terms.payableCurrency, newTerms, amounts, repayAmount, swapParams);
 
         // initialize new loan
         _initializeRolloverLoan(newTerms, msg.sender, lender, feeSnapshot);
@@ -417,6 +416,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
     /**
      * @notice swapExactInputSingle swaps a fixed amount of tokenIn for a maximum possible amount of
      *         tokenOut by calling `exactInputSingle` in the Uniswap swap router.
+     *         SwapRouter's exactInputSingle function reverts if amountOut < amountOutMinimum.
      *
      * @dev The calling address must approve this contract to spend at least amountIn worth of tokenIn.
      *
@@ -475,7 +475,6 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
      * @param newLoanTerms              The terms of the new currency loan.
      * @param _amounts                  The rollover amounts.
      * @param repayAmount               The flash loan amount.
-     * @param poolFee                   The fee tier of the pool.
      */
     function _initiateFlashLoan(
         uint256 oldLoanId,
@@ -485,7 +484,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         LoanLibrary.LoanTerms memory newLoanTerms,
         OriginationLibrary.RolloverAmounts memory _amounts,
         uint256 repayAmount,
-        uint24 poolFee
+        OriginationLibrary.SwapParameters memory swapParams // TODO: add to Natspec
     ) internal {
         // cache borrower address for flash loan callback
         borrower = borrower_;
@@ -505,7 +504,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
                     borrower: borrower_,
                     lender: lender,
                     rolloverAmounts: _amounts,
-                    poolFeeTier: poolFee
+                    swapParameters: swapParams
                 }
             )
         );
@@ -577,18 +576,19 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         );
 
         // swap the new lender payment from new currency to the original currency
-        uint256 swappedAmount = _swapExactInputSingle(opData.newLoanTerms.payableCurrency, address(asset), opData.newLoanTerms.principal, 0, opData.poolFeeTier, address(this));
+        // the swap will revert if swappedAmount < minAmountOut
+        uint256 swappedAmount = _swapExactInputSingle(opData.newLoanTerms.payableCurrency, address(asset), opData.newLoanTerms.principal, opData.swapParameters.minAmountOut, opData.swapParameters.poolFeeTier, address(this));
 
-        // check if the swapped amount is sufficient
-        if (swappedAmount < amount) revert CCR_InsufficientSwappedAmount();
+        if (swappedAmount > amount) {
+            uint256 remainingFunds = swappedAmount - amount;
 
-        // any amount left over after repaying the flash loan is sent to the borrower
-        // it does not == opData.rolloverAmounts.amountToBorrower because of slippage
-        uint256 remainingFunds = swappedAmount - amount;
-
-        if (remainingFunds > 0) {
             // if funds remain, send the difference to the borrower
             asset.safeTransfer(borrower, remainingFunds);
+        } else if (swappedAmount < amount) {
+           uint256 needFromBorrower = amount - swappedAmount;
+
+           // borrower owes
+            asset.safeTransferFrom(borrower, address(this), needFromBorrower);
         }
 
         // Make flash loan repayment

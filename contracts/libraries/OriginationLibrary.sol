@@ -41,13 +41,18 @@ library OriginationLibrary {
         RolloverAmounts migrationAmounts;
     }
 
+    struct SwapParameters {
+        uint256 minAmountOut;
+        uint24 poolFeeTier;
+    }
+
     struct OperationDataCurrency {
         uint256 oldLoanId;
         LoanLibrary.LoanTerms newLoanTerms;
         address borrower;
         address lender;
         RolloverAmounts rolloverAmounts;
-        uint24 poolFeeTier;
+        SwapParameters swapParameters;
     }
 
     // ======================================= CONSTANTS ==============================================

@@ -3,6 +3,7 @@
 pragma solidity 0.8.18;
 
 import "../libraries/LoanLibrary.sol";
+import "../libraries/OriginationLibrary.sol";
 
 import "./IOriginationController.sol";
 
@@ -21,7 +22,7 @@ interface ICrossCurrencyRollover is IFlashLoanRecipient {
         IOriginationController.Signature calldata sig,
         IOriginationController.SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates,
-        uint24 poolFeeTier
+        OriginationLibrary.SwapParameters calldata swapParams
     ) external;
 
     function calculateProratedInterestAmount(uint256 loanId) external returns (uint256);
