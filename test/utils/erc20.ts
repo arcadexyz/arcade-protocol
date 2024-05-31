@@ -1,14 +1,15 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
-import { Signer, BigNumber, BigNumberish } from "ethers";
+import { BigNumberish } from "ethers";
 import { MockERC20 } from "../../typechain/MockERC20";
+import { MockERC20WithDecimals } from "../../typechain";
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 /**
  * Mint `amount` tokens for `to`
  */
-export const mint = async (token: MockERC20, to: SignerWithAddress, amount: BigNumberish): Promise<void> => {
+export const mint = async (token: MockERC20 | MockERC20WithDecimals, to: SignerWithAddress, amount: BigNumberish): Promise<void> => {
     const address = to.address;
     const preBalance = await token.balanceOf(address);
 
