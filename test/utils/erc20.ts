@@ -23,7 +23,7 @@ export const mint = async (token: MockERC20 | MockERC20WithDecimals, to: SignerW
  * approve `amount` tokens for `to` from `from`
  */
 export const approve = async (
-    token: MockERC20,
+    token: MockERC20 | MockERC20WithDecimals,
     sender: SignerWithAddress,
     toAddress: string,
     amount: BigNumberish,

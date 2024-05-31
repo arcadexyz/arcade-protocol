@@ -28,7 +28,7 @@ import {
 } from "../typechain";
 import { approve, mint } from "./utils/erc20";
 import { mint as mint721 } from "./utils/erc721";
-import { Borrower, ItemsPredicate, LoanTerms, SignatureItem, SignatureProperties } from "./utils/types";
+import { Borrower, ItemsPredicate, LoanData, LoanTerms, SignatureItem, SignatureProperties } from "./utils/types";
 import { createLoanTermsSignature, createLoanItemsSignature } from "./utils/eip712";
 import { encodeSignatureItems, initializeBundle } from "./utils/loans";
 
@@ -129,9 +129,9 @@ const fixture = async (): Promise<TestContext> => {
     await originationController.deployed();
 
     // admin whitelists MockERC20s on OriginationController
-    const whitelistCurrency = await originationHelpers.setAllowedPayableCurrencies([USDC.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
+    const whitelistCurrency = await originationHelpers.setAllowedPayableCurrencies([USDC.address], [{ isAllowed: true, minPrincipal: 1000000 }]);
     await whitelistCurrency.wait();
-    const whitelistCurrency2 = await originationHelpers.setAllowedPayableCurrencies([sUSDe.address], [{ isAllowed: true, minPrincipal: MIN_LOAN_PRINCIPAL }]);
+    const whitelistCurrency2 = await originationHelpers.setAllowedPayableCurrencies([sUSDe.address], [{ isAllowed: true, minPrincipal: ethers.utils.parseEther("1") }]);
     await whitelistCurrency2.wait();
     // verify the currencies are whitelisted
     const isWhitelisted = await originationHelpers.isAllowedCurrency(USDC.address);
@@ -225,6 +225,8 @@ describe.only("P2PVariableToFixed", () => {
                 callbackData: "0x"
             };
         });
+
+        // ======================== ISSUE: Borrower needs a lot of upfront capital ============================
 
         it("lender with variable rate sUSDe locking in fixed rate", async () => {
             const { vaultFactory, originationController, loanCore, USDC, sUSDe, user: lender, other: borrower } = ctx;
@@ -466,6 +468,273 @@ describe.only("P2PVariableToFixed", () => {
                 .to.emit(vaultFactory, "Transfer")
                 .withArgs(borrower.address, loanCore.address, bundleId);
 
+
+            // Borrower defaults, lender claims 1,150,000 USDC in vault
+            await blockchainTime.increaseTime(60 * 60 * 24 * 365 + (60 * 10));
+
+            await expect(
+                repaymentController.connect(lender).claim(1)
+            )
+            .to.emit(loanCore, "LoanClaimed").withArgs(1)
+            .to.emit(vaultFactory, "Transfer").withArgs(loanCore.address, lender.address, bundleId);
+        })
+
+        // ================================= ALTERNATIVE: Shared 'VAULT' =======================================
+        // Limitations: 1). The vault is shared. 2). loan cant be for 0 principal, meaning lender would need to supply more upfront capital.
+
+        it("lender with variable rate sUSDe locking in fixed rate", async () => {
+            const { vaultFactory, originationController, loanCore, USDC, sUSDe, user: lender, other: borrower } = ctx;
+
+            // Lender has 1,150,000 sUSDe they want to lock in a fixed rate of 15% APR on
+            await mint(sUSDe, lender, ethers.utils.parseEther("1150000"));
+
+            // Borrower creates vault and deposits 150,000 sUSDe into it
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
+            await sUSDe.connect(borrower).transfer(bundleAddress, ethers.utils.parseEther("150000"));
+
+            // lender adds their sUSDe to the borrower's vault
+            // NOTE: This is where the need for a 'shared vault' comes in, so that the borrower cant just walk away with lenders sUSDe
+            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1150000"));
+
+            // Loan terms are created where the vault is the collateral and the principal amount is ~1,150,000 sUSDe (slightly more because the interest cant be zero).
+            const loanTerms = createLoanTerms(
+                USDC.address, vaultFactory.address, {
+                    collateralId: bundleId,
+                    principal: BigNumber.from(1000000000), // minimum allowable loan amount (1,000 USDC)
+                    interestRate: BigNumber.from(11490000), // the high interest amount makes the repayment amount 1,150,000 USDC after 1 year, PROTOCOL LIMITS TO 1e8 for interest!
+                    durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
+                },
+            );
+            // lender signs CWO
+            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 575,000 sUSDe
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 2,
+                    asset: sUSDe.address,
+                    tokenId: 0,
+                    amount: ethers.utils.parseEther("1150000"),
+                    anyIdAllowed: false
+                },
+            ];
+            const predicates: ItemsPredicate[] = [
+                {
+                    verifier: verifier.address,
+                    data: encodeSignatureItems(signatureItems),
+                },
+            ];
+            const sig = await createLoanItemsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                predicates,
+                lender,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "l",
+            );
+
+            // Lender approves very small USDC principal amount
+            await mint(USDC, lender, loanTerms.principal);
+            await approve(USDC, lender, originationController.address, loanTerms.principal);
+            // Borrower approves USDC vault for loan
+            await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
+
+            // Borrower initiates loan
+            await expect(
+                originationController
+                    .connect(borrower)
+                    .initializeLoan(
+                        loanTerms,
+                        borrowerStruct,
+                        lender.address,
+                        sig,
+                        defaultSigProperties,
+                        predicates
+                    ),
+            )
+                .to.emit(USDC, "Transfer")
+                .withArgs(lender.address, borrower.address, loanTerms.principal) // result of a protocol limitation
+                .to.emit(vaultFactory, "Transfer")
+                .withArgs(borrower.address, loanCore.address, bundleId);
+
+            // Borrower is betting that the yield is greater than the 75,000 sUSDe they put up for collateral
+            // If the yield is greater than the 75,000 sUSDe they put up, they will repay the loan and the lender will get 575,000 USDC
+            // If the yield is less than the 75,000 sUSDe they put up, they will not repay the loan and the lender claim the vault with 75,000 sUSDe in it
+        })
+
+        it("lender with variable rate sUSDe locking in fixed rate, borrower repays loan", async () => {
+            const { vaultFactory, originationController, repaymentController, loanCore, USDC, sUSDe, user: lender, other: borrower, blockchainTime } = ctx;
+
+            // Lender has 1,150,000 sUSDe they want to lock in a fixed rate of 15% APR on
+            await mint(sUSDe, lender, ethers.utils.parseEther("1150000"));
+
+            // Borrower creates vault and deposits 150,000 sUSDe into it
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
+            await sUSDe.connect(borrower).transfer(bundleAddress, ethers.utils.parseEther("150000"));
+
+            // lender adds their sUSDe to the borrower's vault
+            // NOTE: This is where the need for a 'shared vault' comes in, so that the borrower cant just walk away with lenders sUSDe
+            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1150000"));
+
+            // Loan terms are created where the vault is the collateral and the principal amount is ~1,150,000 sUSDe (slightly more because the interest cant be zero).
+            const loanTerms = createLoanTerms(
+                USDC.address, vaultFactory.address, {
+                    collateralId: bundleId,
+                    principal: BigNumber.from(1000000000), // minimum allowable loan amount (1,000 USDC)
+                    interestRate: BigNumber.from(11490000), // the high interest amount makes the repayment amount 1,150,000 USDC after 1 year, PROTOCOL LIMITS TO 1e8 for interest!
+                    durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
+                },
+            );
+            // lender signs CWO
+            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 575,000 sUSDe
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 2,
+                    asset: sUSDe.address,
+                    tokenId: 0,
+                    amount: ethers.utils.parseEther("1150000"),
+                    anyIdAllowed: false
+                },
+            ];
+            const predicates: ItemsPredicate[] = [
+                {
+                    verifier: verifier.address,
+                    data: encodeSignatureItems(signatureItems),
+                },
+            ];
+            const sig = await createLoanItemsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                predicates,
+                lender,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "l",
+            );
+
+            // Lender approves very small USDC principal amount
+            await mint(USDC, lender, loanTerms.principal);
+            await approve(USDC, lender, originationController.address, loanTerms.principal);
+            // Borrower approves USDC vault for loan
+            await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
+
+            // Borrower initiates loan
+            await expect(
+                originationController
+                    .connect(borrower)
+                    .initializeLoan(
+                        loanTerms,
+                        borrowerStruct,
+                        lender.address,
+                        sig,
+                        defaultSigProperties,
+                        predicates
+                    ),
+            )
+                .to.emit(USDC, "Transfer")
+                .withArgs(lender.address, borrower.address, loanTerms.principal) // result of a protocol limitation
+                .to.emit(vaultFactory, "Transfer")
+                .withArgs(borrower.address, loanCore.address, bundleId);
+
+            // Borrower repays
+            await blockchainTime.increaseTime(60 * 60 * 24 * 365);
+
+            await mint(USDC, borrower, ethers.utils.parseUnits("1150000", 6));
+            await approve(USDC, borrower, loanCore.address, ethers.utils.parseUnits("1150000", 6));
+
+            await expect(
+                repaymentController.connect(borrower).repay(1, ethers.utils.parseUnits("1150000", 6))
+            )
+                .to.emit(USDC, "Transfer")
+                .withArgs(borrower.address, loanCore.address, ethers.utils.parseUnits("1150000", 6))
+                .to.emit(USDC, "Transfer")
+                .withArgs(loanCore.address, lender.address, ethers.utils.parseUnits("1150000", 6))
+                .to.emit(vaultFactory, "Transfer")
+                .withArgs(loanCore.address, borrower.address, bundleId);
+
+        })
+
+        it("lender with variable rate sUSDe locking in fixed rate, borrower defaults", async () => {
+            const { vaultFactory, originationController, repaymentController, loanCore, USDC, sUSDe, user: lender, other: borrower, blockchainTime } = ctx;
+
+            // Lender has 1,150,000 sUSDe they want to lock in a fixed rate of 15% APR on
+            await mint(sUSDe, lender, ethers.utils.parseEther("1150000"));
+
+            // Borrower creates vault and deposits 150,000 sUSDe into it
+            const bundleId = await initializeBundle(vaultFactory, borrower);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
+            await sUSDe.connect(borrower).transfer(bundleAddress, ethers.utils.parseEther("150000"));
+
+            // lender adds their sUSDe to the borrower's vault
+            // NOTE: This is where the need for a 'shared vault' comes in, so that the borrower cant just walk away with lenders sUSDe
+            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1150000"));
+
+            // Loan terms are created where the vault is the collateral and the principal amount is ~1,150,000 sUSDe (slightly more because the interest cant be zero).
+            const loanTerms = createLoanTerms(
+                USDC.address, vaultFactory.address, {
+                    collateralId: bundleId,
+                    principal: BigNumber.from(1000000000), // minimum allowable loan amount (1,000 USDC)
+                    interestRate: BigNumber.from(11490000), // the high interest amount makes the repayment amount 1,150,000 USDC after 1 year, PROTOCOL LIMITS TO 1e8 for interest!
+                    durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
+                },
+            );
+            // lender signs CWO
+            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 575,000 sUSDe
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 2,
+                    asset: sUSDe.address,
+                    tokenId: 0,
+                    amount: ethers.utils.parseEther("1150000"),
+                    anyIdAllowed: false
+                },
+            ];
+            const predicates: ItemsPredicate[] = [
+                {
+                    verifier: verifier.address,
+                    data: encodeSignatureItems(signatureItems),
+                },
+            ];
+            const sig = await createLoanItemsSignature(
+                originationController.address,
+                "OriginationController",
+                loanTerms,
+                predicates,
+                lender,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "l",
+            );
+
+            // Lender approves very small USDC principal amount
+            await mint(USDC, lender, loanTerms.principal);
+            await approve(USDC, lender, originationController.address, loanTerms.principal);
+            // Borrower approves USDC vault for loan
+            await vaultFactory.connect(borrower).approve(originationController.address, bundleId);
+
+            // Borrower initiates loan
+            await expect(
+                originationController
+                    .connect(borrower)
+                    .initializeLoan(
+                        loanTerms,
+                        borrowerStruct,
+                        lender.address,
+                        sig,
+                        defaultSigProperties,
+                        predicates
+                    ),
+            )
+                .to.emit(USDC, "Transfer")
+                .withArgs(lender.address, borrower.address, loanTerms.principal) // result of a protocol limitation
+                .to.emit(vaultFactory, "Transfer")
+                .withArgs(borrower.address, loanCore.address, bundleId);
 
             // Borrower defaults, lender claims 1,150,000 USDC in vault
             await blockchainTime.increaseTime(60 * 60 * 24 * 365 + (60 * 10));
