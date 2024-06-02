@@ -7,9 +7,7 @@ import "../libraries/OriginationLibrary.sol";
 
 import "./IOriginationController.sol";
 
-import "../external/interfaces/IFlashLoanRecipient.sol";
-
-interface ICrossCurrencyRollover is IFlashLoanRecipient {
+interface ICrossCurrencyRollover {
     // =========================== EVENTS ==========================
     event PausedStateChanged(bool isPaused);
     event CurrencyRollover(address indexed lender, address indexed borrower, uint256 collateralTokenId, uint256 newLoanId);

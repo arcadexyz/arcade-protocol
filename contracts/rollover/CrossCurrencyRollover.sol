@@ -42,12 +42,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
 
     // ============================================ STATE ==============================================
     // ============== Constants ==============
-    bytes32 public constant SHUTDOWN_ROLE = keccak256("SHUTDOWN");
-
     uint256 public constant ONE = 1e18;
-
-    /// @notice Balancer vault
-    address private constant VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
 
     /// @notice UniswapV3Factory
     address private constant POOL_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
@@ -59,9 +54,8 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
     address private immutable borrowerNote;
     address private immutable repaymentController;
 
-    /// @notice State variable used for checking the inheriting contract initiated the flash
-    ///         loan. When the rollover function is called the borrowers address is cached here
-    ///         and checked against the opData in the flash loan callback.
+    /// @notice Borrower address is cached and checked against the
+    ///         repayment data.
     address private borrower;
 
     /// @notice state variable for pausing the contract
@@ -82,8 +76,6 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         borrowerNote = _borrowerNote;
         repaymentController = _repaymentController;
         swapRouter = _swapRouter;
-
-        _setRoleAdmin(SHUTDOWN_ROLE, ADMIN_ROLE);
     }
 
     // ======================================= Currency MIGRATION =============================================
@@ -94,8 +86,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
      *
      * @dev This function is only callable by the borrower of the loan.
      * @dev This function is only callable when the rollover flow is not paused.
-     * @dev For rollovers where the lender is the same, a flash loan is initiated to repay the old loan.
-     *      In order for the flash loan to be repaid, the lender must have approved this contract to
+     *      In order for the old loan to be repaid, the new lender must have approved this contract to
      *      pull the total amount needed to repay the loan.
      *
      * @param oldLoanId                 The ID of the original loan to be migrated.
@@ -145,8 +136,8 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
             uint256 repayAmount
         ) = _rollover(oldLoanId, oldLoanData, newTerms.principal, newTerms.payableCurrency, msg.sender, lender, swapParams.poolFeeTier);
 
-        // repay original loan via flash loan
-        _initiateFlashLoan(oldLoanId, msg.sender, lender, oldLoanData.terms.payableCurrency, newTerms, amounts, repayAmount, swapParams);
+        // get and swap new currency funds and repay old loan
+        _initiateRepayment(oldLoanId, msg.sender, lender, oldLoanData.terms.payableCurrency, newTerms, amounts, repayAmount, swapParams);
 
         // initialize new loan
         _initializeRolloverLoan(newTerms, msg.sender, lender, feeSnapshot);
@@ -264,8 +255,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
 
     // ========================================= HELPERS ================================================
     /**
-     * @notice Helper function to distribute funds based on the rollover amounts. A flash loan must be
-     *         initiated to repay the old loan.
+     * @notice Helper function to distribute funds based on the rollover amounts.
      *
      * @param oldLoanId                 The ID of the original loan to be rolled over.
      * @param oldLoanData               The loan data of the original loan.
@@ -348,7 +338,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         repayAmount = oldLoanData.terms.principal + interestAmount;
 
         uint256 price = fetchCurrentPrice(oldLoanData.terms.payableCurrency, newCurrency, poolFee);
-        uint256 newCurrencyPrincipal = (newPrincipalAmount / price) * ONE;
+        uint256 newCurrencyPrincipal = (newPrincipalAmount * ONE) / price;
 
         amounts = rolloverAmounts(
             oldLoanData.terms.principal,
@@ -463,10 +453,11 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         amountOut = swapRouter.exactInputSingle(params);
     }
 
-    // ======================================= FLASH LOAN OPS ===========================================
+    // ======================================= LOAN REPAYMENT ===========================================
     /**
-     * @notice Helper function to initiate a flash loan. The flash loan amount is the total amount
-     *         needed to repay the old loan.
+     * @notice This function sets up the old loan repayment data and triggers the repayment swap process
+     *         for the necessary funds to be collected from the new lender and swapped to the original
+     *         loan currency before being applied towards the repayment of the old loan.
      *
      * @param oldLoanId                 The ID of the original loan to be migrated.
      * @param borrower_                 The address of the borrower.
@@ -474,9 +465,11 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
      * @param oldLoanCurrency           The currency of the old loan.
      * @param newLoanTerms              The terms of the new currency loan.
      * @param _amounts                  The rollover amounts.
-     * @param repayAmount               The flash loan amount.
+     * @param repayAmount               The principal and interest owed on the old loan.
+     * @param swapParams                Parameters for the currency swap, including
+     *                                  minimum swap amount out and pool fee tier.
      */
-    function _initiateFlashLoan(
+    function _initiateRepayment(
         uint256 oldLoanId,
         address borrower_,
         address lender,
@@ -484,116 +477,72 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         LoanLibrary.LoanTerms memory newLoanTerms,
         OriginationLibrary.RolloverAmounts memory _amounts,
         uint256 repayAmount,
-        OriginationLibrary.SwapParameters memory swapParams // TODO: add to Natspec
+        OriginationLibrary.SwapParameters memory swapParams
     ) internal {
-        // cache borrower address for flash loan callback
+        // cache borrower address
         borrower = borrower_;
 
-        IERC20[] memory assets = new IERC20[](1);
-        assets[0] = IERC20(oldLoanCurrency);
+        // create repayment data
+        OriginationLibrary.CrossCurrencyRepayData memory repayData = OriginationLibrary.CrossCurrencyRepayData({
+            oldLoanId: oldLoanId,
+            newLoanTerms: newLoanTerms,
+            borrower: borrower_,
+            lender: lender,
+            rolloverAmounts: _amounts,
+            swapParameters: swapParams
+        });
 
-        // flash loan amount = new principal + any difference supplied by borrower
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = repayAmount;
-
-        bytes memory params = abi.encode(
-            OriginationLibrary.OperationDataCurrency(
-                {
-                    oldLoanId: oldLoanId,
-                    newLoanTerms: newLoanTerms,
-                    borrower: borrower_,
-                    lender: lender,
-                    rolloverAmounts: _amounts,
-                    swapParameters: swapParams
-                }
-            )
-        );
-
-        // Flash loan based on principal + interest
-        IVault(VAULT).flashLoan(this, assets, amounts, params);
+        // get funds from new lender, swap them and repay the old loan
+        _processRepaymentSwap(oldLoanCurrency, repayAmount, repayData);
 
         // reset borrower state
         borrower = address(0);
     }
 
     /**
-     * @notice Callback function for flash loan. OpData is decoded and used to execute the rollover.
+     * @notice Processes the repayment and currency swap for cross-currency loan repayments.
+     *         Any funds that are not covered by closing out the old loan must be covered by
+     *         the borrower.
      *
-     * @dev The caller of this function must be the lending pool.
-     * @dev This function checks that the borrower is cached and that the opData borrower matches the
-     *      borrower cached in the flash loan callback.
-     *
-     * @param assets                 The ERC20 address that was borrowed in Flash Loan.
-     * @param amounts                The amount that was borrowed in Flash Loan.
-     * @param feeAmounts             The fees that are due to the lending pool.
-     * @param params                 The data to be executed after receiving Flash Loan.
+     * @param oldLoanCurrency        The address of the original loan's currency.
+     * @param repaymentAmount        Amount needed to repay the old loan (principal + interest).
+     * @param repayData              A struct containing all necessary data for
+     *                               executing the repayment and swap.
      */
-    function receiveFlashLoan(
-        IERC20[] calldata assets,
-        uint256[] calldata amounts,
-        uint256[] calldata feeAmounts,
-        bytes calldata params
-    ) external nonReentrant {
-        if (msg.sender != VAULT) revert CCR_UnknownCaller(msg.sender, VAULT);
-
-        OriginationLibrary.OperationDataCurrency memory opData = abi.decode(params, (OriginationLibrary.OperationDataCurrency));
-
-        // verify this contract started the flash loan
-        if (opData.borrower != borrower) revert CCR_UnknownBorrower(opData.borrower, borrower);
-        // borrower must be set
-        if (borrower == address(0)) revert CCR_BorrowerNotCached();
-
-        _executeOperation(assets, amounts, feeAmounts, opData);
-    }
-
-    /**
-     * @notice Executes repayment of original loan and initialization of new currency loan. Any funds
-     *         that are not covered by closing out the old loan must be covered by the borrower.
-     *
-     * @param assets                 The ERC20 address that was borrowed in flash Loan.
-     * @param amounts                The amount that was borrowed in flash Loan.
-     * @param premiums               The fees that are due to the flash loan pool.
-     * @param opData                 The data to be executed after receiving flash Loan.
-     */
-    function _executeOperation(
-        IERC20[] calldata assets,
-        uint256[] calldata amounts,
-        uint256[] memory premiums,
-        OriginationLibrary.OperationDataCurrency memory opData
+    function _processRepaymentSwap(
+        address oldLoanCurrency,
+        uint256 repaymentAmount,
+        OriginationLibrary.CrossCurrencyRepayData memory repayData
     ) internal {
-        IERC20 asset = assets[0]; // old loan currency
+        // amount = new principal amount - leftover principal
+        uint256 amount = repayData.rolloverAmounts.amountFromLender - repayData.rolloverAmounts.leftoverPrincipal;
 
-        _repayLoan(borrower, asset, opData.oldLoanId, amounts[0]); // flashloan used to repay old loan
-
-        // amount = original loan repayment amount - leftover principal + flash loan fee
-        uint256 amount = opData.rolloverAmounts.amountFromLender - opData.rolloverAmounts.leftoverPrincipal + premiums[0];
-
-        // pull funds from the new lender to repay the flash loan
-        IERC20(opData.newLoanTerms.payableCurrency).safeTransferFrom(
-            opData.lender,
+        // pull funds from the new lender
+        IERC20(repayData.newLoanTerms.payableCurrency).safeTransferFrom(
+            repayData.lender,
             address(this),
-            opData.newLoanTerms.principal
+            repayData.newLoanTerms.principal
         );
 
         // swap the new lender payment from new currency to the original currency
         // the swap will revert if swappedAmount < minAmountOut
-        uint256 swappedAmount = _swapExactInputSingle(opData.newLoanTerms.payableCurrency, address(asset), opData.newLoanTerms.principal, opData.swapParameters.minAmountOut, opData.swapParameters.poolFeeTier, address(this));
+        uint256 swappedAmount = _swapExactInputSingle(repayData.newLoanTerms.payableCurrency, oldLoanCurrency, repayData.newLoanTerms.principal, repayData.swapParameters.minAmountOut, repayData.swapParameters.poolFeeTier, address(this));
+
+        if (swappedAmount < amount) {
+           uint256 needFromBorrower = amount - swappedAmount;
+
+           // borrower owes
+            IERC20(oldLoanCurrency).safeTransferFrom(borrower, address(this), needFromBorrower);
+        }
+
+        _repayLoan(borrower, IERC20(oldLoanCurrency), repayData.oldLoanId, repaymentAmount);
 
         if (swappedAmount > amount) {
             uint256 remainingFunds = swappedAmount - amount;
 
             // if funds remain, send the difference to the borrower
-            asset.safeTransfer(borrower, remainingFunds);
-        } else if (swappedAmount < amount) {
-           uint256 needFromBorrower = amount - swappedAmount;
-
-           // borrower owes
-            asset.safeTransferFrom(borrower, address(this), needFromBorrower);
+            IERC20(oldLoanCurrency).safeTransfer(borrower, remainingFunds);
         }
-
-        // Make flash loan repayment
-        // Balancer requires a transfer back the vault
-        asset.safeTransfer(VAULT, amounts[0] + premiums[0]);
     }
 
     /**
@@ -631,7 +580,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
      *
      * @param _pause              The state to set the contract to.
      */
-    function pause(bool _pause) external override onlyRole(SHUTDOWN_ROLE) {
+    function pause(bool _pause) external override onlyRole(ROLLOVER_MANAGER_ROLE) {
         if (paused == _pause) revert CCR_StateAlreadySet();
 
         paused = _pause;
@@ -640,10 +589,8 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
     }
 
     /**
-     * @notice This function ensures that at the start of every flash loan sequence, the borrower
-     *         state is reset to address(0). The rollover function that inherits this modifier sets
-     *         the borrower state before executing the flash loan and resets it to zero after the
-     *         flash loan has been executed.
+     * @notice This function ensures that at the start of every rollover sequence, the borrower
+     *         state is reset to address(0).
      */
     modifier whenBorrowerReset() {
         if (borrower != address(0)) revert CCR_BorrowerNotReset(borrower);

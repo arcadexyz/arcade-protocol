@@ -46,7 +46,7 @@ library OriginationLibrary {
         uint24 poolFeeTier;
     }
 
-    struct OperationDataCurrency {
+    struct CrossCurrencyRepayData {
         uint256 oldLoanId;
         LoanLibrary.LoanTerms newLoanTerms;
         address borrower;

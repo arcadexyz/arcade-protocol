@@ -69,6 +69,7 @@ contract OriginationController is
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
     bytes32 public constant MIGRATION_MANAGER_ROLE = keccak256("MIGRATION_MANAGER");
+    bytes32 public constant ROLLOVER_MANAGER_ROLE = keccak256("ROLLOVER_MANAGER");
 
     // =============== Contract References ===============
 
@@ -108,6 +109,9 @@ contract OriginationController is
 
         _setupRole(MIGRATION_MANAGER_ROLE, msg.sender);
         _setRoleAdmin(MIGRATION_MANAGER_ROLE, ADMIN_ROLE);
+
+        _setupRole(ROLLOVER_MANAGER_ROLE, msg.sender);
+        _setRoleAdmin(ROLLOVER_MANAGER_ROLE, ADMIN_ROLE);
 
         originationHelpers = IOriginationHelpers(_originationHelpers);
         loanCore = ILoanCore(_loanCore);
