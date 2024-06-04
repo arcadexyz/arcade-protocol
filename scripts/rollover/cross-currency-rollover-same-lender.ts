@@ -27,8 +27,13 @@ const poolFeeTier = 3000;
 
 /**
  * To run:
- * `FORK_MAINNET=true npx hardhat run scripts/rollover/cross-currency-rollover.ts`
+ * `FORK_MAINNET=true npx hardhat run scripts/rollover/cross-currency-rollover-same-lender.ts`
  * use block number: 19884656
+ *
+ * This script demonstrates a scenario where a loan is rolled over to a new currency
+ * whose principal amount is insufficient to cover the original loan's required repayment
+ * amount. Therefore the borrower must provide the difference to settle the full original
+ * loan amount.
  */
 
 async function advanceTime(seconds: number): Promise<void> {
@@ -78,11 +83,10 @@ export async function main(): Promise<void> {
     const borrower = await ethers.getSigner(BORROWER);
     const daiWhale = await ethers.getSigner(DAI_WHALE);
     const wethWhale = await ethers.getSigner(WETH_WHALE);
-    const [originalLender, newLender] = await ethers.getSigners();
+    const [lender] = await ethers.getSigners();
 
     console.log("Borrower address: ", borrower.address);
-    console.log("Original Lender address: ", originalLender.address);
-    console.log("New Lender address: ", newLender.address);
+    console.log("Lender address: ", lender.address);
 
     // fund the accounts with ETH
     await whale.sendTransaction({
@@ -91,7 +95,7 @@ export async function main(): Promise<void> {
     });
 
     await whale.sendTransaction({
-        to: originalLender.address,
+        to: lender.address,
         value: ethers.utils.parseEther("0.5"),
     });
 
@@ -105,18 +109,18 @@ export async function main(): Promise<void> {
         value: ethers.utils.parseEther("0.5"),
     });
 
-    await whale.sendTransaction({
-        to: newLender.address,
-        value: ethers.utils.parseEther("0.5"),
-    });
+    // await whale.sendTransaction({
+    //     to: newLender.address,
+    //     value: ethers.utils.parseEther("0.5"),
+    // }); // TODO: remoe this
 
-    // fund original lender with some DAI
+    // fund lender with some DAI
     const daiAmount = ethers.utils.parseUnits("10000", DECIMALS); // 10,000 DAI
-    await dai.connect(daiWhale).transfer(originalLender.address, daiAmount);
+    await dai.connect(daiWhale).transfer(lender.address, daiAmount);
 
-    // fund new lender with some WETH
+    // fund lender with some WETH
     const wethAmount = ethers.utils.parseUnits("5000", DECIMALS); // 5,000 WETH
-    await weth.connect(wethWhale).transfer(newLender.address, wethAmount);
+    await weth.connect(wethWhale).transfer(lender.address, wethAmount);
 
     ////////////////////// CREATE THE ORIGINAL V4 LOAN //////////////////////////////////////////////
     const INTEREST_RATE = 1500; // 15%
@@ -146,7 +150,7 @@ export async function main(): Promise<void> {
 
     const sigProperties: SignatureProperties = {
         nonce: 1,
-        maxUses: 1,
+        maxUses: 2,
     };
 
     // lender signs a bid for initial loan
@@ -154,7 +158,7 @@ export async function main(): Promise<void> {
         originationController.address,
         "OriginationController",
         originalLoanTerms,
-        originalLender,
+        lender,
         EIP712_VERSION,
         sigProperties,
         "l",
@@ -163,7 +167,7 @@ export async function main(): Promise<void> {
     console.log();
     console.log("Approvals...");
 
-    const approveDaiTx = await dai.connect(originalLender).approve(originationController.address, daiAmount);
+    const approveDaiTx = await dai.connect(lender).approve(originationController.address, daiAmount);
     await approveDaiTx.wait();
 
     const erc721Factory = await ethers.getContractFactory("ERC721");
@@ -173,7 +177,7 @@ export async function main(): Promise<void> {
     await approveCollateralTx.wait();
 
     // lender DAI balance before loan
-    const lenderDAIBalanceBefore = await dai.balanceOf(originalLender.address);
+    const lenderDAIBalanceBefore = await dai.balanceOf(lender.address);
     // borrower DAI balance before loan
     const borrowerDAIBalanceBefore = await dai.balanceOf(borrower.address);
 
@@ -182,12 +186,12 @@ export async function main(): Promise<void> {
 
     await originationController
         .connect(borrower)
-        .initializeLoan(originalLoanTerms, borrowerStruct, originalLender.address, originalSig, sigProperties, []);
+        .initializeLoan(originalLoanTerms, borrowerStruct, lender.address, originalSig, sigProperties, []);
 
     // borrower DAI balance after loan
     const borrowerDAIBalanceAfter = await dai.balanceOf(borrower.address);
     // lender DAI balance after loan
-    const lenderDAIBalanceAfter = await dai.balanceOf(originalLender.address);
+    const lenderDAIBalanceAfter = await dai.balanceOf(lender.address);
     // lender DAI balance after loan is now less
     const expectedLenderBalance = lenderDAIBalanceBefore.sub(borrowerDAIBalanceAfter);
     // check if the lender's actual balance matches the expected balance
@@ -201,10 +205,9 @@ export async function main(): Promise<void> {
 
     console.log();
     console.log(
-        `User ${borrower.address} borrowed ${ethers.utils.formatUnits(
-            PRINCIPAL,
-            18,
-        )} DAI at 15% interest from ${originalLender.address} against Nakamigos ${COLLATERAL_ID}`,
+        `User ${borrower.address} borrowed ${ethers.utils.formatUnits(PRINCIPAL, 18)} DAI at 15% interest from ${
+            lender.address
+        } against Nakamigos ${COLLATERAL_ID}`,
     );
 
     console.log(SECTION_SEPARATOR);
@@ -219,12 +222,16 @@ export async function main(): Promise<void> {
     // (PRINCIPAL + Interest rate ) / swap rate.
     const interestAmount = await crossCurrencyRollover.calculateProratedInterestAmount(1);
     const amountOwed = PRINCIPAL.add(interestAmount);
-    console.log("Total amount owed on original loan = Principal + Interest: ", ethers.utils.formatUnits(amountOwed, 18));
+    console.log(
+        "Total amount owed on original loan = Principal + Interest: ",
+        ethers.utils.formatUnits(amountOwed, 18),
+    );
 
     // price of Dai in wETH
     const price = await crossCurrencyRollover.fetchCurrentPrice(DAIAddress, WETHAddress, 3000);
     console.log("Price of DAI in wETH: ", ethers.utils.formatUnits(price, 18));
-    // amount owed in wETH
+    // changing the value of NEW_PRINCIPAL will affect whether the borrower will
+    // need to provide additional funds to pay the difference
     let NEW_PRINCIPAL = amountOwed.mul(price).div(ethers.utils.parseUnits("1", 18));
 
     // account for 3% slippage
@@ -244,60 +251,73 @@ export async function main(): Promise<void> {
         affiliateCode: AFFILIATE_CODE,
     };
 
-    const newLenderSig = await createLoanTermsSignature(
+    const newSig = await createLoanTermsSignature(
         crossCurrencyRollover.address,
         "OriginationController",
         newLoanTerms,
-        newLender,
+        lender,
         EIP712_VERSION,
         sigProperties,
         "l",
     );
 
     const swapParams: SwapParameters = {
-        minAmountOut: amountOwed,
+        minAmountOut: amountOwed.div(2),
         poolFeeTier: poolFeeTier,
     };
 
     console.log();
     console.log("Approvals for rollover loan...");
 
-    // new lender approves WETH amount to contract
-    const approveWETHTx = await weth.connect(newLender).approve(crossCurrencyRollover.address, wethAmount);
+    // lender approves WETH amount to contract
+    const approveWETHTx = await weth.connect(lender).approve(crossCurrencyRollover.address, wethAmount);
     await approveWETHTx.wait();
+
+    // if new principal amount is less than the amount owed
+    if (NEW_PRINCIPAL.lt(amountOwed)) {
+        const borrowerOwed = amountOwed.sub(NEW_PRINCIPAL);
+
+        // fund borrower with some DAI
+        await dai.connect(daiWhale).transfer(borrower.address, borrowerOwed);
+
+        // borrower approves DAI amount needed from borrower to contract
+        const approveBorrowerDaiTx = await dai.connect(borrower).approve(crossCurrencyRollover.address, borrowerOwed);
+        await approveBorrowerDaiTx.wait();
+    }
+
     // borrower approves borrower note
     await borrowerNote.connect(borrower).approve(crossCurrencyRollover.address, 1);
 
-    // new lender wETH balance before loan
-    const newLenderWETHBalanceBefore = await weth.balanceOf(newLender.address);
+    // lender wETH balance before loan
+    const lenderWETHBalanceBefore = await weth.balanceOf(lender.address);
 
     console.log("Rollover cross currency loan...");
     console.log();
 
     await crossCurrencyRollover
         .connect(borrower)
-        .rolloverCrossCurrencyLoan(1, newLoanTerms, newLender.address, newLenderSig, sigProperties, [], swapParams);
+        .rolloverCrossCurrencyLoan(1, newLoanTerms, lender.address, newSig, sigProperties, [], swapParams);
 
     console.log("✅ Loan rolled over to new currency!");
     console.log();
 
-    // original lender DAI balance after loan
-    const originalLenderDAIBalanceAfterRollover = await dai.balanceOf(originalLender.address);
-    // new lender wETH balance after rollover
-    const newLenderWETHBalanceAfter = await weth.balanceOf(newLender.address);
-    // new lender wETH balance after rollover is now less
-    const expectedNewLenderBalance = newLenderWETHBalanceBefore.sub(NEW_PRINCIPAL);
-    // check if the new lender's actual balance matches the expected balance
-    const isNewLenderBalanceCorrect = newLenderWETHBalanceAfter.eq(expectedNewLenderBalance);
+    // lender DAI balance after loan
+    const lenderDAIBalanceAfterRollover = await dai.balanceOf(lender.address);
+    // lender wETH balance after rollover
+    const newLenderWETHBalanceAfter = await weth.balanceOf(lender.address);
+    // lender wETH balance after rollover is now less
+    const expectedLenderWethBalance = lenderWETHBalanceBefore.sub(NEW_PRINCIPAL);
+    // check if the lender's actual wETH balance matches the expected balance
+    const isLenderWethBalanceCorrect = newLenderWETHBalanceAfter.eq(expectedLenderWethBalance);
 
-    console.log("New lender wETH balance before rollover: ", ethers.utils.formatUnits(newLenderWETHBalanceBefore, 18));
-    console.log("Original lender DAI balance before rollover: ", ethers.utils.formatUnits(lenderDAIBalanceAfter, 18));
-    console.log("New lender wETH balance after rollover: ", ethers.utils.formatUnits(newLenderWETHBalanceAfter, 18));
+    console.log("Lender wETH balance before rollover: ", ethers.utils.formatUnits(lenderWETHBalanceBefore, 18));
+    console.log("Lender DAI balance before rollover: ", ethers.utils.formatUnits(lenderDAIBalanceAfter, 18));
+    console.log("Lender wETH balance after rollover: ", ethers.utils.formatUnits(newLenderWETHBalanceAfter, 18));
     console.log(
-        "Original lender DAI balance after rollover: ",
-        ethers.utils.formatUnits(originalLenderDAIBalanceAfterRollover, 18),
+        "Lender DAI balance after rollover: ",
+        ethers.utils.formatUnits(lenderDAIBalanceAfterRollover, 18),
     );
-    console.log("New lender wETH balance is reduced correctly: ", isNewLenderBalanceCorrect);
+    console.log("Lender wETH balance is reduced correctly: ", isLenderWethBalanceCorrect);
     console.log();
 
     // check the borrower and lender notes
@@ -305,8 +325,8 @@ export async function main(): Promise<void> {
     console.log("newCurrencyLoanBorrower: ", newCurrencyLoanBorrower);
     const newCurrencyLoanLender = await lenderNote.ownerOf(2);
     console.log("newCurrencyLoanLender: ", newCurrencyLoanLender);
-    if (newCurrencyLoanLender !== newLender.address) {
-        throw new Error("New currency loan lender is not the same as new lender");
+    if (newCurrencyLoanLender !== lender.address) {
+        throw new Error("New currency loan lender is not the same as original loan lender");
     }
     if (newCurrencyLoanBorrower !== borrower.address) {
         throw new Error("New currency loan borrower is not the same as borrower");

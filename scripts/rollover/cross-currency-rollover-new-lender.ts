@@ -27,7 +27,7 @@ const poolFeeTier = 3000;
 
 /**
  * To run:
- * `FORK_MAINNET=true npx hardhat run scripts/rollover/cross-currency-rollover-2.ts`
+ * `FORK_MAINNET=true npx hardhat run scripts/rollover/cross-currency-rollover-new-lender.ts`
  * use block number: 19884656
  *
  * This script demonstrates a scenario where a loan is rolled over to a new currency
@@ -118,9 +118,6 @@ export async function main(): Promise<void> {
     // fund original lender with some DAI
     const daiAmount = ethers.utils.parseUnits("10000", DECIMALS); // 10,000 DAI
     await dai.connect(daiWhale).transfer(originalLender.address, daiAmount);
-
-    // fund borrower with some DAI
-    await dai.connect(daiWhale).transfer(borrower.address, daiAmount.div(5)); // 2,000 DAI
 
     // fund new lender with some WETH
     const wethAmount = ethers.utils.parseUnits("5000", DECIMALS); // 5,000 WETH
@@ -234,7 +231,8 @@ export async function main(): Promise<void> {
     // price of Dai in wETH
     const price = await crossCurrencyRollover.fetchCurrentPrice(DAIAddress, WETHAddress, 3000);
     console.log("Price of DAI in wETH: ", ethers.utils.formatUnits(price, 18));
-    // amount owed in wETH
+    // changing the value of NEW_PRINCIPAL will affect whether the borrower will
+    // need to provide additional funds to pay the difference
     let NEW_PRINCIPAL = amountOwed.div(2).mul(price).div(ethers.utils.parseUnits("1", 18));
 
     // account for 3% slippage
@@ -242,11 +240,6 @@ export async function main(): Promise<void> {
     // NEW_PRINCIPAL + slippage amount for swap
     NEW_PRINCIPAL = NEW_PRINCIPAL.add(slippage);
     console.log("Amount owed in new currency including 3% slippage: ", ethers.utils.formatUnits(NEW_PRINCIPAL, 18));
-
-    // new principal amount is less than the amount owed
-    const newPrincipalShort = NEW_PRINCIPAL.lt(amountOwed);
-    console.log("New principal amount is less than the amount owed on original loan: ", newPrincipalShort);
-    console.log("Borrower needs to provide the difference to settle the full original loan amount");
 
     const newLoanTerms: LoanTerms = {
         interestRate: INTEREST_RATE,
@@ -280,10 +273,19 @@ export async function main(): Promise<void> {
     // new lender approves WETH amount to contract
     const approveWETHTx = await weth.connect(newLender).approve(crossCurrencyRollover.address, wethAmount);
     await approveWETHTx.wait();
-    // borrower approves DAI amount needed from borrower to contract
-    const borrowerDaiBalance = await dai.balanceOf(borrower.address);
-    const approveBorrowerDaiTx = await dai.connect(borrower).approve(crossCurrencyRollover.address, borrowerDaiBalance);
-    await approveBorrowerDaiTx.wait();
+
+    // if new principal amount is less than the amount owed
+    if (NEW_PRINCIPAL.lt(amountOwed)) {
+        const borrowerOwes = amountOwed.sub(NEW_PRINCIPAL);
+
+        // fund borrower with some DAI
+        await dai.connect(daiWhale).transfer(borrower.address, borrowerOwes);
+
+        // borrower approves DAI amount needed from borrower to contract
+        const approveBorrowerDaiTx = await dai.connect(borrower).approve(crossCurrencyRollover.address, borrowerOwes);
+        await approveBorrowerDaiTx.wait();
+    }
+
     // borrower approves borrower note
     await borrowerNote.connect(borrower).approve(crossCurrencyRollover.address, 1);
 
