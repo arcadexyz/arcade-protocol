@@ -109,11 +109,6 @@ export async function main(): Promise<void> {
         value: ethers.utils.parseEther("0.5"),
     });
 
-    // await whale.sendTransaction({
-    //     to: newLender.address,
-    //     value: ethers.utils.parseEther("0.5"),
-    // }); // TODO: remoe this
-
     // fund lender with some DAI
     const daiAmount = ethers.utils.parseUnits("10000", DECIMALS); // 10,000 DAI
     await dai.connect(daiWhale).transfer(lender.address, daiAmount);
