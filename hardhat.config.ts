@@ -142,7 +142,6 @@ export const config: HardhatUserConfig = {
             {
                 version: "0.8.18",
                 settings: {
-                    viaIR: true,
                     metadata: {
                         // Not including the metadata hash
                         // https://github.com/paulrberg/solidity-template/issues/31
