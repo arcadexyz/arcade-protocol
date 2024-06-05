@@ -91,6 +91,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
      * @param sig                       The signature of the loan terms.
      * @param sigProperties             The properties of the signature.
      * @param itemPredicates            The predicates for the loan.
+     * @param swapParams                The parameters for the currency swap.
      */
     function rolloverCrossCurrencyLoan(
         uint256 oldLoanId,
@@ -295,8 +296,8 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
             uint256 repayAmount, OriginationLibrary.CrossCurrencyRepayData memory repayData
         ) = _calculateSettlementAmounts(oldLoanId, oldLoanData, msg.sender, lender, newLoanTerms, swapParams);
 
-        // get funds from new lender, swap them and repay the old loan
-        _processSettlement(msg.sender, oldLoanData.terms.payableCurrency, repayAmount, repayData);
+        // get funds for new loan and swap them
+        _processSettlement(msg.sender, oldLoanData.terms.payableCurrency, repayAmount, repayData, swapParams);
 
         // repay old loan
         _repayLoan(msg.sender, IERC20(oldLoanData.terms.payableCurrency), oldLoanId, repayAmount);
@@ -355,8 +356,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
             newLoanTerms: newLoanTerms,
             borrower: borrower_,
             lender: lender,
-            rolloverAmounts: amounts,
-            swapParameters: swapParams
+            rolloverAmounts: amounts
         });
     }
 
@@ -493,12 +493,14 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
      * @param repaymentAmount        Amount needed to repay the old loan (principal + interest).
      * @param repayData              A struct containing all necessary data for
      *                               executing the repayment and swap.
+     * @param swapParams             The parameters for the currency swap.
      */
     function _processSettlement(
         address borrower,
         address oldLoanCurrency,
         uint256 repaymentAmount,
-        OriginationLibrary.CrossCurrencyRepayData memory repayData
+        OriginationLibrary.CrossCurrencyRepayData memory repayData,
+        OriginationLibrary.SwapParameters memory swapParams
     ) internal {
         uint256 needFromBorrower = repayData.rolloverAmounts.needFromBorrower > 0 ? repayData.rolloverAmounts.needFromBorrower : 0;
 
@@ -518,8 +520,8 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
             repayData.newLoanTerms.payableCurrency,
             oldLoanCurrency,
             repayData.newLoanTerms.principal,
-            repayData.swapParameters.minAmountOut,
-            repayData.swapParameters.poolFeeTier,
+            swapParams.minAmountOut,
+            swapParams.poolFeeTier,
             address(this)
         );
 
