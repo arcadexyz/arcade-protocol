@@ -356,7 +356,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
             IERC20(oldLoanData.terms.payableCurrency).safeTransferFrom(borrower, address(this), amounts.needFromBorrower);
         }
 
-        // if there are extra funds, send to the borrower
+        // borrower get more
         if (amounts.amountToBorrower > 0) {
             IERC20(oldLoanData.terms.payableCurrency).safeTransfer(borrower, amounts.amountToBorrower);
         }
