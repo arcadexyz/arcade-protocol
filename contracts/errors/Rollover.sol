@@ -16,15 +16,6 @@ pragma solidity 0.8.18;
 /// @notice All errors prefixed with CCR_, to separate from other contracts in the protocol.
 
 /**
- * @notice The flash loan callback caller is not recognized. The caller must be the flash
- *         loan provider.
- *
- * @param caller                  The address of the caller.
- * @param lendingPool             Expected address of the flash loan provider.
- */
-error CCR_UnknownCaller(address caller, address lendingPool);
-
-/**
  * @notice Only the holder of the borrowerNote can rollover their loan.
  */
 error CCR_CallerNotBorrower();
@@ -38,28 +29,6 @@ error CCR_Paused();
  * @notice The rollover contract is already in the specified pause state.
  */
 error CCR_StateAlreadySet();
-
-/**
- * @notice Borrower address is not cached of the flash loan callback.
- */
-error CCR_BorrowerNotCached();
-
-/**
- * @notice The borrower address saved in the rollover contract is not the same as the
- *         borrower address provided in the flash loan operation data. The initiator of
- *         the flash loan must be the rollover contract.
- *
- * @param providedBorrower        Borrower address passed in the flash loan operation data.
- * @param cachedBorrower          Borrower address saved in the rollover contract.
- */
-error CCR_UnknownBorrower(address providedBorrower, address cachedBorrower);
-
-/**
- * @notice The borrower state must be address(0) to initiate a rollover sequence.
- *
- * @param borrower                The borrower address.
- */
-error CCR_BorrowerNotReset(address borrower);
 
 /**
  * @notice Ensure valid loan state for loan lifecycle operations.

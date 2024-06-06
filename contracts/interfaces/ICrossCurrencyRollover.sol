@@ -23,8 +23,6 @@ interface ICrossCurrencyRollover {
         OriginationLibrary.SwapParameters calldata swapParams
     ) external;
 
-    function calculateProratedInterestAmount(uint256 loanId) external returns (uint256);
-
     // ======================== OWNER OPS =========================
     function pause(bool _pause) external;
 }

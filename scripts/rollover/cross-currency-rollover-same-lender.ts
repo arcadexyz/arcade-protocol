@@ -2,8 +2,9 @@ import hre, { ethers } from "hardhat";
 import { BigNumber } from "ethers";
 
 import { createLoanTermsSignature } from "../../test/utils/eip712";
-import { LoanTerms, SignatureProperties, SwapParameters } from "../../test/utils/types";
+import { LoanTerms, SignatureProperties, SwapParameters, LoanData } from "../../test/utils/types";
 import { EIP712_VERSION } from "../../test/utils/constants";
+import { BlockchainTime } from "../../test/utils/time";
 
 import { main as deploy } from "../deploy/deploy";
 import { doWhitelisting } from "../deploy/whitelisting";
@@ -54,7 +55,7 @@ export async function main(): Promise<void> {
 
     console.log(SECTION_SEPARATOR);
 
-    const { borrowerNote, lenderNote, originationController, crossCurrencyRollover } = resources;
+    const { borrowerNote, lenderNote, originationController, crossCurrencyRollover, loanCore } = resources;
 
     const erc20Factory = await ethers.getContractFactory("ERC20");
     const dai = <ERC20>erc20Factory.attach(DAIAddress);
@@ -216,7 +217,17 @@ export async function main(): Promise<void> {
 
     // Calculate amount owed to original lender in the new currency:
     // (PRINCIPAL + Interest rate ) / swap rate.
-    const interestAmount = await crossCurrencyRollover.calculateProratedInterestAmount(1);
+    const loanData: LoanData = await loanCore.getLoan(1);
+    const blockchainTime = new BlockchainTime();
+    const interestAmount = await crossCurrencyRollover.getProratedInterestAmount(
+        loanData.balance,
+        loanData.terms.interestRate,
+        loanData.terms.durationSecs,
+        loanData.startDate,
+        loanData.lastAccrualTimestamp,
+        await blockchainTime.secondsFromNow(3),
+    );
+
     const amountOwed = PRINCIPAL.add(interestAmount);
     console.log(
         "Total amount owed on original loan = Principal + Interest: ",

@@ -16,10 +16,6 @@ import "../libraries/LoanLibrary.sol";
 import "../libraries/InterestCalculator.sol";
 
 import {
-    CCR_UnknownBorrower,
-    CCR_UnknownCaller,
-    CCR_BorrowerNotCached,
-    CCR_BorrowerNotReset,
     CCR_StateAlreadySet,
     CCR_Paused,
     CCR_InvalidState,
@@ -124,33 +120,6 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         if (itemPredicates.length > 0) originationHelpers.runPredicatesCheck(msg.sender, lender, newTerms, itemPredicates);
     }
 
-    /**
-     * @notice Calculates the prorated interest amount for a loan based on the current
-     *         time and the loan data.
-     *
-     * @param loanId                    The ID of the loan for which to calculate the
-     *                                  prorated interest amount.
-     *
-     * @return interestAmount           The amount of prorated interest that has accrued
-     *                                  on the loan.
-     *
-     */
-    function calculateProratedInterestAmount(uint256 loanId) external view returns (uint256) {
-        uint256 currentTimestamp = block.timestamp;
-        LoanLibrary.LoanData memory data = loanCore.getLoan(loanId);
-
-        uint256 interestAmount = InterestCalculator.getProratedInterestAmount(
-            data.balance,
-            data.terms.interestRate,
-            data.terms.durationSecs,
-            data.startDate,
-            data.lastAccrualTimestamp,
-            currentTimestamp
-        );
-
-        return interestAmount;
-    }
-
     // =================================== ROLLOVER VALIDATION =========================================
     /**
      * @notice Validates that the rollover is valid. If any of these conditionals are not met
@@ -212,13 +181,20 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         OriginationLibrary.SwapParameters memory swapParams
     ) internal {
         // get funds for new loan and swap them
-        (uint256 repayAmount, LoanLibrary.FeeSnapshot memory feeSnapshot) = _processSettlement(msg.sender, lender, swapParams, newLoanTerms, oldLoanData, oldLoanId);
+        uint256 repayAmount = _processSettlement(
+            msg.sender,
+            lender,
+            swapParams,
+            newLoanTerms,
+            oldLoanData,
+            oldLoanId
+        );
 
         // repay old loan
         _repayLoan(msg.sender, IERC20(oldLoanData.terms.payableCurrency), oldLoanId, repayAmount);
 
         // initialize new loan
-        _initializeRolloverLoan(newLoanTerms, msg.sender, lender, feeSnapshot);
+        _initializeRolloverLoan(newLoanTerms, msg.sender, lender, oldLoanId);
     }
 
     /**
@@ -227,7 +203,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
      * @param newTerms                  The terms of the new loan.
      * @param borrower                  The address of the borrower.
      * @param lender                    The address of the lender.
-     * @param feeSnapshot               The fee snapshot for the loan.
+     * @param oldLoanId                 The ID of the original loan.
      *
      * @return newLoanId                The ID of the new loan.
      */
@@ -235,10 +211,17 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         LoanLibrary.LoanTerms memory newTerms,
         address borrower,
         address lender,
-        LoanLibrary.FeeSnapshot memory feeSnapshot
+        uint256 oldLoanId
     ) internal returns (uint256 newLoanId) {
+        LoanLibrary.LoanData memory oldLoanData = ILoanCore(loanCore).getLoan(oldLoanId);
+
         // transfer collateral to LoanCore
         IERC721(newTerms.collateralAddress).transferFrom(address(this), address(loanCore), newTerms.collateralId);
+
+        LoanLibrary.FeeSnapshot memory feeSnapshot = LoanLibrary.FeeSnapshot({
+            lenderInterestFee: oldLoanData.lenderInterestFee,
+            lenderPrincipalFee: oldLoanData.lenderPrincipalFee
+        });
 
         // create loan in LoanCore
         newLoanId = loanCore.startLoan(lender, borrower, newTerms, feeSnapshot);
@@ -310,7 +293,6 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
      * @param oldLoanId              The ID of the original loan to be rolled over.
      *
      * @return repayAmount           The amount to be repaid to the old loan.
-     * @return feeSnapshot           A snapshot of current lending fees.
      */
     function _processSettlement(
         address borrower,
@@ -319,7 +301,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         LoanLibrary.LoanTerms memory newLoanTerms,
         LoanLibrary.LoanData memory oldLoanData,
         uint256 oldLoanId
-    ) internal returns (uint256 repayAmount, LoanLibrary.FeeSnapshot memory feeSnapshot){
+    ) internal returns (uint256 repayAmount){
         // pull funds from the new lender
         IERC20(newLoanTerms.payableCurrency).safeTransferFrom(
             lender,
@@ -339,9 +321,6 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         );
 
         address oldLender = ILoanCore(loanCore).lenderNote().ownerOf(oldLoanId);
-
-        // get fee snapshot from fee controller
-        (feeSnapshot) = feeController.getFeeSnapshot();
 
         // calculate settle amounts
         // get interest amount due
@@ -402,8 +381,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         IPromissoryNote(borrowerNote).transferFrom(borrower, address(this), borrowerNoteId);
 
         // approve LoanCore to take the total settled amount
-        ILoanCore loanCoreInterface = ILoanCore(loanCore);
-        payableCurrency.safeApprove(address(loanCoreInterface), repayAmount);
+        payableCurrency.safeApprove(address(loanCore), repayAmount);
 
         // repay original currency loan, this contract receives the collateral
         IRepaymentController(repaymentController).repayFull(borrowerNoteId);
