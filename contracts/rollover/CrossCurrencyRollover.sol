@@ -336,14 +336,19 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         // calculate the repay amount to settle the original loan
         repayAmount = oldLoanData.terms.principal + interestAmount;
 
+        LoanLibrary.FeeSnapshot memory feeSnapshot = LoanLibrary.FeeSnapshot({
+            lenderInterestFee: oldLoanData.lenderInterestFee,
+            lenderPrincipalFee: oldLoanData.lenderPrincipalFee
+        });
+
         OriginationLibrary.RolloverAmounts memory amounts = rolloverAmounts(
             oldLoanData.terms.principal,
             interestAmount,
             swappedAmount,
             lender,
             oldLender,
-            0,
-            0
+            feeSnapshot.lenderInterestFee,
+            feeSnapshot.lenderPrincipalFee
         );
 
         // borrower owes
@@ -351,14 +356,9 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
             IERC20(oldLoanData.terms.payableCurrency).safeTransferFrom(borrower, address(this), amounts.needFromBorrower);
         }
 
-        // amount = original loan repayment amount - leftover principal
-        uint256 amount = amounts.amountFromLender - amounts.leftoverPrincipal;
-
-        if (swappedAmount > amount) {
-            uint256 remainingFunds = swappedAmount - amount;
-
-            // if funds remain, send to the borrower
-            IERC20(oldLoanData.terms.payableCurrency).safeTransfer(borrower, remainingFunds);
+        // if there are extra funds, send to the borrower
+        if (amounts.amountToBorrower > 0) {
+            IERC20(oldLoanData.terms.payableCurrency).safeTransfer(borrower, amounts.amountToBorrower);
         }
     }
 
