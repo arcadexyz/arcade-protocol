@@ -1,4 +1,5 @@
 import hre, { ethers } from "hardhat";
+import { BigNumber } from "ethers";
 
 import { createLoanTermsSignature } from "../../test/utils/eip712";
 import { LoanTerms, SignatureProperties, SwapParameters } from "../../test/utils/types";
@@ -28,7 +29,7 @@ const poolFeeTier = 3000;
 /**
  * To run:
  * `FORK_MAINNET=true npx hardhat run scripts/rollover/cross-currency-rollover-same-lender.ts`
- * use block number: 19884656
+ * use block number: 18852467
  *
  * This script demonstrates a scenario where a loan is rolled over to a new currency
  * whose principal amount is insufficient to cover the original loan's required repayment
@@ -222,18 +223,20 @@ export async function main(): Promise<void> {
         ethers.utils.formatUnits(amountOwed, 18),
     );
 
-    // price of Dai in wETH
-    const price = await crossCurrencyRollover.fetchCurrentPrice(DAIAddress, WETHAddress, 3000);
-    console.log("Price of DAI in wETH: ", ethers.utils.formatUnits(price, 18));
+    // price of Dai in wETH at block number: 18852467
+    const price = BigNumber.from("0x018974567f22d0");
+    console.log("Price of DAI in wETH at block number: 18852467: ", ethers.utils.formatUnits(price, 18));
     // changing the value of NEW_PRINCIPAL will affect whether the borrower will
     // need to provide additional funds to pay the difference
+    const NEW_PRINCIPAL_OLD_CURRENCY = amountOwed;
+    // calculate the new principal amount in wETH
     let NEW_PRINCIPAL = amountOwed.mul(price).div(ethers.utils.parseUnits("1", 18));
 
     // account for 3% slippage
     const slippage = NEW_PRINCIPAL.mul(3).div(100);
     // NEW_PRINCIPAL + slippage amount for swap
     NEW_PRINCIPAL = NEW_PRINCIPAL.add(slippage);
-    console.log("Amount owed in new currency including 3% slippage: ", ethers.utils.formatUnits(NEW_PRINCIPAL, 18));
+    console.log("Principal in new currency including 3% slippage: ", ethers.utils.formatUnits(NEW_PRINCIPAL, 18));
 
     const newLoanTerms: LoanTerms = {
         interestRate: INTEREST_RATE,
@@ -269,14 +272,18 @@ export async function main(): Promise<void> {
     await approveWETHTx.wait();
 
     // if new principal amount is less than the amount owed
-    if (NEW_PRINCIPAL.lt(amountOwed)) {
-        const borrowerOwed = amountOwed.sub(NEW_PRINCIPAL);
+    if (NEW_PRINCIPAL_OLD_CURRENCY.lt(amountOwed)) {
+        const borrowerOwes = amountOwed.sub(NEW_PRINCIPAL_OLD_CURRENCY);
+        console.log(
+            "New loan principal is less that amount owed. Borrower owes in original currency:",
+            ethers.utils.formatUnits(borrowerOwes, 18),
+        );
 
         // fund borrower with some DAI
-        await dai.connect(daiWhale).transfer(borrower.address, borrowerOwed);
+        await dai.connect(daiWhale).transfer(borrower.address, borrowerOwes);
 
         // borrower approves DAI amount needed from borrower to contract
-        const approveBorrowerDaiTx = await dai.connect(borrower).approve(crossCurrencyRollover.address, borrowerOwed);
+        const approveBorrowerDaiTx = await dai.connect(borrower).approve(crossCurrencyRollover.address, borrowerOwes);
         await approveBorrowerDaiTx.wait();
     }
 
@@ -308,12 +315,8 @@ export async function main(): Promise<void> {
     console.log("Lender wETH balance before rollover: ", ethers.utils.formatUnits(lenderWETHBalanceBefore, 18));
     console.log("Lender DAI balance before rollover: ", ethers.utils.formatUnits(lenderDAIBalanceAfter, 18));
     console.log("Lender wETH balance after rollover: ", ethers.utils.formatUnits(newLenderWETHBalanceAfter, 18));
-    console.log(
-        "Lender DAI balance after rollover: ",
-        ethers.utils.formatUnits(lenderDAIBalanceAfterRollover, 18),
-    );
+    console.log("Lender DAI balance after rollover: ", ethers.utils.formatUnits(lenderDAIBalanceAfterRollover, 18));
     console.log("Lender wETH balance is reduced correctly: ", isLenderWethBalanceCorrect);
-    console.log();
 
     // check the borrower and lender notes
     const newCurrencyLoanBorrower = await borrowerNote.ownerOf(2);

@@ -25,8 +25,6 @@ interface ICrossCurrencyRollover {
 
     function calculateProratedInterestAmount(uint256 loanId) external returns (uint256);
 
-    function fetchCurrentPrice(address tokenIn, address tokenOut, uint24 poolFee) external returns (uint256 price);
-
     // ======================== OWNER OPS =========================
     function pause(bool _pause) external;
 }

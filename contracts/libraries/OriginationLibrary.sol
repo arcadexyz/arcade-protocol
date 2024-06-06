@@ -46,15 +46,6 @@ library OriginationLibrary {
         uint24 poolFeeTier;
     }
 
-    struct CrossCurrencyRepayData {
-        uint256 oldLoanId;
-        LoanLibrary.LoanTerms newLoanTerms;
-        address borrower;
-        address lender;
-        RolloverAmounts rolloverAmounts;
-        SwapParameters swapParameters;
-    }
-
     // ======================================= CONSTANTS ==============================================
 
     /// @notice EIP712 type hash for bundle-based signatures.
