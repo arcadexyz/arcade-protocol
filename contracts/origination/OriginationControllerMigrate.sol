@@ -5,7 +5,7 @@ pragma solidity 0.8.18;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
-import "./OriginationController.sol";
+import "./OriginationControllerBase.sol";
 
 import "../interfaces/IMigrationBase.sol";
 
@@ -28,7 +28,7 @@ import {
     OCM_LenderIsBorrower
 } from "../errors/Lending.sol";
 
-contract OriginationControllerMigrate is IMigrationBase, OriginationController, ERC721Holder {
+contract OriginationControllerMigrate is IMigrationBase, OriginationControllerBase, ERC721Holder {
     using SafeERC20 for IERC20;
 
     /// @notice Balancer vault
@@ -51,7 +51,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
         address _originationHelpers,
         address _loanCore,
         address _feeController
-    ) OriginationController(_originationHelpers, _loanCore, _feeController) {}
+    ) OriginationControllerBase(_originationHelpers, _loanCore, _feeController) {}
 
     // ======================================= V3 MIGRATION =============================================
 
