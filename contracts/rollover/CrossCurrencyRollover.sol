@@ -7,11 +7,12 @@ import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
-import "../origination/OriginationController.sol";
+import "../origination/OriginationControllerBase.sol";
 
 import "../interfaces/ICrossCurrencyRollover.sol";
 import "../interfaces/ILoanCore.sol";
 import "../interfaces/IRepaymentController.sol";
+
 import "../libraries/LoanLibrary.sol";
 import "../libraries/InterestCalculator.sol";
 
@@ -27,7 +28,7 @@ import {
     CCR_ZeroAddress
 } from "../errors/Rollover.sol";
 
-contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController, ERC721Holder {
+contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationControllerBase, ERC721Holder {
     using SafeERC20 for IERC20;
 
     // ============================================ STATE ==============================================
@@ -54,7 +55,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
         address _repaymentController,
         address _feeController,
         ISwapRouter _swapRouter
-    ) OriginationController(_originationHelpers, _loanCore, _feeController) {
+    ) OriginationControllerBase(_originationHelpers, _loanCore, _feeController) {
         if (address(_borrowerNote) == address(0)) revert CCR_ZeroAddress("borrowerNote");
         if (address(_repaymentController) == address(0)) revert CCR_ZeroAddress("repaymentController");
         if (address(_swapRouter) == address(0)) revert CCR_ZeroAddress("swapRouter");
@@ -341,7 +342,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationController,
             lenderPrincipalFee: oldLoanData.lenderPrincipalFee
         });
 
-        OriginationLibrary.RolloverAmounts memory amounts = rolloverAmounts(
+        OriginationLibrary.RolloverAmounts memory amounts = OriginationCalculator.rolloverAmounts(
             oldLoanData.terms.principal,
             interestAmount,
             swappedAmount,
