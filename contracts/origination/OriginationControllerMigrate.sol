@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
 import "./OriginationControllerBase.sol";
+import "./OriginationCalculator.sol";
 
 import "../interfaces/IMigrationBase.sol";
 
@@ -269,7 +270,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationControllerBa
         // calculate the repay amount to settle V3 loan
         repayAmount = oldLoanData.terms.principal + interest;
 
-        amounts = rolloverAmounts(
+        amounts = OriginationCalculator.rolloverAmounts(
             oldLoanData.terms.principal,
             interest,
             newPrincipalAmount,

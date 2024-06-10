@@ -28,6 +28,7 @@ import {
     ArtBlocksVerifier,
     CallWhitelistAllExtensions,
     OriginationControllerMigrate,
+    OriginationController,
     OriginationHelpers,
     OriginationLibrary,
     CrossCurrencyRollover,
@@ -120,6 +121,7 @@ export async function main(): Promise<DeployedResources> {
     console.log(SUBSECTION_SEPARATOR);
 
     const LoanCoreFactory = await ethers.getContractFactory("LoanCore");
+
     const loanCore = <LoanCore>await LoanCoreFactory.deploy(borrowerNote.address, lenderNote.address);
     await loanCore.deployed();
 
@@ -149,19 +151,35 @@ export async function main(): Promise<DeployedResources> {
     console.log("OriginationLibrary deployed to:", originationLibrary.address);
     console.log(SUBSECTION_SEPARATOR);
 
-    const OriginationControllerFactory = await ethers.getContractFactory("OriginationControllerMigrate",
-        {
-            libraries: {
-                OriginationLibrary: originationLibrary.address,
-            },
+    const OriginationControllerFactory = await ethers.getContractFactory("OriginationController", {
+        libraries: {
+            OriginationLibrary: originationLibrary.address,
         },
-    );
-    const originationController = <OriginationControllerMigrate>(
+    });
+    const originationController = <OriginationController>(
         await OriginationControllerFactory.deploy(originationHelpers.address, loanCore.address, feeController.address)
     );
     await originationController.deployed();
 
     console.log("OriginationController deployed to:", originationController.address);
+    console.log(SUBSECTION_SEPARATOR);
+
+    const OriginationControllerMigrateFactory = await ethers.getContractFactory("OriginationControllerMigrate", {
+        libraries: {
+            OriginationLibrary: originationLibrary.address,
+        },
+    });
+
+    const originationControllerMigrate = <OriginationControllerMigrate>(
+        await OriginationControllerMigrateFactory.deploy(
+            originationHelpers.address,
+            loanCore.address,
+            feeController.address,
+        )
+    );
+    await originationControllerMigrate.deployed();
+
+    console.log("OriginationControllerMigrate deployed to:", originationControllerMigrate.address);
     console.log(SUBSECTION_SEPARATOR);
 
     const CrossCurrencyRolloverFactory = await ethers.getContractFactory("CrossCurrencyRollover", {
@@ -218,6 +236,7 @@ export async function main(): Promise<DeployedResources> {
         repaymentController,
         originationLibrary,
         originationController,
+        originationControllerMigrate,
         originationHelpers,
         borrowerNoteURIDescriptor,
         borrowerNote,
@@ -240,7 +259,15 @@ export async function main(): Promise<DeployedResources> {
         loanCore: [borrowerNote.address, lenderNote.address],
         repaymentController: [loanCore.address, feeController.address],
         originationController: [originationHelpers.address, loanCore.address, feeController.address],
-        crossCurrencyRollover: [originationHelpers.address, loanCore.address, borrowerNote.address, repaymentController.address, feeController.address, SWAP_ADDRESS],
+        originationControllerMigrate: [originationHelpers.address, loanCore.address, feeController.address],
+        crossCurrencyRollover: [
+            originationHelpers.address,
+            loanCore.address,
+            borrowerNote.address,
+            repaymentController.address,
+            feeController.address,
+            SWAP_ADDRESS,
+        ],
     });
 
     console.log(SECTION_SEPARATOR);

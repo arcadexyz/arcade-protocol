@@ -55,7 +55,13 @@ export async function main(): Promise<void> {
 
     console.log(SECTION_SEPARATOR);
 
-    const { borrowerNote, lenderNote, originationController, crossCurrencyRollover, loanCore } = resources;
+    const {
+        borrowerNote,
+        lenderNote,
+        originationController,
+        crossCurrencyRollover,
+        loanCore
+     } = resources;
 
     const erc20Factory = await ethers.getContractFactory("ERC20");
     const dai = <ERC20>erc20Factory.attach(DAIAddress);

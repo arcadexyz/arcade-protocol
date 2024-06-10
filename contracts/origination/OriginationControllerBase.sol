@@ -314,3 +314,4 @@ contract OriginationControllerBase is
         if (signer == callingCounterparty) revert OC_SideMismatch(signer);
     }
 }
+
