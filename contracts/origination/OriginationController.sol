@@ -262,4 +262,67 @@ contract OriginationController is IOriginationController, OriginationControllerB
             amounts.interestAmount
         );
     }
+
+    /**
+     * @dev Validate the rules for rolling over a loan - must be using the same
+     *      currency and collateral.
+     *
+     * @param oldTerms              The terms of the old loan, fetched from LoanCore.
+     * @param newTerms              The terms of the new loan, provided by the caller.
+     */
+    function _validateRollover(LoanLibrary.LoanTerms memory oldTerms, LoanLibrary.LoanTerms memory newTerms)
+        internal
+        pure
+    {
+        if (newTerms.payableCurrency != oldTerms.payableCurrency)
+            revert OC_RolloverCurrencyMismatch(oldTerms.payableCurrency, newTerms.payableCurrency);
+
+        if (newTerms.collateralAddress != oldTerms.collateralAddress || newTerms.collateralId != oldTerms.collateralId)
+            revert OC_RolloverCollateralMismatch(
+                oldTerms.collateralAddress,
+                oldTerms.collateralId,
+                newTerms.collateralAddress,
+                newTerms.collateralId
+            );
+    }
+
+    /**
+     * @dev Ensure that one counterparty has signed the loan terms, and the other
+     *      has initiated the transaction.
+     *
+     * @param signingCounterparty       The address of the counterparty who signed the terms.
+     * @param callingCounterparty       The address on the other side of the loan as the signingCounterparty.
+     * @param caller                    The address initiating the transaction.
+     * @param signer                    The address recovered from the loan terms signature.
+     * @param sig                       A struct containing the signature data (for checking EIP-1271).
+     * @param sighash                   The hash of the signature payload (used for EIP-1271 check).
+     */
+    // solhint-disable-next-line code-complexity
+    function _validateCounterparties(
+        address signingCounterparty,
+        address callingCounterparty,
+        address caller,
+        address signer,
+        Signature calldata sig,
+        bytes32 sighash
+    ) internal view {
+        // Make sure the signer recovered from the loan terms is not the caller,
+        // and even if the caller is approved, the caller is not the signing counterparty
+        if (caller == signer || caller == signingCounterparty) revert OC_ApprovedOwnLoan(caller);
+
+        // Check that caller can actually call this function - neededSide assignment
+        // defaults to BORROW if the signature is not approved by the borrower, but it could
+        // also not be a participant
+        if (!isSelfOrApproved(callingCounterparty, caller)) {
+            revert OC_CallerNotParticipant(msg.sender);
+        }
+
+        // Check signature validity
+        if (!isSelfOrApproved(signingCounterparty, signer) && !OriginationLibrary.isApprovedForContract(signingCounterparty, sig, sighash)) {
+            revert OC_InvalidSignature(signingCounterparty, signer);
+        }
+
+        // Revert if the signer is the calling counterparty
+        if (signer == callingCounterparty) revert OC_SideMismatch(signer);
+    }
 }
