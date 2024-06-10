@@ -2,10 +2,8 @@
 
 pragma solidity 0.8.18;
 
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "./OriginationCalculator.sol";
 
@@ -16,21 +14,11 @@ import "../interfaces/IFeeController.sol";
 import "../interfaces/IExpressBorrow.sol";
 
 import "../libraries/OriginationLibrary.sol";
-import "../libraries/FeeLookups.sol";
 import "../libraries/Constants.sol";
 
 import "../verifiers/ArcadeItemsVerifier.sol";
 
-import {
-    OC_ZeroAddress,
-    OC_SelfApprove,
-    OC_ApprovedOwnLoan,
-    OC_InvalidSignature,
-    OC_CallerNotParticipant,
-    OC_SideMismatch,
-    OC_RolloverCurrencyMismatch,
-    OC_RolloverCollateralMismatch
-} from "../errors/Lending.sol";
+import { OC_ZeroAddress, OC_SelfApprove } from "../errors/Lending.sol";
 
 /**
  * @title OriginationControllerBase
@@ -42,26 +30,12 @@ import {
  * signature verification functions.
  *
  */
-contract OriginationControllerBase is
-    IOriginationControllerBase,
-    FeeLookups,
-    EIP712,
-    OriginationCalculator,
-    ReentrancyGuard,
-    AccessControlEnumerable
-{
+abstract contract OriginationControllerBase is IOriginationControllerBase, EIP712, OriginationCalculator {
     // ============================================ STATE ==============================================
-    // =================== Constants =====================
-
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
-    bytes32 public constant MIGRATION_MANAGER_ROLE = keccak256("MIGRATION_MANAGER");
-    bytes32 public constant ROLLOVER_MANAGER_ROLE = keccak256("ROLLOVER_MANAGER");
-
     // =============== Contract References ===============
 
     IOriginationHelpers public immutable originationHelpers;
     ILoanCore public immutable loanCore;
-    IFeeController public immutable feeController;
 
     // ================= Approval State ==================
 
@@ -76,29 +50,16 @@ contract OriginationControllerBase is
      *
      * @param _originationHelpers           The address of the origination shared storage contract.
      * @param _loanCore                     The address of the loan core logic of the protocol.
-     * @param _feeController                The address of the fee logic of the protocol.
      */
     constructor(
         address _originationHelpers,
-        address _loanCore,
-        address _feeController
+        address _loanCore
     ) EIP712("OriginationController", "4") {
         if (_originationHelpers == address(0)) revert OC_ZeroAddress("originationHelpers");
         if (_loanCore == address(0)) revert OC_ZeroAddress("loanCore");
-        if (_feeController == address(0)) revert OC_ZeroAddress("feeController");
-
-        _setupRole(ADMIN_ROLE, msg.sender);
-        _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
-
-        _setupRole(MIGRATION_MANAGER_ROLE, msg.sender);
-        _setRoleAdmin(MIGRATION_MANAGER_ROLE, ADMIN_ROLE);
-
-        _setupRole(ROLLOVER_MANAGER_ROLE, msg.sender);
-        _setRoleAdmin(ROLLOVER_MANAGER_ROLE, ADMIN_ROLE);
 
         originationHelpers = IOriginationHelpers(_originationHelpers);
         loanCore = ILoanCore(_loanCore);
-        feeController = IFeeController(_feeController);
     }
 
     // ==================================== PERMISSION MANAGEMENT =======================================

@@ -4,6 +4,8 @@ pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
+import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
@@ -15,6 +17,7 @@ import "../interfaces/IRepaymentController.sol";
 
 import "../libraries/LoanLibrary.sol";
 import "../libraries/InterestCalculator.sol";
+import "../libraries/FeeLookups.sol";
 
 import {
     CCR_StateAlreadySet,
@@ -28,12 +31,20 @@ import {
     CCR_ZeroAddress
 } from "../errors/Rollover.sol";
 
-contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationControllerBase, ERC721Holder {
+contract CrossCurrencyRollover is
+    ICrossCurrencyRollover,
+    OriginationControllerBase,
+    FeeLookups,
+    AccessControlEnumerable,
+    ReentrancyGuard,
+    ERC721Holder {
     using SafeERC20 for IERC20;
 
     // ============================================ STATE ==============================================
     // ============== Constants ==============
-    uint256 public constant ONE = 1e18;
+
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
+    bytes32 public constant ROLLOVER_MANAGER_ROLE = keccak256("ROLLOVER_MANAGER");
 
     /// @notice UniswapV3Factory
     address private constant POOL_FACTORY = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
@@ -53,12 +64,17 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationControllerB
         address _loanCore,
         address _borrowerNote,
         address _repaymentController,
-        address _feeController,
         ISwapRouter _swapRouter
-    ) OriginationControllerBase(_originationHelpers, _loanCore, _feeController) {
+    ) OriginationControllerBase(_originationHelpers, _loanCore) {
         if (address(_borrowerNote) == address(0)) revert CCR_ZeroAddress("borrowerNote");
         if (address(_repaymentController) == address(0)) revert CCR_ZeroAddress("repaymentController");
         if (address(_swapRouter) == address(0)) revert CCR_ZeroAddress("swapRouter");
+
+        _setupRole(ADMIN_ROLE, msg.sender);
+        _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
+
+        _setupRole(ROLLOVER_MANAGER_ROLE, msg.sender);
+        _setRoleAdmin(ROLLOVER_MANAGER_ROLE, ADMIN_ROLE);
 
         borrowerNote = _borrowerNote;
         repaymentController = _repaymentController;
@@ -99,20 +115,18 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationControllerB
 
         _validateCurrencyRollover(oldLoanData.terms, newTerms, oldLoanId);
 
-        {
-            (bytes32 sighash, address externalSigner) = _recoverSignature(newTerms, sig, sigProperties, Side.LEND, lender, itemPredicates);
+        (bytes32 sighash, address externalSigner) = _recoverSignature(newTerms, sig, sigProperties, Side.LEND, lender, itemPredicates);
 
-            // counterparty validation
-            if (!isSelfOrApproved(lender, externalSigner) && !OriginationLibrary.isApprovedForContract(lender, sig, sighash)) {
-                revert CCR_SideMismatch(externalSigner);
-            }
-
-            // new lender cannot be the same as the borrower
-            if (msg.sender == lender) revert CCR_LenderIsBorrower();
-
-            // consume new loan nonce
-            loanCore.consumeNonce(externalSigner, sigProperties.nonce, sigProperties.maxUses);
+        // counterparty validation
+        if (!isSelfOrApproved(lender, externalSigner) && !OriginationLibrary.isApprovedForContract(lender, sig, sighash)) {
+            revert CCR_SideMismatch(externalSigner);
         }
+
+        // new lender cannot be the same as the borrower
+        if (msg.sender == lender) revert CCR_LenderIsBorrower();
+
+        // consume new loan nonce
+        loanCore.consumeNonce(externalSigner, sigProperties.nonce, sigProperties.maxUses);
 
         _executeRollover(oldLoanId, oldLoanData, lender, newTerms, swapParams);
 
@@ -182,7 +196,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationControllerB
         OriginationLibrary.SwapParameters memory swapParams
     ) internal {
         // get funds for new loan and swap them
-        uint256 repayAmount = _processSettlement(
+        (uint256 repayAmount, LoanLibrary.FeeSnapshot memory feeSnapshot) = _processSettlement(
             msg.sender,
             lender,
             swapParams,
@@ -195,7 +209,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationControllerB
         _repayLoan(msg.sender, IERC20(oldLoanData.terms.payableCurrency), oldLoanId, repayAmount);
 
         // initialize new loan
-        _initializeRolloverLoan(newLoanTerms, msg.sender, lender, oldLoanId);
+        _initializeRolloverLoan(newLoanTerms, msg.sender, lender, oldLoanId, feeSnapshot);
     }
 
     /**
@@ -205,6 +219,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationControllerB
      * @param borrower                  The address of the borrower.
      * @param lender                    The address of the lender.
      * @param oldLoanId                 The ID of the original loan.
+     * @param feeSnapshot               Principal and interest fees pertaining to rollover.
      *
      * @return newLoanId                The ID of the new loan.
      */
@@ -212,17 +227,13 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationControllerB
         LoanLibrary.LoanTerms memory newTerms,
         address borrower,
         address lender,
-        uint256 oldLoanId
-    ) internal returns (uint256 newLoanId) {
+        uint256 oldLoanId,
+        LoanLibrary.FeeSnapshot memory feeSnapshot
+    ) internal nonReentrant returns (uint256 newLoanId) {
         LoanLibrary.LoanData memory oldLoanData = ILoanCore(loanCore).getLoan(oldLoanId);
 
         // transfer collateral to LoanCore
         IERC721(newTerms.collateralAddress).transferFrom(address(this), address(loanCore), newTerms.collateralId);
-
-        LoanLibrary.FeeSnapshot memory feeSnapshot = LoanLibrary.FeeSnapshot({
-            lenderInterestFee: oldLoanData.lenderInterestFee,
-            lenderPrincipalFee: oldLoanData.lenderPrincipalFee
-        });
 
         // create loan in LoanCore
         newLoanId = loanCore.startLoan(lender, borrower, newTerms, feeSnapshot);
@@ -294,6 +305,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationControllerB
      * @param oldLoanId              The ID of the original loan to be rolled over.
      *
      * @return repayAmount           The amount to be repaid to the old loan.
+     * @return feeSnapshot           Principal and interest fees pertaining to rollover.
      */
     function _processSettlement(
         address borrower,
@@ -302,7 +314,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationControllerB
         LoanLibrary.LoanTerms memory newLoanTerms,
         LoanLibrary.LoanData memory oldLoanData,
         uint256 oldLoanId
-    ) internal returns (uint256 repayAmount){
+    ) internal nonReentrant returns (uint256 repayAmount, LoanLibrary.FeeSnapshot memory feeSnapshot){
         // pull funds from the new lender
         IERC20(newLoanTerms.payableCurrency).safeTransferFrom(
             lender,
@@ -357,7 +369,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationControllerB
             IERC20(oldLoanData.terms.payableCurrency).safeTransferFrom(borrower, address(this), amounts.needFromBorrower);
         }
 
-        // borrower get more
+        // borrower gets more
         if (amounts.amountToBorrower > 0) {
             IERC20(oldLoanData.terms.payableCurrency).safeTransfer(borrower, amounts.amountToBorrower);
         }
@@ -376,7 +388,7 @@ contract CrossCurrencyRollover is ICrossCurrencyRollover, OriginationControllerB
         IERC20 payableCurrency,
         uint256 borrowerNoteId,
         uint256 repayAmount
-    ) internal {
+    ) internal nonReentrant {
         // pull BorrowerNote from the caller so that this contract receives collateral upon original loan repayment
         // borrower must approve this withdrawal
         IPromissoryNote(borrowerNote).transferFrom(borrower, address(this), borrowerNoteId);

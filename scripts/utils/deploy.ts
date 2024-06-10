@@ -14,7 +14,6 @@ import {
     CollectionWideOfferVerifier,
     ArtBlocksVerifier,
     CallWhitelistAllExtensions,
-    OriginationControllerMigrate,
     OriginationHelpers,
     OriginationLibrary,
     CrossCurrencyRollover,
@@ -30,7 +29,6 @@ export interface DeployedResources {
     loanCore: LoanCore;
     repaymentController: RepaymentController;
     originationLibrary: OriginationLibrary;
-    originationControllerMigrate: OriginationControllerMigrate;
     originationController: OriginationController;
     originationHelpers: OriginationHelpers;
     borrowerNoteURIDescriptor: StaticURIDescriptor;
@@ -56,7 +54,6 @@ const jsonContracts: { [key: string]: string } = {
     LoanCore: "loanCore",
     RepaymentController: "repaymentController",
     OriginationController: "originationController",
-    OriginationControllerMigrate: "originationControllerMigrate",
     OriginationHelpers: "originationHelpers",
     CrossCurrencyRollover: "crossCurrencyRollover",
     ArcadeItemsVerifier: "arcadeItemsVerifier",

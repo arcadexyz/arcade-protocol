@@ -62,7 +62,7 @@ export async function main(): Promise<void> {
         crossCurrencyRollover,
         loanCore,
         feeController
-     } = resources;
+    } = resources;
 
     const erc20Factory = await ethers.getContractFactory("ERC20");
     const dai = <ERC20>erc20Factory.attach(DAIAddress);
@@ -259,6 +259,7 @@ export async function main(): Promise<void> {
     );
 
     const amountOwed = PRINCIPAL.add(interestAmount);
+    console.log("Interest Owed: ", ethers.utils.formatUnits(interestAmount, 18));
     console.log(
         "Total amount owed on original loan = Principal + Interest: ",
         ethers.utils.formatUnits(amountOwed, 18),
@@ -332,6 +333,9 @@ export async function main(): Promise<void> {
     // new lender wETH balance before loan
     const newLenderWETHBalanceBefore = await weth.balanceOf(newLender.address);
 
+    // get lonCore original currency balance before rollover
+    const loanCoreDAIBalanceBefore = await dai.balanceOf(loanCore.address);
+
     console.log("Rollover cross currency loan...");
     console.log();
 
@@ -350,6 +354,9 @@ export async function main(): Promise<void> {
     const expectedNewLenderBalance = newLenderWETHBalanceBefore.sub(NEW_PRINCIPAL);
     // check if the new lender's actual balance matches the expected balance
     const isNewLenderBalanceCorrect = newLenderWETHBalanceAfter.eq(expectedNewLenderBalance);
+    // get lonCore original currency balance after rollover
+    const loanCoreDAIBalanceAfter = await dai.balanceOf(loanCore.address);
+    const feeAmount = interestAmount.mul(10_000).div(100_000);
 
     console.log("New lender wETH balance before rollover: ", ethers.utils.formatUnits(newLenderWETHBalanceBefore, 18));
     console.log("Original lender DAI balance before rollover: ", ethers.utils.formatUnits(lenderDAIBalanceAfter, 18));
@@ -359,6 +366,9 @@ export async function main(): Promise<void> {
         ethers.utils.formatUnits(originalLenderDAIBalanceAfterRollover, 18),
     );
     console.log("New lender wETH balance is reduced correctly: ", isNewLenderBalanceCorrect);
+    console.log("LoanCore balance before rollover: ", ethers.utils.formatUnits(loanCoreDAIBalanceBefore, 18));
+    console.log("Fee Amount: ", ethers.utils.formatUnits(feeAmount, 18));
+    console.log("LoanCore balance after rollover: ", ethers.utils.formatUnits(loanCoreDAIBalanceAfter, 18));
 
     // check the borrower and lender notes
     const newCurrencyLoanBorrower = await borrowerNote.ownerOf(2);

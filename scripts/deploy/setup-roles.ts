@@ -187,18 +187,13 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     await tx.wait();
     tx = await originationController.grantRole(MIGRATION_MANAGER_ROLE, MIGRATION_MANAGER);
     await tx.wait();
-    tx = await originationController.grantRole(ROLLOVER_MANAGER_ROLE, ROLLOVER_MANAGER);
-    await tx.wait();
     tx = await originationController.renounceRole(ADMIN_ROLE, deployer.address);
     await tx.wait();
     tx = await originationController.renounceRole(MIGRATION_MANAGER_ROLE, deployer.address);
     await tx.wait();
-    tx = await originationController.renounceRole(ROLLOVER_MANAGER_ROLE, deployer.address);
-    await tx.wait();
 
     console.log(`OriginationController: admin role granted to ${ADMIN}`);
     console.log(`OriginationController: migration manager role granted to ${MIGRATION_MANAGER}`);
-    console.log(`OriginationController: rollover manager role granted to ${ROLLOVER_MANAGER}`);
     console.log(`OriginationController: Deployer renounced admin and migration manager role`);
     console.log(SUBSECTION_SEPARATOR);
 
@@ -230,11 +225,14 @@ export async function setupRoles(resources: DeployedResources): Promise<void> {
     await tx.wait();
     tx = await crossCurrencyRollover.renounceRole(ADMIN_ROLE, deployer.address);
     await tx.wait();
+    tx = await crossCurrencyRollover.renounceRole(ROLLOVER_MANAGER_ROLE, deployer.address);
+    await tx.wait();
 
     console.log(`LoanCore: originator role granted to ${crossCurrencyRollover.address}`);
     console.log(`CrossCurrencyRollover: admin role granted to ${ADMIN}`);
-    console.log(`CrossCurrencyRollover: rollover manser role granted to ${ROLLOVER_MANAGER}`);
+    console.log(`CrossCurrencyRollover: rollover manager role granted to ${ROLLOVER_MANAGER}`);
     console.log(`CrossCurrencyRollover: deployer renounced admin role`);
+    console.log(`CrossCurrencyRollover: deployer renounced rollover manager role`);
     console.log(SUBSECTION_SEPARATOR);
 
     tx = await loanCore.renounceRole(ADMIN_ROLE, deployer.address);

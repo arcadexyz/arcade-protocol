@@ -3,12 +3,26 @@
 pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 
 import "./OriginationControllerBase.sol";
 
 import "../interfaces/IOriginationController.sol";
 
+import "../libraries/FeeLookups.sol";
+
 import { OC_InvalidState } from "../errors/Lending.sol";
+
+import {
+    OC_ApprovedOwnLoan,
+    OC_InvalidSignature,
+    OC_CallerNotParticipant,
+    OC_SideMismatch,
+    OC_RolloverCurrencyMismatch,
+    OC_RolloverCollateralMismatch,
+    OC_ZeroAddress
+} from "../errors/Lending.sol";
 
 /**
  * @title OriginationController
@@ -29,8 +43,15 @@ import { OC_InvalidState } from "../errors/Lending.sol";
  * does not move from escrow in LoanCore. Only the payable currency is transferred
  * where applicable.
  */
-contract OriginationController is IOriginationController, OriginationControllerBase {
+contract OriginationController is IOriginationController, OriginationControllerBase, FeeLookups, AccessControlEnumerable, ReentrancyGuard {
     using SafeERC20 for IERC20;
+
+    // ============================================ STATE ==============================================
+
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
+    bytes32 public constant MIGRATION_MANAGER_ROLE = keccak256("MIGRATION_MANAGER");
+
+    IFeeController public immutable feeController;
 
     // ========================================== CONSTRUCTOR ===========================================
 
@@ -48,7 +69,17 @@ contract OriginationController is IOriginationController, OriginationControllerB
         address _originationHelpers,
         address _loanCore,
         address _feeController
-    ) OriginationControllerBase(_originationHelpers, _loanCore, _feeController) {}
+    ) OriginationControllerBase(_originationHelpers, _loanCore) {
+        if (_feeController == address(0)) revert OC_ZeroAddress("feeController");
+
+        feeController = IFeeController(_feeController);
+
+        _setupRole(ADMIN_ROLE, msg.sender);
+        _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
+
+        _setupRole(MIGRATION_MANAGER_ROLE, msg.sender);
+        _setRoleAdmin(MIGRATION_MANAGER_ROLE, ADMIN_ROLE);
+    }
 
     // ======================================= LOAN ORIGINATION =========================================
 

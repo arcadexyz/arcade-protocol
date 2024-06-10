@@ -5,7 +5,7 @@ pragma solidity 0.8.18;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
-import "./OriginationControllerBase.sol";
+import "./OriginationController.sol";
 import "./OriginationCalculator.sol";
 
 import "../interfaces/IMigrationBase.sol";
@@ -29,8 +29,10 @@ import {
     OCM_LenderIsBorrower
 } from "../errors/Lending.sol";
 
-contract OriginationControllerMigrate is IMigrationBase, OriginationControllerBase, ERC721Holder {
+contract OriginationControllerMigrate is IMigrationBase, OriginationController, ERC721Holder {
     using SafeERC20 for IERC20;
+
+    // ============================================ STATE ==============================================
 
     /// @notice Balancer vault
     address private constant VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
@@ -48,11 +50,18 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationControllerBa
     /// @notice state variable for pausing the contract
     bool public paused;
 
+    /**
+     * @notice Creates a new origination controller migrate contract.
+     *
+     * @param _originationHelpers           The address of the origination shared storage contract.
+     * @param _loanCore                     The address of the loan core logic of the protocol.
+     * @param _feeController                The address of the fee logic of the protocol.
+     */
     constructor(
         address _originationHelpers,
         address _loanCore,
         address _feeController
-    ) OriginationControllerBase(_originationHelpers, _loanCore, _feeController) {}
+    ) OriginationController(_originationHelpers, _loanCore, _feeController) {}
 
     // ======================================= V3 MIGRATION =============================================
 
