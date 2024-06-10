@@ -29,10 +29,7 @@ import { OC_InvalidState } from "../errors/Lending.sol";
  * does not move from escrow in LoanCore. Only the payable currency is transferred
  * where applicable.
  */
-contract OriginationController is
-    IOriginationController,
-    OriginationControllerBase
-{
+contract OriginationController is IOriginationController, OriginationControllerBase {
     using SafeERC20 for IERC20;
 
     // ========================================== CONSTRUCTOR ===========================================

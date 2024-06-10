@@ -18,6 +18,7 @@ import {
     OriginationHelpers,
     OriginationLibrary,
     CrossCurrencyRollover,
+    OriginationController,
 } from "../../typechain";
 
 export interface DeployedResources {
@@ -29,7 +30,8 @@ export interface DeployedResources {
     loanCore: LoanCore;
     repaymentController: RepaymentController;
     originationLibrary: OriginationLibrary;
-    originationController: OriginationControllerMigrate;
+    originationControllerMigrate: OriginationControllerMigrate;
+    originationController: OriginationController;
     originationHelpers: OriginationHelpers;
     borrowerNoteURIDescriptor: StaticURIDescriptor;
     borrowerNote: PromissoryNote;
@@ -54,6 +56,7 @@ const jsonContracts: { [key: string]: string } = {
     LoanCore: "loanCore",
     RepaymentController: "repaymentController",
     OriginationController: "originationController",
+    OriginationControllerMigrate: "originationControllerMigrate",
     OriginationHelpers: "originationHelpers",
     CrossCurrencyRollover: "crossCurrencyRollover",
     ArcadeItemsVerifier: "arcadeItemsVerifier",
