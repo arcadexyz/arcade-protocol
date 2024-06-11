@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./OriginationCalculator.sol";
 
@@ -13,7 +14,7 @@ import "../interfaces/IOriginationController.sol";
 import "../interfaces/IOriginationHelpers.sol";
 import "../interfaces/ILoanCore.sol";
 import "../interfaces/IFeeController.sol";
-import "../interfaces/IExpressBorrow.sol";
+import "../interfaces/IVaultFactory.sol";
 
 import "../libraries/OriginationLibrary.sol";
 import "../libraries/FeeLookups.sol";
@@ -58,6 +59,8 @@ import {
  * Due to how OriginationController counterparty signatures work, it is also possible for the borrower to sign the
  * loan terms. In this case, the lender will start the loan, only once the borrower have deposited the fixed rate
  * yield ERC20 amount into the Lender's vault.
+ *
+ * TODO: Only support the vault factory as collateral. This is an invariant. Do we need the OriginationHelpers?
  */
 
 contract OriginationControllerSTIRFRY is
@@ -65,22 +68,32 @@ contract OriginationControllerSTIRFRY is
     FeeLookups,
     EIP712,
     OriginationCalculator,
-    ReentrancyGuard
+    ReentrancyGuard,
+    Ownable
 {
     using SafeERC20 for IERC20;
 
     // ============================================ STATE ==============================================
 
-    // =============== Contract References ===============
-
     IOriginationHelpers public immutable originationHelpers;
     ILoanCore public immutable loanCore;
     IFeeController public immutable feeController;
-
-    // ================= Approval State ==================
+    IVaultFactory public immutable vaultFactory;
 
     /// @notice Mapping from owner to operator approvals
     mapping(address => mapping(address => bool)) private _signerApprovals;
+
+    /// @notice Mapping from hashed currency pair to whether it is allowed
+    mapping(bytes32 => bool) public stirfryPairs;
+
+    // ======================================== DATA STRUCTURES =========================================
+
+    struct StirfryData {
+        address vaultedCurrency;
+        uint256 lenderVaultedCurrencyAmount;
+        uint256 borrowerVaultedCurrencyAmount;
+        uint256 vaultedToPayableCurrencyRatio;
+    }
 
     // ========================================== CONSTRUCTOR ===========================================
 
@@ -94,19 +107,23 @@ contract OriginationControllerSTIRFRY is
      * @param _originationHelpers     The address of the origination shared storage contract.
      * @param _loanCore                     The address of the loan core logic of the protocol.
      * @param _feeController                The address of the fee logic of the protocol.
+     * @param _vaultFactory                 The address of the vault factory.
      */
     constructor(
         address _originationHelpers,
         address _loanCore,
-        address _feeController
+        address _feeController,
+        address _vaultFactory
     ) EIP712("OriginationControllerSTIRFRY", "1") {
         if (_originationHelpers == address(0)) revert OC_ZeroAddress("originationHelpers");
         if (_loanCore == address(0)) revert OC_ZeroAddress("loanCore");
         if (_feeController == address(0)) revert OC_ZeroAddress("feeController");
+        if (_vaultFactory == address(0)) revert OC_ZeroAddress("vaultFactory");
 
         originationHelpers = IOriginationHelpers(_originationHelpers);
         loanCore = ILoanCore(_loanCore);
         feeController = IFeeController(_feeController);
+        vaultFactory = IVaultFactory(_vaultFactory);
     }
 
     // ======================================= LOAN ORIGINATION =========================================
@@ -121,7 +138,7 @@ contract OriginationControllerSTIRFRY is
      * @dev The external signer must come from the opposite side of the loan as the caller.
      *
      * @param loanTerms                     The terms agreed by the lender and borrower.
-     * @param borrowerData                  Struct containing borrower address and any callback data.
+     * @param borrower                      Address of the borrower.
      * @param lender                        Address of the lender.
      * @param sig                           The loan terms signature, with v, r, s fields, and possible extra data.
      * @param sigProperties                 Signature nonce and max uses for this nonce.
@@ -129,21 +146,24 @@ contract OriginationControllerSTIRFRY is
      *
      * @return loanId                       The unique ID of the new loan.
      */
-    function initializeLoan(
+    function initializeStirfryLoan(
         LoanLibrary.LoanTerms calldata loanTerms,
-        BorrowerData calldata borrowerData,
+        StirfryData calldata stirfryData,
+        address borrower,
         address lender,
         Signature calldata sig,
         SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates
-    ) public override returns (uint256 loanId) {
+    ) external returns (uint256 loanId) {
+        // input validation
         originationHelpers.validateLoanTerms(loanTerms);
+        _validateStirfryTerms(loanTerms, stirfryData);
 
-        // Determine if signature needs to be on the borrow or lend side
-        Side neededSide = isSelfOrApproved(borrowerData.borrower, msg.sender) ? Side.LEND : Side.BORROW;
+        // signature validation
+        Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
-        address signingCounterparty = neededSide == Side.LEND ? lender : borrowerData.borrower;
-        address callingCounterparty = neededSide == Side.LEND ? borrowerData.borrower : lender;
+        address signingCounterparty = neededSide == Side.LEND ? lender : borrower;
+        address callingCounterparty = neededSide == Side.LEND ? borrower : lender;
 
         {
             (bytes32 sighash, address externalSigner) = _recoverSignature(loanTerms, sig, sigProperties, neededSide, signingCounterparty, itemPredicates);
@@ -153,11 +173,23 @@ contract OriginationControllerSTIRFRY is
             loanCore.consumeNonce(externalSigner, sigProperties.nonce, sigProperties.maxUses);
         }
 
-        loanId = _initialize(loanTerms, borrowerData, lender);
+        // initialize loan
+        loanId = _initialize(loanTerms, stirfryData, borrower, lender);
 
         // Run predicates check at the end of the function, after vault is in escrow. This makes sure
         // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
-        if (itemPredicates.length > 0) originationHelpers.runPredicatesCheck(borrowerData.borrower, lender, loanTerms, itemPredicates);
+        if (itemPredicates.length > 0) originationHelpers.runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
+    }
+
+    function initializeLoan(
+       LoanLibrary.LoanTerms calldata loanTerms,
+        BorrowerData calldata borrowerData,
+        address lender,
+        Signature calldata sig,
+        SigProperties calldata sigProperties,
+        LoanLibrary.Predicate[] calldata itemPredicates
+    ) public override returns (uint256 loanId) {
+        // NOTE: Users initializeStirfryLoan instead.
     }
 
     function rolloverLoan(
@@ -325,6 +357,30 @@ contract OriginationControllerSTIRFRY is
     // =========================================== HELPERS ==============================================
 
     /**
+     * @notice Validate that the stirfry data is valid for the given loan terms.
+     *
+     * @param loanTerms                     The terms of the loan.
+     * @param stirfryData                   The stirfry data to validate.
+     */
+    function _validateStirfryTerms(
+        LoanLibrary.LoanTerms calldata loanTerms,
+        StirfryData calldata stirfryData
+    ) internal {
+        // verify the vaulted currency is allowed to be paired with the loan terms payable currency
+        bytes32 currencyHash = keccak256(abi.encodePacked(loanTerms.payableCurrency, stirfryData.vaultedCurrency, stirfryData.vaultedToPayableCurrencyRatio));
+        require(stirfryPairs[currencyHash] == true, "OriginationController: Currency pair not allowed");
+
+        // verify the vaulted currency amounts
+        require(loanTerms.principal * stirfryData.vaultedToPayableCurrencyRatio == stirfryData.lenderVaultedCurrencyAmount, "OriginationController: Invalid principal amount");
+
+        // calculate total interest due over the loan duration
+        uint256 totalInterest = loanTerms.principal * loanTerms.durationSecs * loanTerms.interestRate
+            / (Constants.BASIS_POINTS_DENOMINATOR * Constants.SECONDS_IN_YEAR);
+
+        require(totalInterest * stirfryData.vaultedToPayableCurrencyRatio == stirfryData.borrowerVaultedCurrencyAmount, "OriginationController: Invalid interest amount");
+    }
+
+    /**
      * @dev Ensure that one counterparty has signed the loan terms, and the other
      *      has initiated the transaction.
      *
@@ -369,30 +425,53 @@ contract OriginationControllerSTIRFRY is
      *      to create and start a loan.
      *
      * @param loanTerms                     The terms agreed by the lender and borrower.
-     * @param borrowerData                  Struct containing borrower address and any callback data.
+     * @param borrower                      Address of the borrower.
      * @param lender                        Address of the lender.
      *
      * @return loanId                       The unique ID of the new loan.
      */
     function _initialize(
         LoanLibrary.LoanTerms calldata loanTerms,
-        BorrowerData calldata borrowerData,
+        StirfryData calldata stirfryData,
+        address borrower,
         address lender
     ) internal nonReentrant returns (uint256 loanId) {
         // get fee snapshot from fee controller
         (LoanLibrary.FeeSnapshot memory feeSnapshot) = feeController.getFeeSnapshot();
 
-        // ---------------------- Borrower receives principal ----------------------
-        // NOTE: Borrower does not receive principal in STIRFRY
+        // transfer fixed rate amount from borrower to lender's vault
+        address vaultAddress = vaultFactory.instanceAt(loanTerms.collateralId);
+        IERC20(stirfryData.vaultedCurrency).safeTransferFrom(
+            borrower,
+            vaultAddress,
+            stirfryData.borrowerVaultedCurrencyAmount
+        );
 
-        // ----------------------- Express borrow callback --------------------------
-        // NOTE: Borrower callback is not supported in STIRFRY
-
-        // ---------------------- LoanCore collects collateral ----------------------
-        // collect collateral from lender and send to LoanCore
-        IERC721(loanTerms.collateralAddress).transferFrom(lender, address(loanCore), loanTerms.collateralId);
+        // collect vault from lender and send to LoanCore
+        IERC721(address(vaultFactory)).transferFrom(lender, address(loanCore), loanTerms.collateralId);
 
         // Create loan in LoanCore
-        loanId = loanCore.startLoan(lender, borrowerData.borrower, loanTerms, feeSnapshot);
+        loanId = loanCore.startLoan(lender, borrower, loanTerms, feeSnapshot);
+    }
+
+    // ============================================ ADMIN ===============================================
+
+    /**
+     * @notice Set whether or not a currency pair is allowed to be paired. The first currency is the currency that
+     *         is set in the loan terms. The second currency is the collateral currency.
+     *
+     * @dev the ratio is defined as one of the vaulted currencies divided by the collateral currency
+     *
+     * @param currency1                  The first currency in the pair.
+     * @param currency2                  The second currency in the pair.
+     * @param ratio                      The ratio of the pair.
+     * @param isAllowed                  Whether the pair is allowed.
+     */
+    function setPair(address currency1, address currency2, uint256 ratio, bool isAllowed) external onlyOwner {
+        require(currency1 != currency2, "OriginationController: Invalid currency pair");
+
+        bytes32 key = keccak256(abi.encodePacked(currency1, currency2, ratio));
+
+        stirfryPairs[key] = isAllowed;
     }
 }

@@ -116,3 +116,10 @@ export interface SwapParameters {
     minAmountOut: BigNumber;
     poolFeeTier: number;
 }
+
+export interface StirfryData {
+    vaultedCurrency: string;
+    borrowerVaultedCurrencyAmount: BigNumberish;
+    lenderVaultedCurrencyAmount: BigNumberish;
+    vaultedToPayableCurrencyRatio: BigNumberish;
+}
