@@ -29,7 +29,7 @@ import {
     CCR_LenderIsBorrower,
     CCR_CallerNotBorrower,
     CCR_ZeroAddress
-} from "../errors/Rollover.sol";
+} from "../errors/Lending.sol";
 
 contract CrossCurrencyRollover is
     ICrossCurrencyRollover,

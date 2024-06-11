@@ -266,11 +266,11 @@ export async function main(): Promise<void> {
     );
 
     // price of Dai in wETH at block number: 18852467
-    const price = BigNumber.from("0x018974567f22d0");
+    const price = ethers.utils.parseUnits(".000432607737094864", 18);
     console.log("Price of DAI in wETH at block number: 18852467: ", ethers.utils.formatUnits(price, 18));
     // changing the value of NEW_PRINCIPAL will affect whether the borrower will
-    // need to provide additional funds to pay the difference
-    const NEW_PRINCIPAL_OLD_CURRENCY = amountOwed.div(2);
+    // need to provide additional funds to pay the difference. amountOwed is "3017.260316780821917808"
+    const NEW_PRINCIPAL_OLD_CURRENCY = ethers.utils.parseUnits("1500", 18);
     // calculate the new principal amount in wETH
     let NEW_PRINCIPAL = NEW_PRINCIPAL_OLD_CURRENCY.mul(price).div(ethers.utils.parseUnits("1", 18));
     // account for 3% slippage
@@ -301,7 +301,7 @@ export async function main(): Promise<void> {
     );
 
     const swapParams: SwapParameters = {
-        minAmountOut: amountOwed.div(2),
+        minAmountOut: NEW_PRINCIPAL_OLD_CURRENCY,
         poolFeeTier: poolFeeTier,
     };
 
@@ -309,7 +309,7 @@ export async function main(): Promise<void> {
     console.log("Approvals for rollover loan...");
 
     // new lender approves WETH amount to contract
-    const approveWETHTx = await weth.connect(newLender).approve(crossCurrencyRollover.address, wethAmount);
+    const approveWETHTx = await weth.connect(newLender).approve(crossCurrencyRollover.address, NEW_PRINCIPAL);
     await approveWETHTx.wait();
 
     // if new principal amount is less than the amount owed
