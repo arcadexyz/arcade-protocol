@@ -3,11 +3,16 @@
 pragma solidity 0.8.18;
 
 import "../libraries/LoanLibrary.sol";
-import "../libraries/OriginationLibrary.sol";
 
 import "./IOriginationController.sol";
 
 interface ICrossCurrencyRollover {
+    // ========================== STRUCTS ===========================
+    struct SwapParameters {
+        uint256 minAmountOut;
+        uint24 poolFeeTier;
+    }
+
     // =========================== EVENTS ==========================
     event PausedStateChanged(bool isPaused);
     event CurrencyRollover(address indexed lender, address indexed borrower, uint256 collateralTokenId, uint256 newLoanId);
@@ -20,7 +25,7 @@ interface ICrossCurrencyRollover {
         IOriginationController.Signature calldata sig,
         IOriginationController.SigProperties calldata sigProperties,
         LoanLibrary.Predicate[] calldata itemPredicates,
-        OriginationLibrary.SwapParameters calldata swapParams
+        SwapParameters calldata swapParams
     ) external;
 
     // ======================== OWNER OPS =========================

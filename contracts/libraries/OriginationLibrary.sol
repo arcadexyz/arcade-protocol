@@ -41,11 +41,6 @@ library OriginationLibrary {
         RolloverAmounts migrationAmounts;
     }
 
-    struct SwapParameters {
-        uint256 minAmountOut;
-        uint24 poolFeeTier;
-    }
-
     // ======================================= CONSTANTS ==============================================
 
     /// @notice EIP712 type hash for bundle-based signatures.
