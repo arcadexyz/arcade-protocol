@@ -29,7 +29,7 @@ export const LENDER_NOTE_BASE_URI = "ipfs://QmTKTPKZx6qTnVJZxo1SYr53woDtMLZjuy1q
 export const LENDER_NOTE_NAME = "Arcade.xyz Lender Note";
 export const LENDER_NOTE_SYMBOL = "aLN";
 
-export const ADMIN = "0x21aDafAA34d250a4fa0f8A4d2E2424ABa0cEE563";
+export const ADMIN = "0xd5EF724e342e7bc551A24Ae9C3ac324b3a16CF0d";
 export const RESOURCE_MANAGER = ADMIN;
 export const CALL_WHITELIST_MANAGER = ADMIN;
 export const LOAN_WHITELIST_MANAGER = ADMIN;
@@ -38,19 +38,17 @@ export const AFFILIATE_MANAGER = ADMIN;
 export const SHUTDOWN_CALLER = ADMIN;
 
 export const allowedCurrencies = [
-    "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",       // WETH
-    "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",       // WBTC
-    "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",       // USDC
-    "0xdAC17F958D2ee523a2206206994597C13D831ec7",       // USDT
-    "0x6B175474E89094C44Da98b954EedeAC495271d0F",       // DAI
-    "0x4d224452801ACEd8B2F0aebE155379bb5D594381",       // APE
+    "0x4200000000000000000000000000000000000006",       // WETH
+    "0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452",       // wstETH
+    "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",       // USDC
+    "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",       // DAI
+    "0x1A37249C4209A6fc1A8f531BaA6Cd3Dda027FC64",       // ARCD (base)
 ];
 
 export const minPrincipals = [
     ethers.utils.parseEther("0.0001"),      // WETH
-    ethers.utils.parseUnits("0.00001", 8),  // WBTC
+    ethers.utils.parseEther("0.0001"),      // wstETH
     ethers.utils.parseUnits("1", 6),        // USDC
-    ethers.utils.parseUnits("1", 6),        // USDT
     ethers.utils.parseEther("1"),           // DAI
-    ethers.utils.parseEther("0.0001"),      // APE
+    ethers.utils.parseEther("1"),           // ARCD
 ];

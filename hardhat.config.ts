@@ -55,9 +55,6 @@ function createTestnetConfig(network: keyof typeof chainIds): NetworkUserConfig 
         case "sepolia":
             url = `https://rpc.sepolia.org/`;
             break;
-        case "base":
-            url = `https://mainnet.base.org`;
-            break;
         case "base_sepolia":
             url = `https://sepolia.base.org`;
             break;
@@ -114,6 +111,17 @@ function createMainnetConfig(): NetworkUserConfig {
         },
         chainId: chainIds.mainnet,
         url: `https://eth-mainnet.alchemyapi.io/v2/${alchemyApiKey}`,
+        gasPrice: 1000000000,
+    };
+}
+
+function createMainnetBaseConfig(): NetworkUserConfig {
+    return {
+        accounts: {
+            mnemonic,
+        },
+        chainId: chainIds.base,
+        url: `https://mainnet.base.org`,
     };
 }
 
@@ -125,7 +133,7 @@ export const config: HardhatUserConfig = {
         currency: "USD",
         enabled: process.env.REPORT_GAS ? true : false,
         excludeContracts: [],
-        src: "./contracts",
+        // src: "./contracts",
         coinmarketcap: process.env.COINMARKETCAP_API_KEY,
         outputFile: process.env.REPORT_GAS_OUTPUT,
     },
@@ -137,7 +145,7 @@ export const config: HardhatUserConfig = {
         rinkeby: createTestnetConfig("rinkeby"),
         ropsten: createTestnetConfig("ropsten"),
         sepolia: createTestnetConfig("sepolia"),
-        base: createTestnetConfig("base"),
+        base: createMainnetBaseConfig(),
         base_sepolia: createTestnetConfig("base_sepolia"),
         localhost: {
             accounts: {
@@ -186,8 +194,23 @@ export const config: HardhatUserConfig = {
         outDir: "typechain",
         target: "ethers-v5",
     },
+    // NOTE: This does not work and it is a total pain to verify contracts on base
+    // from this repo. Create a fresh hardhat repo with the hardhat toolbox installed.
+    // then verify contracts individually from the command line
     etherscan: {
-        apiKey: process.env.ETHERSCAN_API_KEY,
+        apiKey: {
+            "base": process.env.ETHERSCAN_API_KEY ? process.env.ETHERSCAN_API_KEY : "",
+        },
+        customChains: [
+            {
+                network: "base",
+                chainId: 8453,
+                urls: {
+                    apiURL: "https://api.basescan.org/api",
+                    browserURL: "https://basescan.org"
+                }
+            }
+        ]
     },
     mocha: {
         timeout: 100000,
