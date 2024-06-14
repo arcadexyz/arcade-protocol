@@ -116,6 +116,11 @@ export async function recordDeployment(
         constructorArgs: [],
     };
 
+    contractInfo["CrossCurrencyRollover"] = {
+        contractAddress: resources.crossCurrencyRollover.address,
+        constructorArgs: constructorArgs.crossCurrencyRollover,
+    };
+
     fs.writeFileSync(path.join(networkFolderPath, jsonFile), JSON.stringify(contractInfo, undefined, 2));
 
     console.log("Contract info written to: ", path.join(networkFolderPath, jsonFile));

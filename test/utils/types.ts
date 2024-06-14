@@ -111,3 +111,8 @@ export interface Borrower {
     borrower: string;
     callbackData: BytesLike;
 }
+
+export interface SwapParameters {
+    minAmountOut: BigNumber;
+    poolFeeTier: number;
+}

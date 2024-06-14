@@ -13,6 +13,7 @@ export const RESOURCE_MANAGER_ROLE = ethers.utils.id("RESOURCE_MANAGER");
 export const MINT_BURN_ROLE = ethers.utils.id("MINT_BURN");
 export const WHITELIST_MANAGER_ROLE = ethers.utils.id("WHITELIST_MANAGER");
 export const MIGRATION_MANAGER_ROLE = ethers.utils.id("MIGRATION_MANAGER");
+export const ROLLOVER_MANAGER_ROLE = ethers.utils.id("ROLLOVER_MANAGER");
 export const SHUTDOWN_ROLE = ethers.utils.id("SHUTDOWN");
 
 export const ADMIN = "0x398e92C827C5FA0F33F171DC8E20570c5CfF330e";
@@ -20,6 +21,7 @@ export const RESOURCE_MANAGER = ADMIN;
 export const CALL_WHITELIST_MANAGER = ADMIN;
 export const LOAN_WHITELIST_MANAGER = ADMIN;
 export const MIGRATION_MANAGER = ADMIN;
+export const ROLLOVER_MANAGER = ADMIN;
 export const FEE_CLAIMER = ADMIN;
 export const AFFILIATE_MANAGER = ADMIN;
 export const SHUTDOWN_CALLER = ADMIN;
@@ -27,6 +29,7 @@ export const SHUTDOWN_CALLER = ADMIN;
 // External Contract Addresses
 export const PUNKS_ADDRESS = "0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB";
 export const DELEGATION_REGISTRY_ADDRESS = "0x00000000000076a84fef008cdabe6409d2fe638b" // same on all networks
+export const SWAP_ADDRESS = "0xE592427A0AEce92De3Edee1F18E0157C05861564"; // UniswapV3 Swap Router
 
 // VaultFactory and PromissoryNote Metadata
 export const VAULT_FACTORY_BASE_URI = "ipfs://QmZxV2PRMeNjuy5eK3ZUjLj3sSTaU5FsoZnzBebeCrSU2v"; // mainnet
