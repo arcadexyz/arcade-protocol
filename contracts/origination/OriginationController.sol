@@ -9,6 +9,8 @@ import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "./OriginationControllerBase.sol";
 
 import "../interfaces/IOriginationController.sol";
+import "../interfaces/IFeeController.sol";
+import "../interfaces/IExpressBorrow.sol";
 
 import "../libraries/FeeLookups.sol";
 
@@ -43,7 +45,13 @@ import {
  * does not move from escrow in LoanCore. Only the payable currency is transferred
  * where applicable.
  */
-contract OriginationController is IOriginationController, OriginationControllerBase, FeeLookups, AccessControlEnumerable, ReentrancyGuard {
+contract OriginationController is
+    IOriginationController,
+    OriginationControllerBase,
+    FeeLookups,
+    AccessControlEnumerable,
+    ReentrancyGuard
+{
     using SafeERC20 for IERC20;
 
     // ============================================ STATE ==============================================

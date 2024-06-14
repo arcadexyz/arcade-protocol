@@ -7,16 +7,10 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 import "./OriginationCalculator.sol";
 
-import "../interfaces/IOriginationController.sol";
 import "../interfaces/IOriginationHelpers.sol";
 import "../interfaces/ILoanCore.sol";
-import "../interfaces/IFeeController.sol";
-import "../interfaces/IExpressBorrow.sol";
 
 import "../libraries/OriginationLibrary.sol";
-import "../libraries/Constants.sol";
-
-import "../verifiers/ArcadeItemsVerifier.sol";
 
 import { OC_ZeroAddress, OC_SelfApprove } from "../errors/Lending.sol";
 
@@ -25,10 +19,8 @@ import { OC_ZeroAddress, OC_SelfApprove } from "../errors/Lending.sol";
  * @author Non-Fungible Technologies, Inc.
  *
  * The Origination Controller Base contract provides common functionality for all
- * origination controllers, including signature verification and access control.
- * It establishes access roles and integrates permission management along with
- * signature verification functions.
- *
+ * origination controllers, including signature verification, share reference
+ * contracts, approved third party originators, and rollover calculation helpers.
  */
 abstract contract OriginationControllerBase is IOriginationControllerBase, EIP712, OriginationCalculator {
     // ============================================ STATE ==============================================
@@ -215,5 +207,3 @@ abstract contract OriginationControllerBase is IOriginationControllerBase, EIP71
         }
     }
 }
-
-
