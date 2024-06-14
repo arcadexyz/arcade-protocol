@@ -10,13 +10,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./OriginationControllerBase.sol";
 
-import "../interfaces/IOriginationHelpers.sol";
-import "../interfaces/ILoanCore.sol";
 import "../interfaces/IFeeController.sol";
 import "../interfaces/IVaultFactory.sol";
 
 import "../libraries/OriginationLibrary.sol";
-import "../libraries/FeeLookups.sol";
 import "../libraries/Constants.sol";
 
 import "../verifiers/ArcadeItemsVerifier.sol";
@@ -64,7 +61,6 @@ import {
  */
 
 contract OriginationControllerSTIRFRY is
-    FeeLookups,
     EIP712,
     OriginationControllerBase,
     ReentrancyGuard,
@@ -93,7 +89,7 @@ contract OriginationControllerSTIRFRY is
 
     /**
      * @notice Creates a new origination controller STIRFRY contract, also initializing
-     *         the parent signature verifier.
+     *         the origination controller base contract.
      *
      * @dev For this controller to work, it needs to be granted the ORIGINATOR_ROLE
      *      in loan core after deployment.

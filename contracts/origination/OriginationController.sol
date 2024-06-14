@@ -48,7 +48,6 @@ import {
 contract OriginationController is
     IOriginationController,
     OriginationControllerBase,
-    FeeLookups,
     AccessControlEnumerable,
     ReentrancyGuard
 {

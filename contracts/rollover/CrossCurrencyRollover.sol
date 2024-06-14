@@ -34,10 +34,10 @@ import {
 contract CrossCurrencyRollover is
     ICrossCurrencyRollover,
     OriginationControllerBase,
-    FeeLookups,
     AccessControlEnumerable,
     ReentrancyGuard,
-    ERC721Holder {
+    ERC721Holder
+{
     using SafeERC20 for IERC20;
 
     // ============================================ STATE ==============================================
