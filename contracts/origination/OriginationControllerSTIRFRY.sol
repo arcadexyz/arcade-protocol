@@ -3,35 +3,25 @@
 pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./OriginationControllerBase.sol";
 
+import "../interfaces/IOriginationControllerSTIRFRY.sol";
 import "../interfaces/IFeeController.sol";
 import "../interfaces/IVaultFactory.sol";
 
 import "../libraries/OriginationLibrary.sol";
 import "../libraries/Constants.sol";
 
-import "../verifiers/ArcadeItemsVerifier.sol";
-
-import {
-    OC_ZeroAddress,
-    OC_SelfApprove,
-    OC_ApprovedOwnLoan,
-    OC_InvalidSignature,
-    OC_CallerNotParticipant,
-    OC_SideMismatch
-} from "../errors/Lending.sol";
+import { OC_ZeroAddress } from "../errors/Lending.sol";
 
 /**
  * @title OriginationControllerSTIRFRY
  * @author Non-Fungible Technologies, Inc.
  *
- * STIRFRY - Set-Term Interest Rate Fixed Rate Yield
+ * STIRFRY - Set Term Interest Rate Fixed Rate Yield
  *
  * This contract is similar to the base OriginationController, with a few key changes:
  * 1). The collateral is collected from the Lender instead of the Borrower.
@@ -61,7 +51,7 @@ import {
  */
 
 contract OriginationControllerSTIRFRY is
-    EIP712,
+    IOriginationControllerSTIRFRY,
     OriginationControllerBase,
     ReentrancyGuard,
     Ownable
@@ -75,15 +65,6 @@ contract OriginationControllerSTIRFRY is
 
     /// @notice Mapping from hashed currency pair to whether it is allowed
     mapping(bytes32 => bool) public stirfryPairs;
-
-    // ======================================== DATA STRUCTURES =========================================
-
-    struct StirfryData {
-        address vaultedCurrency;
-        uint256 lenderVaultedCurrencyAmount;
-        uint256 borrowerVaultedCurrencyAmount;
-        uint256 vaultedToPayableCurrencyRatio;
-    }
 
     // ========================================== CONSTRUCTOR ===========================================
 
@@ -191,46 +172,6 @@ contract OriginationControllerSTIRFRY is
             / (Constants.BASIS_POINTS_DENOMINATOR * Constants.SECONDS_IN_YEAR);
 
         require(totalInterest * stirfryData.vaultedToPayableCurrencyRatio == stirfryData.borrowerVaultedCurrencyAmount, "OriginationController: Invalid interest amount");
-    }
-
-    /**
-     * @dev Ensure that one counterparty has signed the loan terms, and the other
-     *      has initiated the transaction.
-     *
-     * @param signingCounterparty       The address of the counterparty who signed the terms.
-     * @param callingCounterparty       The address on the other side of the loan as the signingCounterparty.
-     * @param caller                    The address initiating the transaction.
-     * @param signer                    The address recovered from the loan terms signature.
-     * @param sig                       A struct containing the signature data (for checking EIP-1271).
-     * @param sighash                   The hash of the signature payload (used for EIP-1271 check).
-     */
-    // solhint-disable-next-line code-complexity
-    function _validateCounterparties(
-        address signingCounterparty,
-        address callingCounterparty,
-        address caller,
-        address signer,
-        Signature calldata sig,
-        bytes32 sighash
-    ) internal view {
-        // Make sure the signer recovered from the loan terms is not the caller,
-        // and even if the caller is approved, the caller is not the signing counterparty
-        if (caller == signer || caller == signingCounterparty) revert OC_ApprovedOwnLoan(caller);
-
-        // Check that caller can actually call this function - neededSide assignment
-        // defaults to BORROW if the signature is not approved by the borrower, but it could
-        // also not be a participant
-        if (!isSelfOrApproved(callingCounterparty, caller)) {
-            revert OC_CallerNotParticipant(msg.sender);
-        }
-
-        // Check signature validity
-        if (!isSelfOrApproved(signingCounterparty, signer) && !OriginationLibrary.isApprovedForContract(signingCounterparty, sig, sighash)) {
-            revert OC_InvalidSignature(signingCounterparty, signer);
-        }
-
-        // Revert if the signer is the calling counterparty
-        if (signer == callingCounterparty) revert OC_SideMismatch(signer);
     }
 
     /**
