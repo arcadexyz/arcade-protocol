@@ -289,8 +289,7 @@ contract OriginationController is IOriginationController, OriginationControllerB
             settledAmount,
             amounts.amountToOldLender,
             amounts.amountToLender,
-            amounts.amountToBorrower,
-            amounts.interestAmount
+            amounts.amountToBorrower
         );
     }
 

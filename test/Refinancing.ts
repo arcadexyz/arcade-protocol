@@ -364,12 +364,10 @@ describe("Refinancing", () => {
             const loanData1After: LoanData = await loanCore.getLoan(1);
             expect(loanData1After.state).to.equal(2); // repaid
             expect(loanData1After.balance).to.equal(0);
-            expect(loanData1After.interestAmountPaid).to.equal(interestDue);
 
             const loanDataAfter: LoanData = await loanCore.getLoan(2);
             expect(loanDataAfter.state).to.equal(1); // active
             expect(loanDataAfter.balance).to.equal(refiLoanTerms.principal);
-            expect(loanDataAfter.interestAmountPaid).to.equal(0);
         });
 
         it("less principal, same due date", async () => {
@@ -468,12 +466,10 @@ describe("Refinancing", () => {
             const loanData1After: LoanData = await loanCore.getLoan(1);
             expect(loanData1After.state).to.equal(2); // repaid
             expect(loanData1After.balance).to.equal(0);
-            expect(loanData1After.interestAmountPaid).to.equal(interestDue);
 
             const loanDataAfter: LoanData = await loanCore.getLoan(2);
             expect(loanDataAfter.state).to.equal(1); // active
             expect(loanDataAfter.balance).to.equal(refiLoanTerms.principal);
-            expect(loanDataAfter.interestAmountPaid).to.equal(0);
         });
 
         it("same principal, same due date, 20% fee on interest", async () => {
@@ -576,12 +572,10 @@ describe("Refinancing", () => {
             const loanData1After: LoanData = await loanCore.getLoan(1);
             expect(loanData1After.state).to.equal(2); // repaid
             expect(loanData1After.balance).to.equal(0);
-            expect(loanData1After.interestAmountPaid).to.equal(interestDue);
 
             const loanDataAfter: LoanData = await loanCore.getLoan(2);
             expect(loanDataAfter.state).to.equal(1); // active
             expect(loanDataAfter.balance).to.equal(refiLoanTerms.principal);
-            expect(loanDataAfter.interestAmountPaid).to.equal(0);
         });
 
         it("same principal, same due date, 20% fee on interest, and a 20% affiliate split", async () => {
@@ -691,12 +685,10 @@ describe("Refinancing", () => {
             const loanData1After: LoanData = await loanCore.getLoan(1);
             expect(loanData1After.state).to.equal(2); // repaid
             expect(loanData1After.balance).to.equal(0);
-            expect(loanData1After.interestAmountPaid).to.equal(interestDue);
 
             const loanDataAfter: LoanData = await loanCore.getLoan(2);
             expect(loanDataAfter.state).to.equal(1); // active
             expect(loanDataAfter.balance).to.equal(refiLoanTerms.principal);
-            expect(loanDataAfter.interestAmountPaid).to.equal(0);
 
             // affiliate fee withdrawal
             await expect(loanCore.connect(borrower).withdraw(mockERC20.address, ethers.utils.parseEther("0.2"), borrower.address))
@@ -716,7 +708,7 @@ describe("Refinancing", () => {
 
     describe("refinancing constraints", () => {
         it("Cannot be refinanced by existing lender", async () => {
-            const { originationController, refinanceController, loanCore, mockERC20, mockERC721, vaultFactory, lender, borrower, newLender, blockchainTime, } = ctx;
+            const { originationController, refinanceController, loanCore, mockERC20, mockERC721, vaultFactory, lender, borrower, blockchainTime, } = ctx;
 
             const bundleId = await initializeBundle(vaultFactory, borrower);
             const bundleAddress = await vaultFactory.instanceAt(bundleId);

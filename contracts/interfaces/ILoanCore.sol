@@ -22,7 +22,7 @@ interface ILoanCore {
     // ================ Events =================
 
     event LoanStarted(uint256 loanId, address lender, address borrower);
-    event LoanPayment(uint256 loanId);
+    event LoanPayment(uint256 loanId, uint256 interestAmount, uint256 principalAmount);
     event LoanRepaid(uint256 loanId);
     event ForceRepay(uint256 loanId);
     event LoanRolledOver(uint256 oldLoanId, uint256 newLoanId);
@@ -75,8 +75,7 @@ interface ILoanCore {
         uint256 _settledAmount,
         uint256 _amountToOldLender,
         uint256 _amountToLender,
-        uint256 _amountToBorrower,
-        uint256 _interestAmount
+        uint256 _amountToBorrower
     ) external returns (uint256 newLoanId);
 
     // ============== Nonce Management ==============

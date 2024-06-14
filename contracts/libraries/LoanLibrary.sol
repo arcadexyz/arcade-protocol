@@ -127,7 +127,5 @@ library LoanLibrary {
         LoanTerms terms;
         // total principal minus amount of principal repaid
         uint256 balance;
-        // total interest paid
-        uint256 interestAmountPaid;
     }
 }

@@ -58,6 +58,7 @@ interface RepayLoanState extends TestContext {
     terms: LoanTerms;
     borrower: SignerWithAddress;
     lender: SignerWithAddress;
+    grossInterestPaid: BigNumber;
 }
 
 const blockchainTime = new BlockchainTime();
@@ -339,7 +340,7 @@ describe("LoanCore", () => {
             // Transfer vault to LoanCore
             await vaultFactory.connect(borrower).transferFrom(borrower.address, loanCore.address, collateralId);
 
-            return { ...context, loanId, terms, borrower, lender };
+            return { ...context, loanId, terms, borrower, lender, grossInterestPaid: BigNumber.from(0) };
         };
 
         it("should successfully repay loan", async () => {
@@ -575,7 +576,7 @@ describe("LoanCore", () => {
             // Transfer vault to LoanCore
             await vaultFactory.connect(borrower).transferFrom(borrower.address, loanCore.address, collateralId);
 
-            return { ...context, loanId, terms, borrower, lender };
+            return { ...context, loanId, terms, borrower, lender, grossInterestPaid: BigNumber.from(0) };
         };
 
         it("should successfully forceRepay a loan", async () => {
@@ -849,7 +850,7 @@ describe("LoanCore", () => {
             // Transfer vault to LoanCore
             await vaultFactory.connect(borrower).transferFrom(borrower.address, loanCore.address, collateralId);
 
-            return { ...context, loanId, terms, borrower, lender };
+            return { ...context, loanId, terms, borrower, lender, grossInterestPaid: BigNumber.from(0) };
         };
 
         it("should successfully claim loan", async () => {
@@ -1005,15 +1006,15 @@ describe("LoanCore", () => {
             expect(receipt[0]).to.eq(mockERC20.address);
             expect(receipt[1]).to.eq(repayAmount);
 
-            return { ...context, loanId, terms, borrower, lender };
+            return { ...context, loanId, terms, borrower, lender, grossInterestPaid: grossInterest };
         };
 
         it("should successfully redeem a note, burning the lender note", async () => {
-            const { loanCore, mockERC20, loanId, borrower, lender, terms, mockLenderNote } = await setupLoan();
+            const { loanCore, mockERC20, loanId, borrower, lender, terms, mockLenderNote, grossInterestPaid } = await setupLoan();
             // get loan data
             const loanData = await loanCore.getLoan(loanId);
 
-            const repayAmount = terms.principal.add(loanData.interestAmountPaid);
+            const repayAmount = terms.principal.add(grossInterestPaid);
 
             await expect(loanCore.connect(borrower).redeemNote(loanId, lender.address, lender.address))
                 .to.emit(loanCore, "NoteRedeemed")
@@ -1192,7 +1193,7 @@ describe("LoanCore", () => {
             // Transfer vault to LoanCore
             await vaultFactory.connect(borrower).transferFrom(borrower.address, loanCore.address, collateralId);
 
-            return { ...context, loanId, terms, borrower, lender };
+            return { ...context, loanId, terms, borrower, lender, grossInterestPaid: BigNumber.from(0) };
         };
 
         it("should successfully rollover loan", async () => {
@@ -1227,7 +1228,6 @@ describe("LoanCore", () => {
                     repayAmount,
                     0,
                     0,
-                    repayAmount,
                     repayAmount
                 )
             )
@@ -1265,7 +1265,6 @@ describe("LoanCore", () => {
                     repayAmount,
                     0,
                     0,
-                    repayAmount,
                     repayAmount
                 )
             ).to.be.revertedWith("AccessControl");
@@ -1304,7 +1303,6 @@ describe("LoanCore", () => {
                     repayAmount,
                     0,
                     0,
-                    repayAmount,
                     repayAmount
                 )
             )
@@ -1344,7 +1342,6 @@ describe("LoanCore", () => {
                     repayAmount,
                     0,
                     0,
-                    repayAmount,
                     repayAmount
                 )
             ).to.be.revertedWith("LC_InvalidState");
@@ -1387,7 +1384,6 @@ describe("LoanCore", () => {
                     repayAmount,
                     0,
                     0,
-                    repayAmount,
                     repayAmount
                 )
             ).to.be.revertedWith("LC_InvalidState");
@@ -1413,7 +1409,6 @@ describe("LoanCore", () => {
                     repayAmount,
                     0,
                     0,
-                    repayAmount,
                     repayAmount
                 )
             ).to.be.revertedWith("LC_InvalidState");
@@ -1448,7 +1443,6 @@ describe("LoanCore", () => {
                     repayAmount,
                     0,
                     0,
-                    repayAmount,
                     repayAmount
                 )
             ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
@@ -1482,7 +1476,6 @@ describe("LoanCore", () => {
                     terms,
                     repayAmount,
                     0,
-                    repayAmount,
                     repayAmount,
                     repayAmount
                 )
@@ -1521,7 +1514,6 @@ describe("LoanCore", () => {
                     repayAmount,
                     0,
                     0,
-                    repayAmount,
                     repayAmount
                 )
             ).to.be.revertedWith("Pausable: paused");
@@ -1554,7 +1546,7 @@ describe("LoanCore", () => {
                 terms,
             );
 
-            return { ...context, loanId, terms, borrower, lender };
+            return { ...context, loanId, terms, borrower, lender, grossInterestPaid: BigNumber.from(0) };
         };
 
         it("should return true for borrower on vault in use as collateral", async () => {
@@ -1991,7 +1983,7 @@ describe("LoanCore", () => {
                     .to.emit(mockERC20, "Transfer").withArgs(borrower.address, loanCore.address, repayAmount)
                     .to.emit(mockERC20, "Transfer").withArgs(loanCore.address, lender.address, repayAmount.sub(fee));
 
-                return  { ...context, loanId, terms, borrower, lender };
+                return  { ...context, loanId, terms, borrower, lender, grossInterestPaid: interest };
             };
 
             beforeEach(async () => {

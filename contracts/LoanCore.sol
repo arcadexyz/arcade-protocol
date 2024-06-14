@@ -183,8 +183,7 @@ contract LoanCore is
             startDate: uint64(block.timestamp),
             lastAccrualTimestamp: uint64(block.timestamp),
             terms: terms,
-            balance: terms.principal,
-            interestAmountPaid: 0
+            balance: terms.principal
         });
 
         // Distribute notes and principal
@@ -239,7 +238,7 @@ contract LoanCore is
             emit LoanRepaid(loanId);
         }
 
-        emit LoanPayment(loanId);
+        emit LoanPayment(loanId, _paymentToPrincipal, _interestAmount);
     }
 
     /**
@@ -291,7 +290,7 @@ contract LoanCore is
             emit LoanRepaid(loanId);
         }
 
-        emit LoanPayment(loanId);
+        emit LoanPayment(loanId, _paymentToPrincipal, _interestAmount);
         emit ForceRepay(loanId);
     }
 
@@ -383,7 +382,6 @@ contract LoanCore is
      * @param _amountToOldLender    The payment to the old lender (if lenders are changing).
      * @param _amountToLender       The payment to the lender (if same as old lender).
      * @param _amountToBorrower     The payment to the borrower (in the case of leftover principal).
-     * @param _interestAmount       The interest amount to be paid.
      *
      * @return newLoanId            The ID of the new loan.
      */
@@ -396,8 +394,7 @@ contract LoanCore is
         uint256 _settledAmount,
         uint256 _amountToOldLender,
         uint256 _amountToLender,
-        uint256 _amountToBorrower,
-        uint256 _interestAmount
+        uint256 _amountToBorrower
     ) external override whenNotPaused onlyRole(ORIGINATOR_ROLE) nonReentrant returns (uint256 newLoanId) {
         LoanLibrary.LoanData storage data = loans[oldLoanId];
         // Ensure valid loan state for old loan
@@ -406,7 +403,6 @@ contract LoanCore is
         // State change for old loan
         data.state = LoanLibrary.LoanState.Repaid;
         data.balance = 0;
-        data.interestAmountPaid += _interestAmount;
         data.lastAccrualTimestamp = uint64(block.timestamp);
 
         IERC20 payableCurrency = IERC20(data.terms.payableCurrency);
@@ -440,8 +436,7 @@ contract LoanCore is
             startDate: uint64(block.timestamp),
             lastAccrualTimestamp: uint64(block.timestamp),
             terms: terms,
-            balance: terms.principal,
-            interestAmountPaid: 0
+            balance: terms.principal
         });
 
         // Burn old notes
@@ -590,58 +585,6 @@ contract LoanCore is
         return numNonceUses[user][nonce];
     }
 
-    /**
-     * @notice Returns the effective interest rate for a given loan. If the loan is active,
-     *         the interest rate is calculated based on the current timestamp and the prorated
-     *         interest due for the loan. If the loan is repaid, the interest rate is calculated
-     *         based on the total interest paid over the life of the loan.
-     *
-     * @param loanId                The ID of the given loan.
-     *
-     * @return interestRate         The effective interest rate for the loan.
-     */
-    function getCloseEffectiveInterestRate(uint256 loanId) external view returns (uint256) {
-        LoanLibrary.LoanData memory data = loans[loanId];
-
-        if (data.state == LoanLibrary.LoanState.Active) {
-            // if loan is active get the effective interest rate if the loan were to be closed now
-            return
-                InterestCalculator.closeNowEffectiveInterestRate(
-                    data.balance,
-                    data.terms.principal,
-                    data.interestAmountPaid,
-                    data.terms.interestRate,
-                    uint256(data.terms.durationSecs),
-                    uint256(data.startDate),
-                    uint256(data.lastAccrualTimestamp),
-                    block.timestamp
-                );
-        } else if (data.state == LoanLibrary.LoanState.Repaid) {
-            if (data.lastAccrualTimestamp > data.startDate + data.terms.durationSecs) {
-                // If loan is repaid and last interest accrual was after the loan duration,
-                // get the effective interest rate based on the loan duration.
-                // Interest cannot accrue past the loan duration.
-                return
-                    InterestCalculator.effectiveInterestRate(
-                        data.interestAmountPaid,
-                        uint256(data.terms.durationSecs),
-                        data.terms.principal
-                    );
-            }
-
-            // If loan is repaid before loan duration get the effective interest
-            // rate based on the total interest paid adn time elapsed.
-            return
-                InterestCalculator.effectiveInterestRate(
-                    data.interestAmountPaid,
-                    uint256(data.lastAccrualTimestamp) - uint256(data.startDate),
-                    data.terms.principal
-                );
-        } else {
-            revert LC_InvalidState(data.state);
-        }
-    }
-
     // ========================================= FEE MANAGEMENT =========================================
 
     /**
@@ -788,7 +731,6 @@ contract LoanCore is
             collateralInUse[keccak256(abi.encode(data.terms.collateralAddress, data.terms.collateralId))] = false;
         }
 
-        loans[loanId].interestAmountPaid += _interestAmount;
         loans[loanId].balance -= _paymentToPrincipal;
         loans[loanId].lastAccrualTimestamp = uint64(block.timestamp);
     }
