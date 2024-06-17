@@ -2,6 +2,7 @@
 
 pragma solidity 0.8.18;
 
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -12,7 +13,6 @@ import "../interfaces/IOriginationControllerSTIRFRY.sol";
 import "../interfaces/IFeeController.sol";
 import "../interfaces/IVaultFactory.sol";
 
-import "../libraries/OriginationLibrary.sol";
 import "../libraries/Constants.sol";
 
 import {
@@ -247,8 +247,11 @@ contract OriginationControllerSTIRFRY is
      * @notice Whitelist a currency pair to be used for stirfry loans. The first currency is the currency that
      *         is set in the loan terms. The second currency is the collateral currency.
      *
-     * @dev the ratio is defined as one of the vaulted currencies divided by the collateral currency. This ratio
-     *      is used to compare currency amounts when they use different decimal places.
+     * @dev The pair ratio is defined as the vaulted currency decimals divided by the collateral currency decimals.
+     *      This ratio is used to compare currency amounts when they use different decimal places. It is very important
+     *      to understand that this ratio is designed such that the decimal places of the loan terms currency must
+     *      be less than the decimal places of the collateral currency. For scenarios where the loan terms currency
+     *      decimals are greater than the collateral currency, input validations will fail.
      *
      * @param currency1                  The first currency in the pair.
      * @param currency2                  The second currency in the pair.

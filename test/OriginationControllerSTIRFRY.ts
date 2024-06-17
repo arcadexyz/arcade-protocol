@@ -208,7 +208,7 @@ const defaultSigProperties: SignatureProperties = {
     maxUses: 1,
 };
 
-describe("OriginationControllerSTIRFRY", () => {
+describe.only("OriginationControllerSTIRFRY", () => {
     describe("stirfry loan origination", () => {
         let ctx: TestContext;
         let verifier: ArcadeItemsVerifier;
@@ -951,6 +951,112 @@ describe("OriginationControllerSTIRFRY", () => {
                     ),
             )
                 .to.be.revertedWith("OCS_InvalidInterestAmounts");
+        });
+
+        it("loan terms currency decimals greater than vaulted currency decimals", async () => {
+            const { vaultFactory, originationControllerSTIRFRY, loanCore, USDC, sUSDe, user: lender, other: borrower } = ctx;
+
+            // whitelist invalid combination
+            await originationControllerSTIRFRY.setPair(sUSDe.address, USDC.address, 1, true);
+            const key = ethers.utils.solidityKeccak256(["address", "address", "uint256"], [sUSDe.address, USDC.address, 1]);
+            const isPairWhitelisted = await originationControllerSTIRFRY.stirfryPairs(key);
+            expect(isPairWhitelisted).to.be.true;
+
+            // Lender has 1,000,000 USDC they want to lock in a fixed rate of 15% APR on
+            await mint(USDC, lender, BigNumber.from(1000000000000));
+
+            // Lender creates vault and deposits 1,000,000 USDC into it
+            const bundleId = await initializeBundle(vaultFactory, lender);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            await USDC.connect(lender).transfer(bundleAddress, BigNumber.from(1000000000000));
+
+            // Loan terms
+            const loanTerms = createLoanTerms(
+                sUSDe.address, vaultFactory.address, {
+                    collateralId: bundleId,
+                    principal: ethers.utils.parseEther("1000000"), // 1,000,000 sUSDe
+                    interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 sUSDe after 1 year
+                    durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
+                },
+            );
+            // lender signs CWO
+            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 USDC
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 2,
+                    asset: USDC.address,
+                    tokenId: 0,
+                    amount: BigNumber.from(1150000000000),
+                    anyIdAllowed: false
+                },
+            ];
+            const predicates: ItemsPredicate[] = [
+                {
+                    verifier: verifier.address,
+                    data: encodeSignatureItems(signatureItems),
+                },
+            ];
+            const sig = await createLoanItemsSignature(
+                originationControllerSTIRFRY.address,
+                "OriginationController",
+                loanTerms,
+                predicates,
+                lender,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "l",
+            );
+
+            // lender approves USDC vault for loan
+            await vaultFactory.connect(lender).approve(originationControllerSTIRFRY.address, bundleId);
+
+            // borrower approves 150,000 USDC to the origination controller
+            await mint(USDC, borrower, BigNumber.from(150000000000));
+            await USDC.connect(borrower).approve(originationControllerSTIRFRY.address, BigNumber.from(150000000000));
+
+            // Borrower tries to initiate loan
+            const stirfryData: StirfryData = {
+                vaultedCurrency: USDC.address,
+                borrowerVaultedCurrencyAmount: BigNumber.from(150000000000),
+                lenderVaultedCurrencyAmount: BigNumber.from(1000000000000),
+                vaultedToPayableCurrencyRatio: BigNumber.from(1),
+            }
+            await expect(
+                originationControllerSTIRFRY
+                    .connect(borrower)
+                    .initializeStirfryLoan(
+                        loanTerms,
+                        stirfryData,
+                        borrower.address,
+                        lender.address,
+                        sig,
+                        defaultSigProperties,
+                        predicates
+                    ),
+            )
+                .to.be.revertedWith("OCS_InvalidPrincipalAmounts");
+
+            // Borrower tries again to initiate loan with different stirFry data
+            const stirfryData2: StirfryData = {
+                vaultedCurrency: USDC.address,
+                borrowerVaultedCurrencyAmount: BigNumber.from(150000000000),
+                lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
+                vaultedToPayableCurrencyRatio: BigNumber.from(1),
+            }
+            await expect(
+                originationControllerSTIRFRY
+                    .connect(borrower)
+                    .initializeStirfryLoan(
+                        loanTerms,
+                        stirfryData2,
+                        borrower.address,
+                        lender.address,
+                        sig,
+                        defaultSigProperties,
+                        predicates
+                    ),
+            )
+                .to.be.revertedWith("OCS_InvalidVaultAmount");
         });
     })
 });
