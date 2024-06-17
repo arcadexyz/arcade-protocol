@@ -17,10 +17,6 @@ import "../libraries/FeeLookups.sol";
 import { OC_InvalidState } from "../errors/Lending.sol";
 
 import {
-    OC_ApprovedOwnLoan,
-    OC_InvalidSignature,
-    OC_CallerNotParticipant,
-    OC_SideMismatch,
     OC_RolloverCurrencyMismatch,
     OC_RolloverCollateralMismatch,
     OC_ZeroAddress
