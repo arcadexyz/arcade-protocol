@@ -208,7 +208,7 @@ const defaultSigProperties: SignatureProperties = {
     maxUses: 1,
 };
 
-describe.only("OriginationControllerSTIRFRY", () => {
+describe("OriginationControllerSTIRFRY", () => {
     describe("stirfry loan origination", () => {
         let ctx: TestContext;
         let verifier: ArcadeItemsVerifier;
@@ -285,7 +285,7 @@ describe.only("OriginationControllerSTIRFRY", () => {
                 vaultedCurrency: sUSDe.address,
                 borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
-                vaultedToPayableCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
+                payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
             await expect(
                 originationControllerSTIRFRY
@@ -375,7 +375,7 @@ describe.only("OriginationControllerSTIRFRY", () => {
                 vaultedCurrency: sUSDe.address,
                 borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
-                vaultedToPayableCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
+                payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
             await expect(
                 originationControllerSTIRFRY
@@ -487,7 +487,7 @@ describe.only("OriginationControllerSTIRFRY", () => {
                 vaultedCurrency: sUSDe.address,
                 borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
-                vaultedToPayableCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
+                payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
             await expect(
                 originationControllerSTIRFRY
@@ -570,7 +570,7 @@ describe.only("OriginationControllerSTIRFRY", () => {
                 vaultedCurrency: sUSDe.address,
                 borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
-                vaultedToPayableCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
+                payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
             await expect(
                 originationControllerSTIRFRY
@@ -701,7 +701,7 @@ describe.only("OriginationControllerSTIRFRY", () => {
                 vaultedCurrency: mockERC20.address,
                 borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
-                vaultedToPayableCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
+                payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
             await expect(
                 originationControllerSTIRFRY
@@ -779,7 +779,7 @@ describe.only("OriginationControllerSTIRFRY", () => {
                 vaultedCurrency: sUSDe.address,
                 borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
-                vaultedToPayableCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
+                payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
             await expect(
                 originationControllerSTIRFRY
@@ -857,7 +857,7 @@ describe.only("OriginationControllerSTIRFRY", () => {
                 vaultedCurrency: sUSDe.address,
                 borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
-                vaultedToPayableCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
+                payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
             await expect(
                 originationControllerSTIRFRY
@@ -935,7 +935,7 @@ describe.only("OriginationControllerSTIRFRY", () => {
                 vaultedCurrency: sUSDe.address,
                 borrowerVaultedCurrencyAmount: ethers.utils.parseEther("140000"), // invalid input
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
-                vaultedToPayableCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
+                payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
             await expect(
                 originationControllerSTIRFRY
@@ -1019,7 +1019,7 @@ describe.only("OriginationControllerSTIRFRY", () => {
                 vaultedCurrency: USDC.address,
                 borrowerVaultedCurrencyAmount: BigNumber.from(150000000000),
                 lenderVaultedCurrencyAmount: BigNumber.from(1000000000000),
-                vaultedToPayableCurrencyRatio: BigNumber.from(1),
+                payableToVaultedCurrencyRatio: BigNumber.from(1),
             }
             await expect(
                 originationControllerSTIRFRY
@@ -1041,7 +1041,7 @@ describe.only("OriginationControllerSTIRFRY", () => {
                 vaultedCurrency: USDC.address,
                 borrowerVaultedCurrencyAmount: BigNumber.from(150000000000),
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
-                vaultedToPayableCurrencyRatio: BigNumber.from(1),
+                payableToVaultedCurrencyRatio: BigNumber.from(1),
             }
             await expect(
                 originationControllerSTIRFRY
@@ -1058,5 +1058,5 @@ describe.only("OriginationControllerSTIRFRY", () => {
             )
                 .to.be.revertedWith("OCS_InvalidVaultAmount");
         });
-    })
+    });
 });

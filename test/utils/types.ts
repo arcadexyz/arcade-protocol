@@ -121,5 +121,5 @@ export interface StirfryData {
     vaultedCurrency: string;
     borrowerVaultedCurrencyAmount: BigNumberish;
     lenderVaultedCurrencyAmount: BigNumberish;
-    vaultedToPayableCurrencyRatio: BigNumberish;
+    payableToVaultedCurrencyRatio: BigNumberish;
 }

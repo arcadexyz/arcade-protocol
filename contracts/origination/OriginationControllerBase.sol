@@ -26,7 +26,7 @@ import {
  * @author Non-Fungible Technologies, Inc.
  *
  * The Origination Controller Base contract provides common functionality for all
- * origination controllers, including signature verification, share reference
+ * origination controllers, including signature verification, shared reference
  * contracts, approved third party originators, and rollover calculation helpers.
  */
 abstract contract OriginationControllerBase is IOriginationControllerBase, EIP712, OriginationCalculator {

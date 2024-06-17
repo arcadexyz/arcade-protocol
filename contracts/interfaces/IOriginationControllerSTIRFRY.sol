@@ -14,7 +14,7 @@ interface IOriginationControllerSTIRFRY is IOriginationControllerBase {
         address vaultedCurrency;
         uint256 lenderVaultedCurrencyAmount;
         uint256 borrowerVaultedCurrencyAmount;
-        uint256 vaultedToPayableCurrencyRatio;
+        uint256 payableToVaultedCurrencyRatio;
     }
 
     // ============= Loan Origination =============

@@ -173,17 +173,17 @@ contract OriginationControllerSTIRFRY is
             abi.encodePacked(
                 loanTerms.payableCurrency,
                 stirfryData.vaultedCurrency,
-                stirfryData.vaultedToPayableCurrencyRatio
+                stirfryData.payableToVaultedCurrencyRatio
             )
         );
         if(stirfryPairs[currencyHash] != true)
             revert OCS_InvalidStirfryPair(loanTerms.payableCurrency, stirfryData.vaultedCurrency);
 
         // verify the vaulted currency amounts
-        if(loanTerms.principal * stirfryData.vaultedToPayableCurrencyRatio != stirfryData.lenderVaultedCurrencyAmount)
+        if(loanTerms.principal * stirfryData.payableToVaultedCurrencyRatio != stirfryData.lenderVaultedCurrencyAmount)
             revert OCS_InvalidPrincipalAmounts(
                 loanTerms.principal,
-                stirfryData.vaultedToPayableCurrencyRatio,
+                stirfryData.payableToVaultedCurrencyRatio,
                 stirfryData.lenderVaultedCurrencyAmount
             );
 
@@ -197,17 +197,19 @@ contract OriginationControllerSTIRFRY is
             / (Constants.BASIS_POINTS_DENOMINATOR * Constants.SECONDS_IN_YEAR);
 
         // verify interest amounts
-        if(totalInterest * stirfryData.vaultedToPayableCurrencyRatio != stirfryData.borrowerVaultedCurrencyAmount)
+        if(totalInterest * stirfryData.payableToVaultedCurrencyRatio != stirfryData.borrowerVaultedCurrencyAmount)
             revert OCS_InvalidInterestAmounts(
                 totalInterest,
-                stirfryData.vaultedToPayableCurrencyRatio,
+                stirfryData.payableToVaultedCurrencyRatio,
                 stirfryData.borrowerVaultedCurrencyAmount
             );
     }
 
     /**
-     * @dev Perform loan initialization. Pull fixed interest amount from the borrower.
-     *      Take custody of collateral form the lender. Tell LoanCore to create and start a loan.
+     * @notice Perform loan initialization. Pull fixed interest amount from the borrower and add to vault.
+     *         Take custody of collateral form the lender. Tell LoanCore to create and start a loan.
+     *
+     * @dev The only collateral accepted by the STIRFRY Origination Controller is a Vault Factory vault.
      *
      * @param loanTerms                     The terms agreed by the lender and borrower.
      * @param stirfryData                   The stirfry data to initialize the loan with.
@@ -237,7 +239,7 @@ contract OriginationControllerSTIRFRY is
         // collect vault from lender and send to LoanCore
         IERC721(address(vaultFactory)).transferFrom(lender, address(loanCore), loanTerms.collateralId);
 
-        // Create loan in LoanCore
+        // create loan in LoanCore
         loanId = loanCore.startLoan(lender, borrower, loanTerms, feeSnapshot);
     }
 

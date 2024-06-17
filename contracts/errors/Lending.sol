@@ -296,17 +296,17 @@ error OCS_ZeroAddress(string addressType);
 error OCS_InvalidStirfryPair(address payableCurrency, address vaultedCurrency);
 
 /**
- * @notice The loan terms principal multiplied by the vaultedToPayableCurrencyRatio does not
+ * @notice The loan terms principal multiplied by the payableToVaultedCurrencyRatio does not
  *         equal the vaulted collateral amount.
  *
  * @param principal                            The principal amount in the loan terms.
- * @param vaultedToPayableCurrencyRatio        The 1 to 1 ratio of the vaulted collateral amount to the
+ * @param payableToVaultedCurrencyRatio        The 1 to 1 ratio of the vaulted collateral amount to the
  *                                             loan terms payable currency amount.
  * @param lenderVaultedCurrencyAmount          The amount of vaulted collateral.
  */
 error OCS_InvalidPrincipalAmounts(
     uint256 principal,
-    uint256 vaultedToPayableCurrencyRatio,
+    uint256 payableToVaultedCurrencyRatio,
     uint256 lenderVaultedCurrencyAmount
 );
 
@@ -323,17 +323,17 @@ error OCS_InvalidVaultAmount(
 
 /**
  * @notice The total interest due over the duration of the loan terms multiplied by the
- *         vaultedToPayableCurrencyRatio does not equal the vaulted fixed interest amount
+ *         payableToVaultedCurrencyRatio does not equal the vaulted fixed interest amount
  *         provided by the borrower.
  *
  * @param totalInterest                        The total interest due.
- * @param vaultedToPayableCurrencyRatio        The 1 to 1 ratio of the vaulted collateral amount to the
+ * @param payableToVaultedCurrencyRatio        The 1 to 1 ratio of the vaulted collateral amount to the
  *                                             loan terms payable currency amount.
  * @param borrowerVaultedCurrencyAmount        The fixed interest amount provided by the borrower.
  */
 error OCS_InvalidInterestAmounts(
     uint256 totalInterest,
-    uint256 vaultedToPayableCurrencyRatio,
+    uint256 payableToVaultedCurrencyRatio,
     uint256 borrowerVaultedCurrencyAmount
 );
 
