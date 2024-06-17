@@ -276,6 +276,67 @@ error OCM_CollateralMismatch(
  */
 error OCM_LenderIsBorrower();
 
+// =============================== ORIGINATION CONTROLLER STIRFRY ================================
+/// @notice All errors prefixed with OCS_, to separate from other contracts in the protocol.
+
+/**
+ * @notice Zero address passed in where not allowed.
+ *
+ * @param addressType               The name of the parameter for which a zero address was provided.
+ */
+error OCS_ZeroAddress(string addressType);
+
+/**
+ * @notice The loan terms payable currency and vaulted currency are not whitelisted as a valid pair
+ *         for stirfry loans.
+ *
+ * @param payableCurrency             The currency of the loan terms.
+ * @param vaultedCurrency             The currency of the vaulted collateral.
+ */
+error OCS_InvalidStirfryPair(address payableCurrency, address vaultedCurrency);
+
+/**
+ * @notice The loan terms principal multiplied by the vaultedToPayableCurrencyRatio does not
+ *         equal the vaulted collateral amount.
+ *
+ * @param principal                            The principal amount in the loan terms.
+ * @param vaultedToPayableCurrencyRatio        The 1 to 1 ratio of the vaulted collateral amount to the
+ *                                             loan terms payable currency amount.
+ * @param lenderVaultedCurrencyAmount          The amount of vaulted collateral.
+ */
+error OCS_InvalidPrincipalAmounts(
+    uint256 principal,
+    uint256 vaultedToPayableCurrencyRatio,
+    uint256 lenderVaultedCurrencyAmount
+);
+
+/**
+ * @notice The vaulted currency amount specified is not equivalent to what is actually vaulted.
+ *
+ * @param actualVaultedCollateralAmount         The actual balance of collateral ERC20 in the vault.
+ * @param proviededVaultedCurrencyAmount        The provided input for loan origination.
+ */
+error OCS_InvalidVaultAmount(
+    uint256 actualVaultedCollateralAmount,
+    uint256 proviededVaultedCurrencyAmount
+);
+
+/**
+ * @notice The total interest due over the duration of the loan terms multiplied by the
+ *         vaultedToPayableCurrencyRatio does not equal the vaulted fixed interest amount
+ *         provided by the borrower.
+ *
+ * @param totalInterest                        The total interest due.
+ * @param vaultedToPayableCurrencyRatio        The 1 to 1 ratio of the vaulted collateral amount to the
+ *                                             loan terms payable currency amount.
+ * @param borrowerVaultedCurrencyAmount        The fixed interest amount provided by the borrower.
+ */
+error OCS_InvalidInterestAmounts(
+    uint256 totalInterest,
+    uint256 vaultedToPayableCurrencyRatio,
+    uint256 borrowerVaultedCurrencyAmount
+);
+
 // ================================== CROSS CURRENCY ROLLOVER ====================================
 /// @notice All errors prefixed with CCR_, to separate from other contracts in the protocol.
 

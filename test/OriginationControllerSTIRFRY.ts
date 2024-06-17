@@ -9,7 +9,6 @@ import { deploy } from "./utils/contracts";
 chai.use(solidity);
 
 import {
-    OriginationController,
     CallWhitelist,
     MockERC20,
     VaultFactory,
@@ -24,15 +23,16 @@ import {
     RepaymentController,
     OriginationControllerSTIRFRY
 } from "../typechain";
-import { approve, mint } from "./utils/erc20";
-import { Borrower, ItemsPredicate, LoanData, LoanTerms, SignatureItem, SignatureProperties, StirfryData } from "./utils/types";
+import {  mint, ZERO_ADDRESS } from "./utils/erc20";
+import { ItemsPredicate, LoanData, LoanTerms, SignatureItem, SignatureProperties, StirfryData } from "./utils/types";
 import { createLoanTermsSignature, createLoanItemsSignature } from "./utils/eip712";
 import { encodeSignatureItems, initializeBundle } from "./utils/loans";
 
 import {
     ORIGINATOR_ROLE,
     BASE_URI,
-    REPAYER_ROLE
+    REPAYER_ROLE,
+    EIP712_VERSION
 } from "./utils/constants";
 import { BlockchainTime } from "./utils/time";
 
@@ -208,8 +208,8 @@ const defaultSigProperties: SignatureProperties = {
     maxUses: 1,
 };
 
-describe.only("OriginationControllerSTIRFRY", () => {
-    describe("Borrower loan origination", () => {
+describe("OriginationControllerSTIRFRY", () => {
+    describe("stirfry loan origination", () => {
         let ctx: TestContext;
         let verifier: ArcadeItemsVerifier;
 
@@ -240,15 +240,13 @@ describe.only("OriginationControllerSTIRFRY", () => {
             const loanTerms = createLoanTerms(
                 USDC.address, vaultFactory.address, {
                     collateralId: bundleId,
-                    principal: BigNumber.from(1000000000000), //  (1,000,000 USDC)
+                    principal: BigNumber.from(1000000000000), // 1,000,000 USDC
                     interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
                     durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
                 },
             );
             // lender signs CWO
-            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 575,000 sUSDe
-            // NOTE: way to check that sig items are same as the terms, new verifier, no terms?
-            // whitelisting?
+            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 sUSDe
             const signatureItems: SignatureItem[] = [
                 {
                     cType: 2,
@@ -266,11 +264,11 @@ describe.only("OriginationControllerSTIRFRY", () => {
             ];
             const sig = await createLoanItemsSignature(
                 originationControllerSTIRFRY.address,
-                "OriginationControllerSTIRFRY",
+                "OriginationController",
                 loanTerms,
                 predicates,
                 lender,
-                "1",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
@@ -320,27 +318,25 @@ describe.only("OriginationControllerSTIRFRY", () => {
         it("lender with 1,000,000 variable rate sUSDe locking in fixed rate of 15%, borrower repays loan", async () => {
             const { vaultFactory, originationControllerSTIRFRY, loanCore, USDC, sUSDe, user: lender, other: borrower, blockchainTime, repaymentController } = ctx;
 
-            // Lender has 1,150,000 sUSDe they want to lock in a fixed rate of 15% APR on
-            await mint(sUSDe, lender, ethers.utils.parseEther("1150000"));
+            // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
+            await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
 
-            // Borrower creates vault and deposits 150,000 sUSDe into it
+            // Lender creates vault and deposits 1,000,000 sUSDe into it
             const bundleId = await initializeBundle(vaultFactory, lender);
             const bundleAddress = await vaultFactory.instanceAt(bundleId);
-
-            // lender adds their sUSDe to their vault
-            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1150000"));
+            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1000000"));
 
             // Loan terms
             const loanTerms = createLoanTerms(
                 USDC.address, vaultFactory.address, {
                     collateralId: bundleId,
-                    principal: ethers.utils.parseUnits("1000000", 6), //  (1,000,000 USDC)
+                    principal: ethers.utils.parseUnits("1000000", 6), // 1,000,000 USDC
                     interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
                     durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
                 },
             );
             // lender signs CWO
-            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 575,000 sUSDe
+            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 sUSDe
             const signatureItems: SignatureItem[] = [
                 {
                     cType: 2,
@@ -358,11 +354,11 @@ describe.only("OriginationControllerSTIRFRY", () => {
             ];
             const sig = await createLoanItemsSignature(
                 originationControllerSTIRFRY.address,
-                "OriginationControllerSTIRFRY",
+                "OriginationController",
                 loanTerms,
                 predicates,
                 lender,
-                "1",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
@@ -434,27 +430,25 @@ describe.only("OriginationControllerSTIRFRY", () => {
         it("lender with 1,000,000 variable rate sUSDe locking in fixed rate of 15%, borrower defaults", async () => {
             const { vaultFactory, originationControllerSTIRFRY, loanCore, USDC, sUSDe, user: lender, other: borrower, blockchainTime, repaymentController } = ctx;
 
-            // Lender has 1,150,000 sUSDe they want to lock in a fixed rate of 15% APR on
-            await mint(sUSDe, lender, ethers.utils.parseEther("1150000"));
+            // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
+            await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
 
-            // Borrower creates vault and deposits 150,000 sUSDe into it
+            // Lender creates vault and deposits 1,000,000 sUSDe into it
             const bundleId = await initializeBundle(vaultFactory, lender);
             const bundleAddress = await vaultFactory.instanceAt(bundleId);
-
-            // lender adds their sUSDe to their vault
-            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1150000"));
+            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1000000"));
 
             // Loan terms
             const loanTerms = createLoanTerms(
                 USDC.address, vaultFactory.address, {
                     collateralId: bundleId,
-                    principal: BigNumber.from(1000000000000), //  (1,000,000 USDC)
+                    principal: BigNumber.from(1000000000000), // 1,000,000 USDC
                     interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
                     durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
                 },
             );
             // lender signs CWO
-            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 575,000 sUSDe
+            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 sUSDe
             const signatureItems: SignatureItem[] = [
                 {
                     cType: 2,
@@ -472,11 +466,11 @@ describe.only("OriginationControllerSTIRFRY", () => {
             ];
             const sig = await createLoanItemsSignature(
                 originationControllerSTIRFRY.address,
-                "OriginationControllerSTIRFRY",
+                "OriginationController",
                 loanTerms,
                 predicates,
                 lender,
-                "1",
+                EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
@@ -531,5 +525,432 @@ describe.only("OriginationControllerSTIRFRY", () => {
 
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(lender.address);
         })
+
+        it("borrower originates loan", async () => {
+            const { vaultFactory, originationControllerSTIRFRY, loanCore, USDC, sUSDe, user: lender, other: borrower } = ctx;
+
+            // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
+            await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
+
+            // Lender creates vault and deposits 1,000,000 sUSDe into it
+            const bundleId = await initializeBundle(vaultFactory, lender);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1000000"));
+
+            // Loan terms
+            const loanTerms = createLoanTerms(
+                USDC.address, vaultFactory.address, {
+                    collateralId: bundleId,
+                    principal: BigNumber.from(1000000000000), // 1,000,000 USDC
+                    interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
+                    durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
+                },
+            );
+            // borrower signs loan terms on a specific lender vault
+            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 sUSDe
+            const sig = await createLoanTermsSignature(
+                originationControllerSTIRFRY.address,
+                "OriginationController",
+                loanTerms,
+                borrower,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "b",
+            );
+
+            // lender approves sUSDe vault for loan
+            await vaultFactory.connect(lender).approve(originationControllerSTIRFRY.address, bundleId);
+
+            // borrower approves 150,000 sUSDe to the origination controller
+            await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
+            await sUSDe.connect(borrower).approve(originationControllerSTIRFRY.address, ethers.utils.parseEther("150000"));
+
+            // Borrower initiates loan
+            const stirfryData: StirfryData = {
+                vaultedCurrency: sUSDe.address,
+                borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
+                lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
+                vaultedToPayableCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
+            }
+            await expect(
+                originationControllerSTIRFRY
+                    .connect(lender)
+                    .initializeStirfryLoan(
+                        loanTerms,
+                        stirfryData,
+                        borrower.address,
+                        lender.address,
+                        sig,
+                        defaultSigProperties,
+                        []
+                    ),
+            )
+                .to.emit(vaultFactory, "Transfer")
+                .withArgs(lender.address, loanCore.address, bundleId);
+
+            // check sUSDe balance of borrower and lender
+            expect(await sUSDe.balanceOf(borrower.address)).to.equal(0);
+            expect(await sUSDe.balanceOf(lender.address)).to.equal(0);
+
+            // check USDC balance of borrower and lender
+            expect(await USDC.balanceOf(borrower.address)).to.equal(0);
+            expect(await USDC.balanceOf(lender.address)).to.equal(0);
+
+            // check loan core is the owner of the vault
+            expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
+        })
     });
+
+    describe("stirfry constraints", () => {
+        let ctx: TestContext;
+        let verifier: ArcadeItemsVerifier;
+
+        beforeEach(async () => {
+            ctx = await loadFixture(fixture);
+            const { user, originationHelpers, lenderPromissoryNote, borrowerPromissoryNote } = ctx;
+
+            verifier = <ArcadeItemsVerifier>await deploy("ArcadeItemsVerifier", user, []);
+
+            await originationHelpers.connect(user).setAllowedVerifiers([verifier.address], [true]);
+
+            expect(await lenderPromissoryNote.totalSupply()).to.eq(0);
+            expect(await borrowerPromissoryNote.totalSupply()).to.eq(0);
+        });
+
+        it("invalid constructor arguments", async () => {
+            const { originationHelpers, loanCore, feeController, vaultFactory, user } = await loadFixture(fixture);
+
+            const originationLibrary = await deploy("OriginationLibrary", user, []);
+            const StrifryFactory = await ethers.getContractFactory("OriginationControllerSTIRFRY",
+                {
+                    libraries: {
+                        OriginationLibrary: originationLibrary.address,
+                    },
+                },
+            );
+
+            await expect(StrifryFactory.deploy(originationHelpers.address, loanCore.address, ZERO_ADDRESS, vaultFactory.address)).to.be.revertedWith(
+                `OCS_ZeroAddress("feeController")`
+            );
+
+            await expect(StrifryFactory.deploy(originationHelpers.address, loanCore.address, feeController.address, ZERO_ADDRESS)).to.be.revertedWith(
+                `OCS_ZeroAddress("vaultFactory")`
+            );
+        })
+
+        it("currency pair is not whitelisted", async () => {
+            const { vaultFactory, originationControllerSTIRFRY, USDC, user: lender, other: borrower } = ctx;
+
+            // deploy a new mockERC20
+            const mockERC20 = <MockERC20>await deploy("MockERC20", lender, ["mockERC20", "MERC20"])
+
+            // Lender has 1,000,000 mockERC20 they want to lock in a fixed rate of 15% APR on
+            await mint(mockERC20, lender, ethers.utils.parseEther("1000000"));
+
+            // Lender creates vault and deposits 1,000,000 mockERC20 into it
+            const bundleId = await initializeBundle(vaultFactory, lender);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            await mockERC20.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1000000"));
+
+            // Loan terms
+            const loanTerms = createLoanTerms(
+                USDC.address, vaultFactory.address, {
+                    collateralId: bundleId,
+                    principal: BigNumber.from(1000000000000), // 1,000,000 USDC
+                    interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
+                    durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
+                },
+            );
+            // lender signs CWO
+            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 mockERC20
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 2,
+                    asset: mockERC20.address,
+                    tokenId: 0,
+                    amount: ethers.utils.parseEther("1150000"),
+                    anyIdAllowed: false
+                },
+            ];
+            const predicates: ItemsPredicate[] = [
+                {
+                    verifier: verifier.address,
+                    data: encodeSignatureItems(signatureItems),
+                },
+            ];
+            const sig = await createLoanItemsSignature(
+                originationControllerSTIRFRY.address,
+                "OriginationController",
+                loanTerms,
+                predicates,
+                lender,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "l",
+            );
+
+            // lender approves mockERC20 vault for loan
+            await vaultFactory.connect(lender).approve(originationControllerSTIRFRY.address, bundleId);
+
+            // borrower approves 150,000 mockERC20 to the origination controller
+            await mint(mockERC20, borrower, ethers.utils.parseEther("150000"));
+            await mockERC20.connect(borrower).approve(originationControllerSTIRFRY.address, ethers.utils.parseEther("150000"));
+
+            // Borrower initiates loan
+            const stirfryData: StirfryData = {
+                vaultedCurrency: mockERC20.address,
+                borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
+                lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
+                vaultedToPayableCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
+            }
+            await expect(
+                originationControllerSTIRFRY
+                    .connect(borrower)
+                    .initializeStirfryLoan(
+                        loanTerms,
+                        stirfryData,
+                        borrower.address,
+                        lender.address,
+                        sig,
+                        defaultSigProperties,
+                        predicates
+                    ),
+            )
+                .to.be.revertedWith("OCS_InvalidStirfryPair");
+        })
+
+        it("invalid principal amount", async () => {
+            const { vaultFactory, originationControllerSTIRFRY, USDC, sUSDe, user: lender, other: borrower } = ctx;
+
+            // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
+            await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
+
+            // Lender creates vault and deposits 1,000,000 sUSDe into it
+            const bundleId = await initializeBundle(vaultFactory, lender);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1000000"));
+
+            // Loan terms
+            const loanTerms = createLoanTerms(
+                USDC.address, vaultFactory.address, {
+                    collateralId: bundleId,
+                    principal: BigNumber.from(1100000000000), // invalid input
+                    interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
+                    durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
+                },
+            );
+            // lender signs CWO
+            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 sUSDe
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 2,
+                    asset: sUSDe.address,
+                    tokenId: 0,
+                    amount: ethers.utils.parseEther("1150000"),
+                    anyIdAllowed: false
+                },
+            ];
+            const predicates: ItemsPredicate[] = [
+                {
+                    verifier: verifier.address,
+                    data: encodeSignatureItems(signatureItems),
+                },
+            ];
+            const sig = await createLoanItemsSignature(
+                originationControllerSTIRFRY.address,
+                "OriginationController",
+                loanTerms,
+                predicates,
+                lender,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "l",
+            );
+
+            // lender approves sUSDe vault for loan
+            await vaultFactory.connect(lender).approve(originationControllerSTIRFRY.address, bundleId);
+
+            // borrower approves 150,000 sUSDe to the origination controller
+            await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
+            await sUSDe.connect(borrower).approve(originationControllerSTIRFRY.address, ethers.utils.parseEther("150000"));
+
+            // Borrower initiates loan
+            const stirfryData: StirfryData = {
+                vaultedCurrency: sUSDe.address,
+                borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
+                lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
+                vaultedToPayableCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
+            }
+            await expect(
+                originationControllerSTIRFRY
+                    .connect(borrower)
+                    .initializeStirfryLoan(
+                        loanTerms,
+                        stirfryData,
+                        borrower.address,
+                        lender.address,
+                        sig,
+                        defaultSigProperties,
+                        predicates
+                    ),
+            )
+                .to.be.revertedWith("OCS_InvalidPrincipalAmounts");
+        })
+
+        it("lender deposits less than stirfry data amount", async () => {
+            const { vaultFactory, originationControllerSTIRFRY, loanCore, USDC, sUSDe, user: lender, other: borrower } = ctx;
+
+            // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
+            await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
+
+            // Lender creates vault and deposits 1,000,000 sUSDe into it
+            const bundleId = await initializeBundle(vaultFactory, lender);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("900000"));
+
+            // Loan terms
+            const loanTerms = createLoanTerms(
+                USDC.address, vaultFactory.address, {
+                    collateralId: bundleId,
+                    principal: BigNumber.from(1000000000000), // 1,000,000 USDC
+                    interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
+                    durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
+                },
+            );
+            // lender signs CWO
+            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 sUSDe
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 2,
+                    asset: sUSDe.address,
+                    tokenId: 0,
+                    amount: ethers.utils.parseEther("1150000"),
+                    anyIdAllowed: false
+                },
+            ];
+            const predicates: ItemsPredicate[] = [
+                {
+                    verifier: verifier.address,
+                    data: encodeSignatureItems(signatureItems),
+                },
+            ];
+            const sig = await createLoanItemsSignature(
+                originationControllerSTIRFRY.address,
+                "OriginationController",
+                loanTerms,
+                predicates,
+                lender,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "l",
+            );
+
+            // lender approves sUSDe vault for loan
+            await vaultFactory.connect(lender).approve(originationControllerSTIRFRY.address, bundleId);
+
+            // borrower approves 150,000 sUSDe to the origination controller
+            await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
+            await sUSDe.connect(borrower).approve(originationControllerSTIRFRY.address, ethers.utils.parseEther("150000"));
+
+            // Borrower initiates loan
+            const stirfryData: StirfryData = {
+                vaultedCurrency: sUSDe.address,
+                borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
+                lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
+                vaultedToPayableCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
+            }
+            await expect(
+                originationControllerSTIRFRY
+                    .connect(borrower)
+                    .initializeStirfryLoan(
+                        loanTerms,
+                        stirfryData,
+                        borrower.address,
+                        lender.address,
+                        sig,
+                        defaultSigProperties,
+                        predicates
+                    ),
+            )
+                .to.be.revertedWith("OCS_InvalidVaultAmount");
+        });
+
+        it("invalid interest amounts", async () => {
+            const { vaultFactory, originationControllerSTIRFRY, loanCore, USDC, sUSDe, user: lender, other: borrower } = ctx;
+
+            // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
+            await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
+
+            // Lender creates vault and deposits 1,000,000 sUSDe into it
+            const bundleId = await initializeBundle(vaultFactory, lender);
+            const bundleAddress = await vaultFactory.instanceAt(bundleId);
+            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1000000"));
+
+            // Loan terms
+            const loanTerms = createLoanTerms(
+                USDC.address, vaultFactory.address, {
+                    collateralId: bundleId,
+                    principal: BigNumber.from(1000000000000), // 1,000,000 USDC
+                    interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
+                    durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
+                },
+            );
+            // lender signs CWO
+            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 sUSDe
+            const signatureItems: SignatureItem[] = [
+                {
+                    cType: 2,
+                    asset: sUSDe.address,
+                    tokenId: 0,
+                    amount: ethers.utils.parseEther("1150000"),
+                    anyIdAllowed: false
+                },
+            ];
+            const predicates: ItemsPredicate[] = [
+                {
+                    verifier: verifier.address,
+                    data: encodeSignatureItems(signatureItems),
+                },
+            ];
+            const sig = await createLoanItemsSignature(
+                originationControllerSTIRFRY.address,
+                "OriginationController",
+                loanTerms,
+                predicates,
+                lender,
+                EIP712_VERSION,
+                defaultSigProperties,
+                "l",
+            );
+
+            // lender approves sUSDe vault for loan
+            await vaultFactory.connect(lender).approve(originationControllerSTIRFRY.address, bundleId);
+
+            // borrower approves 150,000 sUSDe to the origination controller
+            await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
+            await sUSDe.connect(borrower).approve(originationControllerSTIRFRY.address, ethers.utils.parseEther("150000"));
+
+            // Borrower initiates loan
+            const stirfryData: StirfryData = {
+                vaultedCurrency: sUSDe.address,
+                borrowerVaultedCurrencyAmount: ethers.utils.parseEther("140000"), // invalid input
+                lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
+                vaultedToPayableCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
+            }
+            await expect(
+                originationControllerSTIRFRY
+                    .connect(borrower)
+                    .initializeStirfryLoan(
+                        loanTerms,
+                        stirfryData,
+                        borrower.address,
+                        lender.address,
+                        sig,
+                        defaultSigProperties,
+                        predicates
+                    ),
+            )
+                .to.be.revertedWith("OCS_InvalidInterestAmounts");
+        });
+    })
 });
