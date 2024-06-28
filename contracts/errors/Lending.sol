@@ -295,48 +295,6 @@ error OCIRS_ZeroAddress(string addressType);
  */
 error OCIRS_InvalidPair(address payableCurrency, address vaultedCurrency);
 
-/**
- * @notice The loan terms principal multiplied by the payableToVaultedCurrencyRatio does not
- *         equal the vaulted collateral amount.
- *
- * @param principal                            The principal amount in the loan terms.
- * @param payableToVaultedCurrencyRatio        The 1 to 1 ratio of the vaulted collateral amount to the
- *                                             loan terms payable currency amount.
- * @param lenderVaultedCurrencyAmount          The amount of vaulted collateral.
- */
-error OCIRS_InvalidPrincipalAmounts(
-    uint256 principal,
-    uint256 payableToVaultedCurrencyRatio,
-    uint256 lenderVaultedCurrencyAmount
-);
-
-/**
- * @notice The vaulted currency amount specified is not equivalent to what is actually vaulted.
- *
- * @param actualVaultedCollateralAmount         The actual balance of collateral ERC20 in the vault.
- * @param providedVaultedCurrencyAmount         The provided input for swap origination.
- */
-error OCIRS_InvalidVaultAmount(
-    uint256 actualVaultedCollateralAmount,
-    uint256 providedVaultedCurrencyAmount
-);
-
-/**
- * @notice The total interest due over the duration of the loan terms multiplied by the
- *         payableToVaultedCurrencyRatio does not equal the vaulted fixed interest amount
- *         provided by the borrower.
- *
- * @param totalInterest                        The total interest due.
- * @param payableToVaultedCurrencyRatio        The 1 to 1 ratio of the vaulted collateral amount to the
- *                                             loan terms payable currency amount.
- * @param borrowerVaultedCurrencyAmount        The fixed interest amount provided by the borrower.
- */
-error OCIRS_InvalidInterestAmounts(
-    uint256 totalInterest,
-    uint256 payableToVaultedCurrencyRatio,
-    uint256 borrowerVaultedCurrencyAmount
-);
-
 // ================================== CROSS CURRENCY ROLLOVER ====================================
 /// @notice All errors prefixed with CCR_, to separate from other contracts in the protocol.
 

@@ -17,7 +17,6 @@ import "../interfaces/IRepaymentController.sol";
 
 import "../libraries/LoanLibrary.sol";
 import "../libraries/InterestCalculator.sol";
-import "../libraries/FeeLookups.sol";
 
 import {
     CCR_StateAlreadySet,

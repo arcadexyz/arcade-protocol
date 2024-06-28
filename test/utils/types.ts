@@ -119,7 +119,5 @@ export interface SwapParameters {
 
 export interface SwapData {
     vaultedCurrency: string;
-    borrowerVaultedCurrencyAmount: BigNumberish;
-    lenderVaultedCurrencyAmount: BigNumberish;
     payableToVaultedCurrencyRatio: BigNumberish;
 }

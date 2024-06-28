@@ -12,8 +12,6 @@ interface IOriginationControllerInterestRateSwap is IOriginationControllerBase {
 
     struct SwapData {
         address vaultedCurrency;
-        uint256 lenderVaultedCurrencyAmount;
-        uint256 borrowerVaultedCurrencyAmount;
         uint256 payableToVaultedCurrencyRatio;
     }
 
@@ -25,7 +23,6 @@ interface IOriginationControllerInterestRateSwap is IOriginationControllerBase {
         address borrower,
         address lender,
         Signature calldata sig,
-        SigProperties calldata sigProperties,
-        LoanLibrary.Predicate[] calldata itemPredicates
-    ) external returns (uint256 loanId);
+        SigProperties calldata sigProperties
+    ) external returns (uint256 loanId, uint256 bundleId);
 }

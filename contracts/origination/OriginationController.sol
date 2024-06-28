@@ -12,8 +12,6 @@ import "../interfaces/IOriginationController.sol";
 import "../interfaces/IFeeController.sol";
 import "../interfaces/IExpressBorrow.sol";
 
-import "../libraries/FeeLookups.sol";
-
 import { OC_InvalidState } from "../errors/Lending.sol";
 
 import {

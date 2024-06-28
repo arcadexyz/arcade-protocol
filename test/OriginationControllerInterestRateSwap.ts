@@ -23,10 +23,9 @@ import {
     RepaymentController,
     OriginationControllerInterestRateSwap,
 } from "../typechain";
-import {  mint, ZERO_ADDRESS } from "./utils/erc20";
-import { ItemsPredicate, LoanTerms, SignatureItem, SignatureProperties, SwapData } from "./utils/types";
-import { createLoanTermsSignature, createLoanItemsSignature } from "./utils/eip712";
-import { encodeSignatureItems, initializeBundle } from "./utils/loans";
+import { mint, ZERO_ADDRESS } from "./utils/erc20";
+import { LoanTerms, SignatureProperties, SwapData } from "./utils/types";
+import { createLoanTermsSignature } from "./utils/eip712";
 
 import {
     ORIGINATOR_ROLE,
@@ -46,7 +45,6 @@ interface TestContext {
     USDC: MockERC20WithDecimals;
     sUSDe: MockERC20;
     vaultFactory: VaultFactory;
-    vault: AssetVault;
     lenderPromissoryNote: PromissoryNote;
     borrowerPromissoryNote: PromissoryNote;
     loanCore: LoanCore;
@@ -55,29 +53,6 @@ interface TestContext {
     signers: Signer[];
     blockchainTime: BlockchainTime;
 }
-
-/**
- * Creates a vault instance using the vault factory
- */
-const createVault = async (factory: VaultFactory, user: Signer): Promise<AssetVault> => {
-    const tx = await factory.connect(user).initializeBundle(user.address);
-    const receipt = await tx.wait();
-
-    let vault: AssetVault | undefined;
-    if (receipt && receipt.events) {
-        for (const event of receipt.events) {
-            if (event.args && event.args.vault) {
-                vault = <AssetVault>await ethers.getContractAt("AssetVault", event.args.vault);
-            }
-        }
-    } else {
-        throw new Error("Unable to create new vault");
-    }
-    if (!vault) {
-        throw new Error("Unable to create new vault");
-    }
-    return vault;
-};
 
 const fixture = async (): Promise<TestContext> => {
     const blockchainTime = new BlockchainTime();
@@ -101,8 +76,6 @@ const fixture = async (): Promise<TestContext> => {
     const whitelist = <CallWhitelist>await deploy("CallWhitelist", deployer, []);
     const vaultTemplate = <AssetVault>await deploy("AssetVault", deployer, []);
     const vaultFactory = <VaultFactory>await deploy("VaultFactory", signers[0], [vaultTemplate.address, whitelist.address, feeController.address, descriptor.address])
-
-    const vault = await createVault(vaultFactory, signers[0]);
 
     const USDC = <MockERC20WithDecimals>await deploy("MockERC20WithDecimals", deployer, ["USDC", "USDC", 6]);
     const sUSDe = <MockERC20>await deploy("MockERC20", deployer, ["sUSDe", "sUSDe"]);
@@ -168,7 +141,6 @@ const fixture = async (): Promise<TestContext> => {
         USDC,
         sUSDe,
         vaultFactory,
-        vault,
         lenderPromissoryNote: lenderNote,
         borrowerPromissoryNote: borrowerNote,
         loanCore,
@@ -211,15 +183,10 @@ const defaultSigProperties: SignatureProperties = {
 describe("OriginationControllerInterestRateSwap", () => {
     describe("Interest rate swap origination", () => {
         let ctx: TestContext;
-        let verifier: ArcadeItemsVerifier;
 
         beforeEach(async () => {
             ctx = await loadFixture(fixture);
-            const { user, originationHelpers, lenderPromissoryNote, borrowerPromissoryNote } = ctx;
-
-            verifier = <ArcadeItemsVerifier>await deploy("ArcadeItemsVerifier", user, []);
-
-            await originationHelpers.connect(user).setAllowedVerifiers([verifier.address], [true]);
+            const { lenderPromissoryNote, borrowerPromissoryNote } = ctx;
 
             expect(await lenderPromissoryNote.totalSupply()).to.eq(0);
             expect(await borrowerPromissoryNote.totalSupply()).to.eq(0);
@@ -229,173 +196,130 @@ describe("OriginationControllerInterestRateSwap", () => {
             const { vaultFactory, originationControllerIRS, loanCore, USDC, sUSDe, user: lender, other: borrower } = ctx;
 
             // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
-            await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
+            const susdeLenderSwapAmount = ethers.utils.parseEther("1000000");
+            await mint(sUSDe, lender, susdeLenderSwapAmount);
 
-            // Lender creates vault and deposits 1,000,000 sUSDe into it
-            const bundleId = await initializeBundle(vaultFactory, lender);
-            const bundleAddress = await vaultFactory.instanceAt(bundleId);
-            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1000000"));
-
-            // Loan terms
+            // Signature and loan terms
             const loanTerms = createLoanTerms(
                 USDC.address, vaultFactory.address, {
-                    collateralId: bundleId,
+                    collateralId: BigNumber.from(0), // completed by the origination controller
                     principal: BigNumber.from(1000000000000), // 1,000,000 USDC
                     interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
                     durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
                 },
             );
-            // lender signs CWO
-            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 sUSDe
-            const signatureItems: SignatureItem[] = [
-                {
-                    cType: 2,
-                    asset: sUSDe.address,
-                    tokenId: 0,
-                    amount: ethers.utils.parseEther("1150000"),
-                    anyIdAllowed: false
-                },
-            ];
-            const predicates: ItemsPredicate[] = [
-                {
-                    verifier: verifier.address,
-                    data: encodeSignatureItems(signatureItems),
-                },
-            ];
-            const sig = await createLoanItemsSignature(
+            const sig = await createLoanTermsSignature(
                 originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
-                predicates,
                 lender,
                 EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
 
-            // lender approves sUSDe vault for swap
-            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
+            // lender approves sUSDe to swap
+            await sUSDe.connect(lender).approve(originationControllerIRS.address, susdeLenderSwapAmount);
 
-            // borrower approves 150,000 sUSDe to the origination controller
-            await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
-            await sUSDe.connect(borrower).approve(originationControllerIRS.address, ethers.utils.parseEther("150000"));
+            // borrower approves sUSDe to swap
+            const susdeBorrowerSwapAmount = ethers.utils.parseEther("150000");
+            await mint(sUSDe, borrower, susdeBorrowerSwapAmount);
+            await sUSDe.connect(borrower).approve(originationControllerIRS.address, susdeBorrowerSwapAmount);
+
+            // check sUSDe balance of borrower and lender
+            expect(await sUSDe.balanceOf(borrower.address)).to.equal(susdeBorrowerSwapAmount);
+            expect(await sUSDe.balanceOf(lender.address)).to.equal(susdeLenderSwapAmount);
 
             // Borrower initiates interest rate swap
             const swapData: SwapData = {
                 vaultedCurrency: sUSDe.address,
-                borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
-                lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
                 payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
-            await expect(
-                originationControllerIRS
-                    .connect(borrower)
-                    .initializeSwap(
-                        loanTerms,
-                        swapData,
-                        borrower.address,
-                        lender.address,
-                        sig,
-                        defaultSigProperties,
-                        predicates
-                    ),
-            )
-                .to.emit(vaultFactory, "Transfer")
-                .withArgs(lender.address, loanCore.address, bundleId);
+
+            // initialize swap
+            await originationControllerIRS
+                .connect(borrower)
+                .initializeSwap(
+                    loanTerms,
+                    swapData,
+                    borrower.address,
+                    lender.address,
+                    sig,
+                    defaultSigProperties,
+                );
 
             // check sUSDe balance of borrower and lender
             expect(await sUSDe.balanceOf(borrower.address)).to.equal(0);
             expect(await sUSDe.balanceOf(lender.address)).to.equal(0);
 
-            // check USDC balance of borrower and lender
-            expect(await USDC.balanceOf(borrower.address)).to.equal(0);
-            expect(await USDC.balanceOf(lender.address)).to.equal(0);
-
             // check loan core is the owner of the vault
+            const bundleId = await vaultFactory.instanceAtIndex(0);
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
         })
 
         it("lender with 1,000,000 variable rate sUSDe locking in fixed rate of 15%, borrower repays", async () => {
-            const { vaultFactory, originationControllerIRS, loanCore, USDC, sUSDe, user: lender, other: borrower, blockchainTime, repaymentController } = ctx;
+            const { vaultFactory, originationControllerIRS, loanCore, USDC, sUSDe, user: lender, other: borrower, repaymentController, blockchainTime } = ctx;
 
             // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
-            await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
+            const susdeLenderSwapAmount = ethers.utils.parseEther("1000000");
+            await mint(sUSDe, lender, susdeLenderSwapAmount);
 
-            // Lender creates vault and deposits 1,000,000 sUSDe into it
-            const bundleId = await initializeBundle(vaultFactory, lender);
-            const bundleAddress = await vaultFactory.instanceAt(bundleId);
-            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1000000"));
-
-            // Loan terms
+            // Signature and loan terms
             const loanTerms = createLoanTerms(
                 USDC.address, vaultFactory.address, {
-                    collateralId: bundleId,
-                    principal: ethers.utils.parseUnits("1000000", 6), // 1,000,000 USDC
+                    collateralId: BigNumber.from(0), // completed by the origination controller
+                    principal: BigNumber.from(1000000000000), // 1,000,000 USDC
                     interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
                     durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
                 },
             );
-            // lender signs CWO
-            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 sUSDe
-            const signatureItems: SignatureItem[] = [
-                {
-                    cType: 2,
-                    asset: sUSDe.address,
-                    tokenId: 0,
-                    amount: ethers.utils.parseEther("1150000"),
-                    anyIdAllowed: false
-                },
-            ];
-            const predicates: ItemsPredicate[] = [
-                {
-                    verifier: verifier.address,
-                    data: encodeSignatureItems(signatureItems),
-                },
-            ];
-            const sig = await createLoanItemsSignature(
+            const sig = await createLoanTermsSignature(
                 originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
-                predicates,
                 lender,
                 EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
 
-            // lender approves sUSDe vault for swap
-            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
+            // lender approves sUSDe to swap
+            await sUSDe.connect(lender).approve(originationControllerIRS.address, susdeLenderSwapAmount);
 
-            // borrower approves 150,000 sUSDe to the origination controller
-            await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
-            await sUSDe.connect(borrower).approve(originationControllerIRS.address, ethers.utils.parseEther("150000"));
+            // borrower approves sUSDe to swap
+            const susdeBorrowerSwapAmount = ethers.utils.parseEther("150000");
+            await mint(sUSDe, borrower, susdeBorrowerSwapAmount);
+            await sUSDe.connect(borrower).approve(originationControllerIRS.address, susdeBorrowerSwapAmount);
+
+            // check sUSDe balance of borrower and lender
+            expect(await sUSDe.balanceOf(borrower.address)).to.equal(susdeBorrowerSwapAmount);
+            expect(await sUSDe.balanceOf(lender.address)).to.equal(susdeLenderSwapAmount);
 
             // Borrower initiates interest rate swap
             const swapData: SwapData = {
                 vaultedCurrency: sUSDe.address,
-                borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
-                lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
                 payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
-            await expect(
-                originationControllerIRS
-                    .connect(borrower)
-                    .initializeSwap(
-                        loanTerms,
-                        swapData,
-                        borrower.address,
-                        lender.address,
-                        sig,
-                        defaultSigProperties,
-                        predicates
-                    ),
-            )
-                .to.emit(vaultFactory, "Transfer")
-                .withArgs(lender.address, loanCore.address, bundleId);
+
+            // initialize swap
+            await originationControllerIRS
+                .connect(borrower)
+                .initializeSwap(
+                    loanTerms,
+                    swapData,
+                    borrower.address,
+                    lender.address,
+                    sig,
+                    defaultSigProperties,
+                );
 
             // check sUSDe balance of borrower and lender
             expect(await sUSDe.balanceOf(borrower.address)).to.equal(0);
             expect(await sUSDe.balanceOf(lender.address)).to.equal(0);
+
+            // check loan core is the owner of the vault
+            const bundleId = await vaultFactory.instanceAtIndex(0);
+            expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
 
             // check USDC balance of borrower and lender
             expect(await USDC.balanceOf(borrower.address)).to.equal(0);
@@ -407,12 +331,13 @@ describe("OriginationControllerInterestRateSwap", () => {
             // fast forward to the end of the loan
             await blockchainTime.increaseTime(BigNumber.from(loanTerms.durationSecs).toNumber());
 
-            // mint borrower 1,150,000 USDC
-            await mint(USDC, borrower, ethers.utils.parseUnits("1150000", 6));
-            await USDC.connect(borrower).approve(loanCore.address, ethers.utils.parseUnits("1150000", 6));
+            // mint borrower repay amount
+            const borrowerRepayAmount = ethers.utils.parseUnits("1150000", 6);
+            await mint(USDC, borrower, borrowerRepayAmount);
+            await USDC.connect(borrower).approve(loanCore.address, borrowerRepayAmount);
 
             // check USDC balance of borrower and lender
-            expect(await USDC.balanceOf(borrower.address)).to.equal(ethers.utils.parseUnits("1150000", 6));
+            expect(await USDC.balanceOf(borrower.address)).to.equal(borrowerRepayAmount);
             expect(await USDC.balanceOf(lender.address)).to.equal(0);
 
             // borrower calls repayFull
@@ -421,99 +346,74 @@ describe("OriginationControllerInterestRateSwap", () => {
 
             // check USDC balance of borrower and lender
             expect(await USDC.balanceOf(borrower.address)).to.equal(0);
-            expect(await USDC.balanceOf(lender.address)).to.equal(ethers.utils.parseUnits("1150000", 6));
+            expect(await USDC.balanceOf(lender.address)).to.equal(borrowerRepayAmount);
 
             // check owner of the vault is the borrower
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(borrower.address);
         })
 
         it("lender with 1,000,000 variable rate sUSDe locking in fixed rate of 15%, borrower defaults", async () => {
-            const { vaultFactory, originationControllerIRS, loanCore, USDC, sUSDe, user: lender, other: borrower, blockchainTime, repaymentController } = ctx;
+            const { vaultFactory, originationControllerIRS, loanCore, USDC, sUSDe, user: lender, other: borrower, repaymentController, blockchainTime } = ctx;
 
             // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
-            await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
+            const susdeLenderSwapAmount = ethers.utils.parseEther("1000000");
+            await mint(sUSDe, lender, susdeLenderSwapAmount);
 
-            // Lender creates vault and deposits 1,000,000 sUSDe into it
-            const bundleId = await initializeBundle(vaultFactory, lender);
-            const bundleAddress = await vaultFactory.instanceAt(bundleId);
-            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1000000"));
-
-            // Loan terms
+            // Signature and loan terms
             const loanTerms = createLoanTerms(
                 USDC.address, vaultFactory.address, {
-                    collateralId: bundleId,
+                    collateralId: BigNumber.from(0), // completed by the origination controller
                     principal: BigNumber.from(1000000000000), // 1,000,000 USDC
                     interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
                     durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
                 },
             );
-            // lender signs CWO
-            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 sUSDe
-            const signatureItems: SignatureItem[] = [
-                {
-                    cType: 2,
-                    asset: sUSDe.address,
-                    tokenId: 0,
-                    amount: ethers.utils.parseEther("1150000"),
-                    anyIdAllowed: false
-                },
-            ];
-            const predicates: ItemsPredicate[] = [
-                {
-                    verifier: verifier.address,
-                    data: encodeSignatureItems(signatureItems),
-                },
-            ];
-            const sig = await createLoanItemsSignature(
+            const sig = await createLoanTermsSignature(
                 originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
-                predicates,
                 lender,
                 EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
 
-            // lender approves sUSDe vault for swap
-            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
+            // lender approves sUSDe to swap
+            await sUSDe.connect(lender).approve(originationControllerIRS.address, susdeLenderSwapAmount);
 
-            // borrower approves 150,000 sUSDe to the origination controller
-            await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
-            await sUSDe.connect(borrower).approve(originationControllerIRS.address, ethers.utils.parseEther("150000"));
+            // borrower approves sUSDe to swap
+            const susdeBorrowerSwapAmount = ethers.utils.parseEther("150000");
+            await mint(sUSDe, borrower, susdeBorrowerSwapAmount);
+            await sUSDe.connect(borrower).approve(originationControllerIRS.address, susdeBorrowerSwapAmount);
+
+            // check sUSDe balance of borrower and lender
+            expect(await sUSDe.balanceOf(borrower.address)).to.equal(susdeBorrowerSwapAmount);
+            expect(await sUSDe.balanceOf(lender.address)).to.equal(susdeLenderSwapAmount);
 
             // Borrower initiates interest rate swap
             const swapData: SwapData = {
                 vaultedCurrency: sUSDe.address,
-                borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
-                lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
                 payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
-            await expect(
-                originationControllerIRS
-                    .connect(borrower)
-                    .initializeSwap(
-                        loanTerms,
-                        swapData,
-                        borrower.address,
-                        lender.address,
-                        sig,
-                        defaultSigProperties,
-                        predicates
-                    ),
-            )
-                .to.emit(vaultFactory, "Transfer")
-                .withArgs(lender.address, loanCore.address, bundleId);
+
+            // initialize swap
+            await originationControllerIRS
+                .connect(borrower)
+                .initializeSwap(
+                    loanTerms,
+                    swapData,
+                    borrower.address,
+                    lender.address,
+                    sig,
+                    defaultSigProperties,
+                );
 
             // check sUSDe balance of borrower and lender
             expect(await sUSDe.balanceOf(borrower.address)).to.equal(0);
             expect(await sUSDe.balanceOf(lender.address)).to.equal(0);
 
-            // check USDC balance of borrower and lender
-            expect(await USDC.balanceOf(borrower.address)).to.equal(0);
-            expect(await USDC.balanceOf(lender.address)).to.equal(0);
-
             // check loan core is the owner of the vault
+            const bundleId = await vaultFactory.instanceAtIndex(0);
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
 
             // fast forward to the end of the loan
@@ -526,28 +426,22 @@ describe("OriginationControllerInterestRateSwap", () => {
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(lender.address);
         })
 
-        it("borrower originates swap", async () => {
+        it("lender originates swap", async () => {
             const { vaultFactory, originationControllerIRS, loanCore, USDC, sUSDe, user: lender, other: borrower } = ctx;
 
             // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
-            await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
+            const susdeLenderSwapAmount = ethers.utils.parseEther("1000000");
+            await mint(sUSDe, lender, susdeLenderSwapAmount);
 
-            // Lender creates vault and deposits 1,000,000 sUSDe into it
-            const bundleId = await initializeBundle(vaultFactory, lender);
-            const bundleAddress = await vaultFactory.instanceAt(bundleId);
-            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1000000"));
-
-            // Loan terms
+            // Signature and loan terms
             const loanTerms = createLoanTerms(
                 USDC.address, vaultFactory.address, {
-                    collateralId: bundleId,
+                    collateralId: BigNumber.from(0), // completed by the origination controller
                     principal: BigNumber.from(1000000000000), // 1,000,000 USDC
                     interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
                     durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
                 },
             );
-            // borrower signs loan terms on a specific lender vault
-            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 sUSDe
             const sig = await createLoanTermsSignature(
                 originationControllerIRS.address,
                 "OriginationController",
@@ -558,60 +452,52 @@ describe("OriginationControllerInterestRateSwap", () => {
                 "b",
             );
 
-            // lender approves sUSDe vault for swap
-            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
+            // lender approves sUSDe to swap
+            await sUSDe.connect(lender).approve(originationControllerIRS.address, susdeLenderSwapAmount);
 
-            // borrower approves 150,000 sUSDe to the origination controller
-            await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
-            await sUSDe.connect(borrower).approve(originationControllerIRS.address, ethers.utils.parseEther("150000"));
+            // borrower approves sUSDe to swap
+            const susdeBorrowerSwapAmount = ethers.utils.parseEther("150000");
+            await mint(sUSDe, borrower, susdeBorrowerSwapAmount);
+            await sUSDe.connect(borrower).approve(originationControllerIRS.address, susdeBorrowerSwapAmount);
+
+            // check sUSDe balance of borrower and lender
+            expect(await sUSDe.balanceOf(borrower.address)).to.equal(susdeBorrowerSwapAmount);
+            expect(await sUSDe.balanceOf(lender.address)).to.equal(susdeLenderSwapAmount);
 
             // Borrower initiates interest rate swap
             const swapData: SwapData = {
                 vaultedCurrency: sUSDe.address,
-                borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
-                lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
                 payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
-            await expect(
-                originationControllerIRS
-                    .connect(lender)
-                    .initializeSwap(
-                        loanTerms,
-                        swapData,
-                        borrower.address,
-                        lender.address,
-                        sig,
-                        defaultSigProperties,
-                        []
-                    ),
-            )
-                .to.emit(vaultFactory, "Transfer")
-                .withArgs(lender.address, loanCore.address, bundleId);
+
+            // initialize swap
+            await originationControllerIRS
+                .connect(lender)
+                .initializeSwap(
+                    loanTerms,
+                    swapData,
+                    borrower.address,
+                    lender.address,
+                    sig,
+                    defaultSigProperties,
+                );
 
             // check sUSDe balance of borrower and lender
             expect(await sUSDe.balanceOf(borrower.address)).to.equal(0);
             expect(await sUSDe.balanceOf(lender.address)).to.equal(0);
 
-            // check USDC balance of borrower and lender
-            expect(await USDC.balanceOf(borrower.address)).to.equal(0);
-            expect(await USDC.balanceOf(lender.address)).to.equal(0);
-
             // check loan core is the owner of the vault
+            const bundleId = await vaultFactory.instanceAtIndex(0);
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
         })
     });
 
     describe("Interest rate swap constraints", () => {
         let ctx: TestContext;
-        let verifier: ArcadeItemsVerifier;
 
         beforeEach(async () => {
             ctx = await loadFixture(fixture);
-            const { user, originationHelpers, lenderPromissoryNote, borrowerPromissoryNote } = ctx;
-
-            verifier = <ArcadeItemsVerifier>await deploy("ArcadeItemsVerifier", user, []);
-
-            await originationHelpers.connect(user).setAllowedVerifiers([verifier.address], [true]);
+            const { lenderPromissoryNote, borrowerPromissoryNote } = ctx;
 
             expect(await lenderPromissoryNote.totalSupply()).to.eq(0);
             expect(await borrowerPromissoryNote.totalSupply()).to.eq(0);
@@ -639,70 +525,49 @@ describe("OriginationControllerInterestRateSwap", () => {
         })
 
         it("currency pair is not whitelisted", async () => {
-            const { vaultFactory, originationControllerIRS, USDC, user: lender, other: borrower } = ctx;
+            const { vaultFactory, originationControllerIRS, USDC, sUSDe, user: lender, other: borrower } = ctx;
 
-            // deploy a new mockERC20
-            const mockERC20 = <MockERC20>await deploy("MockERC20", lender, ["mockERC20", "MERC20"])
+            // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
+            const susdeLenderSwapAmount = ethers.utils.parseEther("1000000");
+            await mint(sUSDe, lender, susdeLenderSwapAmount);
 
-            // Lender has 1,000,000 mockERC20 they want to lock in a fixed rate of 15% APR on
-            await mint(mockERC20, lender, ethers.utils.parseEther("1000000"));
-
-            // Lender creates vault and deposits 1,000,000 mockERC20 into it
-            const bundleId = await initializeBundle(vaultFactory, lender);
-            const bundleAddress = await vaultFactory.instanceAt(bundleId);
-            await mockERC20.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1000000"));
-
-            // Loan terms
+            // Signature and loan terms
             const loanTerms = createLoanTerms(
                 USDC.address, vaultFactory.address, {
-                    collateralId: bundleId,
+                    collateralId: BigNumber.from(0), // completed by the origination controller
                     principal: BigNumber.from(1000000000000), // 1,000,000 USDC
                     interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
                     durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
                 },
             );
-            // lender signs CWO
-            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 mockERC20
-            const signatureItems: SignatureItem[] = [
-                {
-                    cType: 2,
-                    asset: mockERC20.address,
-                    tokenId: 0,
-                    amount: ethers.utils.parseEther("1150000"),
-                    anyIdAllowed: false
-                },
-            ];
-            const predicates: ItemsPredicate[] = [
-                {
-                    verifier: verifier.address,
-                    data: encodeSignatureItems(signatureItems),
-                },
-            ];
-            const sig = await createLoanItemsSignature(
+            const sig = await createLoanTermsSignature(
                 originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
-                predicates,
                 lender,
                 EIP712_VERSION,
                 defaultSigProperties,
                 "l",
             );
 
-            // lender approves mockERC20 vault for swap
-            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
+            // lender approves sUSDe to swap
+            await sUSDe.connect(lender).approve(originationControllerIRS.address, susdeLenderSwapAmount);
 
-            // borrower approves 150,000 mockERC20 to the origination controller
-            await mint(mockERC20, borrower, ethers.utils.parseEther("150000"));
-            await mockERC20.connect(borrower).approve(originationControllerIRS.address, ethers.utils.parseEther("150000"));
+            // borrower approves sUSDe to swap
+            const susdeBorrowerSwapAmount = ethers.utils.parseEther("150000");
+            await mint(sUSDe, borrower, susdeBorrowerSwapAmount);
+            await sUSDe.connect(borrower).approve(originationControllerIRS.address, susdeBorrowerSwapAmount);
+
+            // check sUSDe balance of borrower and lender
+            expect(await sUSDe.balanceOf(borrower.address)).to.equal(susdeBorrowerSwapAmount);
+            expect(await sUSDe.balanceOf(lender.address)).to.equal(susdeLenderSwapAmount);
 
             // Borrower initiates interest rate swap
             const swapData: SwapData = {
-                vaultedCurrency: mockERC20.address,
-                borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
-                lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
+                vaultedCurrency: ethers.constants.AddressZero,
                 payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
+
             await expect(
                 originationControllerIRS
                     .connect(borrower)
@@ -713,350 +578,9 @@ describe("OriginationControllerInterestRateSwap", () => {
                         lender.address,
                         sig,
                         defaultSigProperties,
-                        predicates
                     ),
             )
                 .to.be.revertedWith("OCIRS_InvalidPair");
         })
-
-        it("invalid principal amount", async () => {
-            const { vaultFactory, originationControllerIRS, USDC, sUSDe, user: lender, other: borrower } = ctx;
-
-            // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
-            await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
-
-            // Lender creates vault and deposits 1,000,000 sUSDe into it
-            const bundleId = await initializeBundle(vaultFactory, lender);
-            const bundleAddress = await vaultFactory.instanceAt(bundleId);
-            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1000000"));
-
-            // Loan terms
-            const loanTerms = createLoanTerms(
-                USDC.address, vaultFactory.address, {
-                    collateralId: bundleId,
-                    principal: BigNumber.from(1100000000000), // invalid input
-                    interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
-                    durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
-                },
-            );
-            // lender signs CWO
-            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 sUSDe
-            const signatureItems: SignatureItem[] = [
-                {
-                    cType: 2,
-                    asset: sUSDe.address,
-                    tokenId: 0,
-                    amount: ethers.utils.parseEther("1150000"),
-                    anyIdAllowed: false
-                },
-            ];
-            const predicates: ItemsPredicate[] = [
-                {
-                    verifier: verifier.address,
-                    data: encodeSignatureItems(signatureItems),
-                },
-            ];
-            const sig = await createLoanItemsSignature(
-                originationControllerIRS.address,
-                "OriginationController",
-                loanTerms,
-                predicates,
-                lender,
-                EIP712_VERSION,
-                defaultSigProperties,
-                "l",
-            );
-
-            // lender approves sUSDe vault for swap
-            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
-
-            // borrower approves 150,000 sUSDe to the origination controller
-            await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
-            await sUSDe.connect(borrower).approve(originationControllerIRS.address, ethers.utils.parseEther("150000"));
-
-            // Borrower initiates interest rate swap
-            const swapData: SwapData = {
-                vaultedCurrency: sUSDe.address,
-                borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
-                lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
-                payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
-            }
-            await expect(
-                originationControllerIRS
-                    .connect(borrower)
-                    .initializeSwap(
-                        loanTerms,
-                        swapData,
-                        borrower.address,
-                        lender.address,
-                        sig,
-                        defaultSigProperties,
-                        predicates
-                    ),
-            )
-                .to.be.revertedWith("OCIRS_InvalidPrincipalAmounts");
-        })
-
-        it("lender deposits less than swap data input amount", async () => {
-            const { vaultFactory, originationControllerIRS, USDC, sUSDe, user: lender, other: borrower } = ctx;
-
-            // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
-            await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
-
-            // Lender creates vault and deposits 1,000,000 sUSDe into it
-            const bundleId = await initializeBundle(vaultFactory, lender);
-            const bundleAddress = await vaultFactory.instanceAt(bundleId);
-            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("900000"));
-
-            // Loan terms
-            const loanTerms = createLoanTerms(
-                USDC.address, vaultFactory.address, {
-                    collateralId: bundleId,
-                    principal: BigNumber.from(1000000000000), // 1,000,000 USDC
-                    interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
-                    durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
-                },
-            );
-            // lender signs CWO
-            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 sUSDe
-            const signatureItems: SignatureItem[] = [
-                {
-                    cType: 2,
-                    asset: sUSDe.address,
-                    tokenId: 0,
-                    amount: ethers.utils.parseEther("1150000"),
-                    anyIdAllowed: false
-                },
-            ];
-            const predicates: ItemsPredicate[] = [
-                {
-                    verifier: verifier.address,
-                    data: encodeSignatureItems(signatureItems),
-                },
-            ];
-            const sig = await createLoanItemsSignature(
-                originationControllerIRS.address,
-                "OriginationController",
-                loanTerms,
-                predicates,
-                lender,
-                EIP712_VERSION,
-                defaultSigProperties,
-                "l",
-            );
-
-            // lender approves sUSDe vault for swap
-            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
-
-            // borrower approves 150,000 sUSDe to the origination controller
-            await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
-            await sUSDe.connect(borrower).approve(originationControllerIRS.address, ethers.utils.parseEther("150000"));
-
-            // Borrower initiates interest rate swap
-            const swapData: SwapData = {
-                vaultedCurrency: sUSDe.address,
-                borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
-                lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
-                payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
-            }
-            await expect(
-                originationControllerIRS
-                    .connect(borrower)
-                    .initializeSwap(
-                        loanTerms,
-                        swapData,
-                        borrower.address,
-                        lender.address,
-                        sig,
-                        defaultSigProperties,
-                        predicates
-                    ),
-            )
-                .to.be.revertedWith("OCIRS_InvalidVaultAmount");
-        });
-
-        it("invalid interest amounts", async () => {
-            const { vaultFactory, originationControllerIRS, USDC, sUSDe, user: lender, other: borrower } = ctx;
-
-            // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
-            await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
-
-            // Lender creates vault and deposits 1,000,000 sUSDe into it
-            const bundleId = await initializeBundle(vaultFactory, lender);
-            const bundleAddress = await vaultFactory.instanceAt(bundleId);
-            await sUSDe.connect(lender).transfer(bundleAddress, ethers.utils.parseEther("1000000"));
-
-            // Loan terms
-            const loanTerms = createLoanTerms(
-                USDC.address, vaultFactory.address, {
-                    collateralId: bundleId,
-                    principal: BigNumber.from(1000000000000), // 1,000,000 USDC
-                    interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
-                    durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
-                },
-            );
-            // lender signs CWO
-            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 sUSDe
-            const signatureItems: SignatureItem[] = [
-                {
-                    cType: 2,
-                    asset: sUSDe.address,
-                    tokenId: 0,
-                    amount: ethers.utils.parseEther("1150000"),
-                    anyIdAllowed: false
-                },
-            ];
-            const predicates: ItemsPredicate[] = [
-                {
-                    verifier: verifier.address,
-                    data: encodeSignatureItems(signatureItems),
-                },
-            ];
-            const sig = await createLoanItemsSignature(
-                originationControllerIRS.address,
-                "OriginationController",
-                loanTerms,
-                predicates,
-                lender,
-                EIP712_VERSION,
-                defaultSigProperties,
-                "l",
-            );
-
-            // lender approves sUSDe vault for swap
-            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
-
-            // borrower approves 150,000 sUSDe to the origination controller
-            await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
-            await sUSDe.connect(borrower).approve(originationControllerIRS.address, ethers.utils.parseEther("150000"));
-
-            // Borrower initiates interest rate swap
-            const swapData: SwapData = {
-                vaultedCurrency: sUSDe.address,
-                borrowerVaultedCurrencyAmount: ethers.utils.parseEther("140000"), // invalid input
-                lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
-                payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
-            }
-            await expect(
-                originationControllerIRS
-                    .connect(borrower)
-                    .initializeSwap(
-                        loanTerms,
-                        swapData,
-                        borrower.address,
-                        lender.address,
-                        sig,
-                        defaultSigProperties,
-                        predicates
-                    ),
-            )
-                .to.be.revertedWith("OCIRS_InvalidInterestAmounts");
-        });
-
-        it("loan terms currency decimals greater than vaulted currency decimals", async () => {
-            const { vaultFactory, originationControllerIRS, USDC, sUSDe, user: lender, other: borrower } = ctx;
-
-            // whitelist invalid combination
-            await originationControllerIRS.setPair(sUSDe.address, USDC.address, 1, true);
-            const key = ethers.utils.solidityKeccak256(["address", "address", "uint256"], [sUSDe.address, USDC.address, 1]);
-            const isPairWhitelisted = await originationControllerIRS.currencyPairs(key);
-            expect(isPairWhitelisted).to.be.true;
-
-            // Lender has 1,000,000 USDC they want to lock in a fixed rate of 15% APR on
-            await mint(USDC, lender, BigNumber.from(1000000000000));
-
-            // Lender creates vault and deposits 1,000,000 USDC into it
-            const bundleId = await initializeBundle(vaultFactory, lender);
-            const bundleAddress = await vaultFactory.instanceAt(bundleId);
-            await USDC.connect(lender).transfer(bundleAddress, BigNumber.from(1000000000000));
-
-            // Loan terms
-            const loanTerms = createLoanTerms(
-                sUSDe.address, vaultFactory.address, {
-                    collateralId: bundleId,
-                    principal: ethers.utils.parseEther("1000000"), // 1,000,000 sUSDe
-                    interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 sUSDe after 1 year
-                    durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
-                },
-            );
-            // lender signs CWO
-            // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 USDC
-            const signatureItems: SignatureItem[] = [
-                {
-                    cType: 2,
-                    asset: USDC.address,
-                    tokenId: 0,
-                    amount: BigNumber.from(1150000000000),
-                    anyIdAllowed: false
-                },
-            ];
-            const predicates: ItemsPredicate[] = [
-                {
-                    verifier: verifier.address,
-                    data: encodeSignatureItems(signatureItems),
-                },
-            ];
-            const sig = await createLoanItemsSignature(
-                originationControllerIRS.address,
-                "OriginationController",
-                loanTerms,
-                predicates,
-                lender,
-                EIP712_VERSION,
-                defaultSigProperties,
-                "l",
-            );
-
-            // lender approves USDC vault for swap
-            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
-
-            // borrower approves 150,000 USDC to the origination controller
-            await mint(USDC, borrower, BigNumber.from(150000000000));
-            await USDC.connect(borrower).approve(originationControllerIRS.address, BigNumber.from(150000000000));
-
-            // Borrower tries to initiate swap
-            const swapData: SwapData = {
-                vaultedCurrency: USDC.address,
-                borrowerVaultedCurrencyAmount: BigNumber.from(150000000000),
-                lenderVaultedCurrencyAmount: BigNumber.from(1000000000000),
-                payableToVaultedCurrencyRatio: BigNumber.from(1),
-            }
-            await expect(
-                originationControllerIRS
-                    .connect(borrower)
-                    .initializeSwap(
-                        loanTerms,
-                        swapData,
-                        borrower.address,
-                        lender.address,
-                        sig,
-                        defaultSigProperties,
-                        predicates
-                    ),
-            )
-                .to.be.revertedWith("OCIRS_InvalidPrincipalAmounts");
-
-            // Borrower tries again to initiate swap with different swap data
-            const swapData2: SwapData = {
-                vaultedCurrency: USDC.address,
-                borrowerVaultedCurrencyAmount: BigNumber.from(150000000000),
-                lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
-                payableToVaultedCurrencyRatio: BigNumber.from(1),
-            }
-            await expect(
-                originationControllerIRS
-                    .connect(borrower)
-                    .initializeSwap(
-                        loanTerms,
-                        swapData2,
-                        borrower.address,
-                        lender.address,
-                        sig,
-                        defaultSigProperties,
-                        predicates
-                    ),
-            )
-                .to.be.revertedWith("OCIRS_InvalidVaultAmount");
-        });
     });
 });

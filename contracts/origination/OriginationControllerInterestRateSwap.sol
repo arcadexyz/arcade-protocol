@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
 import "./OriginationControllerBase.sol";
 
@@ -17,10 +18,7 @@ import "../libraries/Constants.sol";
 
 import {
     OCIRS_ZeroAddress,
-    OCIRS_InvalidPair,
-    OCIRS_InvalidPrincipalAmounts,
-    OCIRS_InvalidVaultAmount,
-    OCIRS_InvalidInterestAmounts
+    OCIRS_InvalidPair
 } from "../errors/Lending.sol";
 
 /**
@@ -29,11 +27,11 @@ import {
  *
  * TODO: Add documentation
  */
-
 contract OriginationControllerInterestRateSwap is
     IOriginationControllerInterestRateSwap,
     OriginationControllerBase,
     ReentrancyGuard,
+    ERC721Holder,
     Ownable
 {
     using SafeERC20 for IERC20;
@@ -73,12 +71,10 @@ contract OriginationControllerInterestRateSwap is
         vaultFactory = IVaultFactory(_vaultFactory);
     }
 
-    // ======================================= LOAN ORIGINATION =========================================
+    // ========================================== ORIGINATION ===========================================
 
     /**
      * @notice Initializes a new interest rate swap and registers the collateral with Loan Core.
-     *
-     * @notice If item predicates are passed, they are used to verify collateral.
      *
      * @dev The caller must be a borrower or lender, or approved by a borrower or lender.
      * @dev The external signer must be a borrower or lender, or approved by a borrower or lender.
@@ -90,9 +86,9 @@ contract OriginationControllerInterestRateSwap is
      * @param lender                        Address of the lender.
      * @param sig                           The loan terms signature, with v, r, s fields, and possible extra data.
      * @param sigProperties                 Signature nonce and max uses for this nonce.
-     * @param itemPredicates                The predicate rules for the items in the bundle.
      *
      * @return loanId                       The unique ID of the new loan.
+     * @return bundleId                     The ID of the new asset vault.
      */
     function initializeSwap(
         LoanLibrary.LoanTerms calldata loanTerms,
@@ -100,141 +96,126 @@ contract OriginationControllerInterestRateSwap is
         address borrower,
         address lender,
         Signature calldata sig,
-        SigProperties calldata sigProperties,
-        LoanLibrary.Predicate[] calldata itemPredicates
-    ) external returns (uint256 loanId) {
+        SigProperties calldata sigProperties
+    ) external returns (uint256 loanId, uint256 bundleId) {
         // input validation
         originationHelpers.validateLoanTerms(loanTerms);
 
-        address vaultAddress = vaultFactory.instanceAt(loanTerms.collateralId);
-        _validateSwap(loanTerms, swapData, vaultAddress);
+        _validateSwap(loanTerms, swapData);
 
-        {
-            // signature validation
-            Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
+        // signature validation
+        Side neededSide = isSelfOrApproved(borrower, msg.sender) ? Side.LEND : Side.BORROW;
 
-            address signingCounterparty = neededSide == Side.LEND ? lender : borrower;
-            address callingCounterparty = neededSide == Side.LEND ? borrower : lender;
+        address signingCounterparty = neededSide == Side.LEND ? lender : borrower;
+        address callingCounterparty = neededSide == Side.LEND ? borrower : lender;
 
-            (bytes32 sighash, address externalSigner) = _recoverSignature(loanTerms, sig, sigProperties, neededSide, signingCounterparty, itemPredicates);
+        (bytes32 sighash, address externalSigner) = recoverTokenSignature(
+            loanTerms,
+            sig,
+            sigProperties,
+            neededSide,
+            signingCounterparty
+        );
 
-            _validateCounterparties(signingCounterparty, callingCounterparty, msg.sender, externalSigner, sig, sighash);
+        _validateCounterparties(signingCounterparty, callingCounterparty, msg.sender, externalSigner, sig, sighash);
 
-            // consume signer nonce
-            loanCore.consumeNonce(externalSigner, sigProperties.nonce, sigProperties.maxUses);
-        }
+        // consume signer nonce
+        loanCore.consumeNonce(externalSigner, sigProperties.nonce, sigProperties.maxUses);
 
         // initialize loan
-        loanId = _initialize(loanTerms, swapData, vaultAddress, borrower, lender);
-
-        // Run predicates check at the end of the function, after vault is in escrow. This makes sure
-        // that re-entrancy was not employed to withdraw collateral after the predicates check occurs.
-        if (itemPredicates.length > 0) originationHelpers.runPredicatesCheck(borrower, lender, loanTerms, itemPredicates);
+        (loanId, bundleId) = _initialize(loanTerms, swapData, borrower, lender);
     }
 
     // =========================================== HELPERS ==============================================
 
     /**
-     * @notice Check that the interest rate swap data is valid for the provided loan terms.
+     * @notice Check that the swap data is valid for the provided loan terms.
      *
      * @param loanTerms                     The terms of the loan.
      * @param swapData                      The swap data to validate.
-     * @param vaultAddress                  The address of the vault.
      */
     function _validateSwap(
         LoanLibrary.LoanTerms calldata loanTerms,
-        SwapData calldata swapData,
-        address vaultAddress
+        SwapData calldata swapData
     ) internal view {
-        // verify the vaulted currency is allowed to be paired with the loan terms payable currency
-        bytes32 currencyHash = keccak256(
+        bytes32 key = keccak256(
             abi.encodePacked(
                 loanTerms.payableCurrency,
                 swapData.vaultedCurrency,
                 swapData.payableToVaultedCurrencyRatio
             )
         );
-        if(currencyPairs[currencyHash] != true)
-            revert OCIRS_InvalidPair(loanTerms.payableCurrency, swapData.vaultedCurrency);
 
-        // verify the vaulted currency amounts
-        if(loanTerms.principal * swapData.payableToVaultedCurrencyRatio != swapData.lenderVaultedCurrencyAmount)
-            revert OCIRS_InvalidPrincipalAmounts(
-                loanTerms.principal,
-                swapData.payableToVaultedCurrencyRatio,
-                swapData.lenderVaultedCurrencyAmount
-            );
-
-        // verify that the vault holds the lenderVaultedCurrencyAmount
-        uint256 vaultAmount = IERC20(swapData.vaultedCurrency).balanceOf(vaultAddress);
-        if(vaultAmount != swapData.lenderVaultedCurrencyAmount)
-            revert OCIRS_InvalidVaultAmount(vaultAmount, swapData.lenderVaultedCurrencyAmount);
-
-        // calculate the total interest due over the loan duration
-        uint256 totalInterest = loanTerms.principal * loanTerms.durationSecs * loanTerms.interestRate
-            / (Constants.BASIS_POINTS_DENOMINATOR * Constants.SECONDS_IN_YEAR);
-
-        // verify interest amounts
-        if(totalInterest * swapData.payableToVaultedCurrencyRatio != swapData.borrowerVaultedCurrencyAmount)
-            revert OCIRS_InvalidInterestAmounts(
-                totalInterest,
-                swapData.payableToVaultedCurrencyRatio,
-                swapData.borrowerVaultedCurrencyAmount
-            );
+        if(!currencyPairs[key]) revert OCIRS_InvalidPair(loanTerms.payableCurrency, swapData.vaultedCurrency);
     }
 
     /**
-     * @notice Perform loan initialization. Pull fixed interest amount from the borrower and add to vault.
-     *         Take custody of collateral form the lender. Tell LoanCore to create and start a loan.
-     *
-     * @dev The only collateral accepted by this contract is a Vault Factory vault.
+     * @notice Mint a new asset vault, then deposit the vaulted currency amounts from both parties
+     *         into the asset vault. Update the loan terms to reflect the new bundle ID. Then,
+     *         tell LoanCore to create a new loan.
      *
      * @param loanTerms                     The terms agreed by the lender and borrower.
      * @param swapData                      The interest rate swap data.
-     * @param vaultAddress                  The address of the vault.
      * @param borrower                      Address of the borrower.
      * @param lender                        Address of the lender.
      *
      * @return loanId                       The unique ID of the new loan.
+     * @return bundleId                     The ID of the new asset vault.
      */
     function _initialize(
         LoanLibrary.LoanTerms calldata loanTerms,
         SwapData calldata swapData,
-        address vaultAddress,
         address borrower,
         address lender
-    ) internal nonReentrant returns (uint256 loanId) {
+    ) internal nonReentrant returns (uint256 loanId, uint256 bundleId) {
+        // calculate the vaulted currency amounts for each party
+        uint256 totalInterest = loanTerms.principal * loanTerms.durationSecs * loanTerms.interestRate
+            / (Constants.BASIS_POINTS_DENOMINATOR * Constants.SECONDS_IN_YEAR);
+        uint256 borrowerDepositAmount = totalInterest * swapData.payableToVaultedCurrencyRatio;
+        uint256 lenderDepositAmount = loanTerms.principal * swapData.payableToVaultedCurrencyRatio;
+
         // get fee snapshot from fee controller
-        (LoanLibrary.FeeSnapshot memory feeSnapshot) = feeController.getFeeSnapshot();
+        LoanLibrary.FeeSnapshot memory feeSnapshot = feeController.getFeeSnapshot();
 
-        // transfer fixed interest amount from borrower to lender's vault
-        IERC20(swapData.vaultedCurrency).safeTransferFrom(
-            borrower,
-            vaultAddress,
-            swapData.borrowerVaultedCurrencyAmount
-        );
+        // create new asset vault to hold the collateral
+        bundleId = vaultFactory.initializeBundle(address(this));
+        address vaultAddress = address(uint160(bundleId));
 
-        // collect vault from lender and send to LoanCore
-        IERC721(address(vaultFactory)).transferFrom(lender, address(loanCore), loanTerms.collateralId);
+        // update loan terms with bundle ID
+        LoanLibrary.LoanTerms memory loanTermsMem = loanTerms;
+        loanTermsMem.collateralId = bundleId;
+
+        // transfer borrower's tokens into vault
+        IERC20(swapData.vaultedCurrency).safeTransferFrom(borrower, vaultAddress, borrowerDepositAmount);
+
+        // transfer lender's tokens into vault
+        IERC20(swapData.vaultedCurrency).safeTransferFrom(lender, vaultAddress,lenderDepositAmount);
+
+        // transfer vault to loan core
+        IERC721(address(vaultFactory)).transferFrom(address(this), address(loanCore), bundleId);
 
         // create loan in LoanCore
-        loanId = loanCore.startLoan(lender, borrower, loanTerms, feeSnapshot);
+        loanId = loanCore.startLoan(lender, borrower, loanTermsMem, feeSnapshot);
     }
 
     // ============================================ ADMIN ===============================================
 
     /**
      * @notice Whitelist a currency pair to be used for interest rate swaps. The first currency is the currency
-     *         that is set in the loan terms. The second currency is the collateral currency.
+     *         that is set in the loan terms. The second currency is the collateral currency. Additionally, a
+     *         ratio is included to ensure that a collateral currencies can be used with loan terms currencies
+     *         that have fewer decimal places.
      *
+     * @dev ratio = vaulted currency decimals (currency2) / collateral currency decimals (currency1)
+     *      i.e. ratio = (1 uSDCe) / (1 USDC) = 1e18 / 1e6 = 1e12
      * @dev The pair ratio is defined as the vaulted currency decimals divided by the collateral currency decimals.
      *      This ratio is used to compare currency amounts when they use different decimal places. It is very important
      *      to understand that this ratio is designed such that the decimal places of the loan terms currency must
-     *      be less than the decimal places of the collateral currency. For scenarios where the loan terms currency
-     *      decimals are greater than the collateral currency, input validations will fail.
+     *      be less than or equal to the decimal places of the collateral currency. This is highly TRUSTED INPUT
+     *      that the owner of the contract must follow and ensure the ratio is calculated correctly.
      *
-     * @param currency1                  The first currency in the pair.
-     * @param currency2                  The second currency in the pair.
+     * @param currency1                  The address of the loan terms payable currency.
+     * @param currency2                  The address of the collateral currency, aka the vaulted currency.
      * @param ratio                      The ratio of the pair.
      * @param isAllowed                  Whether the pair is allowed.
      */
