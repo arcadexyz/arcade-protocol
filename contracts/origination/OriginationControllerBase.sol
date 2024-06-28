@@ -4,6 +4,7 @@ pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 
 import "./OriginationCalculator.sol";
 
@@ -100,6 +101,34 @@ abstract contract OriginationControllerBase is IOriginationControllerBase, EIP71
      */
     function isSelfOrApproved(address target, address signer) public view override returns (bool) {
         return target == signer || isApproved(target, signer);
+    }
+
+    /**
+     * @notice Reports whether the signer matches the target or is approved by the target.
+     *
+     * @param target                        The grantor of permission - should be a smart contract.
+     * @param sig                           A struct containing the signature data (for checking EIP-1271).
+     * @param sighash                       The hash of the signature payload (used for EIP-1271 check).
+     *
+     * @return bool                         Whether the signer is either the grantor themselves, or approved.
+     */
+    function isApprovedForContract(
+        address target,
+        IOriginationController.Signature memory sig,
+        bytes32 sighash
+    ) public view returns (bool) {
+        bytes memory signature = abi.encodePacked(sig.r, sig.s, sig.v);
+
+        // Append extra data if it exists
+        if (sig.extraData.length > 0) {
+            signature = bytes.concat(signature, sig.extraData);
+        }
+
+        // Convert sig struct to bytes
+        (bool success, bytes memory result) = target.staticcall(
+            abi.encodeWithSelector(IERC1271.isValidSignature.selector, sighash, signature)
+        );
+        return (success && result.length == 32 && abi.decode(result, (bytes32)) == bytes32(IERC1271.isValidSignature.selector));
     }
 
     // ==================================== SIGNATURE VERIFICATION ======================================
@@ -246,7 +275,7 @@ abstract contract OriginationControllerBase is IOriginationControllerBase, EIP71
         }
 
         // Check signature validity
-        if (!isSelfOrApproved(signingCounterparty, signer) && !OriginationLibrary.isApprovedForContract(signingCounterparty, sig, sighash)) {
+        if (!isSelfOrApproved(signingCounterparty, signer) && !isApprovedForContract(signingCounterparty, sig, sighash)) {
             revert OC_InvalidSignature(signingCounterparty, signer);
         }
 

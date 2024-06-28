@@ -15,7 +15,6 @@ import {
     AssetVault,
     PromissoryNote,
     LoanCore,
-    ArcadeItemsVerifier,
     FeeController,
     BaseURIDescriptor,
     OriginationHelpers,
@@ -25,7 +24,7 @@ import {
 } from "../typechain";
 import { mint, ZERO_ADDRESS } from "./utils/erc20";
 import { LoanTerms, SignatureProperties, SwapData } from "./utils/types";
-import { createLoanTermsSignature } from "./utils/eip712";
+import { createInterestRateSwapSignature } from "./utils/eip712";
 
 import {
     ORIGINATOR_ROLE,
@@ -208,10 +207,11 @@ describe("OriginationControllerInterestRateSwap", () => {
                     durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
                 },
             );
-            const sig = await createLoanTermsSignature(
+            const sig = await createInterestRateSwapSignature(
                 originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
+                sUSDe.address,
                 lender,
                 EIP712_VERSION,
                 defaultSigProperties,
@@ -273,10 +273,11 @@ describe("OriginationControllerInterestRateSwap", () => {
                     durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
                 },
             );
-            const sig = await createLoanTermsSignature(
+            const sig = await createInterestRateSwapSignature(
                 originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
+                sUSDe.address,
                 lender,
                 EIP712_VERSION,
                 defaultSigProperties,
@@ -368,10 +369,11 @@ describe("OriginationControllerInterestRateSwap", () => {
                     durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
                 },
             );
-            const sig = await createLoanTermsSignature(
+            const sig = await createInterestRateSwapSignature(
                 originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
+                sUSDe.address,
                 lender,
                 EIP712_VERSION,
                 defaultSigProperties,
@@ -442,10 +444,11 @@ describe("OriginationControllerInterestRateSwap", () => {
                     durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
                 },
             );
-            const sig = await createLoanTermsSignature(
+            const sig = await createInterestRateSwapSignature(
                 originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
+                sUSDe.address,
                 borrower,
                 EIP712_VERSION,
                 defaultSigProperties,
@@ -540,10 +543,11 @@ describe("OriginationControllerInterestRateSwap", () => {
                     durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
                 },
             );
-            const sig = await createLoanTermsSignature(
+            const sig = await createInterestRateSwapSignature(
                 originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
+                sUSDe.address,
                 lender,
                 EIP712_VERSION,
                 defaultSigProperties,
@@ -582,5 +586,64 @@ describe("OriginationControllerInterestRateSwap", () => {
             )
                 .to.be.revertedWith("OCIRS_InvalidPair");
         })
+
+        it("Reverts on invalid signature", async () => {
+            const { vaultFactory, originationControllerIRS, USDC, sUSDe, user: lender, other: borrower, signers } = ctx;
+
+            // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
+            const susdeLenderSwapAmount = ethers.utils.parseEther("1000000");
+            await mint(sUSDe, lender, susdeLenderSwapAmount);
+
+            // Signature and loan terms
+            const loanTerms = createLoanTerms(
+                USDC.address, vaultFactory.address, {
+                    collateralId: BigNumber.from(0), // completed by the origination controller
+                    principal: BigNumber.from(1000000000000), // 1,000,000 USDC
+                    interestRate: BigNumber.from(1500), // 15% interest amount makes the repayment amount 1,150,000 USDC after 1 year
+                    durationSecs: BigNumber.from(60 * 60 * 24 * 365), // 1 year
+                },
+            );
+            const sig = await createInterestRateSwapSignature(
+                originationControllerIRS.address,
+                "OriginationController",
+                loanTerms,
+                sUSDe.address,
+                signers[3], // 3rd party signer is not approved to sign
+                EIP712_VERSION,
+                defaultSigProperties,
+                "l",
+            );
+
+            // lender approves sUSDe to swap
+            await sUSDe.connect(lender).approve(originationControllerIRS.address, susdeLenderSwapAmount);
+
+            // borrower approves sUSDe to swap
+            const susdeBorrowerSwapAmount = ethers.utils.parseEther("150000");
+            await mint(sUSDe, borrower, susdeBorrowerSwapAmount);
+            await sUSDe.connect(borrower).approve(originationControllerIRS.address, susdeBorrowerSwapAmount);
+
+            // check sUSDe balance of borrower and lender
+            expect(await sUSDe.balanceOf(borrower.address)).to.equal(susdeBorrowerSwapAmount);
+            expect(await sUSDe.balanceOf(lender.address)).to.equal(susdeLenderSwapAmount);
+
+            // Borrower initiates interest rate swap
+            const swapData: SwapData = {
+                vaultedCurrency: sUSDe.address,
+                payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
+            }
+
+            // initialize swap
+            await expect( originationControllerIRS
+                .connect(borrower)
+                .initializeSwap(
+                    loanTerms,
+                    swapData,
+                    borrower.address,
+                    lender.address,
+                    sig,
+                    defaultSigProperties,
+                )
+            ).to.be.revertedWith("OC_InvalidSignature");
+        });
     });
 });

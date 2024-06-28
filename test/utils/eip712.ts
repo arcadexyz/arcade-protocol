@@ -1,7 +1,7 @@
 import hre from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 import { BigNumberish } from "ethers";
-import { LoanTerms, ItemsPredicate, InitializeLoanSignature, SignatureProperties, LoanTermsWithItems, LoanWithItems, Loan } from "./types";
+import { LoanTerms, ItemsPredicate, InitializeLoanSignature, SignatureProperties, LoanWithItems, Loan, LoanInterestRateSwap } from "./types";
 import { fromRpcSig, ECDSASignature } from "ethereumjs-util";
 import { EIP712_VERSION } from "./constants";
 
@@ -81,6 +81,30 @@ const typedLoanItemsData: TypeData = {
         ],
     },
     primaryType: "LoanWithItems" as const,
+};
+
+const typedLoanInterestRateSwapData: TypeData = {
+    types: {
+        LoanTermsWithCurrencyPair: [
+            { name: "interestRate", type: "uint32" },
+            { name: "durationSecs", type: "uint64" },
+            { name: "vaultedCurrency", type: "address" },
+            { name: "collateralAddress", type: "address" },
+            { name: "deadline", type: "uint96" },
+            { name: "payableCurrency", type: "address" },
+            { name: "principal", type: "uint256" },
+            { name: "collateralId", type: "uint256" },
+            { name: "affiliateCode", type: "bytes32" },
+            { name: "sigProperties", type: "SigProperties" },
+            { name: "side", type: "uint8" },
+            { name: "signingCounterparty", type: "address"},
+        ],
+        SigProperties: [
+            { name: "nonce", type: "uint160" },
+            { name: "maxUses", type: "uint96" },
+        ],
+    },
+    primaryType: "LoanTermsWithCurrencyPair" as const,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -183,6 +207,54 @@ export async function createLoanItemsSignature(
     };
 
     const data = buildData(verifyingContract, name, version, message, typedLoanItemsData);
+    const signature = await signer._signTypedData(data.domain, data.types, data.message);
+
+    const sig: ECDSASignature =  fromRpcSig(signature);
+
+    return { v: sig.v, r: sig.r, s: sig.s, extraData };
+}
+
+/**
+ * Create an EIP712 signature for loan terms
+ * @param verifyingContract The address of the contract that will be verifying this signature
+ * @param name The name of the contract that will be verifying this signature
+ * @param terms the LoanTerms object to sign
+ * @param vaultedCurrency The vaulted currency
+ * @param signer The EOA to create the signature
+ * @param version The EIP712 version of the contract to use
+ * @param sigProperties The signature nonce and max uses for that nonce
+ * @param side The side of the loan
+ * @param extraData Any data to append to the signature
+ */
+export async function createInterestRateSwapSignature(
+    verifyingContract: string,
+    name: string,
+    terms: LoanTerms,
+    vaultedCurrency: string,
+    signer: SignerWithAddress,
+    version = EIP712_VERSION,
+    sigProperties: SignatureProperties,
+    _side: "b" | "l",
+    extraData = "0x",
+    _signingCounterparty?: string,
+): Promise<InitializeLoanSignature> {
+    const side = _side === "b" ? 0 : 1;
+    const signingCounterparty = _signingCounterparty ?? signer.address;
+    const message: LoanInterestRateSwap = {
+        interestRate: terms.interestRate,
+        durationSecs: terms.durationSecs,
+        vaultedCurrency: vaultedCurrency,
+        collateralAddress: terms.collateralAddress,
+        deadline: terms.deadline,
+        payableCurrency: terms.payableCurrency,
+        principal: terms.principal,
+        collateralId: terms.collateralId,
+        affiliateCode: terms.affiliateCode,
+        sigProperties,
+        side,
+        signingCounterparty,
+    }
+    const data = buildData(verifyingContract, name, version, message, typedLoanInterestRateSwapData);
     const signature = await signer._signTypedData(data.domain, data.types, data.message);
 
     const sig: ECDSASignature =  fromRpcSig(signature);

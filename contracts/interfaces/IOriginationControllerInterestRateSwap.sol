@@ -25,4 +25,15 @@ interface IOriginationControllerInterestRateSwap is IOriginationControllerBase {
         Signature calldata sig,
         SigProperties calldata sigProperties
     ) external returns (uint256 loanId, uint256 bundleId);
+
+    // ============= Signature Verification =============
+
+    function recoverInterestRateSwapSignature(
+        LoanLibrary.LoanTerms calldata loanTerms,
+        Signature calldata sig,
+        SigProperties calldata sigProperties,
+        address vaultedCurrency,
+        Side side,
+        address signingCounterparty
+    ) external view returns (bytes32 sighash, address signer);
 }

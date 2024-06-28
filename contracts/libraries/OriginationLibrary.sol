@@ -2,9 +2,6 @@
 
 pragma solidity 0.8.18;
 
-import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
-import "@openzeppelin/contracts/interfaces/IERC1271.sol";
-
 import "../libraries/LoanLibrary.sol";
 
 import "../interfaces/IOriginationController.sol";
@@ -13,7 +10,9 @@ import "../interfaces/IOriginationController.sol";
  * @title OriginationLibrary
  * @author Non-Fungible Technologies, Inc.
  *
- * Library for loan origination functions.
+ * This library is a collection of shared logic used across various origination controller contracts.
+ * It includes constants for EIP712 type hashes, the functions for encoding these type hashes, and
+ * various data structures shared by the origination controller contracts.
  */
 library OriginationLibrary {
     // ======================================= STRUCTS ================================================
@@ -42,19 +41,24 @@ library OriginationLibrary {
     }
 
     // ======================================= CONSTANTS ==============================================
+    // solhint-disable max-line-length
 
     /// @notice EIP712 type hash for bundle-based signatures.
     bytes32 public constant _TOKEN_ID_TYPEHASH =
         keccak256(
-            // solhint-disable-next-line max-line-length
             "LoanTerms(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,uint256 collateralId,bytes32 affiliateCode,SigProperties sigProperties,uint8 side,address signingCounterparty)SigProperties(uint160 nonce,uint96 maxUses)"
         );
 
     /// @notice EIP712 type hash for item-based signatures.
     bytes32 public constant _ITEMS_TYPEHASH =
         keccak256(
-            // solhint-disable max-line-length
             "LoanTermsWithItems(uint32 interestRate,uint64 durationSecs,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,bytes32 affiliateCode,Predicate[] items,SigProperties sigProperties,uint8 side,address signingCounterparty)Predicate(bytes data,address verifier)SigProperties(uint160 nonce,uint96 maxUses)"
+        );
+
+    /// @notice EIP712 type hash for interest rate swap signatures.
+    bytes32 public constant _INTEREST_RATE_SWAP_TYPEHASH =
+        keccak256(
+            "LoanTermsWithCurrencyPair(uint32 interestRate,uint64 durationSecs,address vaultedCurrency,address collateralAddress,uint96 deadline,address payableCurrency,uint256 principal,uint256 collateralId,bytes32 affiliateCode,SigProperties sigProperties,uint8 side,address signingCounterparty)SigProperties(uint160 nonce,uint96 maxUses)"
         );
 
     /// @notice EIP712 type hash for Predicate.
@@ -192,33 +196,41 @@ library OriginationLibrary {
         );
     }
 
-    // ==================================== PERMISSION MANAGEMENT =====================================
 
     /**
-     * @notice Reports whether the signer matches the target or is approved by the target.
+     * @notice Hashes a loan with interest rate swap for inclusion in the EIP712 signature.
      *
-     * @param target                        The grantor of permission - should be a smart contract.
-     * @param sig                           A struct containing the signature data (for checking EIP-1271).
-     * @param sighash                       The hash of the signature payload (used for EIP-1271 check).
+     * @param terms                         The loan terms.
+     * @param sigProperties                 The signature properties.
+     * @param vaultedCurrency               The currency to be vaulted.
+     * @param side                          The side of the signature.
+     * @param signingCounterparty           The address of the signing counterparty.
      *
-     * @return bool                         Whether the signer is either the grantor themselves, or approved.
+     * @return loanHash                     The hash of the loan.
      */
-    function isApprovedForContract(
-        address target,
-        IOriginationController.Signature memory sig,
-        bytes32 sighash
-    ) public view returns (bool) {
-        bytes memory signature = abi.encodePacked(sig.r, sig.s, sig.v);
-
-        // Append extra data if it exists
-        if (sig.extraData.length > 0) {
-            signature = bytes.concat(signature, sig.extraData);
-        }
-
-        // Convert sig struct to bytes
-        (bool success, bytes memory result) = target.staticcall(
-            abi.encodeWithSelector(IERC1271.isValidSignature.selector, sighash, signature)
+    function encodeLoanWithInterestRateSwap(
+        LoanLibrary.LoanTerms calldata terms,
+        IOriginationController.SigProperties calldata sigProperties,
+        address vaultedCurrency,
+        uint8 side,
+        address signingCounterparty
+    ) public pure returns (bytes32 loanHash) {
+        loanHash = keccak256(
+            abi.encode(
+                _INTEREST_RATE_SWAP_TYPEHASH,
+                terms.interestRate,
+                terms.durationSecs,
+                vaultedCurrency,
+                terms.collateralAddress,
+                terms.deadline,
+                terms.payableCurrency,
+                terms.principal,
+                terms.collateralId,
+                terms.affiliateCode,
+                encodeSigProperties(sigProperties),
+                uint8(side),
+                signingCounterparty
+            )
         );
-        return (success && result.length == 32 && abi.decode(result, (bytes32)) == bytes32(IERC1271.isValidSignature.selector));
     }
 }

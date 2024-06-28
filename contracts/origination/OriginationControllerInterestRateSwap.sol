@@ -97,7 +97,7 @@ contract OriginationControllerInterestRateSwap is
         address lender,
         Signature calldata sig,
         SigProperties calldata sigProperties
-    ) external returns (uint256 loanId, uint256 bundleId) {
+    ) public override returns (uint256 loanId, uint256 bundleId) {
         // input validation
         originationHelpers.validateLoanTerms(loanTerms);
 
@@ -109,10 +109,11 @@ contract OriginationControllerInterestRateSwap is
         address signingCounterparty = neededSide == Side.LEND ? lender : borrower;
         address callingCounterparty = neededSide == Side.LEND ? borrower : lender;
 
-        (bytes32 sighash, address externalSigner) = recoverTokenSignature(
+        (bytes32 sighash, address externalSigner) = recoverInterestRateSwapSignature(
             loanTerms,
             sig,
             sigProperties,
+            swapData.vaultedCurrency,
             neededSide,
             signingCounterparty
         );
@@ -147,6 +148,39 @@ contract OriginationControllerInterestRateSwap is
         );
 
         if(!currencyPairs[key]) revert OCIRS_InvalidPair(loanTerms.payableCurrency, swapData.vaultedCurrency);
+    }
+
+    /**
+     * @notice Determine the external signer for a signature.
+     *
+     * @param loanTerms                     The terms of the loan.
+     * @param sig                           The signature, with v, r, s fields.
+     * @param sigProperties                 Signature nonce and max uses for this nonce.
+     * @param vaultedCurrency               The currency to be vaulted.
+     * @param side                          The side of the loan being signed.
+     * @param signingCounterparty           The address of the counterparty who signed the terms.
+     *
+     * @return sighash                      The hash that was signed.
+     * @return signer                       The address of the recovered signer.
+     */
+    function recoverInterestRateSwapSignature(
+        LoanLibrary.LoanTerms calldata loanTerms,
+        Signature calldata sig,
+        SigProperties calldata sigProperties,
+        address vaultedCurrency,
+        Side side,
+        address signingCounterparty
+    ) public view override returns (bytes32 sighash, address signer) {
+        bytes32 loanHash = OriginationLibrary.encodeLoanWithInterestRateSwap(
+            loanTerms,
+            sigProperties,
+            vaultedCurrency,
+            uint8(side),
+            signingCounterparty
+        );
+
+        sighash = _hashTypedDataV4(loanHash);
+        signer = ECDSA.recover(sighash, sig.v, sig.r, sig.s);
     }
 
     /**

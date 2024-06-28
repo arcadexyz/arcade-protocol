@@ -101,7 +101,7 @@ contract OriginationControllerMigrate is IMigrationBase, OriginationController, 
             (bytes32 sighash, address externalSigner) = _recoverSignature(newTerms, sig, sigProperties, Side.LEND, lender, itemPredicates);
 
             // counterparty validation
-            if (!isSelfOrApproved(lender, externalSigner) && !OriginationLibrary.isApprovedForContract(lender, sig, sighash)) {
+            if (!isSelfOrApproved(lender, externalSigner) && !isApprovedForContract(lender, sig, sighash)) {
                 revert OCM_SideMismatch(externalSigner);
             }
 
