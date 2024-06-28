@@ -25,7 +25,11 @@ import {
  * @title OriginationControllerInterestRateSwap
  * @author Non-Fungible Technologies, Inc.
  *
- * TODO: Add documentation
+ * This controller allows users to secure a fixed interest rate on their variable rate tokens. Two users agree on a
+ * fixed rate, then lock the total fixed interest amount along with the tokens that generate variable yield. These
+ * locked tokens are used to initiate a loan in Loan Core under the agreed terms. The user seeking a fixed rate
+ * effectively locks in their interest, while the other party has the option to repay the loan later and reclaim all
+ * the variable interest rate tokens.
  */
 contract OriginationControllerInterestRateSwap is
     IOriginationControllerInterestRateSwap,
