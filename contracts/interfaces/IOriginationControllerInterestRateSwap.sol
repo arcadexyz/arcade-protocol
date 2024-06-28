@@ -6,11 +6,11 @@ import "./IOriginationControllerBase.sol";
 
 import "../libraries/LoanLibrary.sol";
 
-interface IOriginationControllerSTIRFRY is IOriginationControllerBase {
+interface IOriginationControllerInterestRateSwap is IOriginationControllerBase {
 
     // ============= Data Types =============
 
-    struct StirfryData {
+    struct SwapData {
         address vaultedCurrency;
         uint256 lenderVaultedCurrencyAmount;
         uint256 borrowerVaultedCurrencyAmount;
@@ -19,9 +19,9 @@ interface IOriginationControllerSTIRFRY is IOriginationControllerBase {
 
     // ============= Loan Origination =============
 
-    function initializeStirfryLoan(
+    function initializeSwap(
         LoanLibrary.LoanTerms calldata loanTerms,
-        StirfryData calldata stirfryData,
+        SwapData calldata swapData,
         address borrower,
         address lender,
         Signature calldata sig,

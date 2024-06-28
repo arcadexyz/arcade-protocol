@@ -276,24 +276,24 @@ error OCM_CollateralMismatch(
  */
 error OCM_LenderIsBorrower();
 
-// =============================== ORIGINATION CONTROLLER STIRFRY ================================
-/// @notice All errors prefixed with OCS_, to separate from other contracts in the protocol.
+// ============================ ORIGINATION CONTROLLER INTEREST RATE SWAP ===============================
+/// @notice All errors prefixed with OCIRS_, to separate from other contracts in the protocol.
 
 /**
  * @notice Zero address passed in where not allowed.
  *
  * @param addressType               The name of the parameter for which a zero address was provided.
  */
-error OCS_ZeroAddress(string addressType);
+error OCIRS_ZeroAddress(string addressType);
 
 /**
- * @notice The loan terms payable currency and vaulted currency are not whitelisted as a valid pair
- *         for stirfry loans.
+ * @notice The loan terms payable currency and vaulted currency are not whitelisted as a valid
+ *         currency pair for interest rate swaps.
  *
  * @param payableCurrency             The currency of the loan terms.
  * @param vaultedCurrency             The currency of the vaulted collateral.
  */
-error OCS_InvalidStirfryPair(address payableCurrency, address vaultedCurrency);
+error OCIRS_InvalidPair(address payableCurrency, address vaultedCurrency);
 
 /**
  * @notice The loan terms principal multiplied by the payableToVaultedCurrencyRatio does not
@@ -304,7 +304,7 @@ error OCS_InvalidStirfryPair(address payableCurrency, address vaultedCurrency);
  *                                             loan terms payable currency amount.
  * @param lenderVaultedCurrencyAmount          The amount of vaulted collateral.
  */
-error OCS_InvalidPrincipalAmounts(
+error OCIRS_InvalidPrincipalAmounts(
     uint256 principal,
     uint256 payableToVaultedCurrencyRatio,
     uint256 lenderVaultedCurrencyAmount
@@ -314,11 +314,11 @@ error OCS_InvalidPrincipalAmounts(
  * @notice The vaulted currency amount specified is not equivalent to what is actually vaulted.
  *
  * @param actualVaultedCollateralAmount         The actual balance of collateral ERC20 in the vault.
- * @param proviededVaultedCurrencyAmount        The provided input for loan origination.
+ * @param providedVaultedCurrencyAmount         The provided input for swap origination.
  */
-error OCS_InvalidVaultAmount(
+error OCIRS_InvalidVaultAmount(
     uint256 actualVaultedCollateralAmount,
-    uint256 proviededVaultedCurrencyAmount
+    uint256 providedVaultedCurrencyAmount
 );
 
 /**
@@ -331,7 +331,7 @@ error OCS_InvalidVaultAmount(
  *                                             loan terms payable currency amount.
  * @param borrowerVaultedCurrencyAmount        The fixed interest amount provided by the borrower.
  */
-error OCS_InvalidInterestAmounts(
+error OCIRS_InvalidInterestAmounts(
     uint256 totalInterest,
     uint256 payableToVaultedCurrencyRatio,
     uint256 borrowerVaultedCurrencyAmount

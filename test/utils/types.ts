@@ -117,7 +117,7 @@ export interface SwapParameters {
     poolFeeTier: number;
 }
 
-export interface StirfryData {
+export interface SwapData {
     vaultedCurrency: string;
     borrowerVaultedCurrencyAmount: BigNumberish;
     lenderVaultedCurrencyAmount: BigNumberish;

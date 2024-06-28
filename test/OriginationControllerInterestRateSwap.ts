@@ -21,10 +21,10 @@ import {
     OriginationHelpers,
     MockERC20WithDecimals,
     RepaymentController,
-    OriginationControllerSTIRFRY
+    OriginationControllerInterestRateSwap,
 } from "../typechain";
 import {  mint, ZERO_ADDRESS } from "./utils/erc20";
-import { ItemsPredicate, LoanData, LoanTerms, SignatureItem, SignatureProperties, StirfryData } from "./utils/types";
+import { ItemsPredicate, LoanTerms, SignatureItem, SignatureProperties, SwapData } from "./utils/types";
 import { createLoanTermsSignature, createLoanItemsSignature } from "./utils/eip712";
 import { encodeSignatureItems, initializeBundle } from "./utils/loans";
 
@@ -40,7 +40,7 @@ type Signer = SignerWithAddress;
 
 interface TestContext {
     originationHelpers: OriginationHelpers;
-    originationControllerSTIRFRY: OriginationControllerSTIRFRY;
+    originationControllerIRS: OriginationControllerInterestRateSwap;
     repaymentController: RepaymentController;
     feeController: FeeController;
     USDC: MockERC20WithDecimals;
@@ -93,7 +93,7 @@ const fixture = async (): Promise<TestContext> => {
 
     const loanCore = <LoanCore>await deploy("LoanCore", signers[0], [borrowerNote.address, lenderNote.address]);
 
-    // Grant correct permissions for promissory note
+    // grant correct permissions for promissory note
     for (const note of [borrowerNote, lenderNote]) {
         await note.connect(deployer).initialize(loanCore.address);
     }
@@ -110,7 +110,7 @@ const fixture = async (): Promise<TestContext> => {
     const originationHelpers = <OriginationHelpers> await  deploy("OriginationHelpers", deployer, []);
 
     const originationLibrary = await deploy("OriginationLibrary", deployer, []);
-    const OriginationControllerSTIRFRYFactory = await ethers.getContractFactory("OriginationControllerSTIRFRY",
+    const OriginationControllerIRSFactory = await ethers.getContractFactory("OriginationControllerInterestRateSwap",
         {
             signer: signers[0],
             libraries: {
@@ -118,12 +118,12 @@ const fixture = async (): Promise<TestContext> => {
             },
         },
     );
-    const originationControllerSTIRFRY = <OriginationControllerSTIRFRY>(
-        await OriginationControllerSTIRFRYFactory.deploy(originationHelpers.address, loanCore.address, feeController.address, vaultFactory.address)
+    const originationControllerIRS = <OriginationControllerInterestRateSwap>(
+        await OriginationControllerIRSFactory.deploy(originationHelpers.address, loanCore.address, feeController.address, vaultFactory.address)
     );
-    await originationControllerSTIRFRY.deployed();
+    await originationControllerIRS.deployed();
 
-    // admin whitelists MockERC20s on OriginationController
+    // admin whitelists MockERC20s in OriginationHelpers
     const whitelistCurrency = await originationHelpers.setAllowedPayableCurrencies([USDC.address], [{ isAllowed: true, minPrincipal: 1000000 }]);
     await whitelistCurrency.wait();
     const whitelistCurrency2 = await originationHelpers.setAllowedPayableCurrencies([sUSDe.address], [{ isAllowed: true, minPrincipal: ethers.utils.parseEther("1") }]);
@@ -134,14 +134,14 @@ const fixture = async (): Promise<TestContext> => {
     const isWhitelisted2 = await originationHelpers.isAllowedCurrency(sUSDe.address);
     expect(isWhitelisted2).to.be.true;
 
-    // admin whitelists pair for stirfry loans
-    await originationControllerSTIRFRY.setPair(USDC.address, sUSDe.address, 1e12, true);
+    // admin whitelists pair for interest rate swaps
+    await originationControllerIRS.setPair(USDC.address, sUSDe.address, 1e12, true);
     // verify the pair is whitelisted
     const key = ethers.utils.solidityKeccak256(["address", "address", "uint256"], [USDC.address, sUSDe.address, 1e12]);
-    const isPairWhitelisted = await originationControllerSTIRFRY.stirfryPairs(key);
+    const isPairWhitelisted = await originationControllerIRS.currencyPairs(key);
     expect(isPairWhitelisted).to.be.true;
 
-    // admin whitelists MockERC721 and vaultFactory on OriginationController
+    // admin whitelists MockERC721 and vaultFactory in OriginationHelpers
     await originationHelpers.setAllowedCollateralAddresses([vaultFactory.address], [true]);
 
     // verify the collateral is whitelisted
@@ -156,13 +156,13 @@ const fixture = async (): Promise<TestContext> => {
 
     const updateOriginationControllerPermissions = await loanCore.grantRole(
         ORIGINATOR_ROLE,
-        originationControllerSTIRFRY.address,
+        originationControllerIRS.address,
     );
     await updateOriginationControllerPermissions.wait();
 
     return {
         originationHelpers,
-        originationControllerSTIRFRY,
+        originationControllerIRS,
         repaymentController,
         feeController,
         USDC,
@@ -208,8 +208,8 @@ const defaultSigProperties: SignatureProperties = {
     maxUses: 1,
 };
 
-describe("OriginationControllerSTIRFRY", () => {
-    describe("stirfry loan origination", () => {
+describe("OriginationControllerInterestRateSwap", () => {
+    describe("Interest rate swap origination", () => {
         let ctx: TestContext;
         let verifier: ArcadeItemsVerifier;
 
@@ -226,7 +226,7 @@ describe("OriginationControllerSTIRFRY", () => {
         });
 
         it("lender with 1,000,000 variable rate sUSDe locking in fixed rate of 15%", async () => {
-            const { vaultFactory, originationControllerSTIRFRY, loanCore, USDC, sUSDe, user: lender, other: borrower } = ctx;
+            const { vaultFactory, originationControllerIRS, loanCore, USDC, sUSDe, user: lender, other: borrower } = ctx;
 
             // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
             await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
@@ -263,7 +263,7 @@ describe("OriginationControllerSTIRFRY", () => {
                 },
             ];
             const sig = await createLoanItemsSignature(
-                originationControllerSTIRFRY.address,
+                originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
                 predicates,
@@ -273,26 +273,26 @@ describe("OriginationControllerSTIRFRY", () => {
                 "l",
             );
 
-            // lender approves sUSDe vault for loan
-            await vaultFactory.connect(lender).approve(originationControllerSTIRFRY.address, bundleId);
+            // lender approves sUSDe vault for swap
+            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
 
             // borrower approves 150,000 sUSDe to the origination controller
             await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
-            await sUSDe.connect(borrower).approve(originationControllerSTIRFRY.address, ethers.utils.parseEther("150000"));
+            await sUSDe.connect(borrower).approve(originationControllerIRS.address, ethers.utils.parseEther("150000"));
 
-            // Borrower initiates loan
-            const stirfryData: StirfryData = {
+            // Borrower initiates interest rate swap
+            const swapData: SwapData = {
                 vaultedCurrency: sUSDe.address,
                 borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
                 payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
             await expect(
-                originationControllerSTIRFRY
+                originationControllerIRS
                     .connect(borrower)
-                    .initializeStirfryLoan(
+                    .initializeSwap(
                         loanTerms,
-                        stirfryData,
+                        swapData,
                         borrower.address,
                         lender.address,
                         sig,
@@ -315,8 +315,8 @@ describe("OriginationControllerSTIRFRY", () => {
             expect(await vaultFactory.ownerOf(bundleId)).to.equal(loanCore.address);
         })
 
-        it("lender with 1,000,000 variable rate sUSDe locking in fixed rate of 15%, borrower repays loan", async () => {
-            const { vaultFactory, originationControllerSTIRFRY, loanCore, USDC, sUSDe, user: lender, other: borrower, blockchainTime, repaymentController } = ctx;
+        it("lender with 1,000,000 variable rate sUSDe locking in fixed rate of 15%, borrower repays", async () => {
+            const { vaultFactory, originationControllerIRS, loanCore, USDC, sUSDe, user: lender, other: borrower, blockchainTime, repaymentController } = ctx;
 
             // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
             await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
@@ -353,7 +353,7 @@ describe("OriginationControllerSTIRFRY", () => {
                 },
             ];
             const sig = await createLoanItemsSignature(
-                originationControllerSTIRFRY.address,
+                originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
                 predicates,
@@ -363,26 +363,26 @@ describe("OriginationControllerSTIRFRY", () => {
                 "l",
             );
 
-            // lender approves sUSDe vault for loan
-            await vaultFactory.connect(lender).approve(originationControllerSTIRFRY.address, bundleId);
+            // lender approves sUSDe vault for swap
+            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
 
             // borrower approves 150,000 sUSDe to the origination controller
             await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
-            await sUSDe.connect(borrower).approve(originationControllerSTIRFRY.address, ethers.utils.parseEther("150000"));
+            await sUSDe.connect(borrower).approve(originationControllerIRS.address, ethers.utils.parseEther("150000"));
 
-            // Borrower initiates loan
-            const stirfryData: StirfryData = {
+            // Borrower initiates interest rate swap
+            const swapData: SwapData = {
                 vaultedCurrency: sUSDe.address,
                 borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
                 payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
             await expect(
-                originationControllerSTIRFRY
+                originationControllerIRS
                     .connect(borrower)
-                    .initializeStirfryLoan(
+                    .initializeSwap(
                         loanTerms,
-                        stirfryData,
+                        swapData,
                         borrower.address,
                         lender.address,
                         sig,
@@ -428,7 +428,7 @@ describe("OriginationControllerSTIRFRY", () => {
         })
 
         it("lender with 1,000,000 variable rate sUSDe locking in fixed rate of 15%, borrower defaults", async () => {
-            const { vaultFactory, originationControllerSTIRFRY, loanCore, USDC, sUSDe, user: lender, other: borrower, blockchainTime, repaymentController } = ctx;
+            const { vaultFactory, originationControllerIRS, loanCore, USDC, sUSDe, user: lender, other: borrower, blockchainTime, repaymentController } = ctx;
 
             // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
             await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
@@ -465,7 +465,7 @@ describe("OriginationControllerSTIRFRY", () => {
                 },
             ];
             const sig = await createLoanItemsSignature(
-                originationControllerSTIRFRY.address,
+                originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
                 predicates,
@@ -475,26 +475,26 @@ describe("OriginationControllerSTIRFRY", () => {
                 "l",
             );
 
-            // lender approves sUSDe vault for loan
-            await vaultFactory.connect(lender).approve(originationControllerSTIRFRY.address, bundleId);
+            // lender approves sUSDe vault for swap
+            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
 
             // borrower approves 150,000 sUSDe to the origination controller
             await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
-            await sUSDe.connect(borrower).approve(originationControllerSTIRFRY.address, ethers.utils.parseEther("150000"));
+            await sUSDe.connect(borrower).approve(originationControllerIRS.address, ethers.utils.parseEther("150000"));
 
-            // Borrower initiates loan
-            const stirfryData: StirfryData = {
+            // Borrower initiates interest rate swap
+            const swapData: SwapData = {
                 vaultedCurrency: sUSDe.address,
                 borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
                 payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
             await expect(
-                originationControllerSTIRFRY
+                originationControllerIRS
                     .connect(borrower)
-                    .initializeStirfryLoan(
+                    .initializeSwap(
                         loanTerms,
-                        stirfryData,
+                        swapData,
                         borrower.address,
                         lender.address,
                         sig,
@@ -526,8 +526,8 @@ describe("OriginationControllerSTIRFRY", () => {
             expect(await vaultFactory.ownerOf(bundleId)).to.eq(lender.address);
         })
 
-        it("borrower originates loan", async () => {
-            const { vaultFactory, originationControllerSTIRFRY, loanCore, USDC, sUSDe, user: lender, other: borrower } = ctx;
+        it("borrower originates swap", async () => {
+            const { vaultFactory, originationControllerIRS, loanCore, USDC, sUSDe, user: lender, other: borrower } = ctx;
 
             // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
             await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
@@ -549,7 +549,7 @@ describe("OriginationControllerSTIRFRY", () => {
             // borrower signs loan terms on a specific lender vault
             // the collection wide offer specifies that the vault must hold the total 'fixed' amount of 1,150,000 sUSDe
             const sig = await createLoanTermsSignature(
-                originationControllerSTIRFRY.address,
+                originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
                 borrower,
@@ -558,26 +558,26 @@ describe("OriginationControllerSTIRFRY", () => {
                 "b",
             );
 
-            // lender approves sUSDe vault for loan
-            await vaultFactory.connect(lender).approve(originationControllerSTIRFRY.address, bundleId);
+            // lender approves sUSDe vault for swap
+            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
 
             // borrower approves 150,000 sUSDe to the origination controller
             await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
-            await sUSDe.connect(borrower).approve(originationControllerSTIRFRY.address, ethers.utils.parseEther("150000"));
+            await sUSDe.connect(borrower).approve(originationControllerIRS.address, ethers.utils.parseEther("150000"));
 
-            // Borrower initiates loan
-            const stirfryData: StirfryData = {
+            // Borrower initiates interest rate swap
+            const swapData: SwapData = {
                 vaultedCurrency: sUSDe.address,
                 borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
                 payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
             await expect(
-                originationControllerSTIRFRY
+                originationControllerIRS
                     .connect(lender)
-                    .initializeStirfryLoan(
+                    .initializeSwap(
                         loanTerms,
-                        stirfryData,
+                        swapData,
                         borrower.address,
                         lender.address,
                         sig,
@@ -601,7 +601,7 @@ describe("OriginationControllerSTIRFRY", () => {
         })
     });
 
-    describe("stirfry constraints", () => {
+    describe("Interest rate swap constraints", () => {
         let ctx: TestContext;
         let verifier: ArcadeItemsVerifier;
 
@@ -621,7 +621,7 @@ describe("OriginationControllerSTIRFRY", () => {
             const { originationHelpers, loanCore, feeController, vaultFactory, user } = await loadFixture(fixture);
 
             const originationLibrary = await deploy("OriginationLibrary", user, []);
-            const StrifryFactory = await ethers.getContractFactory("OriginationControllerSTIRFRY",
+            const OriginationControllerIRSFactory = await ethers.getContractFactory("OriginationControllerInterestRateSwap",
                 {
                     libraries: {
                         OriginationLibrary: originationLibrary.address,
@@ -629,17 +629,17 @@ describe("OriginationControllerSTIRFRY", () => {
                 },
             );
 
-            await expect(StrifryFactory.deploy(originationHelpers.address, loanCore.address, ZERO_ADDRESS, vaultFactory.address)).to.be.revertedWith(
-                `OCS_ZeroAddress("feeController")`
+            await expect(OriginationControllerIRSFactory.deploy(originationHelpers.address, loanCore.address, ZERO_ADDRESS, vaultFactory.address)).to.be.revertedWith(
+                `OCIRS_ZeroAddress("feeController")`
             );
 
-            await expect(StrifryFactory.deploy(originationHelpers.address, loanCore.address, feeController.address, ZERO_ADDRESS)).to.be.revertedWith(
-                `OCS_ZeroAddress("vaultFactory")`
+            await expect(OriginationControllerIRSFactory.deploy(originationHelpers.address, loanCore.address, feeController.address, ZERO_ADDRESS)).to.be.revertedWith(
+                `OCIRS_ZeroAddress("vaultFactory")`
             );
         })
 
         it("currency pair is not whitelisted", async () => {
-            const { vaultFactory, originationControllerSTIRFRY, USDC, user: lender, other: borrower } = ctx;
+            const { vaultFactory, originationControllerIRS, USDC, user: lender, other: borrower } = ctx;
 
             // deploy a new mockERC20
             const mockERC20 = <MockERC20>await deploy("MockERC20", lender, ["mockERC20", "MERC20"])
@@ -679,7 +679,7 @@ describe("OriginationControllerSTIRFRY", () => {
                 },
             ];
             const sig = await createLoanItemsSignature(
-                originationControllerSTIRFRY.address,
+                originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
                 predicates,
@@ -689,26 +689,26 @@ describe("OriginationControllerSTIRFRY", () => {
                 "l",
             );
 
-            // lender approves mockERC20 vault for loan
-            await vaultFactory.connect(lender).approve(originationControllerSTIRFRY.address, bundleId);
+            // lender approves mockERC20 vault for swap
+            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
 
             // borrower approves 150,000 mockERC20 to the origination controller
             await mint(mockERC20, borrower, ethers.utils.parseEther("150000"));
-            await mockERC20.connect(borrower).approve(originationControllerSTIRFRY.address, ethers.utils.parseEther("150000"));
+            await mockERC20.connect(borrower).approve(originationControllerIRS.address, ethers.utils.parseEther("150000"));
 
-            // Borrower initiates loan
-            const stirfryData: StirfryData = {
+            // Borrower initiates interest rate swap
+            const swapData: SwapData = {
                 vaultedCurrency: mockERC20.address,
                 borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
                 payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
             await expect(
-                originationControllerSTIRFRY
+                originationControllerIRS
                     .connect(borrower)
-                    .initializeStirfryLoan(
+                    .initializeSwap(
                         loanTerms,
-                        stirfryData,
+                        swapData,
                         borrower.address,
                         lender.address,
                         sig,
@@ -716,11 +716,11 @@ describe("OriginationControllerSTIRFRY", () => {
                         predicates
                     ),
             )
-                .to.be.revertedWith("OCS_InvalidStirfryPair");
+                .to.be.revertedWith("OCIRS_InvalidPair");
         })
 
         it("invalid principal amount", async () => {
-            const { vaultFactory, originationControllerSTIRFRY, USDC, sUSDe, user: lender, other: borrower } = ctx;
+            const { vaultFactory, originationControllerIRS, USDC, sUSDe, user: lender, other: borrower } = ctx;
 
             // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
             await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
@@ -757,7 +757,7 @@ describe("OriginationControllerSTIRFRY", () => {
                 },
             ];
             const sig = await createLoanItemsSignature(
-                originationControllerSTIRFRY.address,
+                originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
                 predicates,
@@ -767,26 +767,26 @@ describe("OriginationControllerSTIRFRY", () => {
                 "l",
             );
 
-            // lender approves sUSDe vault for loan
-            await vaultFactory.connect(lender).approve(originationControllerSTIRFRY.address, bundleId);
+            // lender approves sUSDe vault for swap
+            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
 
             // borrower approves 150,000 sUSDe to the origination controller
             await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
-            await sUSDe.connect(borrower).approve(originationControllerSTIRFRY.address, ethers.utils.parseEther("150000"));
+            await sUSDe.connect(borrower).approve(originationControllerIRS.address, ethers.utils.parseEther("150000"));
 
-            // Borrower initiates loan
-            const stirfryData: StirfryData = {
+            // Borrower initiates interest rate swap
+            const swapData: SwapData = {
                 vaultedCurrency: sUSDe.address,
                 borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
                 payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
             await expect(
-                originationControllerSTIRFRY
+                originationControllerIRS
                     .connect(borrower)
-                    .initializeStirfryLoan(
+                    .initializeSwap(
                         loanTerms,
-                        stirfryData,
+                        swapData,
                         borrower.address,
                         lender.address,
                         sig,
@@ -794,11 +794,11 @@ describe("OriginationControllerSTIRFRY", () => {
                         predicates
                     ),
             )
-                .to.be.revertedWith("OCS_InvalidPrincipalAmounts");
+                .to.be.revertedWith("OCIRS_InvalidPrincipalAmounts");
         })
 
-        it("lender deposits less than stirfry data amount", async () => {
-            const { vaultFactory, originationControllerSTIRFRY, loanCore, USDC, sUSDe, user: lender, other: borrower } = ctx;
+        it("lender deposits less than swap data input amount", async () => {
+            const { vaultFactory, originationControllerIRS, USDC, sUSDe, user: lender, other: borrower } = ctx;
 
             // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
             await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
@@ -835,7 +835,7 @@ describe("OriginationControllerSTIRFRY", () => {
                 },
             ];
             const sig = await createLoanItemsSignature(
-                originationControllerSTIRFRY.address,
+                originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
                 predicates,
@@ -845,26 +845,26 @@ describe("OriginationControllerSTIRFRY", () => {
                 "l",
             );
 
-            // lender approves sUSDe vault for loan
-            await vaultFactory.connect(lender).approve(originationControllerSTIRFRY.address, bundleId);
+            // lender approves sUSDe vault for swap
+            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
 
             // borrower approves 150,000 sUSDe to the origination controller
             await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
-            await sUSDe.connect(borrower).approve(originationControllerSTIRFRY.address, ethers.utils.parseEther("150000"));
+            await sUSDe.connect(borrower).approve(originationControllerIRS.address, ethers.utils.parseEther("150000"));
 
-            // Borrower initiates loan
-            const stirfryData: StirfryData = {
+            // Borrower initiates interest rate swap
+            const swapData: SwapData = {
                 vaultedCurrency: sUSDe.address,
                 borrowerVaultedCurrencyAmount: ethers.utils.parseEther("150000"),
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
                 payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
             await expect(
-                originationControllerSTIRFRY
+                originationControllerIRS
                     .connect(borrower)
-                    .initializeStirfryLoan(
+                    .initializeSwap(
                         loanTerms,
-                        stirfryData,
+                        swapData,
                         borrower.address,
                         lender.address,
                         sig,
@@ -872,11 +872,11 @@ describe("OriginationControllerSTIRFRY", () => {
                         predicates
                     ),
             )
-                .to.be.revertedWith("OCS_InvalidVaultAmount");
+                .to.be.revertedWith("OCIRS_InvalidVaultAmount");
         });
 
         it("invalid interest amounts", async () => {
-            const { vaultFactory, originationControllerSTIRFRY, loanCore, USDC, sUSDe, user: lender, other: borrower } = ctx;
+            const { vaultFactory, originationControllerIRS, USDC, sUSDe, user: lender, other: borrower } = ctx;
 
             // Lender has 1,000,000 sUSDe they want to lock in a fixed rate of 15% APR on
             await mint(sUSDe, lender, ethers.utils.parseEther("1000000"));
@@ -913,7 +913,7 @@ describe("OriginationControllerSTIRFRY", () => {
                 },
             ];
             const sig = await createLoanItemsSignature(
-                originationControllerSTIRFRY.address,
+                originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
                 predicates,
@@ -923,26 +923,26 @@ describe("OriginationControllerSTIRFRY", () => {
                 "l",
             );
 
-            // lender approves sUSDe vault for loan
-            await vaultFactory.connect(lender).approve(originationControllerSTIRFRY.address, bundleId);
+            // lender approves sUSDe vault for swap
+            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
 
             // borrower approves 150,000 sUSDe to the origination controller
             await mint(sUSDe, borrower, ethers.utils.parseEther("150000"));
-            await sUSDe.connect(borrower).approve(originationControllerSTIRFRY.address, ethers.utils.parseEther("150000"));
+            await sUSDe.connect(borrower).approve(originationControllerIRS.address, ethers.utils.parseEther("150000"));
 
-            // Borrower initiates loan
-            const stirfryData: StirfryData = {
+            // Borrower initiates interest rate swap
+            const swapData: SwapData = {
                 vaultedCurrency: sUSDe.address,
                 borrowerVaultedCurrencyAmount: ethers.utils.parseEther("140000"), // invalid input
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
                 payableToVaultedCurrencyRatio: ethers.utils.parseEther("1").div(BigNumber.from(1000000)),
             }
             await expect(
-                originationControllerSTIRFRY
+                originationControllerIRS
                     .connect(borrower)
-                    .initializeStirfryLoan(
+                    .initializeSwap(
                         loanTerms,
-                        stirfryData,
+                        swapData,
                         borrower.address,
                         lender.address,
                         sig,
@@ -950,16 +950,16 @@ describe("OriginationControllerSTIRFRY", () => {
                         predicates
                     ),
             )
-                .to.be.revertedWith("OCS_InvalidInterestAmounts");
+                .to.be.revertedWith("OCIRS_InvalidInterestAmounts");
         });
 
         it("loan terms currency decimals greater than vaulted currency decimals", async () => {
-            const { vaultFactory, originationControllerSTIRFRY, loanCore, USDC, sUSDe, user: lender, other: borrower } = ctx;
+            const { vaultFactory, originationControllerIRS, USDC, sUSDe, user: lender, other: borrower } = ctx;
 
             // whitelist invalid combination
-            await originationControllerSTIRFRY.setPair(sUSDe.address, USDC.address, 1, true);
+            await originationControllerIRS.setPair(sUSDe.address, USDC.address, 1, true);
             const key = ethers.utils.solidityKeccak256(["address", "address", "uint256"], [sUSDe.address, USDC.address, 1]);
-            const isPairWhitelisted = await originationControllerSTIRFRY.stirfryPairs(key);
+            const isPairWhitelisted = await originationControllerIRS.currencyPairs(key);
             expect(isPairWhitelisted).to.be.true;
 
             // Lender has 1,000,000 USDC they want to lock in a fixed rate of 15% APR on
@@ -997,7 +997,7 @@ describe("OriginationControllerSTIRFRY", () => {
                 },
             ];
             const sig = await createLoanItemsSignature(
-                originationControllerSTIRFRY.address,
+                originationControllerIRS.address,
                 "OriginationController",
                 loanTerms,
                 predicates,
@@ -1007,26 +1007,26 @@ describe("OriginationControllerSTIRFRY", () => {
                 "l",
             );
 
-            // lender approves USDC vault for loan
-            await vaultFactory.connect(lender).approve(originationControllerSTIRFRY.address, bundleId);
+            // lender approves USDC vault for swap
+            await vaultFactory.connect(lender).approve(originationControllerIRS.address, bundleId);
 
             // borrower approves 150,000 USDC to the origination controller
             await mint(USDC, borrower, BigNumber.from(150000000000));
-            await USDC.connect(borrower).approve(originationControllerSTIRFRY.address, BigNumber.from(150000000000));
+            await USDC.connect(borrower).approve(originationControllerIRS.address, BigNumber.from(150000000000));
 
-            // Borrower tries to initiate loan
-            const stirfryData: StirfryData = {
+            // Borrower tries to initiate swap
+            const swapData: SwapData = {
                 vaultedCurrency: USDC.address,
                 borrowerVaultedCurrencyAmount: BigNumber.from(150000000000),
                 lenderVaultedCurrencyAmount: BigNumber.from(1000000000000),
                 payableToVaultedCurrencyRatio: BigNumber.from(1),
             }
             await expect(
-                originationControllerSTIRFRY
+                originationControllerIRS
                     .connect(borrower)
-                    .initializeStirfryLoan(
+                    .initializeSwap(
                         loanTerms,
-                        stirfryData,
+                        swapData,
                         borrower.address,
                         lender.address,
                         sig,
@@ -1034,21 +1034,21 @@ describe("OriginationControllerSTIRFRY", () => {
                         predicates
                     ),
             )
-                .to.be.revertedWith("OCS_InvalidPrincipalAmounts");
+                .to.be.revertedWith("OCIRS_InvalidPrincipalAmounts");
 
-            // Borrower tries again to initiate loan with different stirFry data
-            const stirfryData2: StirfryData = {
+            // Borrower tries again to initiate swap with different swap data
+            const swapData2: SwapData = {
                 vaultedCurrency: USDC.address,
                 borrowerVaultedCurrencyAmount: BigNumber.from(150000000000),
                 lenderVaultedCurrencyAmount: ethers.utils.parseEther("1000000"),
                 payableToVaultedCurrencyRatio: BigNumber.from(1),
             }
             await expect(
-                originationControllerSTIRFRY
+                originationControllerIRS
                     .connect(borrower)
-                    .initializeStirfryLoan(
+                    .initializeSwap(
                         loanTerms,
-                        stirfryData2,
+                        swapData2,
                         borrower.address,
                         lender.address,
                         sig,
@@ -1056,7 +1056,7 @@ describe("OriginationControllerSTIRFRY", () => {
                         predicates
                     ),
             )
-                .to.be.revertedWith("OCS_InvalidVaultAmount");
+                .to.be.revertedWith("OCIRS_InvalidVaultAmount");
         });
     });
 });
