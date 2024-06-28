@@ -17,7 +17,6 @@ import "../interfaces/IRepaymentController.sol";
 
 import "../libraries/LoanLibrary.sol";
 import "../libraries/InterestCalculator.sol";
-import "../libraries/FeeLookups.sol";
 
 import {
     CCR_StateAlreadySet,
@@ -34,10 +33,10 @@ import {
 contract CrossCurrencyRollover is
     ICrossCurrencyRollover,
     OriginationControllerBase,
-    FeeLookups,
     AccessControlEnumerable,
     ReentrancyGuard,
-    ERC721Holder {
+    ERC721Holder
+{
     using SafeERC20 for IERC20;
 
     // ============================================ STATE ==============================================
@@ -115,7 +114,7 @@ contract CrossCurrencyRollover is
         (bytes32 sighash, address externalSigner) = _recoverSignature(newTerms, sig, sigProperties, Side.LEND, lender, itemPredicates);
 
         // counterparty validation
-        if (!isSelfOrApproved(lender, externalSigner) && !OriginationLibrary.isApprovedForContract(lender, sig, sighash)) {
+        if (!isSelfOrApproved(lender, externalSigner) && !isApprovedForContract(lender, sig, sighash)) {
             revert CCR_SideMismatch(externalSigner);
         }
 

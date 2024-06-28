@@ -17,7 +17,7 @@ interface IOriginationController is IOriginationControllerBase {
     // ============= Loan Origination =============
 
     function initializeLoan(
-       LoanLibrary.LoanTerms calldata loanTerms,
+        LoanLibrary.LoanTerms calldata loanTerms,
         BorrowerData calldata borrowerData,
         address lender,
         Signature calldata sig,

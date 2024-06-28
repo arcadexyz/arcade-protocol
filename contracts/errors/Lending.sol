@@ -276,6 +276,25 @@ error OCM_CollateralMismatch(
  */
 error OCM_LenderIsBorrower();
 
+// ============================ ORIGINATION CONTROLLER INTEREST RATE SWAP ===============================
+/// @notice All errors prefixed with OCIRS_, to separate from other contracts in the protocol.
+
+/**
+ * @notice Zero address passed in where not allowed.
+ *
+ * @param addressType               The name of the parameter for which a zero address was provided.
+ */
+error OCIRS_ZeroAddress(string addressType);
+
+/**
+ * @notice The loan terms payable currency and vaulted currency are not whitelisted as a valid
+ *         currency pair for interest rate swaps.
+ *
+ * @param payableCurrency             The currency of the loan terms.
+ * @param vaultedCurrency             The currency of the vaulted collateral.
+ */
+error OCIRS_InvalidPair(address payableCurrency, address vaultedCurrency);
+
 // ================================== CROSS CURRENCY ROLLOVER ====================================
 /// @notice All errors prefixed with CCR_, to separate from other contracts in the protocol.
 

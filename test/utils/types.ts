@@ -73,6 +73,21 @@ export interface LoanWithItems {
     signingCounterparty: string;
 }
 
+export interface LoanInterestRateSwap {
+    interestRate: BigNumberish;
+    durationSecs: BigNumberish;
+    vaultedCurrency: string;
+    collateralAddress: string;
+    deadline: BigNumberish;
+    payableCurrency: string;
+    principal: BigNumber;
+    collateralId: BigNumberish;
+    affiliateCode: BytesLike;
+    sigProperties: SignatureProperties;
+    side: number;
+    signingCounterparty: string;
+}
+
 export interface LoanTermsWithItems {
     interestRate: BigNumberish;
     durationSecs: BigNumberish;
@@ -115,4 +130,9 @@ export interface Borrower {
 export interface SwapParameters {
     minAmountOut: BigNumber;
     poolFeeTier: number;
+}
+
+export interface SwapData {
+    vaultedCurrency: string;
+    payableToVaultedCurrencyRatio: BigNumberish;
 }

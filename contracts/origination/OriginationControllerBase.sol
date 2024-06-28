@@ -4,34 +4,34 @@ pragma solidity 0.8.18;
 
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 
 import "./OriginationCalculator.sol";
 
-import "../interfaces/IOriginationController.sol";
 import "../interfaces/IOriginationHelpers.sol";
 import "../interfaces/ILoanCore.sol";
-import "../interfaces/IFeeController.sol";
-import "../interfaces/IExpressBorrow.sol";
 
 import "../libraries/OriginationLibrary.sol";
-import "../libraries/Constants.sol";
 
-import "../verifiers/ArcadeItemsVerifier.sol";
-
-import { OC_ZeroAddress, OC_SelfApprove } from "../errors/Lending.sol";
+import {
+    OC_ZeroAddress,
+    OC_SelfApprove,
+    OC_SideMismatch,
+    OC_ApprovedOwnLoan,
+    OC_CallerNotParticipant,
+    OC_InvalidSignature
+} from "../errors/Lending.sol";
 
 /**
  * @title OriginationControllerBase
  * @author Non-Fungible Technologies, Inc.
  *
  * The Origination Controller Base contract provides common functionality for all
- * origination controllers, including signature verification and access control.
- * It establishes access roles and integrates permission management along with
- * signature verification functions.
- *
+ * origination controllers, including signature verification, shared reference
+ * contracts, approved third party originators, and rollover calculation helpers.
  */
 abstract contract OriginationControllerBase is IOriginationControllerBase, EIP712, OriginationCalculator {
-    // ============================================ STATE ==============================================
+    // ============================================ STATE ===============================================
     // =============== Contract References ===============
 
     IOriginationHelpers public immutable originationHelpers;
@@ -103,6 +103,34 @@ abstract contract OriginationControllerBase is IOriginationControllerBase, EIP71
         return target == signer || isApproved(target, signer);
     }
 
+    /**
+     * @notice Reports whether the signer matches the target or is approved by the target.
+     *
+     * @param target                        The grantor of permission - should be a smart contract.
+     * @param sig                           A struct containing the signature data (for checking EIP-1271).
+     * @param sighash                       The hash of the signature payload (used for EIP-1271 check).
+     *
+     * @return bool                         Whether the signer is either the grantor themselves, or approved.
+     */
+    function isApprovedForContract(
+        address target,
+        IOriginationController.Signature memory sig,
+        bytes32 sighash
+    ) public view returns (bool) {
+        bytes memory signature = abi.encodePacked(sig.r, sig.s, sig.v);
+
+        // Append extra data if it exists
+        if (sig.extraData.length > 0) {
+            signature = bytes.concat(signature, sig.extraData);
+        }
+
+        // Convert sig struct to bytes
+        (bool success, bytes memory result) = target.staticcall(
+            abi.encodeWithSelector(IERC1271.isValidSignature.selector, sighash, signature)
+        );
+        return (success && result.length == 32 && abi.decode(result, (bytes32)) == bytes32(IERC1271.isValidSignature.selector));
+    }
+
     // ==================================== SIGNATURE VERIFICATION ======================================
 
     /**
@@ -170,7 +198,7 @@ abstract contract OriginationControllerBase is IOriginationControllerBase, EIP71
         signer = ECDSA.recover(sighash, sig.v, sig.r, sig.s);
     }
 
-    // ============================================ HELPER ==============================================
+    // ============================================ HELPERS =============================================
 
     /**
      * @notice Determine the sighash and external signer given the loan terms, signature, nonce,
@@ -214,6 +242,44 @@ abstract contract OriginationControllerBase is IOriginationControllerBase, EIP71
             );
         }
     }
+
+    /**
+     * @dev Ensure that one counterparty has signed the loan terms, and the other
+     *      has initiated the transaction.
+     *
+     * @param signingCounterparty       The address of the counterparty who signed the terms.
+     * @param callingCounterparty       The address on the other side of the loan as the signingCounterparty.
+     * @param caller                    The address initiating the transaction.
+     * @param signer                    The address recovered from the loan terms signature.
+     * @param sig                       A struct containing the signature data (for checking EIP-1271).
+     * @param sighash                   The hash of the signature payload (used for EIP-1271 check).
+     */
+    // solhint-disable-next-line code-complexity
+    function _validateCounterparties(
+        address signingCounterparty,
+        address callingCounterparty,
+        address caller,
+        address signer,
+        Signature calldata sig,
+        bytes32 sighash
+    ) internal view {
+        // Make sure the signer recovered from the loan terms is not the caller,
+        // and even if the caller is approved, the caller is not the signing counterparty
+        if (caller == signer || caller == signingCounterparty) revert OC_ApprovedOwnLoan(caller);
+
+        // Check that caller can actually call this function - neededSide assignment
+        // defaults to BORROW if the signature is not approved by the borrower, but it could
+        // also not be a participant
+        if (!isSelfOrApproved(callingCounterparty, caller)) {
+            revert OC_CallerNotParticipant(msg.sender);
+        }
+
+        // Check signature validity
+        if (!isSelfOrApproved(signingCounterparty, signer) && !isApprovedForContract(signingCounterparty, sig, sighash)) {
+            revert OC_InvalidSignature(signingCounterparty, signer);
+        }
+
+        // Revert if the signer is the calling counterparty
+        if (signer == callingCounterparty) revert OC_SideMismatch(signer);
+    }
 }
-
-
